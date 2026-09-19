@@ -103,14 +103,17 @@ public class ProjectSettingsDialog {
                 useNewMaterialComponentsAppTheme
         };
 
-        // One tap to bring a project made before Sketchware AI 1.2 up to the new-project defaults.
-        dialog.configureDefaultButton("Modernize", v -> {
-            minimumSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK));
-            targetSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK));
-            com.sketchware.ai.project.ModernProjectDefaults.applyModernBuildSettings(settings.sc_id);
-            mod.SketchwareUtil.toast("Target SDK " + com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK
-                    + ", D8 and Java 11 set. Tap Save to keep the SDK values.", android.widget.Toast.LENGTH_LONG);
-        });
+        // Only projects still below Android 17 (old / imported .swb projects) get the upgrade button.
+        if (com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings)
+                < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
+            dialog.configureDefaultButton("Upgrade to Android 17", v -> {
+                minimumSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK));
+                targetSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK));
+                com.sketchware.ai.project.ModernProjectDefaults.applyModernBuildSettings(settings.sc_id);
+                mod.SketchwareUtil.toast("Target SDK 37 (Android 17), D8 and Java 11 set. Tap Save to keep them.",
+                        android.widget.Toast.LENGTH_LONG);
+            });
+        }
         dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {
             settings.setValues(preferences);
