@@ -24,6 +24,18 @@
         <item name="colorControlNormal">@color/color_primary</item>
         <item name="colorPrimary">@color/color_primary</item>
         <item name="colorPrimaryDark">@color/color_primary_dark</item>
+        <item name="android:alertDialogTheme">@style/SketchwareAI.GlassAlertDialog</item>
+    </style>
+
+    <!-- Framework AlertDialogs: frosted glass surface with 20dp corners, Cosmic Orange buttons. -->
+    <style name="SketchwareAI.GlassAlertDialog" parent="@android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_glass_alert_window</item>
+        <item name="android:colorAccent">@color/color_accent</item>
+        <item name="android:colorPrimary">@color/color_primary</item>
+        <item name="android:colorControlActivated">@color/color_primary</item>
+        <item name="android:colorControlHighlight">@color/color_control_highlight</item>
+        <item name="android:textColorPrimary">#DE000000</item>
+        <item name="android:backgroundDimAmount">0.45</item>
     </style>
 
     <style name="AppTheme.Button.Amber" parent="@style/Base.Widget.AppCompat.Button">

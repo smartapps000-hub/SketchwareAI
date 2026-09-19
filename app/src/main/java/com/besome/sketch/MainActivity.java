@@ -25,7 +25,10 @@ import androidx.viewpager.widget.ViewPager;
 import com.besome.sketch.lib.base.BasePermissionAppCompatActivity;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+import com.sketchware.ai.migration.ImportProgressDialog;
+import com.sketchware.ai.migration.LegacyImportController;
 import com.sketchware.ai.migration.LegacyProjectMigrator;
+import com.sketchware.ai.storage.StorageAccess;
 import com.sketchware.remod.R;
 
 import java.io.File;
@@ -66,6 +69,23 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
     private CoordinatorLayout coordinator;
     private Snackbar storageAccessDenied;
     private GC projectsFragment = null;
+    /** Guards against stacking the import offer when onResume runs repeatedly. */
+    private AlertDialog importOffer;
+    private ImportProgressDialog importProgress;
+    private final LegacyImportController.Listener importListener = new LegacyImportController.Listener() {
+        @Override
+        public void onProgress(LegacyProjectMigrator.Progress progress) {
+            LegacyImportController controller = LegacyImportController.get(MainActivity.this);
+            if (!controller.isInBackground()) {
+                showImportProgress().update(progress);
+            }
+        }
+
+        @Override
+        public void onFinished(LegacyProjectMigrator.Result result) {
+            onLegacyImportFinished(result);
+        }
+    };
 
     @Override
     // ViewPager.OnPageChangeListener#onPageScrollStateChanged(int)
@@ -81,7 +101,9 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
     // onRequestPermissionsResult but for Storage access only, and only when granted
     public void g(int i) {
         if (i == 9501) {
-            allFilesAccessCheck();
+            if (storageAccessDenied != null && storageAccessDenied.j()) {
+                storageAccessDenied.c();
+            }
             maybeOfferLegacyImport();
 
             if (viewPager.getCurrentItem() == 0 && projectsFragment != null) {
@@ -99,6 +121,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
     @Override
     public void l() {
+        s();
     }
 
     private void selectPageZero() {
@@ -110,6 +133,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
     @Override
     public void m() {
+        s();
     }
 
     public void n() {
@@ -203,13 +227,11 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         fab = findViewById(R.id.fab);
         coordinator = findViewById(R.id.layout_coordinator);
 
+        // Nothing touches /sdcard/.sketchware_ai (and no import starts) until access is granted.
+        // Without it, the user is sent to the system settings; onResume re-checks on return.
         boolean hasStorageAccess = j();
         if (!hasStorageAccess) {
             showNoticeNeedStorageAccess();
-        }
-        if (hasStorageAccess) {
-            allFilesAccessCheck();
-            maybeOfferLegacyImport();
         }
 
         if (Intent.ACTION_VIEW.equals(getIntent().getAction())) {
@@ -250,7 +272,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
                     }
                 }).execute(data);
             }
-        } else if (hasStorageAccess && !ConfigActivity.isSettingEnabled(ConfigActivity.SETTING_SKIP_MAJOR_CHANGES_REMINDER)) {
+        } else if (hasStorageAccess && !LegacyProjectMigrator.shouldOffer(this)
+                && !ConfigActivity.isSettingEnabled(ConfigActivity.SETTING_SKIP_MAJOR_CHANGES_REMINDER)) {
             aB dialog = new aB(this);
             dialog.b("New changes in v6.4.0");
             dialog.a("Just as a reminder; There have been many changes since v6.3.0 fix1, " +
@@ -274,8 +297,25 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
     @Override
     public void onDestroy() {
+        if (importProgress != null) importProgress.dismiss();
+        if (importOffer != null && importOffer.isShowing()) importOffer.dismiss();
         super.onDestroy();
         xB.b().a();
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent != null && intent.getBooleanExtra(LegacyImportController.EXTRA_SHOW_IMPORT_PROGRESS, false)) {
+            LegacyImportController controller = LegacyImportController.get(this);
+            if (controller.isRunning()) controller.moveToForeground();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        LegacyImportController.get(this).detach(importListener);
+        super.onPause();
     }
 
     @Override
@@ -306,88 +346,113 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         if (j() && storageAccessDenied != null && storageAccessDenied.j()) {
             storageAccessDenied.c();
         }
+
+        LegacyImportController controller = LegacyImportController.get(this);
+        if (getIntent() != null && getIntent().getBooleanExtra(LegacyImportController.EXTRA_SHOW_IMPORT_PROGRESS, false)) {
+            getIntent().removeExtra(LegacyImportController.EXTRA_SHOW_IMPORT_PROGRESS);
+            if (controller.isRunning()) controller.moveToForeground();
+        }
+        if (controller.isRunning() && !controller.isInBackground()) {
+            showImportProgress();
+        }
+        controller.attach(importListener);
+        if (j()) {
+            maybeOfferLegacyImport();
+        }
     }
 
     /**
      * Offers to copy projects from a Sketchware Pro install into Sketchware AI's own folder.
-     * Shown once, only while Sketchware AI has no projects of its own.
+     * Only ever shown once storage access is granted, never while an import runs, and at most
+     * once at a time. Offered again after an interrupted import, to resume it.
      */
     private void maybeOfferLegacyImport() {
-        if (!LegacyProjectMigrator.shouldOffer(this)) return;
+        if (!StorageAccess.isGranted(this) || isFinishing()) return;
+        if (importOffer != null && importOffer.isShowing()) return;
+        LegacyImportController controller = LegacyImportController.get(this);
+        if (controller.isRunning() || !LegacyProjectMigrator.shouldOffer(this)) return;
+
         int count = LegacyProjectMigrator.legacyProjectCount();
-        new AlertDialog.Builder(this)
-                .setTitle("Import from Sketchware Pro")
-                .setMessage("Found " + count + (count == 1 ? " project" : " projects")
+        boolean resume = LegacyProjectMigrator.wasInterrupted(this);
+        importOffer = new AlertDialog.Builder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle(resume ? "Resume import from Sketchware Pro" : "Import from Sketchware Pro")
+                .setMessage(resume
+                        ? "The last import from Sketchware Pro did not finish. Continue it? "
+                        + "Projects that are already imported are skipped."
+                        : "Found " + count + (count == 1 ? " project" : " projects")
                         + " in Sketchware Pro's folder (/.sketchware).\n\n"
                         + "Copy them, with your custom blocks, components and local libraries, "
-                        + "into Sketchware AI? Sketchware Pro's files are not changed.")
-                .setPositiveButton("Import", (dialog, which) -> runLegacyImport())
+                        + "into Sketchware AI? The copy runs in the background with progress; "
+                        + "Sketchware Pro's files are not changed.")
+                .setPositiveButton(resume ? "Resume" : "Import", (dialog, which) -> startLegacyImport())
                 .setNegativeButton("Not now", null)
                 .setNeutralButton("Don't ask again",
                         (dialog, which) -> LegacyProjectMigrator.markDeclined(this))
-                .show();
+                .create();
+        importOffer.setCanceledOnTouchOutside(false);
+        importOffer.show();
     }
 
-    private void runLegacyImport() {
-        AlertDialog progress = new AlertDialog.Builder(this)
-                .setTitle("Importing projects")
-                .setMessage("Starting…")
-                .setCancelable(false)
-                .show();
-        new Thread(() -> {
-            LegacyProjectMigrator.Result result = LegacyProjectMigrator.run(getApplicationContext(),
-                    message -> runOnUiThread(() -> progress.setMessage(message)));
-            runOnUiThread(() -> {
-                if (isFinishing()) return;
-                progress.dismiss();
-                if (result.isSuccess()) {
-                    SketchwareUtil.toast("Imported " + result.importedProjects
-                            + (result.importedProjects == 1 ? " project" : " projects")
-                            + (result.skippedProjects > 0
-                            ? " (" + result.skippedProjects + " already present)" : ""),
-                            Toast.LENGTH_LONG);
-                } else {
-                    new AlertDialog.Builder(this)
-                            .setTitle("Import failed")
-                            .setMessage(result.error)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
+    private void startLegacyImport() {
+        if (!StorageAccess.isGranted(this)) {
+            showNoticeNeedStorageAccess();
+            return;
+        }
+        LegacyImportController controller = LegacyImportController.get(this);
+        showImportProgress();
+        controller.attach(importListener);
+        controller.start();
+    }
+
+    private ImportProgressDialog showImportProgress() {
+        if (importProgress == null) {
+            importProgress = new ImportProgressDialog(this, new ImportProgressDialog.Callbacks() {
+                @Override
+                public void onRunInBackground() {
+                    requestNotificationPermissionIfNeeded();
+                    LegacyImportController.get(MainActivity.this).moveToBackground();
+                    SketchwareUtil.toast("Import continues in the background", Toast.LENGTH_SHORT);
                 }
-                if (projectsFragment != null) {
-                    projectsFragment.refreshProjectsList();
+
+                @Override
+                public void onStop() {
+                    LegacyImportController.get(MainActivity.this).cancel();
                 }
             });
-        }, "legacy-project-import").start();
+        }
+        LegacyProjectMigrator.Progress last = LegacyImportController.get(this).lastProgress();
+        if (last != null) importProgress.update(last);
+        if (!isFinishing()) importProgress.show();
+        return importProgress;
     }
 
-    private void allFilesAccessCheck() {
-        if (Build.VERSION.SDK_INT > 29) {
-            File optOutFile = new File(getFilesDir(), ".skip_all_files_access_notice");
-            boolean granted = Environment.isExternalStorageManager();
-
-            if (!optOutFile.exists() && !granted) {
-                aB dialog = new aB(this);
-                dialog.a(R.drawable.ic_expire_48dp);
-                dialog.b("Android 11 storage access");
-                dialog.a("Starting with Android 11, Sketchware AI needs a new permission to avoid " +
-                        "taking ages to build projects. Don't worry, we can't do more to storage than " +
-                        "with current granted permissions.");
-                dialog.b(Helper.getResString(R.string.common_word_settings), v -> {
-                    FileUtil.requestAllFilesAccessPermission(this);
-                    dialog.dismiss();
-                });
-                dialog.a("Skip", Helper.getDialogDismissListener(dialog));
-                dialog.configureDefaultButton("Don't show anymore", v -> {
-                    try {
-                        optOutFile.createNewFile();
-                    } catch (IOException e) {
-                        Log.e("MainActivity", "Error while trying to create " +
-                                "\"Don't show Android 11 hint\" dialog file: " + e.getMessage(), e);
-                    }
-                    dialog.dismiss();
-                });
-                dialog.show();
+    /** Android 13+: the background progress notification needs POST_NOTIFICATIONS. */
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            String permission = "android.permission.POST_NOTIFICATIONS";
+            if (checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{permission}, 9502);
             }
+        }
+    }
+
+    private void onLegacyImportFinished(LegacyProjectMigrator.Result result) {
+        if (importProgress != null) {
+            importProgress.dismiss();
+            importProgress = null;
+        }
+        if (isFinishing()) return;
+        if (result.isSuccess()) {
+            SketchwareUtil.toast(ImportProgressDialog.summary(result), Toast.LENGTH_LONG);
+        } else {
+            new AlertDialog.Builder(this, R.style.SketchwareAI_GlassAlertDialog)
+                    .setTitle(result.cancelled ? "Import stopped" : "Import failed")
+                    .setMessage(ImportProgressDialog.summary(result))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        }
+        if (projectsFragment != null) {
+            projectsFragment.refreshProjectsList();
         }
     }
 
@@ -395,14 +460,26 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         aB dialog = new aB(this);
         dialog.b(Helper.getResString(R.string.common_message_permission_title_storage));
         dialog.a(R.drawable.color_about_96);
-        dialog.a(Helper.getResString(R.string.common_message_permission_need_load_project));
-        dialog.b(Helper.getResString(R.string.common_word_ok), v -> {
-            dialog.dismiss();
-            nd.a(MainActivity.this, new String[]{
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                            Manifest.permission.READ_EXTERNAL_STORAGE},
-                    9501);
-        });
+        if (StorageAccess.usesAllFilesAccess()) {
+            dialog.a("Sketchware AI keeps your projects, libraries and builds in /.sketchware_ai. "
+                    + "On Android 11 and newer this needs \"All files access\".\n\n"
+                    + "Tap Settings, switch on \"Allow access to manage all files\", then come back.");
+            dialog.b(Helper.getResString(R.string.common_word_settings), v -> {
+                dialog.dismiss();
+                requestStorageAccess(9501);
+            });
+            dialog.a(Helper.getResString(R.string.common_word_cancel), v -> {
+                dialog.dismiss();
+                s();
+            });
+        } else {
+            dialog.a(Helper.getResString(R.string.common_message_permission_need_load_project));
+            dialog.b(Helper.getResString(R.string.common_word_ok), v -> {
+                dialog.dismiss();
+                requestStorageAccess(9501);
+            });
+        }
+        dialog.setCancelable(false);
         dialog.show();
     }
 
@@ -421,10 +498,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
             storageAccessDenied = Snackbar.a(coordinator, Helper.getResString(R.string.common_message_permission_denied), -2);
             storageAccessDenied.a(Helper.getResString(R.string.common_word_settings), v -> {
                 storageAccessDenied.c();
-                nd.a(MainActivity.this, new String[]{
-                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                Manifest.permission.READ_EXTERNAL_STORAGE},
-                        9501);
+                requestStorageAccess(9501);
             });
             storageAccessDenied.f(Color.YELLOW);
             storageAccessDenied.n();

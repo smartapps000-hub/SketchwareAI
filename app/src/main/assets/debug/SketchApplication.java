@@ -35,7 +35,9 @@ public class SketchApplication extends Application {
                             getApplicationContext(),
                             11111,
                             intent,
-                            PendingIntent.FLAG_ONE_SHOT
+                            // FLAG_ONE_SHOT | FLAG_IMMUTABLE (0x04000000): Android 12+ requires
+                            // a mutability flag for apps targeting API 31 and newer.
+                            PendingIntent.FLAG_ONE_SHOT | 0x04000000
                         );
 
                     AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);

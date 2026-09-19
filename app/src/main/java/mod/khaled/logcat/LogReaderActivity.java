@@ -175,7 +175,13 @@ public class LogReaderActivity extends AppCompatActivity {
         autoScroll = true;
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction("com.sketchware.ai.ACTION_NEW_DEBUG_LOG");
-        registerReceiver(logger, intentFilter);
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            // Logs are broadcast by the user's debug apps, so the receiver must be exported
+            // (Context.RECEIVER_EXPORTED; required at targetSdk 34).
+            registerReceiver(logger, intentFilter, 2);
+        } else {
+            registerReceiver(logger, intentFilter);
+        }
     }
 
     private class Logger extends BroadcastReceiver {

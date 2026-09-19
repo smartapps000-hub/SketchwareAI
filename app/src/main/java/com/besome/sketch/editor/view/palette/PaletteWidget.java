@@ -205,7 +205,7 @@ public class PaletteWidget extends LinearLayout {
         titleView.setLayoutParams(layoutParams);
         titleView.setText(title);
         titleView.setTextSize(12);
-        titleView.setTextColor(Color.parseColor("#FF009688"));
+        titleView.setTextColor(Color.parseColor("#FFFF6F00"));
         target.addView(titleView);
     }
 

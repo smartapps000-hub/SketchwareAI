@@ -110,7 +110,7 @@ public class AsdOldDialog extends Dialog {
         if (codeEditor.dark_theme) {
             cancel.setBackgroundColor(0xff333333);
         } else {
-            cancel.setBackgroundColor(0xff008dcd);
+            cancel.setBackgroundColor(0xffff6f00);
         }
         cancel.setTextSize(15f);
         linearLayout.addView(cancel);
@@ -137,7 +137,7 @@ public class AsdOldDialog extends Dialog {
         if (codeEditor.dark_theme) {
             save.setBackgroundColor(0xff333333);
         } else {
-            save.setBackgroundColor(0xff008dcd);
+            save.setBackgroundColor(0xffff6f00);
         }
         save.setTextSize(15f);
         linearLayout.addView(save);
@@ -148,9 +148,9 @@ public class AsdOldDialog extends Dialog {
                     .getIns((int) getDip(4), 0, 0xff333333, 0xff333333));
         } else {
             save.setBackground(new DialogButtonGradientDrawable()
-                    .getIns((int) getDip(4), 0, 0xff2196f3, 0xff2196f3));
+                    .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
             cancel.setBackground(new DialogButtonGradientDrawable()
-                    .getIns((int) getDip(4), 0, 0xff2196f3, 0xff2196f3));
+                    .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
         }
         save.setElevation(getDip(1));
         cancel.setElevation(getDip(1));
@@ -170,9 +170,9 @@ public class AsdOldDialog extends Dialog {
                 }
                 linearLayout.setBackgroundColor(Color.WHITE);
                 save.setBackground(new DialogButtonGradientDrawable()
-                        .getIns((int) getDip(4), 0, 0xff2196f3, 0xff2196f3));
+                        .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
                 cancel.setBackground(new DialogButtonGradientDrawable()
-                        .getIns((int) getDip(4), 0, 0xff2196f3, 0xff2196f3));
+                        .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
 
                 handler.postDelayed(this, 500);
             }

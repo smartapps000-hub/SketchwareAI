@@ -223,10 +223,10 @@ public class AndroidManifestInjection extends Activity {
                 (int) getDip(50),
                 (int) getDip(8));
         addnew.setGravity(Gravity.CENTER);
-        addnew.setBackgroundColor(0xff008dcd);
+        addnew.setBackgroundColor(0xffff6f00);
         addnew.setTextSize(15);
         addnew.setBackground(new DialogButtonGradientDrawable()
-                .getIns((int) getDip(4), 0, 0xff2196f3, 0xff2196f3));
+                .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
         addnew.setElevation((int) getDip(1));
         base.addView(addnew);
         addnew.setOnClickListener(v -> showAddActivityDialog());
@@ -369,7 +369,7 @@ public class AndroidManifestInjection extends Activity {
         gradientDrawable.setShape(GradientDrawable.RECTANGLE);
         gradientDrawable.setCornerRadii(new float[]{(float) i2, (float) i2, (float) i2 / 2, (float) i2 / 2, (float) i2, (float) i2, (float) i2 / 2, (float) i2 / 2});
         gradientDrawable.setColor(Color.parseColor("#ffffff"));
-        RippleDrawable rippleDrawable = new RippleDrawable(new ColorStateList(new int[][]{new int[0]}, new int[]{Color.parseColor("#20008DCD")}), gradientDrawable, null);
+        RippleDrawable rippleDrawable = new RippleDrawable(new ColorStateList(new int[][]{new int[0]}, new int[]{Color.parseColor("#26FF6F00")}), gradientDrawable, null);
         ((LinearLayout.LayoutParams) view.getLayoutParams()).setMargins((int) getDip(4), (int) getDip(2), (int) getDip(4), (int) getDip(2));
         view.setElevation((float) i3);
         view.setBackground(rippleDrawable);

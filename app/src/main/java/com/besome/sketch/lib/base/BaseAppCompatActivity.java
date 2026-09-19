@@ -16,7 +16,7 @@ import a.a.a.ZA;
 import a.a.a.Zo;
 import a.a.a._A;
 import a.a.a.lC;
-import a.a.a.zd;
+import com.sketchware.ai.storage.StorageAccess;
 
 public class BaseAppCompatActivity extends AppCompatActivity {
 
@@ -78,7 +78,24 @@ public class BaseAppCompatActivity extends AppCompatActivity {
     }
 
     public boolean j() {
-        return zd.a(this, "android.permission.WRITE_EXTERNAL_STORAGE") == 0 && zd.a(this, "android.permission.READ_EXTERNAL_STORAGE") == 0;
+        return StorageAccess.isGranted(this);
+    }
+
+    /**
+     * Precompiled Sketchware classes still ask ContextCompat whether WRITE_EXTERNAL_STORAGE is
+     * granted. At targetSdk 34 on Android 11+ the real answer is All files access.
+     */
+    @Override
+    public int checkPermission(String permission, int pid, int uid) {
+        Integer override = StorageAccess.checkPermissionOverride(permission, pid, uid);
+        return override != null ? override : super.checkPermission(permission, pid, uid);
+    }
+
+    @Override
+    public int checkSelfPermission(String permission) {
+        Integer override = StorageAccess.checkPermissionOverride(permission,
+                android.os.Process.myPid(), android.os.Process.myUid());
+        return override != null ? override : super.checkSelfPermission(permission);
     }
 
     public void k() {

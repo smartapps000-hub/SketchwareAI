@@ -9,6 +9,7 @@ import android.os.Process;
 import android.util.Log;
 
 import com.besome.sketch.tools.CollectErrorActivity;
+import com.sketchware.ai.storage.StorageAccess;
 
 import com.google.android.gms.analytics.Tracker;
 
@@ -27,6 +28,10 @@ public class SketchApplication extends Application {
     @Override
     public void onCreate() {
         mApplicationContext = getApplicationContext();
+        // Sketchware opens project files in other apps by file:// URI. Replacing the VM policy
+        // (instead of calling the hidden disableDeathOnFileUriExposure(), which is blocked for
+        // apps targeting new API levels) keeps that from crashing with FileUriExposedException.
+        android.os.StrictMode.setVmPolicy(new android.os.StrictMode.VmPolicy.Builder().build());
         Thread.UncaughtExceptionHandler uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e("SketchApplication", "Uncaught exception on thread " + thread.getName(), throwable);
@@ -46,5 +51,17 @@ public class SketchApplication extends Application {
             }
         });
         super.onCreate();
+    }
+
+    @Override
+    public int checkPermission(String permission, int pid, int uid) {
+        Integer override = StorageAccess.checkPermissionOverride(permission, pid, uid);
+        return override != null ? override : super.checkPermission(permission, pid, uid);
+    }
+
+    @Override
+    public int checkSelfPermission(String permission) {
+        Integer override = StorageAccess.checkPermissionOverride(permission, Process.myPid(), Process.myUid());
+        return override != null ? override : super.checkSelfPermission(permission);
     }
 }

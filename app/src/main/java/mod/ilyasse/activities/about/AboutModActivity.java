@@ -241,7 +241,7 @@ public class AboutModActivity extends AppCompatActivity {
         viewPager.setCurrentItem(0);
         root.addView(viewPager);
 
-        tablayout.setSelectedTabIndicatorColor(0xff008dcd);
+        tablayout.setSelectedTabIndicatorColor(0xffff6f00);
         tablayout.setupWithViewPager(viewPager);
 
         // ViewPager.addOnPageChangeListener(ViewPager$OnPageChangeListener) got
@@ -496,7 +496,7 @@ public class AboutModActivity extends AppCompatActivity {
             }
 
             if (isMainModderBool) {
-                advancedCorners(sidebar, "#008DCD");
+                advancedCorners(sidebar, "#FF6F00");
             } else {
                 advancedCorners(sidebar, "#00CDAB");
             }
@@ -666,7 +666,7 @@ public class AboutModActivity extends AppCompatActivity {
                 c(position);
             });
             if (0 == position) {
-                advancedCorners(leftLine, "#008dcd");
+                advancedCorners(leftLine, "#FF6F00");
             } else {
                 leftLine.setBackground(null);
             }

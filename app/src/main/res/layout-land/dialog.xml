@@ -65,7 +65,7 @@
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_gravity="center_horizontal"
-        android:background="@color/scolor_blue_01"
+        android:background="@drawable/bg_glass_dialog_buttons"
         android:gravity="center|end"
         android:orientation="horizontal"
         android:paddingLeft="8dp"
