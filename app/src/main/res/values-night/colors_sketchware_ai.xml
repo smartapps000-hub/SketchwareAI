@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme: softer Titanium Amber accents on obsidian surfaces. -->
+    <color name="color_accent">#ffff7a29</color>
+    <color name="scolor_blue_01">#ffff7a29</color>
+    <color name="color_control_highlight">#33ff7a29</color>
+</resources>

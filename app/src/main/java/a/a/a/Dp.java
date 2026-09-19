@@ -200,10 +200,15 @@ public class Dp {
         return true;
     }
 
+    private static boolean classpathHasLambdaStubs(ArrayList<String> args) {
+        int cp = args.indexOf("-cp") + 1;
+        return cp > 0 && cp < args.size() && args.get(cp).contains("core-lambda-stubs.jar");
+    }
+
     public boolean isD8Enabled() {
         return build_settings.getValue(
                 BuildSettings.SETTING_DEXER,
-                BuildSettings.SETTING_DEXER_DX
+                com.sketchware.ai.project.ModernProjectDefaults.defaultDexer()
         ).equals(BuildSettings.SETTING_DEXER_D8);
     }
 
@@ -283,7 +288,7 @@ public class Dp {
          * Since all versions above java 7 supports lambdas, this should work
          */
         if (!build_settings.getValue(BuildSettings.SETTING_JAVA_VERSION,
-                        BuildSettings.SETTING_JAVA_VERSION_1_7)
+                        com.sketchware.ai.project.ModernProjectDefaults.defaultJavaVersion())
                 .equals(BuildSettings.SETTING_JAVA_VERSION_1_7)) {
             classpath.append(":").append(new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "core-lambda-stubs.jar").getAbsolutePath());
         }
@@ -536,8 +541,9 @@ public class Dp {
              PrintWriter errWriter = new PrintWriter(errOutputStream)) {
 
             ArrayList<String> args = new ArrayList<>();
-            args.add("-" + build_settings.getValue(BuildSettings.SETTING_JAVA_VERSION,
-                    BuildSettings.SETTING_JAVA_VERSION_1_7));
+            String javaVersion = build_settings.getValue(BuildSettings.SETTING_JAVA_VERSION,
+                    com.sketchware.ai.project.ModernProjectDefaults.defaultJavaVersion());
+            args.add("-" + javaVersion);
             args.add("-nowarn");
             if (!build_settings.getValue(BuildSettings.SETTING_NO_WARNINGS,
                     BuildSettings.SETTING_GENERIC_VALUE_TRUE).equals(BuildSettings.SETTING_GENERIC_VALUE_TRUE)) {
@@ -572,15 +578,51 @@ public class Dp {
             /* Start compiling */
             org.eclipse.jdt.internal.compiler.batch.Main main = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, errWriter, false, null, null);
             LogUtil.d(TAG, "Running Eclipse compiler with these arguments: " + args);
-            main.compile(args.toArray(new String[0]));
+            boolean compiled;
+            String errors;
+            RuntimeException crash = null;
+            try {
+                compiled = main.compile(args.toArray(new String[0])) && main.globalErrorsCount <= 0;
+            } catch (RuntimeException e) {
+                compiled = false;
+                crash = e;
+            }
+            errors = errOutputStream.getOut();
+
+            /*
+             * Java 9-11 compliance needs ECJ to find the Java system library. If that is what failed
+             * (not the user's code), build again at Java 8, which every Sketchware project compiles
+             * with, and say so in the log.
+             */
+            String fallback = com.sketchware.ai.project.ModernProjectDefaults.javaFallback(javaVersion);
+            if (!compiled && fallback != null
+                    && (crash != null || com.sketchware.ai.project.ModernProjectDefaults.isSystemLibraryFailure(errors))) {
+                LogUtil.w(TAG, "Java " + javaVersion + " compilation failed outside user code, retrying with Java " + fallback);
+                args.set(args.indexOf("-" + javaVersion), "-" + fallback);
+                if (!classpathHasLambdaStubs(args)) {
+                    int cp = args.indexOf("-cp") + 1;
+                    args.set(cp, args.get(cp) + ":" + new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "core-lambda-stubs.jar").getAbsolutePath());
+                }
+                EclipseErrOutputStream retryErr = new EclipseErrOutputStream();
+                PrintWriter retryErrWriter = new PrintWriter(retryErr);
+                org.eclipse.jdt.internal.compiler.batch.Main retry = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, retryErrWriter, false, null, null);
+                compiled = retry.compile(args.toArray(new String[0])) && retry.globalErrorsCount <= 0;
+                retryErrWriter.flush();
+                errors = "Note: Java " + javaVersion + " is not usable on this device; compiled as Java " + fallback + ".\n"
+                        + retryErr.getOut();
+                crash = null;
+            }
 
             LogUtil.d(TAG, "System.out of Eclipse compiler: " + outOutputStream.getOut());
-            if (main.globalErrorsCount <= 0) {
-                LogUtil.d(TAG, "System.err of Eclipse compiler: " + errOutputStream.getOut());
+            if (compiled) {
+                LogUtil.d(TAG, "System.err of Eclipse compiler: " + errors);
                 LogUtil.d(TAG, "Compiling Java files took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
             } else {
                 LogUtil.e(TAG, "Failed to compile Java files");
-                throw new zy(errOutputStream.getOut());
+                if (crash != null) {
+                    throw new zy("Java compiler crashed: " + android.util.Log.getStackTraceString(crash));
+                }
+                throw new zy(errors);
             }
         }
     }

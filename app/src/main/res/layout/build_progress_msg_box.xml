@@ -12,7 +12,7 @@
         android:id="@+id/layout_quiz"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:background="#ffffffff"
+        android:background="@drawable/bg_glass_top_20"
         android:orientation="vertical"
         android:padding="8.0dip" />
 
@@ -24,7 +24,7 @@
     <LinearLayout
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:background="@color/scolor_blue_01"
+        android:background="@drawable/bg_glass_dialog_buttons"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 

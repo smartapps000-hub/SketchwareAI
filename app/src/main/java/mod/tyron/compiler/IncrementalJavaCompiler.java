@@ -105,7 +105,7 @@ public class IncrementalJavaCompiler extends Compiler {
 
         ArrayList<String> args = new ArrayList<>();
 
-        args.add("-" + buildSettings.getValue(BuildSettings.SETTING_JAVA_VERSION, BuildSettings.SETTING_JAVA_VERSION_1_7));
+        args.add("-" + buildSettings.getValue(BuildSettings.SETTING_JAVA_VERSION, com.sketchware.ai.project.ModernProjectDefaults.defaultJavaVersion()));
 
         args.add("-nowarn");
 

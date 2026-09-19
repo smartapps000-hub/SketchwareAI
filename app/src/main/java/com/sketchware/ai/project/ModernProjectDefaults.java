@@ -14,10 +14,11 @@ import mod.hey.studios.project.ProjectSettings;
  * and keep the legacy defaults (targetSdk 28, Dx, Java 1.7), so their builds do not change
  * behind the user's back. New projects start Play-ready:
  * <ul>
- *     <li>targetSdkVersion 36 — the level Google Play requires for new apps and updates in 2026;
- *     avoids Play Protect's "built for an older version of Android" block. 37 can be typed in.</li>
- *     <li>D8 dexer with Java 8 (lambdas, method references, desugaring). Java 11 is still selectable;
- *     D8 in this build desugars up to Java 11, so Java 17 cannot be offered.</li>
+ *     <li>targetSdkVersion 37 (Android 17); avoids Play Protect's "built for an older version of
+ *     Android" block.</li>
+ *     <li>D8 dexer with Java 11 (D8 in this build desugars up to Java 11; Java 17 needs a newer
+ *     compiler + D8). If the on-device compiler can't use Java 11 system libraries, the build
+ *     falls back to Java 8 automatically (see {@link #javaFallback}).</li>
  *     <li>Edge-to-edge off: generated activities pad themselves below the status bar and paint it
  *     with the theme's dark primary colour, so layouts look exactly like before on Android 15+.</li>
  * </ul>
@@ -25,7 +26,7 @@ import mod.hey.studios.project.ProjectSettings;
 public final class ModernProjectDefaults {
 
     public static final int LEGACY_TARGET_SDK = 28;
-    public static final int NEW_PROJECT_TARGET_SDK = 36;
+    public static final int NEW_PROJECT_TARGET_SDK = 37;
     public static final int NEW_PROJECT_MIN_SDK = 21;
 
     /** Project setting: "true" to draw under the system bars (edge-to-edge) with auto-padding. */
@@ -46,9 +47,18 @@ public final class ModernProjectDefaults {
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             Map<String, String> build = new HashMap<>();
             build.put(BuildSettings.SETTING_DEXER, BuildSettings.SETTING_DEXER_D8);
-            build.put(BuildSettings.SETTING_JAVA_VERSION, BuildSettings.SETTING_JAVA_VERSION_1_8);
+            build.put(BuildSettings.SETTING_JAVA_VERSION, BuildSettings.SETTING_JAVA_VERSION_11);
             putIfAbsent(new BuildSettings(scId), build);
         }
+    }
+
+    /** Sets D8 + Java 11 (Android 8.0+) for a project, overwriting its stored choice. */
+    public static void applyModernBuildSettings(String scId) {
+        if (android.os.Build.VERSION.SDK_INT < 26) return;
+        BuildSettings build = new BuildSettings(scId);
+        build.putValue(BuildSettings.SETTING_DEXER, BuildSettings.SETTING_DEXER_D8);
+        build.putValue(BuildSettings.SETTING_JAVA_VERSION, BuildSettings.SETTING_JAVA_VERSION_11);
+        build.saveNow();
     }
 
     private static void putIfAbsent(ProjectSettings settings, Map<String, String> values) {
@@ -60,6 +70,40 @@ public final class ModernProjectDefaults {
             }
         }
         if (changed) settings.saveNow();
+    }
+
+    /**
+     * Dexer used when a project never saved one: D8 wherever it can run (Android 8.0+), since Dx
+     * cannot read Java 8+ bytecode or most modern libraries.
+     */
+    public static String defaultDexer() {
+        return android.os.Build.VERSION.SDK_INT >= 26 ? BuildSettings.SETTING_DEXER_D8 : BuildSettings.SETTING_DEXER_DX;
+    }
+
+    /** Java language level used when a project never saved one. */
+    public static String defaultJavaVersion() {
+        return android.os.Build.VERSION.SDK_INT >= 26 ? BuildSettings.SETTING_JAVA_VERSION_11 : BuildSettings.SETTING_JAVA_VERSION_1_7;
+    }
+
+    /** Java level to retry with when {@code version} fails for reasons outside the user's code. */
+    public static String javaFallback(String version) {
+        if (BuildSettings.SETTING_JAVA_VERSION_1_9.equals(version)
+                || BuildSettings.SETTING_JAVA_VERSION_10.equals(version)
+                || BuildSettings.SETTING_JAVA_VERSION_11.equals(version)) {
+            return BuildSettings.SETTING_JAVA_VERSION_1_8;
+        }
+        return null;
+    }
+
+    /** Whether ECJ's errors mean it couldn't see the Java system library at this level. */
+    public static boolean isSystemLibraryFailure(String errors) {
+        if (errors == null) return false;
+        return errors.contains("java.lang.Object cannot be resolved")
+                || errors.contains("accessible from more than one module")
+                || errors.contains("The type java.lang.String cannot be resolved")
+                || errors.contains("String cannot be resolved to a type")
+                || errors.contains("system libraries")
+                || errors.contains("--release");
     }
 
     public static int targetSdk(ProjectSettings settings) {

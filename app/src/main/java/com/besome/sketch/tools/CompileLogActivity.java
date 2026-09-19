@@ -99,6 +99,10 @@ public class CompileLogActivity extends Activity {
             });
         }
 
+        addToolbarAction(menu, R.drawable.ic_sw_ai_spark_white_24, v -> showDiagnostic());
+        addToolbarAction(menu, R.drawable.ic_sw_share_white_24, v -> shareLog());
+        addToolbarAction(menu, R.drawable.ic_sw_copy_white_24, v -> copyLog());
+
         menu.setImageResource(R.drawable.ic_more_vert_white_24dp);
         menu.setVisibility(View.VISIBLE);
         Helper.applyRippleToToolbarView(menu);
@@ -152,6 +156,60 @@ public class CompileLogActivity extends Activity {
         tv_compile_log.setTextIsSelectable(true);
     }
 
+    /** Adds a 40dp toolbar icon just left of the delete icon (or the overflow menu). */
+    private void addToolbarAction(View menu, int icon, View.OnClickListener listener) {
+        ImageView action = new ImageView(this);
+        action.setLayoutParams(new LinearLayout.LayoutParams(dpToPx(40), dpToPx(40)));
+        action.setPadding(dpToPx(9), dpToPx(9), dpToPx(9), dpToPx(9));
+        action.setImageResource(icon);
+        action.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        ViewGroup bar = (ViewGroup) menu.getParent();
+        int index = bar.indexOfChild(menu);
+        // Keep the delete icon (added just before the menu) next to the overflow menu.
+        if (compileErrorSaver.logFileExists() && index > 0) index--;
+        bar.addView(action, index);
+        Helper.applyRippleToToolbarView(action);
+        action.setOnClickListener(listener);
+    }
+
+    private String logText() {
+        return tv_compile_log.getText() == null ? "" : tv_compile_log.getText().toString();
+    }
+
+    private void copyLog() {
+        String text = logText();
+        if (text.trim().isEmpty()) {
+            SketchwareUtil.toast("The compile log is empty.");
+            return;
+        }
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Compile log", text));
+        SketchwareUtil.toast("Compile log copied (" + text.length() + " characters)");
+    }
+
+    private void shareLog() {
+        String text = logText();
+        if (text.trim().isEmpty()) {
+            SketchwareUtil.toast("The compile log is empty.");
+            return;
+        }
+        android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND);
+        send.setType("text/plain");
+        send.putExtra(android.content.Intent.EXTRA_SUBJECT, "Sketchware AI compile log");
+        send.putExtra(android.content.Intent.EXTRA_TEXT, text);
+        startActivity(android.content.Intent.createChooser(send, "Share compile log"));
+    }
+
+    private void showDiagnostic() {
+        new AlertDialog.Builder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Sketchware AI Diagnostic Engine")
+                .setMessage(com.sketchware.ai.diagnostic.CompileLogDiagnostics.diagnose(logText())
+                        + "\n\nOn-device autonomous error diagnosis coming soon.")
+                .setPositiveButton(android.R.string.ok, null)
+                .setNeutralButton("Copy log", (d, w) -> copyLog())
+                .show();
+    }
+
     private void applyLogViewerPreferences() {
         toggleWrapText(getWrappedTextPreference());
         toggleMonospacedText(getMonospacedFontPreference());
@@ -159,7 +217,7 @@ public class CompileLogActivity extends Activity {
     }
 
     private boolean getWrappedTextPreference() {
-        return logViewerPreferences.getBoolean(PREFERENCE_WRAPPED_TEXT, false);
+        return logViewerPreferences.getBoolean(PREFERENCE_WRAPPED_TEXT, true);
     }
 
     private boolean getMonospacedFontPreference() {

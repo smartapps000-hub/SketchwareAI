@@ -56,7 +56,7 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         recyclerView.setItemAnimator(new ci());
-        DrawerItemAdapter drawerItemAdapter = new DrawerItemAdapter();
+        drawerItemAdapter = new DrawerItemAdapter();
         recyclerView.setAdapter(drawerItemAdapter);
         initializeDrawerItems();
         social_fb.setOnClickListener(this);
@@ -145,6 +145,31 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         DrawerItem menuCreateKeystore = DrawerItem.MENU_CREATE_KEYSTORE;
         menuCreateKeystore.icon = R.drawable.new_96;
         menuCreateKeystore.title = "Create Release Keystore";
+
+        DrawerItem menuAppTheme = DrawerItem.MENU_APP_THEME;
+        menuAppTheme.icon = R.drawable.ic_sw_theme_white_48;
+        menuAppTheme.title = "App Theme: " + com.sketchware.ai.ui.ThemeMode.LABELS[com.sketchware.ai.ui.ThemeMode.get(context)];
+    }
+
+    private DrawerItemAdapter drawerItemAdapter;
+
+    private void showAppThemeDialog(Activity activity) {
+        new AlertDialog.Builder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("App Theme")
+                .setSingleChoiceItems(com.sketchware.ai.ui.ThemeMode.LABELS,
+                        com.sketchware.ai.ui.ThemeMode.get(activity), (dialog, which) -> {
+                            dialog.dismiss();
+                            boolean full = com.sketchware.ai.ui.ThemeMode.set(activity, which);
+                            DrawerItem.MENU_APP_THEME.title = "App Theme: " + com.sketchware.ai.ui.ThemeMode.LABELS[which];
+                            if (drawerItemAdapter != null) drawerItemAdapter.c(DrawerItem.MENU_APP_THEME.ordinal() + 1);
+                            if (!full) {
+                                mod.SketchwareUtil.toast("Choosing Light or Dark needs Android 12+. "
+                                        + "On this phone the theme follows the system setting.", android.widget.Toast.LENGTH_LONG);
+                            }
+                            if (android.os.Build.VERSION.SDK_INT < 31) activity.recreate();
+                        })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void openSlackInvitationInBrowser() {
@@ -185,7 +210,8 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         MENU_SYSTEM_SETTINGS,
         MENU_PROGRAM_INFO,
         MENU_DEVELOPER_TOOLS,
-        MENU_CREATE_KEYSTORE;
+        MENU_CREATE_KEYSTORE,
+        MENU_APP_THEME;
 
         /**
          * The label of the item
@@ -288,6 +314,8 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
                         Intent intent = new Intent(activity, Tools.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                         activity.startActivity(intent);
+                    } else if (id == DrawerItem.MENU_APP_THEME.ordinal()) {
+                        showAppThemeDialog(activity);
                     } else if (id == DrawerItem.MENU_CREATE_KEYSTORE.ordinal()) {
                         Intent intent = new Intent(activity, NewKeyStoreActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);

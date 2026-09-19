@@ -33,7 +33,7 @@ public final class ThemeMode {
     public static final int LIGHT = 1;
     public static final int DARK = 2;
 
-    public static final String[] LABELS = {"System default", "Light", "Dark"};
+    public static final String[] LABELS = {"System default", "Light Glass", "Pure Dark Glass"};
 
     private static final String PREFS = "sketchware_ai_ui";
     private static final String KEY = "theme_mode";
