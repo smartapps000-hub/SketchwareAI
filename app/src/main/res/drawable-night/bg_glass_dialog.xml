@@ -1,16 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Obsidian liquid glass dialog surface (dark theme): smoked fill, white refraction edge, 20dp. -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- Obsidian liquid glass (dark theme): ambient shadow, frosted body #D9161618 -> #BF1E1E22,
+     and a specular rim that is brighter at the top (#4DFFFFFF) than the bottom (#0DFFFFFF). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android" android:paddingMode="stack">
     <item>
         <shape android:shape="rectangle">
-            <gradient android:angle="270" android:endColor="#CC1C1C1E" android:startColor="#E618181A" />
-            <stroke android:width="1dp" android:color="#26FFFFFF" />
+            <solid android:color="#1A000000" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+    <item android:bottom="1.5dp" android:left="1.5dp" android:right="1.5dp" android:top="0dp">
+        <!-- rim: a vertical white gradient showing only as a 1.2dp ring around the body -->
+        <shape android:shape="rectangle">
+            <gradient android:angle="270" android:endColor="#0DFFFFFF" android:startColor="#4DFFFFFF" />
             <corners android:radius="20dp" />
         </shape>
     </item>
-    <item android:bottom="1dp" android:left="1dp" android:right="1dp" android:top="1dp">
+    <item android:bottom="2.7dp" android:left="2.7dp" android:right="2.7dp" android:top="1.2dp">
         <shape android:shape="rectangle">
-            <gradient android:angle="270" android:endColor="#00FFFFFF" android:startColor="#14FFFFFF" android:type="linear" />
+            <gradient android:angle="270" android:endColor="#F21E1E22" android:startColor="#F2161618" />
             <corners android:radius="19dp" />
         </shape>
     </item>

@@ -449,6 +449,7 @@ public class yq {
         if (appCompat.useYn.equals(ProjectLibraryBean.LIB_USE_Y)) {
             N.g = true;
         }
+        com.sketchware.ai.project.WidgetLibraryScanner.scan(projectFileManager, projectDataManager, N);
         if (adMob.useYn.equals(ProjectLibraryBean.LIB_USE_Y)) {
             N.isAdMobEnabled = true;
             N.addPermission(jq.PERMISSION_INTERNET);

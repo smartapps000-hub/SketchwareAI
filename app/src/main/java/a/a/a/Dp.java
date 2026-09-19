@@ -852,6 +852,10 @@ public class Dp {
             builtInLibraryManager.a(BuiltInLibraries.ANDROIDX_COORDINATORLAYOUT);
             builtInLibraryManager.a(BuiltInLibraries.MATERIAL);
         }
+        if (yq.N.usesCardView && !mll.getPackageNameLocalLibrary().contains("androidx.cardview")) {
+            // A layout uses CardView: without this, AAPT2 can't resolve app:cardCornerRadius etc.
+            builtInLibraryManager.a(BuiltInLibraries.ANDROIDX_CARDVIEW);
+        }
         if (yq.N.isFirebaseEnabled) {
             builtInLibraryManager.a(BuiltInLibraries.FIREBASE_COMMON);
         }

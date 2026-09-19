@@ -31,6 +31,13 @@ public final class CompileLogDiagnostics {
                     "A layout or setting refers to a resource that doesn't exist: %s. Check image/colour/string names "
                             + "in the widget's properties and Inject code. A Text value that starts with @ or ? is read "
                             + "as a resource reference; put a \\ in front of it (\\@) to show it as text."),
+            new Rule("attribute (card\\w+) \\(aka [\\w.]+:card\\w+\\) not found",
+                    "The layout uses CardView attributes (%s) but the CardView library wasn't part of the build. "
+                            + "Sketchware AI now adds it automatically when a layout contains a CardView; build again. "
+                            + "If it still fails, turn on AppCompat and Design in the Library Manager."),
+            new Rule("attribute ((?!card)\\w+) \\(aka [\\w.]+:\\w+\\) not found",
+                    "The layout uses the library attribute app:%s, but the library that defines it isn't enabled. "
+                            + "Turn on AppCompat and Design (or the library that provides it), or remove it from Inject."),
             new Rule("attribute (android:\\w+|app:\\w+) .*not found",
                     "The attribute %s isn't known when linking. It's misspelled, needs a library that isn't enabled, "
                             + "or is newer than the bundled android.jar (Android 13). Remove it from Inject or enable the library."),

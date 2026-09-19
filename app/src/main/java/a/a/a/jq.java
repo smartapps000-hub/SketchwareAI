@@ -205,6 +205,9 @@ public class jq {
     public ArrayList<String> t = new ArrayList<>();
     public boolean u = false;
 
+    /** A layout uses androidx CardView (see WidgetLibraryScanner). */
+    public boolean usesCardView = false;
+
     /**
      * (Most likely) the Google Maps API key associated with the project.
      */
