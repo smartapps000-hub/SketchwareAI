@@ -59,6 +59,12 @@ android {
     }
 
     packagingOptions {
+        // aapt2 ships as jniLibs/<abi>/libaapt2.so. Legacy packaging makes the installer
+        // extract it to nativeLibraryDir as an executable file; without it (the default for
+        // minSdk 23+) the library stays inside the APK and cannot be run.
+        jniLibs.useLegacyPackaging = true
+        // The binaries are already stripped static executables, not JNI libraries.
+        jniLibs.keepDebugSymbols += "**/libaapt2.so"
         resources.excludes += "license/*"
         resources.excludes += "META-INF/DEPENDENCIES"
         resources.pickFirsts += "api_database/*"
