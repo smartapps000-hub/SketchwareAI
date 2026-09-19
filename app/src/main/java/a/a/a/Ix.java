@@ -306,6 +306,14 @@ public class Ix {
             applicationTag.a("android", "usesCleartextTraffic", "true");
         }
         AndroidManifestInjector.getAppAttrs(applicationTag, c.sc_id);
+        if (com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings) >= 33) {
+            // Android 16 turns on predictive back for apps targeting API 36+, which stops
+            // onBackPressed() from being called; Sketchware's "onBackPressed" event relies on it.
+            // A value the user injected in the manifest editor wins.
+            if (!applicationTag.hasAttributeContaining("enableOnBackInvokedCallback")) {
+                applicationTag.a("android", "enableOnBackInvokedCallback", "false");
+            }
+        }
 
         for (ProjectFileBean projectFileBean : b) {
             if (!projectFileBean.fileName.contains("_fragment")) {

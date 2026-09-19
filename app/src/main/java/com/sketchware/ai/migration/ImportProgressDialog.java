@@ -64,7 +64,7 @@ public final class ImportProgressDialog {
         bar.setIndeterminate(true);
         bar.setProgressTintList(ColorStateList.valueOf(orange));
         bar.setIndeterminateTintList(ColorStateList.valueOf(orange));
-        bar.setProgressBackgroundTintList(ColorStateList.valueOf(0x33FF6F00));
+        bar.setProgressBackgroundTintList(ColorStateList.valueOf(0x33f4511e));
         root.addView(bar, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 10)));
 

@@ -294,7 +294,7 @@ public class BlocksManagerDetailsActivity extends AppCompatActivity {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setShape(GradientDrawable.RECTANGLE);
         gradientDrawable.setColor(Color.parseColor("#ffffff"));
-        RippleDrawable rippleDrawable = new RippleDrawable(new ColorStateList(new int[][]{new int[0]}, new int[]{Color.parseColor("#26FF6F00")}), gradientDrawable, null);
+        RippleDrawable rippleDrawable = new RippleDrawable(new ColorStateList(new int[][]{new int[0]}, new int[]{Color.parseColor("#26f4511e")}), gradientDrawable, null);
         view.setBackground(rippleDrawable);
         view.setClickable(true);
         view.setFocusable(true);

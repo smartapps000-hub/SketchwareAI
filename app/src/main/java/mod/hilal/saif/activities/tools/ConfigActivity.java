@@ -282,6 +282,25 @@ public class ConfigActivity extends Activity {
         toolbar_back.setOnClickListener(Helper.getBackPressedClickListener(this));
         toolbar_title.setText("Mod settings");
 
+        addTextInputPreference("Theme",
+                "System default, Light or Dark. Currently: "
+                        + com.sketchware.ai.ui.ThemeMode.LABELS[com.sketchware.ai.ui.ThemeMode.get(this)]
+                        + ". The design canvas and block editor always keep true colours.", v ->
+                        new AlertDialog.Builder(this)
+                                .setTitle("Theme")
+                                .setSingleChoiceItems(com.sketchware.ai.ui.ThemeMode.LABELS,
+                                        com.sketchware.ai.ui.ThemeMode.get(this), (dialog, which) -> {
+                                            dialog.dismiss();
+                                            boolean full = com.sketchware.ai.ui.ThemeMode.set(this, which);
+                                            if (!full) {
+                                                SketchwareUtil.toast("Choosing Light or Dark needs Android 12+. "
+                                                        + "On this phone the theme follows the system setting.", Toast.LENGTH_LONG);
+                                            }
+                                            recreate();
+                                        })
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show());
+
         addSwitchPreference("Built-in blocks",
                 "May slow down loading blocks in Logic Editor.",
                 SETTING_SHOW_BUILT_IN_BLOCKS,

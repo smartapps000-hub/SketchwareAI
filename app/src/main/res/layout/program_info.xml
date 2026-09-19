@@ -38,7 +38,7 @@
                     android:layout_marginTop="8dp"
                     android:gravity="center"
                     android:text="@string/title_sketchware"
-                    android:textColor="#ffff6f00"
+                    android:textColor="#fff4511e"
                     android:textSize="24sp" />
 
                 <TextView

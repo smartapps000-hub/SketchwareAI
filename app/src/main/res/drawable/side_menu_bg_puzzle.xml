@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Navigation drawer header (fixed 320dp x 200dp box): Titanium Orange gradient with soft glass
+     bubbles and a frosted glass tile holding the Sketchware AI code-and-spark mark.
+     Replaces the legacy blue avatar artwork. Uses only insets (API 21-safe). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="315"
+                android:centerColor="#FFFF7043"
+                android:endColor="#FFFFAB91"
+                android:startColor="#FFE64A19" />
+        </shape>
+    </item>
+    <!-- Glass bubbles -->
+    <item android:bottom="80dp" android:left="150dp" android:right="-10dp" android:top="-100dp">
+        <shape android:shape="oval">
+            <solid android:color="#26FFFFFF" />
+            <stroke android:width="1.2dp" android:color="#40FFFFFF" />
+        </shape>
+    </item>
+    <item android:bottom="-50dp" android:left="190dp" android:right="0dp" android:top="120dp">
+        <shape android:shape="oval">
+            <solid android:color="#1FFFFFFF" />
+        </shape>
+    </item>
+    <item android:bottom="120dp" android:left="118dp" android:right="172dp" android:top="50dp">
+        <shape android:shape="oval">
+            <solid android:color="#40FFFFFF" />
+        </shape>
+    </item>
+    <!-- Frosted glass tile -->
+    <item android:bottom="28dp" android:left="20dp" android:right="200dp" android:top="72dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:endColor="#1FFFFFFF"
+                android:startColor="#59FFFFFF" />
+            <stroke android:width="1.2dp" android:color="#80FFFFFF" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/ic_sketchware_ai_mark"
+        android:bottom="46dp"
+        android:left="38dp"
+        android:right="218dp"
+        android:top="90dp" />
+</layer-list>

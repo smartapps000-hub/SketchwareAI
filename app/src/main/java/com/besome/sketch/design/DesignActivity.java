@@ -420,6 +420,18 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     }
 
     @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+        if (canvasQuickEdit == null) {
+            canvasQuickEdit = new com.sketchware.ai.editor.CanvasQuickEdit(this);
+        }
+        canvasQuickEdit.onTouchEvent(event);
+        return super.dispatchTouchEvent(event);
+    }
+
+    /** Double-tap a widget on the canvas to edit its text. */
+    private com.sketchware.ai.editor.CanvasQuickEdit canvasQuickEdit;
+
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.design);

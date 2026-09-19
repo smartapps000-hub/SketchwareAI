@@ -137,11 +137,21 @@ public class ProjectSettings {
         save();
     }
 
+    public void putValue(String key, String value) {
+        hashmap.put(key, value);
+    }
+
+    public void saveNow() {
+        save();
+    }
+
     private String getCheckedRbValue(RadioGroup rg) {
         for (int i = 0; i < rg.getChildCount(); i++) {
             RadioButton rb = (RadioButton) rg.getChildAt(i);
 
             if (rb.isChecked()) {
+                // A tag holds the stored value when the label differs, e.g. "Dx (deprecated)".
+                if (rb.getTag() instanceof String) return (String) rb.getTag();
                 return rb.getText().toString();
             }
         }

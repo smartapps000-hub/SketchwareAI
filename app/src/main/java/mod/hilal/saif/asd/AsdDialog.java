@@ -125,9 +125,9 @@ public class AsdDialog extends Dialog implements DialogInterface.OnDismissListen
                                             } else {
                                                 lin.setBackgroundColor(Color.WHITE);
                                                 save.setBackground(new DialogButtonGradientDrawable()
-                                                        .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
+                                                        .getIns((int) getDip(4), 0, 0xffff7043, 0xffff7043));
                                                 cancel.setBackground(new DialogButtonGradientDrawable()
-                                                        .getIns((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
+                                                        .getIns((int) getDip(4), 0, 0xffff7043, 0xffff7043));
                                             }
                                             dialog.dismiss();
                                         })
@@ -250,7 +250,7 @@ public class AsdDialog extends Dialog implements DialogInterface.OnDismissListen
         if (isDark()) {
             cancel.setBackgroundColor(0xff333333);
         } else {
-            cancel.setBackgroundColor(0xffff6f00);
+            cancel.setBackgroundColor(0xfff4511e);
         }
         cancel.setTextSize(15.0f);
         lin.addView(cancel);
@@ -278,7 +278,7 @@ public class AsdDialog extends Dialog implements DialogInterface.OnDismissListen
         if (isDark()) {
             save.setBackgroundColor(0xff333333);
         } else {
-            save.setBackgroundColor(0xffff6f00);
+            save.setBackgroundColor(0xfff4511e);
         }
         save.setTextSize(15.0f);
         lin.addView(save);
@@ -297,13 +297,13 @@ public class AsdDialog extends Dialog implements DialogInterface.OnDismissListen
             save.setBackground(new DialogButtonGradientDrawable()
                     .getIns(getDip(4),
                             0,
-                            0xffff8a1f,
-                            0xffff8a1f));
+                            0xffff7043,
+                            0xffff7043));
             cancel.setBackground(new DialogButtonGradientDrawable()
                     .getIns(getDip(4),
                             0,
-                            0xffff8a1f,
-                            0xffff8a1f));
+                            0xffff7043,
+                            0xffff7043));
         }
         save.setElevation(getDip(1));
         cancel.setElevation(getDip(1));

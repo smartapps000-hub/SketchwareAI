@@ -127,7 +127,7 @@ public class ProguardRulesDialog extends Dialog implements View.OnClickListener 
         if (codeEditor.dark_theme) {
             cancel.setBackgroundColor(0xff333333);
         } else {
-            cancel.setBackgroundColor(0xffff6f00);
+            cancel.setBackgroundColor(0xfff4511e);
         }
 
         cancel.setTextSize(15f);
@@ -156,7 +156,7 @@ public class ProguardRulesDialog extends Dialog implements View.OnClickListener 
         if (codeEditor.dark_theme) {
             save.setBackgroundColor(0xff333333);
         } else {
-            save.setBackgroundColor(0xffff6f00);
+            save.setBackgroundColor(0xfff4511e);
         }
 
         save.setTextSize(15f);
@@ -165,8 +165,8 @@ public class ProguardRulesDialog extends Dialog implements View.OnClickListener 
             save.setBackground(getGD((int) getDip(4), 0, 0xff333333, 0xff333333));
             cancel.setBackground(getGD((int) getDip(4), 0, 0xff333333, 0xff333333));
         } else {
-            save.setBackground(getGD((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
-            cancel.setBackground(getGD((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
+            save.setBackground(getGD((int) getDip(4), 0, 0xffff7043, 0xffff7043));
+            cancel.setBackground(getGD((int) getDip(4), 0, 0xffff7043, 0xffff7043));
         }
 
         save.setElevation(getDip(1));
@@ -187,8 +187,8 @@ public class ProguardRulesDialog extends Dialog implements View.OnClickListener 
                 } else {
                     layout.setBackgroundColor(Color.WHITE);
 
-                    save.setBackground(getGD((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
-                    cancel.setBackground(getGD((int) getDip(4), 0, 0xffff8a1f, 0xffff8a1f));
+                    save.setBackground(getGD((int) getDip(4), 0, 0xffff7043, 0xffff7043));
+                    cancel.setBackground(getGD((int) getDip(4), 0, 0xffff7043, 0xffff7043));
                 }
 
                 handler.postDelayed(this, 500L);

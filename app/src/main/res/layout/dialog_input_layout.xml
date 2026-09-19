@@ -25,7 +25,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Rename file"
-            android:textColor="#ffff6f00"
+            android:textColor="#fff4511e"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -47,7 +47,7 @@
             android:autofillHints=""
             android:hint="New file name"
             android:inputType="text"
-            android:textColorHint="#ffff6f00"
+            android:textColorHint="#fff4511e"
             android:textSize="18sp" />
 
     </com.google.android.material.textfield.TextInputLayout>
@@ -55,7 +55,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#ffff6f00"
+        android:background="#fff4511e"
         android:gravity="right"
         android:orientation="horizontal"
         android:paddingTop="10dp"

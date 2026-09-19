@@ -53,6 +53,17 @@ public class Nx {
         e.add(new AttributeBuilder(namespace, attr, value));
     }
 
+    /** Whether an attribute name, or a raw injected attribute string, contains {@code text}. */
+    public boolean hasAttributeContaining(String text) {
+        for (AttributeBuilder attribute : e) {
+            if ((attribute.attr != null && attribute.attr.contains(text))
+                    || (attribute.value != null && attribute.attr == null && attribute.value.contains(text))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void b(String value) {
         e.add(new AttributeBuilder(value));
     }

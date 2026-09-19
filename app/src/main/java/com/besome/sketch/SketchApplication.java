@@ -32,6 +32,7 @@ public class SketchApplication extends Application {
         // (instead of calling the hidden disableDeathOnFileUriExposure(), which is blocked for
         // apps targeting new API levels) keeps that from crashing with FileUriExposedException.
         android.os.StrictMode.setVmPolicy(new android.os.StrictMode.VmPolicy.Builder().build());
+        com.sketchware.ai.ui.ThemeMode.install(this);
         Thread.UncaughtExceptionHandler uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e("SketchApplication", "Uncaught exception on thread " + thread.getName(), throwable);

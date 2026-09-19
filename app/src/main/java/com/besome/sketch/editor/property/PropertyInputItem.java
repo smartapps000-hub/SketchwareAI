@@ -128,6 +128,32 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
     public void setValue(String value) {
         this.value = value;
         tvValue.setText(value);
+        if ("property_text".equals(key)) {
+            boundTextItem = new java.lang.ref.WeakReference<>(this);
+        }
+    }
+
+    /** The "Text" property row most recently bound to a widget, for canvas double-tap editing. */
+    private static java.lang.ref.WeakReference<PropertyInputItem> boundTextItem;
+
+    /**
+     * Opens the same "Text" dialog as tapping the Text row of the property panel, if that row is
+     * currently showing the widget with the given id. Used by the canvas double-tap.
+     *
+     * @return whether the dialog was opened
+     */
+    public static boolean openTextEditorFor(String beanId) {
+        PropertyInputItem item = boundTextItem == null ? null : boundTextItem.get();
+        if (item == null || beanId == null || !item.isAttachedToWindow()) return false;
+        for (android.view.ViewParent parent = item.getParent(); parent != null; parent = parent.getParent()) {
+            if (parent instanceof com.besome.sketch.editor.property.ViewPropertyItems) {
+                com.besome.sketch.beans.ViewBean bean = ((com.besome.sketch.editor.property.ViewPropertyItems) parent).c;
+                if (bean == null || !beanId.equals(bean.id)) return false;
+                item.showTextInputDialog(0, 9999);
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

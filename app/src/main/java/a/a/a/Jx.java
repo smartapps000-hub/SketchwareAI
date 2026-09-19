@@ -332,6 +332,9 @@ public class Jx {
             sb.append("protected void onCreate(Bundle _savedInstanceState) {").append(EOL);
             sb.append("super.onCreate(_savedInstanceState);").append(EOL);
             sb.append("setContentView(R.layout.").append(projectFileBean.fileName).append(");").append(EOL);
+            if (com.sketchware.ai.project.ModernProjectDefaults.needsSystemBarsCode(settings)) {
+                sb.append(com.sketchware.ai.project.SystemBarsCode.call()).append(EOL);
+            }
             sb.append("initialize(_savedInstanceState);");
         }
         sb.append(EOL);
@@ -537,6 +540,10 @@ public class Jx {
             if (j != qSize - 1) {
                 sb.append(EOL);
             }
+        }
+        if (!isFragment && com.sketchware.ai.project.ModernProjectDefaults.needsSystemBarsCode(settings)) {
+            sb.append(com.sketchware.ai.project.SystemBarsCode.method(
+                    com.sketchware.ai.project.ModernProjectDefaults.edgeToEdge(settings), EOL));
         }
         if (!isFragment && !settings.getValue(ProjectSettings.SETTING_DISABLE_OLD_METHODS, BuildSettings.SETTING_GENERIC_VALUE_FALSE)
                 .equals(BuildSettings.SETTING_GENERIC_VALUE_TRUE)) {

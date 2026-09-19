@@ -17,7 +17,7 @@
             android:layout_height="wrap_content"
             android:padding="8dp"
             android:text="Input attribute value"
-            android:textColor="#ffff6f00"
+            android:textColor="#fff4511e"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -55,7 +55,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#ffff6f00"
+        android:background="#fff4511e"
         android:gravity="center|right"
         android:orientation="horizontal">
 

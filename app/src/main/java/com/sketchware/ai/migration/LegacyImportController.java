@@ -199,7 +199,7 @@ public final class LegacyImportController {
                 ? new Notification.Builder(app, CHANNEL_ID)
                 : new Notification.Builder(app);
         builder.setSmallIcon(android.R.drawable.stat_sys_download)
-                .setColor(0xFFFF6F00)
+                .setColor(0xFFf4511e)
                 .setContentIntent(contentIntent())
                 .setShowWhen(false);
         return builder;

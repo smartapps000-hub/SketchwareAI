@@ -71,6 +71,7 @@ public class ViewPanes {
             case 35:
                 return new ItemWaveSideBar(context);
             case 36:
+                return new com.sketchware.ai.editor.item.ItemCardView(context);
             case 37:
             case 38:
             case 39:

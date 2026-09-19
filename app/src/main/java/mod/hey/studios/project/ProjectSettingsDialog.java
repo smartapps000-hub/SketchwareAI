@@ -78,6 +78,13 @@ public class ProjectSettingsDialog {
                 "Remove old deprecated methods in files, like showMessage, getDip, etc.",
                 preferenceContainer);
 
+        CheckBox edgeToEdge = addTogglePref(
+                com.sketchware.ai.project.ModernProjectDefaults.SETTING_EDGE_TO_EDGE,
+                false,
+                "Enable Edge-to-Edge Layout (Android 15+)\nExtends layout under system bars with auto-padding. "
+                        + "Off: content stays below the status bar, like before.",
+                preferenceContainer);
+
         CheckBox useNewMaterialComponentsAppTheme = addTogglePref(
                 ProjectSettings.SETTING_ENABLE_BRIDGELESS_THEMES,
                 false,
@@ -92,6 +99,7 @@ public class ProjectSettingsDialog {
                 targetSdkVersion,
                 applicationClassName,
                 removeOldMethods,
+                edgeToEdge,
                 useNewMaterialComponentsAppTheme
         };
 

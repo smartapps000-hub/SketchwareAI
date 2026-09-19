@@ -631,6 +631,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
                     data.put(themeColorKeys[i], projectThemeColors[i]);
                 }
                 lC.a(sc_id, data);
+                com.sketchware.ai.project.ModernProjectDefaults.applyToNewProject(sc_id);
                 wq.a(getApplicationContext(), sc_id);
                 new oB().b(wq.b(sc_id));
             }
