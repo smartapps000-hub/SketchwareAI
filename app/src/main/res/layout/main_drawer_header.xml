@@ -1,24 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Main drawer header: Sketchware AI brand on an Obsidian glass card. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@id/layout_main_drawer_header"
-    android:layout_width="320dp"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#fffafafa"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:paddingLeft="12dp"
+    android:paddingTop="24dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:background="@drawable/side_menu_bg_puzzle"
+        android:layout_height="wrap_content"
+        android:background="@drawable/ob_glass"
         android:clickable="true"
-        android:elevation="8dp"
         android:focusable="true"
-        android:gravity="bottom"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingLeft="16dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="16dp"
-        android:paddingRight="16dp"
-        android:paddingBottom="8dp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp">
+
+        <ImageView
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/ob_tile_orange"
+            android:contentDescription="@null"
+            android:padding="11dp"
+            android:src="@drawable/ob_ic_spark" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Ob.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/sora_bold"
+                android:text="Sketchware AI"
+                android:textSize="18sp" />
+
+            <TextView
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Android 17 ready" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

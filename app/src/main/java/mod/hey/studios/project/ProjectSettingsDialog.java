@@ -11,6 +11,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.TextView;
 
 import com.google.android.material.textfield.TextInputLayout;
 import com.sketchware.remod.R;
@@ -31,68 +32,76 @@ public class ProjectSettingsDialog {
 
     public void show() {
         aB dialog = new aB(activity);
-        dialog.a(R.drawable.services_48);
+        dialog.a(R.drawable.ob_ic_sliders);
         dialog.b("Project Configuration");
 
-        ScrollView preferenceScroller = new ScrollView(dialog.getContext());
-        {
-            ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT);
-            preferenceScroller.setLayoutParams(layoutParams);
-        }
+        View content = activity.getLayoutInflater().inflate(R.layout.ob_project_config, null);
 
-        LinearLayout preferenceContainer = new LinearLayout(dialog.getContext());
-        {
-            ViewGroup.LayoutParams layoutParams = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT);
-            preferenceContainer.setLayoutParams(layoutParams);
-            preferenceContainer.setOrientation(LinearLayout.VERTICAL);
-        }
+        EditText minimumSdkVersion = content.findViewById(R.id.ob_cfg_min);
+        bindInput(minimumSdkVersion, ProjectSettings.SETTING_MINIMUM_SDK_VERSION, "21");
+        EditText targetSdkVersion = content.findViewById(R.id.ob_cfg_target);
+        bindInput(targetSdkVersion, ProjectSettings.SETTING_TARGET_SDK_VERSION, "28");
+        EditText applicationClassName = content.findViewById(R.id.ob_cfg_app_class);
+        bindInput(applicationClassName, ProjectSettings.SETTING_APPLICATION_CLASS, ".SketchApplication");
 
-        EditText minimumSdkVersion = addInputPref(
-                ProjectSettings.SETTING_MINIMUM_SDK_VERSION,
-                "21",
-                "Minimum SDK version",
-                InputType.TYPE_CLASS_NUMBER,
-                preferenceContainer);
-
-        EditText targetSdkVersion = addInputPref(
-                ProjectSettings.SETTING_TARGET_SDK_VERSION,
-                "28",
-                "Target SDK version",
-                InputType.TYPE_CLASS_NUMBER,
-                preferenceContainer);
-
-        EditText applicationClassName = addInputPref(
-                ProjectSettings.SETTING_APPLICATION_CLASS,
-                ".SketchApplication",
-                "Application class name",
-                InputType.TYPE_CLASS_TEXT,
-                preferenceContainer);
-
-        CheckBox removeOldMethods = addTogglePref(
-                ProjectSettings.SETTING_DISABLE_OLD_METHODS,
-                false,
-                "Remove old deprecated methods in files, like showMessage, getDip, etc.",
-                preferenceContainer);
-
-        CheckBox edgeToEdge = addTogglePref(
+        CheckBox edgeToEdge = bindToggle(content.findViewById(R.id.ob_cfg_row_edge),
                 com.sketchware.ai.project.ModernProjectDefaults.SETTING_EDGE_TO_EDGE,
-                false,
-                "Enable Edge-to-Edge Layout (Android 15+)\nExtends layout under system bars with auto-padding. "
-                        + "Off: content stays below the status bar, like before.",
-                preferenceContainer);
-
-        CheckBox useNewMaterialComponentsAppTheme = addTogglePref(
+                "Edge-to-edge layout", "Android 15+ · off keeps content below the status bar");
+        CheckBox removeOldMethods = bindToggle(content.findViewById(R.id.ob_cfg_row_old),
+                ProjectSettings.SETTING_DISABLE_OLD_METHODS,
+                "Remove old helper methods", "showMessage, getDip and similar");
+        CheckBox useNewMaterialComponentsAppTheme = bindToggle(content.findViewById(R.id.ob_cfg_row_material),
                 ProjectSettings.SETTING_ENABLE_BRIDGELESS_THEMES,
-                false,
-                "Use new MaterialComponents AppTheme (will replace e.g. Button with MaterialButton, be careful!)",
-                preferenceContainer);
+                "MaterialComponents AppTheme", "Buttons become MaterialButton");
 
-        preferenceScroller.addView(preferenceContainer);
-        dialog.a(preferenceScroller);
+        TextView targetHint = content.findViewById(R.id.ob_cfg_target_hint);
+        Runnable updateHint = () -> {
+            int target;
+            try {
+                target = Integer.parseInt(targetSdkVersion.getText().toString().trim());
+            } catch (NumberFormatException e) {
+                targetHint.setText("Enter an API level, e.g. 37 for Android 17");
+                return;
+            }
+            String name = target >= 33 ? "Android " + (target - 20)
+                    : target == 32 ? "Android 12L" : target == 31 ? "Android 12" : target == 30 ? "Android 11"
+                    : target == 29 ? "Android 10" : target == 28 ? "Android 9" : "API " + target;
+            targetHint.setText(name + " (API " + target + ")"
+                    + (target == com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK
+                    ? " · new-project default" : ""));
+        };
+        updateHint.run();
+        targetSdkVersion.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateHint.run();
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+            }
+        });
+
+        // Only projects still below Android 17 (old / imported .swb projects) get the upgrade card.
+        int storedTarget = com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings);
+        if (storedTarget < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
+            View upgrade = content.findViewById(R.id.ob_cfg_upgrade);
+            upgrade.setVisibility(View.VISIBLE);
+            ((TextView) content.findViewById(R.id.ob_cfg_upgrade_title)).setText("Older project (target " + storedTarget + ")");
+            content.findViewById(R.id.ob_cfg_upgrade_button).setOnClickListener(v -> {
+                minimumSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK));
+                targetSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK));
+                com.sketchware.ai.project.ModernProjectDefaults.applyModernBuildSettings(settings.sc_id);
+                mod.SketchwareUtil.toast("Target SDK 37 (Android 17), D8 and Java 11 set. Tap Save to keep them.",
+                        android.widget.Toast.LENGTH_LONG);
+            });
+        }
+
+        dialog.a(content);
 
         final View[] preferences = {
                 minimumSdkVersion,
@@ -103,23 +112,27 @@ public class ProjectSettingsDialog {
                 useNewMaterialComponentsAppTheme
         };
 
-        // Only projects still below Android 17 (old / imported .swb projects) get the upgrade button.
-        if (com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings)
-                < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
-            dialog.configureDefaultButton("Upgrade to Android 17", v -> {
-                minimumSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK));
-                targetSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK));
-                com.sketchware.ai.project.ModernProjectDefaults.applyModernBuildSettings(settings.sc_id);
-                mod.SketchwareUtil.toast("Target SDK 37 (Android 17), D8 and Java 11 set. Tap Save to keep them.",
-                        android.widget.Toast.LENGTH_LONG);
-            });
-        }
         dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {
             settings.setValues(preferences);
             dialog.dismiss();
         });
         dialog.show();
+    }
+
+    private void bindInput(EditText input, String key, String defaultValue) {
+        input.setText(settings.getValue(key, defaultValue));
+        input.setTag(key);
+    }
+
+    private CheckBox bindToggle(View row, String key, String title, String subtitle) {
+        ((TextView) row.findViewById(R.id.ob_row_title)).setText(title);
+        ((TextView) row.findViewById(R.id.ob_row_subtitle)).setText(subtitle);
+        CheckBox check = row.findViewById(R.id.ob_row_check);
+        check.setChecked(settings.getValue(key, "false").equals("true"));
+        check.setTag(key);
+        row.setOnClickListener(v -> check.toggle());
+        return check;
     }
 
     private CheckBox addTogglePref(String key, boolean defaultState, String hint, LinearLayout layout) {

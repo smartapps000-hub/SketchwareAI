@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Destructive confirm pill, see com.sketchware.ai.ui.GlassDrawable. -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="14dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFD8341C"
+    app:swFillBottom="#FFEF4444"
+    app:swRimTop="#8CFFFFFF"
+    app:swRimBottom="#33FFFFFF" />

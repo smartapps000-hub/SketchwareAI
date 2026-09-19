@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 88dp FAB artwork: 64dp solar glass button + 12dp glow on every side, 28dp plus in the middle. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ob_fab" />
+    <item android:drawable="@drawable/ob_ic_plus" android:left="30dp" android:top="30dp" android:right="30dp" android:bottom="30dp" />
+</layer-list>

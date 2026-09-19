@@ -42,6 +42,9 @@ public class CompileErrorSaver {
         Intent intent = new Intent(context, CompileLogActivity.class);
         intent.putExtra("sc_id", sc_id);
         intent.putExtra("showingLastError", true);
+        // Opened from the design editor: the AI Diagnostic sheet can offer "Build again".
+        intent.putExtra(CompileLogActivity.EXTRA_FROM_EDITOR,
+                context instanceof com.besome.sketch.design.DesignActivity);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(intent);
     }

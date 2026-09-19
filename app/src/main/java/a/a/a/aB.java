@@ -87,11 +87,23 @@ public class aB extends Dialog {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_white);
+        // Obsidian glass sheet: the layout draws the sheet, the window stays clear, and on
+        // Android 12+ phones that support it the app behind is frosted (real 22dp blur).
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+        getWindow().setDimAmount(0.55f);
 
         {
             LayoutParams attributes = getWindow().getAttributes();
             attributes.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                getWindow().addFlags(LayoutParams.FLAG_BLUR_BEHIND);
+                try {
+                    // WindowManager.LayoutParams#setBlurBehindRadius (API 31; compileSdk is 30).
+                    LayoutParams.class.getMethod("setBlurBehindRadius", int.class).invoke(attributes,
+                            (int) (22 * getContext().getResources().getDisplayMetrics().density));
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
             getWindow().setAttributes(attributes);
         }
         setContentView(R.layout.dialog);
@@ -146,9 +158,32 @@ public class aB extends Dialog {
 
         if (dialogCustomView != null) {
             dialogCustomViewContainer.setVisibility(View.VISIBLE);
+            if (dialogCustomView.getParent() instanceof ViewGroup) {
+                ((ViewGroup) dialogCustomView.getParent()).removeView(dialogCustomView);
+            }
+            // Classic content (dark text on white) is re-coloured for the dark glass sheet.
+            com.sketchware.ai.ui.ObsidianAdapter.adaptLive(dialogCustomView);
             dialogCustomViewContainer.addView(dialogCustomView);
         } else {
             dialogCustomViewContainer.setVisibility(View.GONE);
+        }
+        if (dialogMessageText.isEmpty() && dialogTitleText.isEmpty() && dialogImageResId == -1) {
+            ((ViewGroup.MarginLayoutParams) dialogCustomViewContainer.getLayoutParams()).topMargin = 0;
+        }
+
+        // Pill row: the CTA lives in a glow slot, and only visible pills keep the 10dp gaps.
+        View yesSlot = findViewById(R.id.ob_yes_slot);
+        yesSlot.setVisibility(dialogYes.getVisibility());
+        View[] pills = {dialogDefault, dialogNo, yesSlot};
+        View lastVisible = null;
+        for (View pill : pills) {
+            if (pill.getVisibility() == View.VISIBLE) lastVisible = pill;
+        }
+        for (View pill : pills) {
+            if (pill != yesSlot) {
+                ((ViewGroup.MarginLayoutParams) pill.getLayoutParams()).rightMargin = pill == lastVisible ? 0
+                        : (int) (10 * getContext().getResources().getDisplayMetrics().density);
+            }
         }
     }
 

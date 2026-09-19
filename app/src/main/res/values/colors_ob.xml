@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Obsidian liquid glass palette (design canvas "Sketchware AI Liquid Glass"). -->
+<resources>
+    <color name="ob_bg">#FF0B0B0D</color>
+    <color name="ob_text">#FFF5F5F7</color>
+    <color name="ob_text_2">#FFA1A1AA</color>
+    <color name="ob_text_3">#FFD4D4D8</color>
+    <color name="ob_text_4">#FFE4E4E7</color>
+    <color name="ob_accent">#FFFFB877</color>
+    <color name="ob_accent_2">#FFFF9A4D</color>
+    <color name="ob_amber">#FFFF7A29</color>
+    <color name="ob_orange">#FFF4511E</color>
+    <color name="ob_error">#FFFF8A65</color>
+    <color name="ob_divider">#24FFFFFF</color>
+</resources>

@@ -67,11 +67,18 @@ public class MyProjectButtonLayout extends FrameLayout {
         confirmNoText.setText(Helper.getResString(R.string.common_word_cancel));
         confirmLayout.setVisibility(INVISIBLE);
 
-        settings = createButton(0, R.drawable.settings_96, Helper.getResString(R.string.myprojects_list_menu_title_settings));
-        backUp = createButton(1, R.drawable.ic_backup, "Back up");
-        signExport = createButton(2, R.drawable.ic_export_grey_48dp, Helper.getResString(R.string.myprojects_list_menu_title_sign_export));
-        delete = createButton(3, R.drawable.ic_delete_grey_48dp, Helper.getResString(R.string.myprojects_list_menu_title_delete));
-        config = createButton(4, R.drawable.settings_96, "Config");
+        confirmDelete.setText("Delete this project?");
+
+        settings = createButton(0, R.drawable.ob_ic_settings, Helper.getResString(R.string.myprojects_list_menu_title_settings));
+        backUp = createButton(1, R.drawable.ob_ic_backup, "Back up");
+        signExport = createButton(2, R.drawable.ob_ic_export, "Export");
+        delete = createButton(3, R.drawable.ob_ic_close, Helper.getResString(R.string.myprojects_list_menu_title_delete));
+        config = createButton(4, R.drawable.ob_ic_sliders, "Config");
+        // Config is the accented pill (the one that opens Project Configuration).
+        int accent = getResources().getColor(R.color.ob_accent);
+        config.icon.setColorFilter(accent);
+        config.name.setTextColor(accent);
+        config.name.setTypeface(config.name.getTypeface(), android.graphics.Typeface.BOLD);
         buttonContainer.addView(settings);
         buttonContainer.addView(backUp);
         buttonContainer.addView(signExport);

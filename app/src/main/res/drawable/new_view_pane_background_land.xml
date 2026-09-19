@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design canvas phone frame, Obsidian glass bezel (design canvas "Design editor"): #1C1C20 to
+     #121215 body, 1dp light rim and top sheen. Drawn at full screen size and scaled down by the
+     editor, so the dp values here are about 1.7x what shows on screen. Replaces the old PNG of the
+     same name (same resource ID). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <gradient android:angle="270" android:startColor="#FF1C1C20" android:endColor="#FF121215" />
+            <stroke android:width="2dp" android:color="#29FFFFFF" />
+            <corners android:radius="44dp" />
+        </shape>
+    </item>
+    <item android:left="2dp" android:right="2dp" android:top="2dp">
+        <shape>
+            <gradient android:angle="270" android:startColor="#26FFFFFF" android:centerColor="#00FFFFFF" android:endColor="#00FFFFFF" />
+            <corners android:radius="42dp" />
+        </shape>
+    </item>
+</layer-list>

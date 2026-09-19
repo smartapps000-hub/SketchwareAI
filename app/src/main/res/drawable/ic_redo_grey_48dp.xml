@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Obsidian line icon (replaces the old PNG of the same name; enabled = white, disabled = grey). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M15,14l5,-5 -5,-5" android:fillColor="#00000000" android:strokeColor="#59D4D4D8" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M20,9H10a6,6 0,0 0,0 12h3" android:fillColor="#00000000" android:strokeColor="#59D4D4D8" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sketchware AI Diagnostic: sliding liquid-glass bottom sheet
+     (design canvas board "Compile log + AI diagnostic"). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/ob_glass_bottom_sheet"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:forceDarkAllowed="false"
+    android:orientation="vertical"
+    android:paddingLeft="20dp"
+    android:paddingTop="12dp"
+    android:paddingRight="20dp"
+    android:paddingBottom="22dp">
+
+    <View
+        android:layout_width="44dp"
+        android:layout_height="5dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/ob_sheet_handle" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:clipChildren="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- 44dp AI tile; 8dp larger each side for its glow. -->
+        <ImageView
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginLeft="-8dp"
+            android:background="@drawable/ob_tile_ai"
+            android:contentDescription="@null"
+            android:padding="19dp"
+            android:src="@drawable/ob_ic_spark" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="4dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Ob.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/sora_bold"
+                android:text="Sketchware AI Diagnostic"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/ob_diag_subtitle"
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:fadingEdgeLength="14dp"
+        android:overScrollMode="ifContentScrolls"
+        android:requiresFadingEdge="vertical"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/ob_diag_first_box"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/ob_accent_box"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/manrope_extrabold"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.03"
+                    android:text="FIRST ERROR"
+                    android:textColor="@color/ob_accent"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/ob_diag_first_error"
+                    style="@style/Ob.Text.Mono"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingMultiplier="1.3"
+                    android:textIsSelectable="true" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/ob_diag_advice"
+                style="@style/Ob.Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:lineSpacingMultiplier="1.35"
+                android:textIsSelectable="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/ob_dashed_box"
+                android:fontFamily="@font/manrope_regular"
+                android:paddingLeft="14dp"
+                android:paddingTop="12dp"
+                android:paddingRight="14dp"
+                android:paddingBottom="12dp"
+                android:text="On-device autonomous error diagnosis coming soon."
+                android:textColor="@color/ob_text_2"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/ob_diag_copy"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_pill16_state"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Copy log"
+            android:textSize="15sp" />
+
+        <FrameLayout
+            android:id="@+id/ob_diag_primary_slot"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_marginLeft="10dp"
+            android:layout_weight="1"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <TextView
+                android:id="@+id/ob_diag_primary"
+                style="@style/Ob.Text.Button.Cta"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="-9dp"
+                android:layout_marginTop="-9dp"
+                android:layout_marginRight="-9dp"
+                android:layout_marginBottom="-9dp"
+                android:background="@drawable/ob_cta_state"
+                android:stateListAnimator="@animator/sw_press"
+                android:text="Build again"
+                android:textSize="15sp" />
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout>

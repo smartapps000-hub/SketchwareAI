@@ -37,12 +37,14 @@ public class CompileLogActivity extends Activity {
     private ScrollView err_vScroll;
     private CompileErrorSaver compileErrorSaver;
     private SharedPreferences logViewerPreferences;
+    private String scId;
 
     @SuppressLint("SetTextI18n")
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.compile_log);
+        com.sketchware.ai.ui.ObsidianWindow.apply(this);
 
         logViewerPreferences = getPreferences(Context.MODE_PRIVATE);
 
@@ -55,7 +57,6 @@ public class CompileLogActivity extends Activity {
         err_vScroll = rootLayout.findViewWithTag("err_vScroll");
 
         back.setOnClickListener(Helper.getBackPressedClickListener(this));
-        Helper.applyRippleToToolbarView(back);
 
         if (getIntent().getBooleanExtra("showingLastError", false)) {
             title.setText("Last compile log");
@@ -68,44 +69,15 @@ public class CompileLogActivity extends Activity {
             finish();
             return;
         }
+        scId = sc_id;
 
         compileErrorSaver = new CompileErrorSaver(sc_id);
 
-        if (compileErrorSaver.logFileExists()) {
-            ImageView delete = new ImageView(this);
-            delete.setLayoutParams(new LinearLayout.LayoutParams(
-                    dpToPx(40),
-                    dpToPx(40)));
-            delete.setPadding(
-                    dpToPx(9),
-                    dpToPx(9),
-                    dpToPx(9),
-                    dpToPx(9)
-            );
-            delete.setImageResource(R.drawable.ic_delete_white_24dp);
-            delete.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-            ((ViewGroup) menu.getParent()).addView(delete, ((ViewGroup) menu.getParent()).indexOfChild(menu));
-            Helper.applyRippleToToolbarView(delete);
-            delete.setOnClickListener(v -> {
-                if (compileErrorSaver.logFileExists()) {
-                    compileErrorSaver.deleteSavedLogs();
-                    getIntent().removeExtra("error");
-                    SketchwareUtil.toast("Compile logs have been cleared.");
-                } else {
-                    SketchwareUtil.toast("No compile logs found.");
-                }
-
-                setErrorText();
-            });
-        }
-
-        addToolbarAction(menu, R.drawable.ic_sw_ai_spark_white_24, v -> showDiagnostic());
-        addToolbarAction(menu, R.drawable.ic_sw_share_white_24, v -> shareLog());
-        addToolbarAction(menu, R.drawable.ic_sw_copy_white_24, v -> copyLog());
-
-        menu.setImageResource(R.drawable.ic_more_vert_white_24dp);
+        // Glass header pills (Copy, Share, AI); options live behind the "more" button.
+        findViewById(R.id.ob_log_copy).setOnClickListener(v -> copyLog());
+        findViewById(R.id.ob_log_share).setOnClickListener(v -> shareLog());
+        findViewById(R.id.ob_log_ai).setOnClickListener(v -> showDiagnostic());
         menu.setVisibility(View.VISIBLE);
-        Helper.applyRippleToToolbarView(menu);
 
         final String wrapTextLabel = "Wrap text";
         final String monospacedFontLabel = "Monospaced font";
@@ -115,6 +87,10 @@ public class CompileLogActivity extends Activity {
         options.getMenu().add(wrapTextLabel).setCheckable(true).setChecked(getWrappedTextPreference());
         options.getMenu().add(monospacedFontLabel).setCheckable(true).setChecked(getMonospacedFontPreference());
         options.getMenu().add(fontSizeLabel);
+        final String clearLabel = "Clear saved logs";
+        if (compileErrorSaver.logFileExists()) {
+            options.getMenu().add(clearLabel);
+        }
 
         options.setOnMenuItemClickListener(menuItem -> {
             switch (menuItem.getTitle().toString()) {
@@ -130,6 +106,17 @@ public class CompileLogActivity extends Activity {
 
                 case fontSizeLabel:
                     changeFontSizeDialog();
+                    break;
+
+                case clearLabel:
+                    if (compileErrorSaver.logFileExists()) {
+                        compileErrorSaver.deleteSavedLogs();
+                        getIntent().removeExtra("error");
+                        SketchwareUtil.toast("Compile logs have been cleared.");
+                    } else {
+                        SketchwareUtil.toast("No compile logs found.");
+                    }
+                    setErrorText();
                     break;
 
                 default:
@@ -154,22 +141,6 @@ public class CompileLogActivity extends Activity {
 
         tv_compile_log.setText(CompileLogHelper.colorErrsAndWarnings(error));
         tv_compile_log.setTextIsSelectable(true);
-    }
-
-    /** Adds a 40dp toolbar icon just left of the delete icon (or the overflow menu). */
-    private void addToolbarAction(View menu, int icon, View.OnClickListener listener) {
-        ImageView action = new ImageView(this);
-        action.setLayoutParams(new LinearLayout.LayoutParams(dpToPx(40), dpToPx(40)));
-        action.setPadding(dpToPx(9), dpToPx(9), dpToPx(9), dpToPx(9));
-        action.setImageResource(icon);
-        action.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        ViewGroup bar = (ViewGroup) menu.getParent();
-        int index = bar.indexOfChild(menu);
-        // Keep the delete icon (added just before the menu) next to the overflow menu.
-        if (compileErrorSaver.logFileExists() && index > 0) index--;
-        bar.addView(action, index);
-        Helper.applyRippleToToolbarView(action);
-        action.setOnClickListener(listener);
     }
 
     private String logText() {
@@ -200,14 +171,96 @@ public class CompileLogActivity extends Activity {
         startActivity(android.content.Intent.createChooser(send, "Share compile log"));
     }
 
+    /**
+     * Sketchware AI Diagnostic as a sliding liquid-glass bottom sheet: first error, advice for
+     * every known pattern in the log, Copy log, and Build again (when opened from the editor).
+     */
     private void showDiagnostic() {
-        new AlertDialog.Builder(this, R.style.SketchwareAI_GlassAlertDialog)
-                .setTitle("Sketchware AI Diagnostic Engine")
-                .setMessage(com.sketchware.ai.diagnostic.CompileLogDiagnostics.diagnose(logText())
-                        + "\n\nOn-device autonomous error diagnosis coming soon.")
-                .setPositiveButton(android.R.string.ok, null)
-                .setNeutralButton("Copy log", (d, w) -> copyLog())
-                .show();
+        String log = logText();
+        com.sketchware.ai.diagnostic.CompileLogDiagnostics.Result result =
+                com.sketchware.ai.diagnostic.CompileLogDiagnostics.analyze(log);
+
+        android.app.Dialog sheet = new android.app.Dialog(this, R.style.Ob_SheetDialog);
+        View content = getLayoutInflater().inflate(R.layout.ob_diagnostic_sheet, null);
+        sheet.setContentView(content);
+        android.view.Window window = sheet.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setGravity(Gravity.BOTTOM);
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+                android.view.WindowManager.LayoutParams attributes = window.getAttributes();
+                try {
+                    // WindowManager.LayoutParams#setBlurBehindRadius (API 31; compileSdk is 30).
+                    android.view.WindowManager.LayoutParams.class.getMethod("setBlurBehindRadius", int.class)
+                            .invoke(attributes, dpToPx(22));
+                } catch (ReflectiveOperationException ignored) {
+                }
+                window.setAttributes(attributes);
+            }
+        }
+
+        int found = result.advice.size();
+        String subtitle;
+        if (log.trim().isEmpty()) {
+            subtitle = "Offline · the compile log is empty";
+        } else {
+            subtitle = "Offline · " + (found == 0 ? "no known pattern found"
+                    : found + " known pattern" + (found == 1 ? "" : "s") + " found");
+        }
+        ((TextView) content.findViewById(R.id.ob_diag_subtitle)).setText(subtitle);
+
+        if (result.firstError == null) {
+            content.findViewById(R.id.ob_diag_first_box).setVisibility(View.GONE);
+        } else {
+            ((TextView) content.findViewById(R.id.ob_diag_first_error)).setText(result.firstError);
+        }
+
+        StringBuilder advice = new StringBuilder();
+        if (found == 0) {
+            advice.append(log.trim().isEmpty() ? "There is nothing to diagnose yet."
+                    : "No known pattern matched. Use Copy log or Share to send the full log for help.");
+        } else {
+            for (int i = 0; i < found; i++) {
+                if (i > 0) advice.append("\n\n");
+                if (found > 1) advice.append(i + 1).append(". ");
+                advice.append(result.advice.get(i));
+            }
+        }
+        ((TextView) content.findViewById(R.id.ob_diag_advice)).setText(advice);
+
+        content.findViewById(R.id.ob_diag_copy).setOnClickListener(v -> copyLog());
+        TextView primary = content.findViewById(R.id.ob_diag_primary);
+        if (getIntent().getBooleanExtra(EXTRA_FROM_EDITOR, false)) {
+            // Real rebuild: back to the design editor, which starts the same build as Run.
+            primary.setText("Build again");
+            primary.setOnClickListener(v -> {
+                requestRebuild(scId);
+                sheet.dismiss();
+                finish();
+            });
+        } else {
+            primary.setText("Done");
+            primary.setOnClickListener(v -> sheet.dismiss());
+        }
+        sheet.show();
+    }
+
+    public static final String EXTRA_FROM_EDITOR = "from_design_editor";
+    private static String pendingRebuildScId;
+    private static long pendingRebuildAt;
+
+    private static void requestRebuild(String scId) {
+        pendingRebuildScId = scId;
+        pendingRebuildAt = System.currentTimeMillis();
+    }
+
+    /** True once if "Build again" was tapped for this project in the last 15 seconds. */
+    public static boolean consumeRebuildRequest(String scId) {
+        boolean requested = scId != null && scId.equals(pendingRebuildScId)
+                && System.currentTimeMillis() - pendingRebuildAt < 15_000;
+        pendingRebuildScId = null;
+        return requested;
     }
 
     private void applyLogViewerPreferences() {
@@ -252,7 +305,13 @@ public class CompileLogActivity extends Activity {
         logViewerPreferences.edit().putBoolean(PREFERENCE_USE_MONOSPACED_FONT, isChecked).apply();
 
         if (isChecked) {
-            tv_compile_log.setTypeface(Typeface.MONOSPACE);
+            Typeface mono;
+            try {
+                mono = androidx.core.content.res.ResourcesCompat.getFont(this, R.font.jetbrains_mono);
+            } catch (RuntimeException e) {
+                mono = null;
+            }
+            tv_compile_log.setTypeface(mono != null ? mono : Typeface.MONOSPACE);
         } else {
             tv_compile_log.setTypeface(Typeface.DEFAULT);
         }

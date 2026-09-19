@@ -179,6 +179,8 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         this.projectName = findViewById(R.id.et_project_name);
         ((TextView) findViewById(R.id.tv_advanced_settings)).setText(Helper.getResString(R.string.myprojects_settings_title_advanced_settings));
         appIcon = findViewById(R.id.app_icon);
+        // Custom icons show inside the rounded glass tile.
+        findViewById(R.id.app_icon_layout).setClipToOutline(true);
 
         projectAppNameValidator = new LB(getApplicationContext(), appName);
         projectPackageNameValidator = new UB(getApplicationContext(), packageName);
@@ -222,6 +224,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         if (updatingExistingProject) {
             /* Set the dialog's title & save button label */
             e(Helper.getResString(R.string.myprojects_settings_actionbar_title_project_settings));
+            f(R.drawable.ob_ic_settings);
             d(Helper.getResString(R.string.myprojects_settings_button_save));
 
             HashMap<String, Object> metadata = lC.b(sc_id);
@@ -247,6 +250,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         } else {
             /* Set the dialog's title & create button label */
             e(Helper.getResString(R.string.myprojects_settings_actionbar_title_new_projet));
+            f(R.drawable.ob_ic_plus);
             d(Helper.getResString(R.string.myprojects_settings_button_create_app));
 
             String newProjectName = getIntent().getStringExtra("my_ws_name");
@@ -583,6 +587,8 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
             wB.a(context, this, R.layout.myproject_color);
             color = findViewById(R.id.color);
             name = findViewById(R.id.name);
+            // Round swatch inside its glass ring.
+            ((View) color.getParent()).setClipToOutline(true);
         }
     }
 

@@ -184,6 +184,76 @@ public class PaletteWidget extends LinearLayout {
         titleLayouts.setText(Helper.getResString(R.string.view_panel_title_layouts));
         titleWidgets.setText(Helper.getResString(R.string.view_panel_title_widgets));
         scrollView = findViewById(R.id.scv);
+
+        // Obsidian palette: every tile added to either list is styled as it arrives.
+        ViewGroup.OnHierarchyChangeListener styler = new ViewGroup.OnHierarchyChangeListener() {
+            @Override
+            public void onChildViewAdded(View parent, View child) {
+                styleTile(child);
+            }
+
+            @Override
+            public void onChildViewRemoved(View parent, View child) {
+            }
+        };
+        layoutContainer.setOnHierarchyChangeListener(styler);
+        widgetsContainer.setOnHierarchyChangeListener(styler);
+        styleSectionTitle(titleLayouts);
+        styleSectionTitle(titleWidgets);
+    }
+
+    private static final java.util.Map<String, Integer> LINE_ICONS = new java.util.HashMap<>();
+
+    static {
+        LINE_ICONS.put("IconLinearHorizontal", R.drawable.ob_w_linear_h);
+        LINE_ICONS.put("IconLinearVertical", R.drawable.ob_w_linear_v);
+        LINE_ICONS.put("IconScrollViewHorizontal", R.drawable.ob_w_scroll_h);
+        LINE_ICONS.put("IconScrollViewVertical", R.drawable.ob_w_scroll_v);
+        LINE_ICONS.put("IconCardView", R.drawable.ob_w_card);
+        LINE_ICONS.put("IconTabLayout", R.drawable.ob_w_tabs);
+        LINE_ICONS.put("IconTextView", R.drawable.ob_w_text);
+        LINE_ICONS.put("IconEditText", R.drawable.ob_w_edit);
+        LINE_ICONS.put("IconButton", R.drawable.ob_w_button);
+    }
+
+    /**
+     * 44dp glass tile (7dp apart), 16dp icon, 6dp gap, 12.5sp semibold label. The column is
+     * 114dp because the precompiled ViewEditor reserves exactly 120dp for the palette.
+     */
+    private void styleTile(View child) {
+        if (child instanceof com.besome.sketch.lib.base.BaseWidget) {
+            com.besome.sketch.lib.base.BaseWidget tile = (com.besome.sketch.lib.base.BaseWidget) child;
+            tile.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            tile.setMinimumHeight(dpToPx(51));
+            tile.setPadding(dpToPx(8), dpToPx(4), dpToPx(4), dpToPx(4));
+            Integer lineIcon = LINE_ICONS.get(tile.getClass().getSimpleName());
+            if (lineIcon != null && tile.a != null) tile.a.setImageResource(lineIcon);
+            if (tile.a != null && tile.a.getLayoutParams() != null) {
+                tile.a.getLayoutParams().width = dpToPx(16);
+                tile.a.getLayoutParams().height = dpToPx(16);
+                tile.a.setPadding(0, 0, 0, 0);
+            }
+            if (tile.b != null) {
+                tile.b.setTextSize(12.5f);
+                tile.b.setTextColor(0xFFF5F5F7);
+                tile.b.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.LEFT);
+                tile.b.setPadding(dpToPx(6), 0, 0, 0);
+                tile.b.setSingleLine(true);
+                tile.b.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            }
+        } else if (child instanceof TextView) {
+            styleSectionTitle((TextView) child);
+        } else if (child instanceof LinearLayout && ((LinearLayout) child).getChildCount() == 0) {
+            // extraTitle's hairline divider
+            child.setBackgroundColor(0x14FFFFFF);
+        }
+    }
+
+    private void styleSectionTitle(TextView title) {
+        title.setTextColor(0xFFFF9A4D);
+        title.setTextSize(12);
+        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+        title.setPadding(dpToPx(6), dpToPx(6), dpToPx(6), dpToPx(2));
     }
 
     public void b() {
@@ -196,7 +266,7 @@ public class PaletteWidget extends LinearLayout {
         LinearLayout divider = new LinearLayout(getContext());
         divider.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1)));
         divider.setOrientation(LinearLayout.HORIZONTAL);
-        divider.setBackgroundColor(Color.parseColor("#12000000"));
+        divider.setBackgroundColor(0x14FFFFFF);
         target.addView(divider);
 
         TextView titleView = new TextView(getContext());
@@ -204,9 +274,8 @@ public class PaletteWidget extends LinearLayout {
         layoutParams.setMargins(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4));
         titleView.setLayoutParams(layoutParams);
         titleView.setText(title);
-        titleView.setTextSize(12);
-        titleView.setTextColor(Color.parseColor("#FFf4511e"));
         target.addView(titleView);
+        styleSectionTitle(titleView);
     }
 
     public View extraWidget(String tag, String title, String name) {

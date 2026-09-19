@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 44dp orange tile with its 10dp solar glow (view is 64dp). -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="14dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFF4511E"
+    app:swFillBottom="#FFFF7428"
+    app:swRimTop="#73FFFFFF"
+    app:swRimBottom="#1AFFFFFF"
+    app:swGlowColor="#73F4511E"
+    app:swGlowRadius="10dp"
+    app:swGlowDy="3dp" />

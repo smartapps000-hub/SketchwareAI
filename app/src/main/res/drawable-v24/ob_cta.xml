@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Liquid glass surface, see com.sketchware.ai.ui.GlassDrawable. -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="16dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFE8501C"
+    app:swFillBottom="#FFF97316"
+    app:swRimTop="#B3FFFFFF"
+    app:swRimBottom="#52FFFFFF"
+    app:swGlowColor="#80FF7428"
+    app:swGlowRadius="9dp"
+    app:swGlowDy="3dp" />

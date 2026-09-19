@@ -186,6 +186,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                 Intent intent = new Intent(getApplicationContext(), CompileLogActivity.class);
                 intent.putExtra("error", error);
                 intent.putExtra("sc_id", sc_id);
+                intent.putExtra(CompileLogActivity.EXTRA_FROM_EDITOR, true);
                 intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 startActivity(intent);
             }
@@ -449,11 +450,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         t = new DB(getApplicationContext(), "P12");
 
         Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setSubtitle(sc_id);
+        toolbar.setSubtitle("#" + sc_id + " · main.xml");
         a(toolbar);
         findViewById(R.id.layout_main_logo).setVisibility(View.GONE);
         d().d(true);
         d().e(true);
+        toolbar.setNavigationIcon(R.drawable.ob_ic_back);
+        toolbar.setNavigationContentDescription("Back to projects");
+        com.sketchware.ai.ui.ObsidianWindow.apply(this);
         toolbar.setNavigationOnClickListener(Helper.getBackPressedClickListener(this));
         toolbar.setPopupTheme(R.style.ThemeOverlay_ToolbarMenu);
         // Replaced empty anonymous class with null
@@ -469,6 +473,10 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         projectFileSelector = findViewById(R.id.file_selector);
         projectFileSelector.setScId(sc_id);
         projectFileSelector.setOnSelectedFileChangeListener((i, projectFileBean) -> {
+            if (projectFileBean != null) {
+                // Header subtitle follows the open file: "#630 · main.xml".
+                toolbar.setSubtitle("#" + sc_id + " · " + (i == 0 ? projectFileBean.getXmlName() : projectFileBean.getJavaName()));
+            }
             if (i == 0) {
                 if (viewTabAdapter != null && projectFileBean != null) {
                     int orientation = projectFileBean.orientation;
@@ -595,6 +603,12 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         super.onResume();
         if (!j()) {
             finish();
+        }
+        // "Build again" in the compile log's AI Diagnostic sheet: run the same build as Run.
+        if (CompileLogActivity.consumeRebuildRequest(sc_id) && runProject != null) {
+            runProject.post(() -> {
+                if (runProject.isEnabled()) runProject.performClick();
+            });
         }
 
         long freeMegabytes = GB.c();

@@ -29,6 +29,8 @@ public class MyProjectButton extends LinearLayout {
                 1.0f));
 
         wB.a(context, this, R.layout.myproject_button);
+        setClickable(true);
+        setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(context, R.animator.sw_press));
         icon = findViewById(R.id.icon);
         name = findViewById(R.id.name);
     }

@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Design editor, Obsidian liquid glass (design canvas board "Design editor").
+     Vertical space is budgeted for the precompiled ViewEditor, which sizes the phone preview as
+     screen height - status bar - action bar - 152dp: header 104dp + bottom bar 76dp + gaps stay
+     inside that, so the preview never slides under the bottom bar. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/ob_window_bg"
     android:orientation="vertical">
 
     <androidx.drawerlayout.widget.DrawerLayout
@@ -20,37 +26,73 @@
                 android:layout_height="match_parent"
                 android:orientation="vertical">
 
-                <include layout="@layout/toolbar" />
-
-                <com.google.android.material.tabs.TabLayout
-                    android:id="@+id/tab_layout"
-                    style="@style/DesignTabLayout"
+                <!-- Glass header: back, project name, "#id · file", actions, then the tabs. -->
+                <LinearLayout
+                    android:id="@+id/ob_editor_header"
                     android:layout_width="match_parent"
-                    android:layout_height="@dimen/action_bar_height" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="8dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginRight="8dp"
+                    android:background="@drawable/ob_glass"
+                    android:forceDarkAllowed="false"
+                    android:orientation="vertical"
+                    android:paddingTop="8dp">
+
+                    <androidx.appcompat.widget.Toolbar
+                        android:id="@+id/toolbar"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@android:color/transparent"
+                        android:minHeight="48dp"
+                        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+                        app:contentInsetStart="0dp"
+                        app:contentInsetStartWithNavigation="0dp"
+                        app:navigationIcon="@drawable/ob_ic_back"
+                        app:subtitleTextAppearance="@style/Ob.ToolbarSubtitle"
+                        app:titleTextAppearance="@style/Ob.ToolbarTitle">
+
+                        <View
+                            android:id="@+id/layout_main_logo"
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:visibility="gone" />
+                    </androidx.appcompat.widget.Toolbar>
+
+                    <com.google.android.material.tabs.TabLayout
+                        android:id="@+id/tab_layout"
+                        style="@style/Ob.EditorTabs"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp" />
+                </LinearLayout>
 
                 <androidx.coordinatorlayout.widget.CoordinatorLayout
                     android:id="@+id/layout_coordinator"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
+                    android:layout_marginTop="8dp"
                     android:layout_weight="1">
 
                     <com.besome.sketch.lib.ui.CustomViewPager
                         android:id="@+id/viewpager"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="@color/sw_canvas_bg" />
+                        android:background="@android:color/transparent" />
                 </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/sw_divider" />
-
+                <!-- Floating glass bar: file selector, build settings, Run. -->
                 <LinearLayout
                     android:id="@+id/layout_btn_group"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:background="@drawable/sw_bottom_bar"
+                    android:layout_height="64dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginRight="8dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/ob_glass"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:forceDarkAllowed="false"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingLeft="8dp"
@@ -58,45 +100,78 @@
 
                     <LinearLayout
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="48dp"
                         android:layout_weight="1"
-                        android:orientation="horizontal">
+                        android:background="@drawable/ob_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingLeft="10dp"
+                        android:paddingRight="4dp">
 
                         <ImageView
                             android:id="@+id/img_orientation"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
                             android:layout_gravity="center_vertical"
-                            android:scaleType="fitXY"
-                            android:src="@drawable/ic_screen_portrait_grey600_24dp" />
+                            android:alpha="0.8"
+                            android:contentDescription="Screen orientation"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_screen_portrait_grey600_24dp"
+                            android:tint="@color/ob_text_2" />
 
                         <com.besome.sketch.editor.view.ProjectFileSelector
                             android:id="@+id/file_selector"
                             android:layout_width="match_parent"
-                            android:layout_height="36dp" />
+                            android:layout_height="44dp" />
                     </LinearLayout>
 
                     <ImageButton
                         android:id="@+id/btn_compiler_opt"
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:layout_marginStart="8dp"
-                        android:elevation="4dp"
-                        android:padding="4dp"
-                        android:src="@drawable/sorting_options_48"
-                        android:theme="@style/AppTheme.Button.LightBlue" />
-
-                    <Button
-                        android:id="@+id/btn_execute"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_cta_solar"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginLeft="10dp"
+                        android:background="@drawable/ob_pill_state"
+                        android:contentDescription="Build settings"
+                        android:padding="14dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ob_ic_tune"
                         android:stateListAnimator="@animator/sw_press"
-                        android:layout_marginStart="2dp"
-                        android:textColor="#ffffffff"
-                        android:textSize="@dimen/text_size_button_material"
-                        android:textStyle="bold"
-                        android:theme="@style/AppTheme.Button.LightBlue" />
+                        android:tint="@color/ob_accent" />
+
+                    <!-- 104 x 48dp solar CTA; reaches 9dp past its slot for the glow. -->
+                    <FrameLayout
+                        android:layout_width="104dp"
+                        android:layout_height="48dp"
+                        android:layout_marginLeft="10dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
+
+                        <!-- android.widget.Button on purpose: the plain framework button, not the
+                             MaterialButton the theme would swap in (its insets clip the label). -->
+                        <android.widget.Button
+                            android:id="@+id/btn_execute"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:layout_marginLeft="-9dp"
+                            android:layout_marginTop="-9dp"
+                            android:layout_marginRight="-9dp"
+                            android:layout_marginBottom="-9dp"
+                            android:background="@drawable/ob_cta_state"
+                            android:drawableLeft="@drawable/ob_ic_play_small"
+                            android:drawablePadding="6dp"
+                            android:fontFamily="@font/manrope_extrabold"
+                            android:gravity="center"
+                            android:includeFontPadding="false"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingLeft="24dp"
+                            android:paddingRight="26dp"
+                            android:singleLine="true"
+                            android:stateListAnimator="@animator/sw_press"
+                            android:textAllCaps="false"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="17sp" />
+                    </FrameLayout>
                 </LinearLayout>
             </LinearLayout>
 

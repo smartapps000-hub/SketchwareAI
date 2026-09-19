@@ -142,7 +142,7 @@ public class ProjectFileSelector extends LinearLayout implements View.OnClickLis
         setGravity(Gravity.CENTER_VERTICAL);
         TypedValue background = new TypedValue();
         context.getTheme().resolveAttribute(R.attr.selectableItemBackground, background, true);
-        setBackgroundResource(background.resourceId);
+        setBackgroundResource(R.drawable.ob_press_overlay);
         setOnClickListener(this);
         currentFileType = 0;
         currentXmlFileName = "main.xml";
@@ -165,6 +165,16 @@ public class ProjectFileSelector extends LinearLayout implements View.OnClickLis
         layoutParams.weight = 1.0f;
         fileName.setGravity(Gravity.LEFT | Gravity.CENTER);
         fileName.setLayoutParams(layoutParams);
+        // Obsidian bottom bar: bold light file name (the bar is always dark glass).
+        fileName.setTextColor(0xFFF5F5F7);
+        fileName.setTextSize(15);
+        fileName.setSingleLine(true);
+        fileName.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        try {
+            fileName.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(context, R.font.manrope_bold));
+        } catch (RuntimeException ignored) {
+            fileName.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        }
         addView(fileName);
     }
 
@@ -172,7 +182,10 @@ public class ProjectFileSelector extends LinearLayout implements View.OnClickLis
         int s = (int) wB.a(context, 24.0f);
         ImageView dropdown = new ImageView(context);
         dropdown.setLayoutParams(new LinearLayout.LayoutParams(s, s));
-        dropdown.setImageResource(R.drawable.ic_arrow_drop_down_grey600_24dp);
+        dropdown.setImageResource(R.drawable.ob_ic_chevron_down);
+        dropdown.setColorFilter(0xFFA1A1AA);
+        int pad = (int) wB.a(context, 4.0f);
+        dropdown.setPadding(pad, pad, pad, pad);
         addView(dropdown);
     }
 

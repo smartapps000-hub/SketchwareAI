@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Main drawer: obsidian panel with a faint orange glow at the top and a light right rim. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape><gradient android:angle="270" android:startColor="#FF17171A" android:endColor="#FF0B0B0D" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.1" android:centerY="0.05" android:gradientRadius="220dp" android:startColor="#59F4511E" android:endColor="#00F4511E" /></shape></item>
+    <item android:gravity="right" android:width="1dp"><shape><solid android:color="#1FFFFFFF" /></shape></item>
+</layer-list>

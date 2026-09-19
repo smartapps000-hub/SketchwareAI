@@ -1,106 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Projects list, Obsidian liquid glass (design canvas board "Projects"). -->
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/swipe_refresh"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:forceDarkAllowed="false">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@android:color/transparent"
-        android:forceDarkAllowed="false"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingLeft="12dp"
+        android:paddingTop="12dp"
+        android:paddingRight="12dp">
 
-        <androidx.cardview.widget.CardView
+        <!-- Shown only while there are no projects (the FAB takes over afterwards). -->
+        <LinearLayout
             android:id="@+id/cv_create_new"
             android:layout_width="match_parent"
             android:layout_height="96dp"
-            android:layout_margin="8dp"
-            android:background="@color/transparent"
-            android:stateListAnimator="@animator/sw_press"
-            android:foreground="?selectableItemBackground"
-            app:cardBackgroundColor="@android:color/transparent"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="0dp">
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/ob_glass"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="6dp"
+            android:paddingRight="16dp"
+            android:stateListAnimator="@animator/sw_press">
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/ob_tile_orange_glow"
+                android:contentDescription="@null"
+                android:padding="21dp"
+                android:src="@drawable/ob_ic_plus" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/sw_glass_card"
-                android:clickable="false"
-                android:gravity="center_vertical"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="4dp"
+                android:layout_weight="1"
                 android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:background="@color/transparent"
-                    android:clickable="false"
-                    android:src="@drawable/plus_96"
-                    tools:ignore="ContentDescription" />
 
                 <TextView
+                    style="@style/Ob.Text.Title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:clickable="false"
-                    android:text="@string/myprojects_list_menu_title_create_a_new_project"
-                    android:textColor="@color/sw_text_accent"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+                    android:text="@string/myprojects_list_menu_title_create_a_new_project" />
 
-        <androidx.cardview.widget.CardView
+                <TextView
+                    style="@style/Ob.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Targets Android 17 · D8 · Java 11" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/cv_restore_projects"
             android:layout_width="match_parent"
-            android:layout_height="96dp"
-            android:layout_marginLeft="8dp"
-            android:layout_marginTop="@dimen/card_view_margin8"
-            android:layout_marginRight="8dp"
-            android:layout_marginBottom="@dimen/card_view_margin8"
-            android:background="@color/transparent"
-            android:stateListAnimator="@animator/sw_press"
-            android:foreground="?selectableItemBackground"
-            app:cardBackgroundColor="@android:color/transparent"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="0dp">
+            android:layout_height="72dp"
+            android:background="@drawable/ob_glass"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="6dp"
+            android:paddingRight="16dp"
+            android:stateListAnimator="@animator/sw_press">
+
+            <ImageView
+                android:id="@+id/iv_restore_projects"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/ob_tile_orange_glow"
+                android:contentDescription="@null"
+                android:padding="21dp"
+                android:src="@drawable/ob_ic_restore" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/sw_glass_card"
-                android:clickable="false"
-                android:gravity="center_vertical"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="4dp"
+                android:layout_weight="1"
                 android:orientation="vertical">
-
-                <ImageView
-                    android:id="@+id/iv_restore_projects"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_gravity="center"
-                    android:clickable="false"
-                    android:src="@drawable/data_backup_96"
-                    tools:ignore="ContentDescription" />
 
                 <TextView
                     android:id="@+id/tv_restore_projects"
+                    style="@style/Ob.Text.Title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:clickable="false"
-                    android:text="Restore projects"
-                    android:textColor="@color/sw_text_accent"
-                    android:textStyle="bold" />
+                    android:text="Restore projects" />
+
+                <TextView
+                    android:id="@+id/tv_restore_subtitle"
+                    style="@style/Ob.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="From .swb backups or Sketchware Pro" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/myprojects"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingTop="12dp"
+            android:paddingBottom="112dp"
             android:splitMotionEvents="false" />
     </LinearLayout>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

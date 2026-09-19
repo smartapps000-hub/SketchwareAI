@@ -13,7 +13,9 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.ViewGroup;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.widget.Toolbar;
@@ -208,8 +210,11 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         a(toolbar);
-        d().d(true);
-        d().e(true);
+        // The glass header draws its own menu pill, so the action bar's home arrow stays hidden.
+        d().d(false);
+        d().e(false);
+        com.sketchware.ai.ui.ObsidianWindow.apply(this);
+        setUpGlassHeader();
         ImageView logo = findViewById(R.id.img_title_logo);
         logo.setOnClickListener(v -> invalidateOptionsMenu());
         drawer = findViewById(R.id.left_drawer);
@@ -515,6 +520,56 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
             projectsFragment.showCreateNewProjectLayout();
         } else if (position == 1) {
             fab.c();
+        }
+    }
+
+    /** Glass header: menu pill opens the drawer, search pill swaps the title for a live filter. */
+    private void setUpGlassHeader() {
+        View titleBlock = findViewById(R.id.ob_title_block);
+        android.widget.EditText searchField = findViewById(R.id.ob_search_field);
+        ImageView search = findViewById(R.id.ob_search);
+        findViewById(R.id.ob_menu).setOnClickListener(v -> drawerLayout.h(android.view.Gravity.START));
+        search.setOnClickListener(v -> {
+            boolean open = searchField.getVisibility() != View.VISIBLE;
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (open) {
+                titleBlock.setVisibility(View.GONE);
+                searchField.setVisibility(View.VISIBLE);
+                search.setImageResource(R.drawable.ob_ic_close);
+                search.setContentDescription("Close search");
+                searchField.requestFocus();
+                imm.showSoftInput(searchField, 0);
+            } else {
+                searchField.setText("");
+                imm.hideSoftInputFromWindow(searchField.getWindowToken(), 0);
+                searchField.setVisibility(View.GONE);
+                titleBlock.setVisibility(View.VISIBLE);
+                search.setImageResource(R.drawable.ob_ic_search);
+                search.setContentDescription("Search projects");
+            }
+        });
+        searchField.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (projectsFragment != null) projectsFragment.setSearchQuery(s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+            }
+        });
+    }
+
+    /** Header subtitle, e.g. "5 projects · Android 17 ready". */
+    public void setProjectCount(int count) {
+        TextView subtitle = findViewById(R.id.ob_subtitle);
+        if (subtitle != null) {
+            subtitle.setText(count + (count == 1 ? " project" : " projects") + " · Android 17 ready");
         }
     }
 

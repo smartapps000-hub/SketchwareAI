@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Attributes of com.sketchware.ai.ui.GlassDrawable (the liquid-glass surface). -->
+    <declare-styleable name="SwGlass">
+        <attr name="swRadius" format="dimension" />
+        <attr name="swCorners" format="enum">
+            <enum name="all" value="0" />
+            <enum name="top" value="1" />
+            <enum name="bottom" value="2" />
+        </attr>
+        <attr name="swFillTop" format="color" />
+        <attr name="swFillBottom" format="color" />
+        <attr name="swFillAngle" format="integer" />
+        <attr name="swSheen" format="color" />
+        <attr name="swRimTop" format="color" />
+        <attr name="swRimBottom" format="color" />
+        <attr name="swRimWidth" format="dimension" />
+        <attr name="swGlowColor" format="color" />
+        <attr name="swGlowRadius" format="dimension" />
+        <attr name="swGlowDy" format="dimension" />
+        <attr name="swDashed" format="boolean" />
+    </declare-styleable>
+</resources>

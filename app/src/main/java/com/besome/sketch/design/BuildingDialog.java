@@ -26,6 +26,11 @@ public class BuildingDialog extends Dialog {
         LinearLayout quizLayout = findViewById(R.id.layout_quiz);
         quizBoard = new QuizBoard(getContext());
         quizLayout.addView(quizBoard);
+        // The quiz is a classic light layout: re-colour it for the glass sheet.
+        com.sketchware.ai.ui.ObsidianAdapter.adaptLive(quizBoard);
+        if (getWindow() != null) {
+            getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+        }
         LottieAnimationView animationView = findViewById(R.id.animation_view);
         animationView.setScale(2);
         setTitle(Helper.getResString(R.string.common_message_progress));

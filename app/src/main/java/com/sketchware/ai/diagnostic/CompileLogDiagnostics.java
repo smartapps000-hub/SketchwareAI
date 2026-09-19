@@ -65,6 +65,74 @@ public final class CompileLogDiagnostics {
                     "The phone ran out of memory while building. Close other apps and try again."),
     };
 
+    /** Structured result for the diagnostic sheet. */
+    public static final class Result {
+        /** Short form of the first error ("main.xml:8 · cardCornerRadius not found"), or null. */
+        public final String firstError;
+        /** One entry per matched known pattern, in rule order. */
+        public final List<String> advice;
+
+        Result(String firstError, List<String> advice) {
+            this.firstError = firstError;
+            this.advice = advice;
+        }
+    }
+
+    public static Result analyze(String log) {
+        if (log == null || log.trim().isEmpty()) {
+            return new Result(null, new ArrayList<>());
+        }
+        String first = firstErrorLine(log);
+        String shortFirst = first == null ? null : shorten(first);
+        // ECJ reports "ERROR in <file> (at line N)", the code, a caret line, then the message.
+        Matcher ecj = Pattern.compile("ERROR in \\S*?([^/\\\\\\s]+\\.java) \\(at line (\\d+)\\)\\s*\\n[^\\n]*\\n[^\\n]*\\n\\s*([^\\n]+)")
+                .matcher(log);
+        if (ecj.find()) {
+            shortFirst = ecj.group(1) + ":" + ecj.group(2) + " · " + ecj.group(3).trim();
+        }
+        List<String> advice = new ArrayList<>(matchAdvice(log));
+        // The generic "failed linking" note only repeats what a specific resource rule said.
+        if (advice.size() > 1) {
+            for (java.util.Iterator<String> it = advice.iterator(); it.hasNext(); ) {
+                if (it.next().startsWith("AAPT2 couldn't link")) it.remove();
+            }
+        }
+        return new Result(shortFirst, advice);
+    }
+
+    private static Set<String> matchAdvice(String log) {
+        Set<String> advice = new LinkedHashSet<>();
+        for (Rule rule : RULES) {
+            Matcher m = rule.pattern.matcher(log);
+            if (m.find()) {
+                String detail = "";
+                for (int g = 1; g <= m.groupCount(); g++) {
+                    if (m.group(g) != null) {
+                        detail = m.group(g);
+                        break;
+                    }
+                }
+                advice.add(rule.advice.contains("%s") ? String.format(rule.advice, detail) : rule.advice);
+            }
+        }
+        return advice;
+    }
+
+    /**
+     * ".../res/layout/main.xml:8: error: attribute cardCornerRadius (aka com.x:cardCornerRadius) not found."
+     * becomes "main.xml:8 · attribute cardCornerRadius not found".
+     */
+    static String shorten(String line) {
+        String first = line.split("\n")[0].trim();
+        Matcher m = Pattern.compile("([^/\\\\\\s]+\\.(?:xml|java))((?::\\d+)*):?\\s*(?:error:)?\\s*(.*)").matcher(first);
+        if (m.find()) {
+            String location = m.group(1) + (m.group(2) == null ? "" : m.group(2).replaceAll(":(\\d+).*", ":$1"));
+            String message = m.group(3).replaceAll("\\s*\\(aka [^)]*\\)", "").replaceAll("\\.$", "").trim();
+            return message.isEmpty() ? location : location + " · " + message;
+        }
+        return first.length() > 160 ? first.substring(0, 157) + "…" : first;
+    }
+
     /** Human-readable diagnosis for the whole log. Never null. */
     public static String diagnose(String log) {
         if (log == null || log.trim().isEmpty()) {

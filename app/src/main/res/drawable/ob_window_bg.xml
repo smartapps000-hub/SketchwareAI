@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Obsidian ground with the two ambient glows from the mockup:
+     orange 360px circle centred at (60, 300) of 390x844, rgba(244,81,30,.55) -> clear at 70%;
+     amber 300px circle centred at (350, 620), rgba(255,182,25,.35) -> clear at 70%. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape><solid android:color="#FF0B0B0D" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.154" android:centerY="0.355" android:gradientRadius="126dp" android:startColor="#8CF4511E" android:centerColor="#40F4511E" android:endColor="#00F4511E" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.897" android:centerY="0.735" android:gradientRadius="105dp" android:startColor="#59FFB619" android:centerColor="#26FFB619" android:endColor="#00FFB619" /></shape></item>
+</layer-list>

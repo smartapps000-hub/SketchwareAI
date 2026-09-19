@@ -3,7 +3,8 @@
     android:id="@id/layout_main"
     android:layout_width="260dp"
     android:layout_height="match_parent"
-    android:background="@color/color_primary"
+    android:background="@drawable/ob_drawer_bg"
+    android:forceDarkAllowed="false"
     android:orientation="vertical">
 
     <ScrollView
@@ -36,6 +37,7 @@
                     android:layout_height="wrap_content"
                     android:padding="16dp"
                     android:src="@drawable/facebook_white"
+                    android:alpha="0.6"
                     android:theme="@style/selectableMainItemBackground" />
 
                 <ImageView
@@ -44,6 +46,7 @@
                     android:layout_height="wrap_content"
                     android:padding="16dp"
                     android:src="@drawable/medium_white"
+                    android:alpha="0.6"
                     android:theme="@style/selectableMainItemBackground" />
 
                 <ImageView
@@ -52,6 +55,7 @@
                     android:layout_height="wrap_content"
                     android:padding="16dp"
                     android:src="@drawable/slack_white"
+                    android:alpha="0.6"
                     android:theme="@style/selectableMainItemBackground" />
             </LinearLayout>
         </LinearLayout>

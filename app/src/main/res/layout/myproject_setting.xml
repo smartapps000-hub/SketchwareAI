@@ -1,54 +1,264 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:orientation="vertical" android:id="@id/contents" android:background="#ffffffff" android:padding="16.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content"
-  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="wrap_content">
-        <LinearLayout android:gravity="center" android:orientation="vertical" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="16.0dip">
-            <RelativeLayout android:id="@id/app_icon_layout" android:layout_width="wrap_content" android:layout_height="wrap_content">
-                <View android:background="@drawable/circle_bg_grey" android:layout_width="56.0dip" android:layout_height="56.0dip" android:layout_centerInParent="true" android:contentDescription="@null" />
-                <com.besome.sketch.lib.ui.CircleImageView android:id="@id/app_icon" android:layout_width="48.0dip" android:layout_height="48.0dip" android:src="@drawable/default_icon" android:layout_centerInParent="true" android:contentDescription="@null" />
-            </RelativeLayout>
-            <TextView android:textSize="10.0sp" android:textColor="#ff606060" android:id="@id/tv_change_icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" android:layout_below="@id/app_icon" android:layout_centerHorizontal="true" />
+<!-- New Project / Project settings content, inside the glass dialog sheet
+     (common_dialog_layout). Tagged "obsidian": already designed for glass. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@id/contents"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:tag="obsidian">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@id/app_icon_layout"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/ob_avatar"
+                android:stateListAnimator="@animator/sw_press">
+
+                <ImageView
+                    android:id="@id/app_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/default_icon" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@id/tv_change_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/manrope_medium"
+                android:includeFontPadding="false"
+                android:textColor="@color/ob_accent_2"
+                android:textSize="11sp" />
         </LinearLayout>
-        <com.google.android.material.textfield.TextInputLayout android:gravity="center" android:id="@id/ti_app_name" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="16.0dip">
-            <EditText android:textSize="14.0sp" android:textColor="#ff535353" android:textColorHint="#ff8e8e8e" android:id="@id/et_app_name" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="16.0dip" android:layout_marginRight="16.0dip" android:inputType="text" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="14dp"
+            android:orientation="vertical">
+
+        <TextView
+            style="@style/Ob.Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Application name" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@id/ti_app_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:boxBackgroundMode="none"
+            app:hintEnabled="false"
+            android:textColorHint="@color/ob_text_2"
+            android:importantForAutofill="noExcludeDescendants"
+            app:hintTextAppearance="@style/Ob.FieldLabel">
+
+            <EditText
+                android:id="@id/et_app_name"
+                style="@style/Ob.Field"
+                android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
     </LinearLayout>
-    <LinearLayout android:orientation="vertical" android:id="@id/basic" android:clickable="true" android:layout_width="fill_parent" android:layout_height="wrap_content">
-        <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginRight="8.0dip">
-            <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginRight="8.0dip">
-                <LinearLayout android:gravity="center|right" android:orientation="horizontal" android:id="@id/advanced_setting" android:layout_width="fill_parent" android:layout_height="32.0dip" android:layout_marginTop="16.0dip" android:animateLayoutChanges="true">
-                    <TextView android:textSize="12.0sp" android:textColor="#ff757575" android:gravity="center" android:id="@id/tv_advanced_settings" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginRight="4.0dip" />
-                    <ImageView android:id="@id/icon" android:layout_width="16.0dip" android:layout_height="16.0dip" android:src="@drawable/settings_filled_96" android:scaleType="fitCenter" android:contentDescription="@null" />
-                </LinearLayout>
-                <LinearLayout android:orientation="vertical" android:id="@id/advanced_setting_layout" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="8.0dip">
-                    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="wrap_content">
-                        <HorizontalScrollView android:background="@drawable/bg_outline" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="0.0dip" android:layout_height="wrap_content" android:fillViewport="true" android:layout_weight="1.0">
-                            <LinearLayout android:orientation="horizontal" android:id="@id/layout_theme_colors" android:layout_width="fill_parent" android:layout_height="wrap_content" />
-                        </HorizontalScrollView>
-                        <ImageView android:id="@id/img_theme_color_help" android:padding="4.0dip" android:layout_width="36.0dip" android:layout_height="36.0dip" android:layout_marginLeft="8.0dip" android:src="@drawable/help_96_blue" />
-                    </LinearLayout>
-                    <ImageView android:id="@id/img_color_guide" android:background="#ff000000" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:src="@drawable/color_guide" />
-                    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:paddingLeft="4.0dip" android:paddingTop="4.0dip" android:paddingRight="4.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip">
-                        <ImageView android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginRight="4.0dip" android:src="@drawable/package_96" android:scaleType="fitCenter" android:contentDescription="@null" />
-                        <com.google.android.material.textfield.TextInputLayout android:id="@id/ti_package_name" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" app:hintTextAppearance="@style/TextAppearance.App.TextInputLayout">
-                            <EditText android:textSize="14.0sp" android:textColor="#ff535353" android:textColorHint="#ff8e8e8e" android:gravity="start|center" android:id="@id/et_package_name" android:layout_width="fill_parent" android:layout_height="wrap_content" android:inputType="text" />
-                        </com.google.android.material.textfield.TextInputLayout>
-                    </LinearLayout>
-                    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:paddingLeft="4.0dip" android:paddingTop="4.0dip" android:paddingRight="4.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="8.0dip">
-                        <ImageView android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginRight="4.0dip" android:src="@drawable/abc_96" android:scaleType="fitCenter" android:contentDescription="@null" />
-                        <com.google.android.material.textfield.TextInputLayout android:id="@id/ti_project_name" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" app:hintTextAppearance="@style/TextAppearance.App.TextInputLayout">
-                            <EditText android:textSize="14.0sp" android:textColor="#ff535353" android:textColorHint="#ff8e8e8e" android:gravity="start|center" android:id="@id/et_project_name" android:layout_width="fill_parent" android:layout_height="wrap_content" android:inputType="text" />
-                        </com.google.android.material.textfield.TextInputLayout>
-                    </LinearLayout>
-                    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:paddingLeft="4.0dip" android:paddingRight="4.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="8.0dip">
-                        <ImageView android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginRight="4.0dip" android:src="@drawable/code_96" android:scaleType="fitCenter" android:contentDescription="@null" />
-                        <LinearLayout android:orientation="horizontal" android:background="@drawable/bg_outline" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_weight="1.0">
-                            <TextView android:textSize="14.0sp" android:textColor="#ff757575" android:gravity="center" android:id="@id/ver_code" android:background="?android:selectableItemBackground" android:layout_width="0.0dip" android:layout_height="fill_parent" android:text="1" android:layout_weight="1.0" />
-                            <View android:background="#ffc6c6c6" android:layout_width="1.0dip" android:layout_height="fill_parent" />
-                            <TextView android:textSize="14.0sp" android:textColor="#ff757575" android:gravity="center" android:id="@id/ver_name" android:background="?android:selectableItemBackground" android:layout_width="0.0dip" android:layout_height="fill_parent" android:text="1.0" android:layout_weight="1.0" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </LinearLayout>
+
+    <LinearLayout
+        android:id="@id/basic"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@id/advanced_setting"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/ob_pill16_state"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:stateListAnimator="@animator/sw_press">
+
+            <TextView
+                android:id="@id/tv_advanced_settings"
+                style="@style/Ob.Text.Label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="14sp" />
+
+            <ImageView
+                android:id="@id/icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ob_ic_sliders"
+                android:tint="@color/ob_accent" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@id/advanced_setting_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Theme colours" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <HorizontalScrollView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/ob_field"
+                    android:fillViewport="true"
+                    android:overScrollMode="ifContentScrolls"
+                    android:paddingLeft="4dp"
+                    android:paddingRight="4dp"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@id/layout_theme_colors"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+                </HorizontalScrollView>
+
+                <ImageView
+                    android:id="@id/img_theme_color_help"
+                    style="@style/Ob.IconPill"
+                    android:layout_marginLeft="10dp"
+                    android:contentDescription="Theme colour guide"
+                    android:src="@drawable/ob_ic_help"
+                    android:tint="@color/ob_text" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@id/img_color_guide"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:adjustViewBounds="true"
+                android:background="@drawable/ob_field"
+                android:contentDescription="@null"
+                android:padding="6dp"
+                android:src="@drawable/color_guide"
+                android:visibility="gone" />
+
+            <TextView
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Package name" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@id/ti_package_name"
+                app:boxBackgroundMode="none"
+                app:hintEnabled="false"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColorHint="@color/ob_text_2"
+                android:importantForAutofill="noExcludeDescendants"
+                app:hintTextAppearance="@style/Ob.FieldLabel">
+
+                <EditText
+                    android:id="@id/et_package_name"
+                    style="@style/Ob.Field"
+                    android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Project name" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@id/ti_project_name"
+                app:boxBackgroundMode="none"
+                app:hintEnabled="false"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColorHint="@color/ob_text_2"
+                android:importantForAutofill="noExcludeDescendants"
+                app:hintTextAppearance="@style/Ob.FieldLabel">
+
+                <EditText
+                    android:id="@id/et_project_name"
+                    style="@style/Ob.Field"
+                    android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Version code · Version name" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@id/ver_code"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginRight="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/ob_field"
+                    android:fontFamily="@font/manrope_bold"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="@color/ob_text"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@id/ver_name"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/ob_field"
+                    android:fontFamily="@font/manrope_bold"
+                    android:gravity="center"
+                    android:text="1.0"
+                    android:textColor="@color/ob_text"
+                    android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

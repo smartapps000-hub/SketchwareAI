@@ -19,22 +19,22 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="4dp"
-                android:textColor="#fff4511e"
-                android:textSize="12sp" />
+                android:textColor="#FFFF9A4D"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:id="@+id/layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingRight="4dp"
                 android:paddingBottom="4dp" />
 
             <LinearLayout
                 android:id="@+id/divider"
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#12000000"
+                android:background="#14FFFFFF"
                 android:orientation="horizontal" />
 
             <TextView
@@ -42,15 +42,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="4dp"
-                android:textColor="#fff4511e"
-                android:textSize="12sp" />
+                android:textColor="#FFFF9A4D"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:id="@+id/widget"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingRight="4dp"
                 android:paddingBottom="4dp" />
         </LinearLayout>
     </com.besome.sketch.lib.ui.CustomScrollView>

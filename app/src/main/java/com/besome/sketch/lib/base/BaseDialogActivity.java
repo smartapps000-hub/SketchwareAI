@@ -37,15 +37,16 @@ public class BaseDialogActivity extends BaseAppCompatActivity {
     }
 
     public void b(String cancelText) {
-        s.setText(cancelText.toUpperCase());
+        s.setText(cancelText);
     }
 
     public void c(String defaultText) {
-        q.setText(defaultText.toUpperCase());
+        q.setText(defaultText);
+        q.setVisibility(View.VISIBLE);
     }
 
     public void d(String okText) {
-        r.setText(okText.toUpperCase());
+        r.setText(okText);
     }
 
     public void e(String title) {
@@ -91,6 +92,18 @@ public class BaseDialogActivity extends BaseAppCompatActivity {
             }
         });
         p.setVisibility(View.GONE);
+    }
+
+    @Override
+    public void onPostCreate(Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+        // Classic content layouts (dark text on white) are re-coloured for the glass sheet;
+        // layouts tagged "obsidian" are already designed for it and are skipped.
+        com.sketchware.ai.ui.ObsidianAdapter.adaptLive(l);
+        if (p.getVisibility() != View.VISIBLE) {
+            // No icon: the title keeps the tile's place instead of leaving a gap.
+            p.setVisibility(View.GONE);
+        }
     }
 
     @Override

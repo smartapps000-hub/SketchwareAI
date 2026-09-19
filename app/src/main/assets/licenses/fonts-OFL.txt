@@ -1,0 +1,3 @@
+Sora (Jonathan Barnbrook, Julián Moncada), Manrope (Mikhail Sharanda) and JetBrains Mono
+(JetBrains) are licensed under the SIL Open Font License, Version 1.1.
+https://openfontlicense.org — obtained from the @expo-google-fonts npm packages (Google Fonts).

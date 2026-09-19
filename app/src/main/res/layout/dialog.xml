@@ -1,110 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Sketchware AI dialog (a.a.a.aB): Obsidian glass sheet with pill buttons
+     (design canvas board "Project Configuration"). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/sdialog_root"
-    android:layout_width="300dp"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:forceDarkAllowed="false"
+    android:paddingLeft="14dp"
+    android:paddingTop="14dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="14dp">
 
     <LinearLayout
+        android:id="@+id/ob_sheet"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/ob_glass_sheet"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingLeft="20dp"
+        android:paddingTop="22dp"
+        android:paddingRight="20dp"
+        android:paddingBottom="18dp">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-            <ImageView
-                android:id="@+id/dialog_img"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="center"
-                android:scaleType="fitCenter" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/dialog_img"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginRight="12dp"
+                    android:background="@drawable/ob_tile_orange"
+                    android:contentDescription="@null"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:tint="#FFFFFFFF" />
+
+                <TextView
+                    android:id="@+id/dialog_title"
+                    style="@style/Ob.Text.Sheet"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:lineSpacingExtra="2dp" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/dialog_title"
-                android:layout_width="0dp"
+                android:id="@+id/dialog_msg"
+                style="@style/Ob.Text.Body"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
-                android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
-                android:textColor="@color/color_primary"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:layout_marginTop="14dp"
+                android:textIsSelectable="false" />
+
+            <FrameLayout
+                android:id="@+id/custom_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/dialog_msg"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="8dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginRight="8dp"
-            android:layout_marginBottom="8dp"
-            android:textColor="@color/sw_text_secondary"
-            android:textSize="14sp" />
-
-        <FrameLayout
-            android:id="@+id/custom_view"
+        <LinearLayout
+            android:id="@+id/layout_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="start"
-            android:gravity="center|start" />
+            android:layout_marginTop="18dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/common_dialog_default_button"
+                style="@style/Ob.Text.Button"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_marginRight="10dp"
+                android:layout_weight="1"
+                android:background="@drawable/ob_pill16_state"
+                android:ellipsize="end"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:singleLine="true"
+                android:stateListAnimator="@animator/sw_press" />
+
+            <TextView
+                android:id="@+id/dialog_btn_no"
+                style="@style/Ob.Text.Button"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_marginRight="10dp"
+                android:layout_weight="1"
+                android:background="@drawable/ob_pill16_state"
+                android:ellipsize="end"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:singleLine="true"
+                android:stateListAnimator="@animator/sw_press" />
+
+            <!-- 50dp CTA; the text view reaches 9dp past its slot on each side for the solar glow. -->
+            <FrameLayout
+                android:id="@+id/ob_yes_slot"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <TextView
+                    android:id="@+id/dialog_btn_yes"
+                    style="@style/Ob.Text.Button.Cta"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="-9dp"
+                    android:layout_marginTop="-9dp"
+                    android:layout_marginRight="-9dp"
+                    android:layout_marginBottom="-9dp"
+                    android:background="@drawable/ob_cta_state"
+                    android:ellipsize="end"
+                    android:paddingLeft="19dp"
+                    android:paddingRight="19dp"
+                    android:singleLine="true"
+                    android:stateListAnimator="@animator/sw_press" />
+            </FrameLayout>
+        </LinearLayout>
     </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/layout_button"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_gravity="center_horizontal"
-        android:background="@drawable/bg_glass_dialog_buttons"
-        android:gravity="center|end"
-        android:orientation="horizontal"
-        android:paddingLeft="8dp"
-        android:paddingRight="8dp">
-
-        <TextView
-            android:id="@+id/common_dialog_default_button"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:textColor="@color/primary_text_default_material_dark"
-            android:textSize="14sp" />
-
-        <android.widget.Space
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="horizontal" />
-
-        <TextView
-            android:id="@+id/dialog_btn_no"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_marginEnd="16dp"
-            android:gravity="center"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:textColor="@color/primary_text_default_material_dark"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/dialog_btn_yes"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:textColor="@color/primary_text_default_material_dark"
-            android:textSize="14sp" />
-    </LinearLayout>
-</LinearLayout>
+</FrameLayout>

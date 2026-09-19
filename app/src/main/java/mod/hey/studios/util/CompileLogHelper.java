@@ -12,8 +12,8 @@ import java.util.regex.Pattern;
 
 public class CompileLogHelper {
 
-    private static final int ERROR_COL = Color.parseColor("#fe0000");
-    private static final int WARNING_COL = Color.parseColor("#ffc400");
+    private static final int ERROR_COL = Color.parseColor("#FF8A65");
+    private static final int WARNING_COL = Color.parseColor("#FFB877");
 
     public static SpannableString colorErrsAndWarnings(String str) {
         SpannableString spannable = new SpannableString(str);
