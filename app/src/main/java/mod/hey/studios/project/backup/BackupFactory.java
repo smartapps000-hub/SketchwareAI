@@ -49,7 +49,7 @@ import mod.hilal.saif.activities.tools.ConfigActivity;
 
 public class BackupFactory {
     public static final String EXTENSION = "swb";
-    public static final String DEF_PATH = ".sketchware/backups/";
+    public static final String DEF_PATH = ".sketchware_ai/backups/";
 
     private static final String[] resSubfolders = {
             "fonts", "icons", "images", "sounds"
@@ -77,7 +77,7 @@ public class BackupFactory {
 
     private static File getAllLocalLibsDir() {
         return new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/libs/local_libs");
+                ".sketchware_ai/libs/local_libs");
     }
 
     private static HashMap<String, Object> getProject(File file) {
@@ -117,7 +117,7 @@ public class BackupFactory {
 
     public static String getNewScId() {
         File myscList = new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/mysc/list/");
+                ".sketchware_ai/mysc/list/");
 
         ArrayList<String> list = new ArrayList<>();
         FileUtil.listDir(myscList.getAbsolutePath(), list);
@@ -564,21 +564,21 @@ public class BackupFactory {
 
     private File getDataDir() {
         return new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/data/" + sc_id);
+                ".sketchware_ai/data/" + sc_id);
     }
 
     private File getResDir(String subfolder) {
         return new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/resources/" + subfolder + "/" + sc_id);
+                ".sketchware_ai/resources/" + subfolder + "/" + sc_id);
     }
 
     private File getProjectPath() {
         return new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/mysc/list/" + sc_id + "/project");
+                ".sketchware_ai/mysc/list/" + sc_id + "/project");
     }
 
     private File getLocalLibsPath() {
         return new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/data/" + sc_id + "/local_library");
+                ".sketchware_ai/data/" + sc_id + "/local_library");
     }
 }

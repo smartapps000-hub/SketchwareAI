@@ -44,7 +44,7 @@ public class IncrementalJavaCompiler extends Compiler {
     private Compiler.Result onResultListener;
 
     public IncrementalJavaCompiler(yq projectConfig) {
-        SAVE_PATH = FileUtil.getExternalStorageDir() + "/.sketchware/mysc/" + projectConfig.sc_id + "/incremental";
+        SAVE_PATH = FileUtil.getExternalStorageDir() + "/.sketchware_ai/mysc/" + projectConfig.sc_id + "/incremental";
 
         this.projectConfig = projectConfig;
         buildSettings = new BuildSettings(projectConfig.sc_id);

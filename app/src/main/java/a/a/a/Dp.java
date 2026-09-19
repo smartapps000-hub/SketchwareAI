@@ -80,7 +80,14 @@ import proguard.ProGuard;
 public class Dp {
 
     public static final String TAG = "AppBuilder";
+    /**
+     * The AAPT2 executable. Normally libaapt2.so from nativeLibraryDir: the package
+     * installer extracts the binary matching the device's ABI there and marks it
+     * executable, which works on 64-bit-only devices and at any targetSdkVersion.
+     * Falls back to the legacy copy extracted from assets into the cache directory.
+     */
     private final File aapt2Binary;
+    private final boolean aapt2FromNativeLibraryDir;
     public BuildSettings build_settings;
     private BuildProgressReceiver progressReceiver;
     private final Context context;
@@ -123,7 +130,11 @@ public class Dp {
             LogUtil.e(TAG, "Somehow failed to get package info about us!", e);
         }
 
-        aapt2Binary = new File(context.getCacheDir(), "aapt2");
+        File packagedAapt2 = new File(context.getApplicationInfo().nativeLibraryDir, "libaapt2.so");
+        aapt2FromNativeLibraryDir = packagedAapt2.isFile();
+        aapt2Binary = aapt2FromNativeLibraryDir ? packagedAapt2 : new File(context.getCacheDir(), "aapt2");
+        LogUtil.d(TAG, "Using AAPT2 at " + aapt2Binary.getAbsolutePath() + " (ABIs: "
+                + Arrays.toString(Build.SUPPORTED_ABIS) + ")");
         build_settings = new BuildSettings(yqVar.sc_id);
         this.context = context;
         yq = yqVar;
@@ -291,7 +302,7 @@ public class Dp {
         }
 
         /* Add JARs from project's classpath */
-        String path = FileUtil.getExternalStorageDir() + "/.sketchware/data/" + yq.sc_id + "/files/classpath/";
+        String path = FileUtil.getExternalStorageDir() + "/.sketchware_ai/data/" + yq.sc_id + "/files/classpath/";
         ArrayList<String> jars = FileUtil.listFiles(path, "jar");
         classpath.append(":").append(TextUtils.join(":", jars));
 
@@ -719,6 +730,13 @@ public class Dp {
      * @throws By If anything goes wrong while extracting
      */
     public void maybeExtractAapt2() throws By {
+        if (aapt2FromNativeLibraryDir) {
+            if (!aapt2Binary.canExecute()) {
+                throw new By("AAPT2 at " + aapt2Binary.getAbsolutePath() + " is not executable. "
+                        + "Reinstall Sketchware AI from the universal APK.");
+            }
+            return;
+        }
         String aapt2PathInAssets = "aapt/";
         if (GB.a().toLowerCase().contains("x86")) {
             aapt2PathInAssets += "aapt2-x86";

@@ -63,7 +63,7 @@ public class CustomBlocksManager {
     /*public String getCustomBlocksJsonPath() {
         return new File(
             Environment.getExternalStorageDirectory(),
-            ".sketchware/data/" + sc_id + "/custom_blocks")
+            ".sketchware_ai/data/" + sc_id + "/custom_blocks")
             .getAbsolutePath();
     }
 
@@ -152,7 +152,7 @@ public class CustomBlocksManager {
     
     
     public String getCustomBlocksJsonPath() {
-        return new File(Environment.getExternalStorageDirectory(), ".sketchware/data/"+sc_id+"/custom_blocks").getAbsolutePath();
+        return new File(Environment.getExternalStorageDirectory(), ".sketchware_ai/data/"+sc_id+"/custom_blocks").getAbsolutePath();
     }
     
     

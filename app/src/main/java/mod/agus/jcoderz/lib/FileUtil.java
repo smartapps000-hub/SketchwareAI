@@ -120,14 +120,38 @@ public class FileUtil {
         return sb.toString();
     }
 
+    /**
+     * Writes text to a file atomically: the text goes to a temporary file next to the target,
+     * is synced to disk, and then renamed over the target. A crash, a full disk or a second
+     * writer can no longer leave a half-written settings or project file behind.
+     */
     public static void writeFile(String path, String str) {
         createNewFileIfNotPresent(path);
 
-        try (FileWriter fileWriter = new FileWriter(path, false)) {
-            fileWriter.write(str);
-            fileWriter.flush();
+        File target = new File(path);
+        File temp = new File(target.getParentFile(), target.getName() + ".tmp");
+        try (FileOutputStream out = new FileOutputStream(temp, false);
+             java.io.Writer writer = new java.io.OutputStreamWriter(out)) {
+            writer.write(str);
+            writer.flush();
+            out.getFD().sync();
         } catch (IOException e) {
             e.printStackTrace();
+            temp.delete();
+            return;
+        }
+        if (!temp.renameTo(target)) {
+            // Some file systems refuse to rename over an existing file: replace it in two steps.
+            File backup = new File(target.getParentFile(), target.getName() + ".bak");
+            backup.delete();
+            boolean movedAside = !target.exists() || target.renameTo(backup);
+            if (movedAside && temp.renameTo(target)) {
+                backup.delete();
+            } else {
+                if (backup.exists() && !target.exists()) backup.renameTo(target);
+                temp.delete();
+                Log.e("FileUtil", "Could not replace " + path);
+            }
         }
     }
 

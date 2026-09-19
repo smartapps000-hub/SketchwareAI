@@ -111,7 +111,7 @@ public class IncrementalCompiler {
             }
         }
         File file = new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/data/".concat(projectConfig.sc_id.concat("/files/native_libs")));
+                ".sketchware_ai/data/".concat(projectConfig.sc_id.concat("/files/native_libs")));
         if (FileUtil.isExistFile(file.getAbsolutePath())) {
             builder.addNativeLibraries(file);
         }

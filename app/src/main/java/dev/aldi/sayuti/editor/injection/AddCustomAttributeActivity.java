@@ -61,7 +61,7 @@ public class AddCustomAttributeActivity extends AppCompatActivity {
 
             title.setText(widgetType);
 
-            activityInjectionsFilePath = FileUtil.getExternalStorageDir() + "/.sketchware/data/" + sc_id + "/injection/appcompat/" + activityFilename;
+            activityInjectionsFilePath = FileUtil.getExternalStorageDir() + "/.sketchware_ai/data/" + sc_id + "/injection/appcompat/" + activityFilename;
             if (!FileUtil.isExistFile(activityInjectionsFilePath) || FileUtil.readFile(activityInjectionsFilePath).equals("")) {
                 activityInjections = new Gson().fromJson(AppCompatInjection.getDefaultActivityInjections(), Helper.TYPE_MAP_LIST);
             } else {

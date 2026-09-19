@@ -48,7 +48,7 @@ public class TestActivity extends Activity {
         testProject.put("my_app_name", "Sketchub");
         testProject.put("sc_ver_code", "1.0");
         testProject.put("sc_ver_name", "1.0");
-        String path = FileUtil.getExternalStorageDir() + "/.sketchware/mysc/748/";
+        String path = FileUtil.getExternalStorageDir() + "/.sketchware_ai/mysc/748/";
 
         yq projectConfig = new yq(this, path, testProject);
 

@@ -16,7 +16,7 @@ public class ProjectTracker {
         /*FileUtil.writeFile(
             new File(
                 Environment.getExternalStorageDirectory(),
-                ".sketchware/debug.txt"
+                ".sketchware_ai/debug.txt"
             ).getAbsolutePath(),
             SC_ID
         );*/

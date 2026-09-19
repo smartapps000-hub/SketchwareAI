@@ -49,7 +49,7 @@ public class BlockLoader {
 
     public static ExtraBlockInfo getBlockFromProject(String sc_id, String block_name) {
         File customBlocksConfig = new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/data/" + sc_id + "/custom_blocks");
+                ".sketchware_ai/data/" + sc_id + "/custom_blocks");
         if (customBlocksConfig.exists()) {
             try {
                 ArrayList<ExtraBlockInfo> extraBlocks = new Gson().fromJson(

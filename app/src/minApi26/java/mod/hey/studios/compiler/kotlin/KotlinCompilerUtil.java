@@ -61,7 +61,7 @@ public class KotlinCompilerUtil {
 
     /**
      * Returns a list of available kotlin compiler plugins (.jar)
-     * found in `/.sketchware/data/xxx/files/kt_plugins` dir.
+     * found in `/.sketchware_ai/data/xxx/files/kt_plugins` dir.
      */
     static List<File> getCompilerPlugins(yq workspace) {
         String scId = workspace.sc_id;
