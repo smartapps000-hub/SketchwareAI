@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Obsidian ground with two soft ambient glows that the glass surfaces sit over. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape><solid android:color="#FF0B0B0D" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.05" android:centerY="0.30" android:gradientRadius="340dp" android:startColor="#4DF4511E" android:endColor="#00F4511E" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.98" android:centerY="0.78" android:gradientRadius="300dp" android:startColor="#2EFFB619" android:endColor="#00FFB619" /></shape></item>
+</layer-list>

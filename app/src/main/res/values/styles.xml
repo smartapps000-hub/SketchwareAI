@@ -27,6 +27,7 @@
         <item name="android:alertDialogTheme">@style/SketchwareAI.GlassAlertDialog</item>
         <!-- Android 10+: allows automatic dark rendering; ThemeMode decides when it applies. -->
         <item name="android:forceDarkAllowed">true</item>
+        <item name="android:windowBackground">@drawable/sw_window_bg</item>
     </style>
 
     <!-- Framework AlertDialogs: frosted glass surface with 20dp corners, Cosmic Orange buttons. -->
@@ -39,6 +40,7 @@
         <item name="android:textColorPrimary">#DE000000</item>
         <item name="android:backgroundDimAmount">0.45</item>
         <item name="android:forceDarkAllowed">true</item>
+        <item name="android:windowBackground">@drawable/sw_window_bg</item>
     </style>
 
     <style name="AppTheme.Button.Amber" parent="@style/Base.Widget.AppCompat.Button">
@@ -2234,6 +2236,7 @@
 
     <style name="Theme.MaterialComponents.Light.DarkActionBar.Bridge" parent="@style/Base.Theme.MaterialComponents.Light.DarkActionBar.Bridge">
         <item name="android:forceDarkAllowed">true</item>
+        <item name="android:windowBackground">@drawable/sw_window_bg</item>
     </style>
 
     <style name="Theme.MaterialComponents.Light.Dialog" parent="@style/Base.Theme.MaterialComponents.Light.Dialog" />

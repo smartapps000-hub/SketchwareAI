@@ -33,7 +33,7 @@
             android:id="@id/viewpager"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@android:color/white"
+            android:background="@android:color/transparent"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -44,8 +44,9 @@
             android:layout_marginLeft="16.0dip"
             android:layout_marginRight="16.0dip"
             android:layout_marginBottom="32.0dip"
-            android:src="@drawable/plus_96"
-            app:backgroundTint="#ffffffff"
+            android:src="@drawable/ic_sw_plus_white"
+            app:backgroundTint="@color/sw_cta_start"
+            app:rippleColor="#66FFE0C2"
             app:elevation="6.0dip"
             app:fabSize="normal"
             app:layout_anchorGravity="center" />

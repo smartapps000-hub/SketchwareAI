@@ -140,7 +140,7 @@ public class ProjectSettingsDialog {
 
         i.setText(hint);
         i.setChecked(v.equals("true"));
-        i.setTextColor(Color.BLACK);
+        i.setTextColor(activity.getResources().getColor(R.color.sw_text_primary));
         i.setPadding(
                 (int) getDip(4),
                 (int) getDip(8),
@@ -178,9 +178,9 @@ public class ProjectSettingsDialog {
                 (int) getDip(8)
         );
         e.setTextSize(16);
-        e.setTextColor(Color.BLACK);
+        e.setTextColor(activity.getResources().getColor(R.color.sw_text_primary));
         e.setHint(hint);
-        e.setHintTextColor(0xff607d8b);
+        e.setHintTextColor(activity.getResources().getColor(R.color.sw_text_secondary));
         e.setText(settings.getValue(key, defaultValue));
         e.setTag(key);
         e.setInputType(inputType);

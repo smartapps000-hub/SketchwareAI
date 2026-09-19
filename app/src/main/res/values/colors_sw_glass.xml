@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sketchware AI liquid-glass tokens (light). Night values in values-night/. -->
+<resources>
+    <color name="sw_bg">#FFFFF7F3</color>
+    <color name="sw_text_primary">#FF18181B</color>
+    <color name="sw_text_secondary">#FF52525B</color>
+    <color name="sw_text_accent">#FFC2410C</color>
+    <color name="sw_divider">#1F18181B</color>
+    <color name="sw_canvas_bg">#FFF0F0FF</color>
+    <color name="sw_bar_text">#FFFFFFFF</color>
+    <color name="sw_cta_start">#FFE8501C</color>
+    <color name="sw_cta_end">#FFF97316</color>
+</resources>

@@ -42,7 +42,9 @@ public final class ThemeMode {
     }
 
     public static int get(Context context) {
-        return prefs(context).getInt(KEY, SYSTEM);
+        // Obsidian liquid glass is the designed look, so it is the default (Android 12+ can force it
+        // per app; older phones follow the system setting until the user picks otherwise).
+        return prefs(context).getInt(KEY, DARK);
     }
 
     /** Stores and applies the mode. Returns false when this Android version can't honour it fully. */

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Primary action (Run): Titanium Solar gradient #FF7428 -> #FFB619, white bevel edge.
+<!-- Primary action (Run): #E8501C -> #F97316 (white text >= 3:1), white bevel; pressed glows brighter.
      Insets/padding match the AppCompat button background so the button keeps its size. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_enabled="false">
         <inset android:insetBottom="6dp" android:insetLeft="4dp" android:insetRight="4dp" android:insetTop="6dp">
             <shape android:shape="rectangle">
-                <solid android:color="#80FF7428" />
+                <solid android:color="#80E8501C" />
                 <corners android:radius="14dp" />
                 <padding android:bottom="4dp" android:left="16dp" android:right="16dp" android:top="4dp" />
             </shape>
@@ -14,8 +14,8 @@
     <item android:state_pressed="true">
         <inset android:insetBottom="6dp" android:insetLeft="4dp" android:insetRight="4dp" android:insetTop="6dp">
             <shape android:shape="rectangle">
-                <gradient android:angle="0" android:endColor="#FFF59E0B" android:startColor="#FFE8611A" />
-                <stroke android:width="1dp" android:color="#40FFFFFF" />
+                <gradient android:angle="0" android:endColor="#FFFF8A3D" android:startColor="#FFF4511E" />
+                <stroke android:width="1dp" android:color="#CCFFE0C2" />
                 <corners android:radius="14dp" />
                 <padding android:bottom="4dp" android:left="16dp" android:right="16dp" android:top="4dp" />
             </shape>
@@ -24,7 +24,7 @@
     <item>
         <inset android:insetBottom="6dp" android:insetLeft="4dp" android:insetRight="4dp" android:insetTop="6dp">
             <shape android:shape="rectangle">
-                <gradient android:angle="0" android:endColor="#FFFFB619" android:startColor="#FFFF7428" />
+                <gradient android:angle="0" android:endColor="#FFF97316" android:startColor="#FFE8501C" />
                 <stroke android:width="1dp" android:color="#66FFFFFF" />
                 <corners android:radius="14dp" />
                 <padding android:bottom="4dp" android:left="16dp" android:right="16dp" android:top="4dp" />

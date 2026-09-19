@@ -2,6 +2,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/sw_bg"
+    android:forceDarkAllowed="false"
     android:orientation="vertical">
 
     <include layout="@layout/toolbar_improved" />
@@ -21,10 +23,12 @@
                 android:id="@id/tv_compile_log"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
+                android:paddingLeft="12dp"
+                android:paddingTop="10dp"
+                android:paddingRight="12dp"
                 android:paddingBottom="48dp"
-                android:textColor="@color/primary_text_default_material_light"
+                android:lineSpacingExtra="3dp"
+                android:textColor="@color/sw_text_primary"
                 android:textSize="11sp"
                 android:typeface="monospace" />
         </HorizontalScrollView>

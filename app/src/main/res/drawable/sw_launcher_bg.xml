@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher background: obsidian with a warm Titanium Orange glow from the lower left. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape><solid android:color="#FF0E0E11" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.22" android:centerY="0.80" android:gradientRadius="80dp" android:startColor="#B3F4511E" android:endColor="#00F4511E" /></shape></item>
+    <item><shape><gradient android:type="radial" android:centerX="0.85" android:centerY="0.15" android:gradientRadius="60dp" android:startColor="#40FFB619" android:endColor="#00FFB619" /></shape></item>
+</layer-list>

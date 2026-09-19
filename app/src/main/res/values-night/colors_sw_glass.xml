@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sketchware AI obsidian liquid-glass tokens (dark). -->
+<resources>
+    <color name="sw_bg">#FF0B0B0D</color>
+    <color name="sw_text_primary">#FFF5F5F7</color>
+    <color name="sw_text_secondary">#FFA1A1AA</color>
+    <color name="sw_text_accent">#FFFFB877</color>
+    <color name="sw_divider">#24FFFFFF</color>
+    <color name="sw_canvas_bg">#FF141417</color>
+    <color name="sw_bar_text">#FFF5F5F7</color>
+    <color name="color_primary_dark">#FF0B0B0D</color>
+    <color name="design_tab_background">#FF121215</color>
+    <color name="design_tab_text_color">#FFA1A1AA</color>
+    <color name="main_tab_indicator_color">#FFFF7A29</color>
+</resources>

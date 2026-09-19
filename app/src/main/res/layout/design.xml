@@ -38,19 +38,19 @@
                         android:id="@+id/viewpager"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="@android:color/white" />
+                        android:background="@color/sw_canvas_bg" />
                 </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#ffececec" />
+                    android:background="@color/sw_divider" />
 
                 <LinearLayout
                     android:id="@+id/layout_btn_group"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:background="#ffffffff"
+                    android:layout_height="52dp"
+                    android:background="@drawable/sw_bottom_bar"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingLeft="8dp"
@@ -91,7 +91,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_cta_solar"
-                        android:stateListAnimator="@null"
+                        android:stateListAnimator="@animator/sw_press"
                         android:layout_marginStart="2dp"
                         android:textColor="#ffffffff"
                         android:textSize="@dimen/text_size_button_material"

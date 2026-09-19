@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground (108dp canvas, 66dp safe zone): frosted glass tile with a crisp top rim,
+     white code brackets around a Solar spark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#33FFFFFF" android:pathData="M38,26h32a12,12 0,0 1,12 12v32a12,12 0,0 1,-12 12h-32a12,12 0,0 1,-12 -12v-32a12,12 0,0 1,12 -12z" />
+    <path android:fillColor="#E61A1A1F" android:pathData="M38,27h32a11,11 0,0 1,11 11v32a11,11 0,0 1,-11 11h-32a11,11 0,0 1,-11 -11v-32a11,11 0,0 1,11 -11z" />
+    <path android:fillColor="#00000000" android:strokeColor="#8CFFFFFF" android:strokeWidth="1" android:pathData="M31,33.5a8,8 0,0 1,7 -6.5h32a8,8 0,0 1,7 6.5" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M45,43.5L36.5,54L45,64.5" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M63,43.5L71.5,54L63,64.5" />
+    <path android:fillColor="#FFFF7A29" android:pathData="M54,44.5C54.9,50.6 57.4,53.1 63.5,54C57.4,54.9 54.9,57.4 54,63.5C53.1,57.4 50.6,54.9 44.5,54C50.6,53.1 53.1,50.6 54,44.5Z" />
+</vector>

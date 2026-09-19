@@ -48,7 +48,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginRight="8dp"
             android:layout_marginBottom="8dp"
-            android:textColor="#ff7d7d7d"
+            android:textColor="@color/sw_text_secondary"
             android:textSize="14sp" />
 
         <FrameLayout
