@@ -119,7 +119,7 @@ public class ManageNativelibsActivity extends Activity implements View.OnClickLi
     }
 
     private void createNewDialog() {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         final View root = getLayoutInflater().inflate(R.layout.dialog_create_new_file_layout, null);
 
         final TextView title = root.findViewById(R.id.dialog_create_new_file_layoutTitle);
@@ -245,7 +245,7 @@ public class ManageNativelibsActivity extends Activity implements View.OnClickLi
     }
 
     private void showDialog(final String path) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         final View root = getLayoutInflater().inflate(R.layout.dialog_input_layout, null);
 
         final TextInputLayout filenameLayout = root.findViewById(R.id.dialoginputlayoutLinearLayout2);

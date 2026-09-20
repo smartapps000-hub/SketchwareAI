@@ -106,7 +106,7 @@ public class LogReaderActivity extends AppCompatActivity {
                     break;
 
                 case "Filter by package":
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                    AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(this)
                             .setTitle("Filter by package name")
                             .setMessage("For multiple package names, separate them with a comma (,).");
                     final EditText _e = new EditText(LogReaderActivity.this);

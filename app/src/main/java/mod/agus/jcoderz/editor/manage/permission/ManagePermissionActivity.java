@@ -82,7 +82,7 @@ public class ManagePermissionActivity extends Activity {
         resetPermissions.setVisibility(View.VISIBLE);
         resetPermissions.setImageResource(2131165836);
         resetPermissions.setOnClickListener(v -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(ManagePermissionActivity.this);
+            AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(ManagePermissionActivity.this);
             builder.setTitle("Reset permissions");
             builder.setMessage("Are you sure you want to reset all permissions? This cannot be undone!");
             builder.setPositiveButton("Reset", (dialog, which) -> {

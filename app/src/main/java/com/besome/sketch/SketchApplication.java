@@ -36,10 +36,17 @@ public class SketchApplication extends Application {
         Thread.UncaughtExceptionHandler uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e("SketchApplication", "Uncaught exception on thread " + thread.getName(), throwable);
+            String trace = Log.getStackTraceString(throwable);
+            if (trace.contains("com.besome.sketch.tools.CollectErrorActivity")) {
+                // The crash screen itself failed: don't relaunch it in a loop.
+                Process.killProcess(Process.myPid());
+                System.exit(1);
+                return;
+            }
 
             Intent intent = new Intent(getApplicationContext(), CollectErrorActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            intent.putExtra("error", Log.getStackTraceString(throwable));
+            intent.putExtra("error", trace);
             ((AlarmManager) getSystemService(Context.ALARM_SERVICE))
                     .set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                             1000,

@@ -224,7 +224,7 @@ public class ComponentsMaker extends Activity {
                 startActivity(intent);
             });
             root.setOnLongClickListener(v -> {
-                new AlertDialog.Builder(ComponentsMaker.this)
+                new com.sketchware.ai.ui.ObAlertBuilder(ComponentsMaker.this)
                         .setTitle(_data.get(position).get("name").toString())
                         .setItems(new String[]{"Export", "Delete"}, (dialog, which) -> {
                             if (which == 0) {

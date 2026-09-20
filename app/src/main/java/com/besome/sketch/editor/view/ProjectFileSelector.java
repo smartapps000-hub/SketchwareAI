@@ -170,11 +170,7 @@ public class ProjectFileSelector extends LinearLayout implements View.OnClickLis
         fileName.setTextSize(15);
         fileName.setSingleLine(true);
         fileName.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
-        try {
-            fileName.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(context, R.font.manrope_bold));
-        } catch (RuntimeException ignored) {
-            fileName.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        }
+        fileName.setTypeface(com.sketchware.ai.ui.ObFonts.bold(context));
         addView(fileName);
     }
 

@@ -286,7 +286,7 @@ public class ConfigActivity extends Activity {
                 "System default, Light or Dark. Currently: "
                         + com.sketchware.ai.ui.ThemeMode.LABELS[com.sketchware.ai.ui.ThemeMode.get(this)]
                         + ". The design canvas and block editor always keep true colours.", v ->
-                        new AlertDialog.Builder(this)
+                        new com.sketchware.ai.ui.ObAlertBuilder(this)
                                 .setTitle("Theme")
                                 .setSingleChoiceItems(com.sketchware.ai.ui.ThemeMode.LABELS,
                                         com.sketchware.ai.ui.ThemeMode.get(this), (dialog, which) -> {
@@ -338,7 +338,7 @@ public class ConfigActivity extends Activity {
                     backupDirectory.setText(getBackupPath());
                     tilBackupDirectory.addView(backupDirectory);
 
-                    new AlertDialog.Builder(this)
+                    new com.sketchware.ai.ui.ObAlertBuilder(this)
                             .setTitle("Backup directory")
                             .setView(container)
                             .setPositiveButton(R.string.common_word_save, (dialogInterface, which) -> {
@@ -409,7 +409,7 @@ public class ConfigActivity extends Activity {
                     backupFilename.setText(getBackupFileName());
                     tilBackupFormat.addView(backupFilename);
 
-                    new AlertDialog.Builder(this)
+                    new com.sketchware.ai.ui.ObAlertBuilder(this)
                             .setTitle("Backup filename format")
                             .setView(container)
                             .setNegativeButton(R.string.common_word_cancel, (dialogInterface, which) -> dialogInterface.dismiss())

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Crash-screen glass: plain shape (no custom drawable class), so the crash report can always draw. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient android:angle="315" android:startColor="#FFE8501C" android:endColor="#FFF97316" />
+    <stroke android:width="1dp" android:color="#80FFFFFF" />
+    <corners android:radius="16dp" />
+</shape>

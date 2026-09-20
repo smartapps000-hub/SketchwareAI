@@ -2893,7 +2893,7 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         codeEditor.setWordwrap(false);
         codeEditor.getComponent(Magnifier.class).setWithinEditorForcibly(true);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Source code")
                 .setIcon(R.drawable.code_icon)
                 .setPositiveButton(R.string.common_word_close, null)

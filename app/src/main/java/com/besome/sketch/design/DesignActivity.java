@@ -740,7 +740,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     }
 
     private void showCurrentActivitySrcCode() {
-        ProgressDialog progress = new ProgressDialog(DesignActivity.this);
+        ProgressDialog progress = new ProgressDialog(DesignActivity.this, com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
         progress.setMessage("Generating source...");
         progress.setCancelable(false);
         progress.show();
@@ -749,7 +749,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
             String filename = projectFileSelector.getFileName();
             final String source = new yq(getApplicationContext(), sc_id).getFileSrc(filename, jC.b(sc_id), jC.a(sc_id), jC.c(sc_id));
 
-            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(DesignActivity.this)
+            AlertDialog.Builder dialogBuilder = new com.sketchware.ai.ui.ObAlertBuilder(DesignActivity.this)
                     .setTitle(filename)
                     .setCancelable(false)
                     .setPositiveButton("Dismiss", null);

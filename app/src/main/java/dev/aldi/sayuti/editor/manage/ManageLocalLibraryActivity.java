@@ -54,7 +54,7 @@ public class ManageLocalLibraryActivity extends Activity implements View.OnClick
 
     @Override
     public void onClick(View v) {
-        new AlertDialog.Builder(this)
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Dexer")
                 .setMessage("Would you like to use Dx or D8 to dex the library?\n" +
                         "D8 supports Java 8, whereas Dx does not. Limitation: D8 only works on Android 8 and above.")

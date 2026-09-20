@@ -361,7 +361,7 @@ public class BlocksManagerDetailsActivity extends AppCompatActivity {
                     break;
 
                 case "Delete":
-                    new AlertDialog.Builder(this)
+                    new com.sketchware.ai.ui.ObAlertBuilder(this)
                             .setTitle("Delete block?")
                             .setMessage("Are you sure you want to delete this block?")
                             .setPositiveButton("Recycle bin", (dialog, which) -> _moveToRecycleBin(position))
@@ -420,7 +420,7 @@ public class BlocksManagerDetailsActivity extends AppCompatActivity {
         }
 
         Gson gson = new Gson();
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setNegativeButton(R.string.common_word_cancel, null);
         if (palette == -1) {
             AtomicInteger restoreToChoice = new AtomicInteger(-1);
@@ -461,7 +461,7 @@ public class BlocksManagerDetailsActivity extends AppCompatActivity {
                     SketchwareUtil.toastError("Invalid name entry of Custom Block #" + (i + 1) + " in Blocks to import");
                 }
             }
-            AlertDialog.Builder import_dialog = new AlertDialog.Builder(this);
+            AlertDialog.Builder import_dialog = new com.sketchware.ai.ui.ObAlertBuilder(this);
             import_dialog.setTitle("Import blocks")
                     .setMultiChoiceItems(names.toArray(new CharSequence[0]), null, (dialog, which, isChecked) -> {
                         if (isChecked) {

@@ -118,7 +118,7 @@ public class EventsMaker extends Activity {
     }
 
     private void showAddDial() {
-        final AlertDialog create = new AlertDialog.Builder(this).create();
+        final AlertDialog create = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.add_new_listener, null);
         create.setView(inflate);
         create.setCanceledOnTouchOutside(true);
@@ -183,7 +183,7 @@ public class EventsMaker extends Activity {
     }
 
     private void editItemDialog(final int position) {
-        final AlertDialog create = new AlertDialog.Builder(this).create();
+        final AlertDialog create = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.add_new_listener, null);
         create.setView(inflate);
         create.setCanceledOnTouchOutside(true);
@@ -510,7 +510,7 @@ public class EventsMaker extends Activity {
                 startActivity(intent);
             });
             linearLayout.setOnLongClickListener(v -> {
-                new AlertDialog.Builder(EventsMaker.this)
+                new com.sketchware.ai.ui.ObAlertBuilder(EventsMaker.this)
                         .setTitle(_data.get(position).get("name").toString())
                         .setItems(new String[]{"Edit", "Export", "Delete"}, (dialog, which) -> {
                             switch (which) {

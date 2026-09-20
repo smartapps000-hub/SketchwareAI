@@ -305,13 +305,7 @@ public class CompileLogActivity extends Activity {
         logViewerPreferences.edit().putBoolean(PREFERENCE_USE_MONOSPACED_FONT, isChecked).apply();
 
         if (isChecked) {
-            Typeface mono;
-            try {
-                mono = androidx.core.content.res.ResourcesCompat.getFont(this, R.font.jetbrains_mono);
-            } catch (RuntimeException e) {
-                mono = null;
-            }
-            tv_compile_log.setTypeface(mono != null ? mono : Typeface.MONOSPACE);
+            tv_compile_log.setTypeface(com.sketchware.ai.ui.ObFonts.mono(this));
         } else {
             tv_compile_log.setTypeface(Typeface.DEFAULT);
         }
@@ -330,7 +324,7 @@ public class CompileLogActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER));
 
-        new AlertDialog.Builder(this)
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Select font size")
                 .setView(layout)
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {

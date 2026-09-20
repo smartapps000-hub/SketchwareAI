@@ -243,7 +243,7 @@ public class SrcCodeEditor extends AppCompatActivity {
         if (beforeContent.equals(editor.getText().toString())) {
             super.onBackPressed();
         } else {
-            new AlertDialog.Builder(this)
+            new com.sketchware.ai.ui.ObAlertBuilder(this)
                     .setTitle("Warning")
                     .setMessage("You have unsaved changes. Are you sure you want to exit?")
                     .setPositiveButton(R.string.common_word_exit, (dialog, which) -> finish())
@@ -351,7 +351,7 @@ public class SrcCodeEditor extends AppCompatActivity {
 
             case "Switch theme":
                 String[] themes = new String[]{"Default", "GitHub", "Eclipse", "Dracula", "VS2019", "NotepadXX"};
-                new AlertDialog.Builder(SrcCodeEditor.this)
+                new com.sketchware.ai.ui.ObAlertBuilder(SrcCodeEditor.this)
                         .setTitle("Switch theme")
                         .setSingleChoiceItems(themes, -1,
                                 (dialog, which) -> {

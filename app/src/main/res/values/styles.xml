@@ -30,17 +30,19 @@
         <item name="android:windowBackground">@drawable/sw_window_bg</item>
     </style>
 
-    <!-- Framework AlertDialogs: frosted glass surface with 20dp corners, Cosmic Orange buttons. -->
-    <style name="SketchwareAI.GlassAlertDialog" parent="@android:style/Theme.Material.Light.Dialog.Alert">
-        <item name="android:windowBackground">@drawable/bg_glass_alert_window</item>
-        <item name="android:colorAccent">@color/color_accent</item>
-        <item name="android:colorPrimary">@color/color_primary</item>
-        <item name="android:colorControlActivated">@color/color_primary</item>
-        <item name="android:colorControlHighlight">@color/color_control_highlight</item>
-        <item name="android:textColorPrimary">#DE000000</item>
-        <item name="android:backgroundDimAmount">0.45</item>
-        <item name="android:forceDarkAllowed">true</item>
-        <item name="android:windowBackground">@drawable/sw_window_bg</item>
+    <!-- Framework AlertDialogs: Obsidian glass sheet (dark), light text, amber accents; the
+         buttons become pills when shown (com.sketchware.ai.ui.ObsidianDialogs). -->
+    <style name="SketchwareAI.GlassAlertDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/ob_alert_window</item>
+        <item name="android:colorAccent">#FFFF7A29</item>
+        <item name="android:colorPrimary">#FFF4511E</item>
+        <item name="android:colorControlActivated">#FFFF7A29</item>
+        <item name="android:colorControlHighlight">#1FFFFFFF</item>
+        <item name="android:textColorPrimary">#FFF5F5F7</item>
+        <item name="android:textColorSecondary">#FFA1A1AA</item>
+        <item name="android:textColorAlertDialogListItem">#FFF5F5F7</item>
+        <item name="android:backgroundDimAmount">0.55</item>
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 
     <style name="AppTheme.Button.Amber" parent="@style/Base.Widget.AppCompat.Button">

@@ -144,7 +144,7 @@ public class BackupRestoreManager {
                 if (BackupFactory.zipContainsFile(backupFilePath, "local_libs")) {
                     boolean restoringMultipleBackups = files.length > 1;
 
-                    new AlertDialog.Builder(act)
+                    new com.sketchware.ai.ui.ObAlertBuilder(act)
                             .setTitle("Warning")
                             .setMessage(getRestoreIntegratedLocalLibrariesMessage(restoringMultipleBackups, i, files.length,
                                     FileUtil.getFileNameNoExtension(backupFilePath)))
@@ -185,7 +185,7 @@ public class BackupRestoreManager {
 
         @Override
         protected void onPreExecute() {
-            dlg = new ProgressDialog(activityWeakReference.get());
+            dlg = new ProgressDialog(activityWeakReference.get(), com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
             dlg.setMessage("Creating backup...");
             dlg.setCancelable(false);
             dlg.show();
@@ -233,7 +233,7 @@ public class BackupRestoreManager {
 
         @Override
         protected void onPreExecute() {
-            dlg = new ProgressDialog(activityWeakReference.get());
+            dlg = new ProgressDialog(activityWeakReference.get(), com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
             dlg.setMessage("Restoring...");
             dlg.setCancelable(false);
             dlg.show();

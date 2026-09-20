@@ -184,7 +184,7 @@ public class ManageJavaActivity extends Activity {
     }
 
     private void showCreateDialog() {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View root = getLayoutInflater().inflate(R.layout.dialog_create_new_file_layout, null);
 
         final EditText inputName = root.findViewById(R.id.dialog_edittext_name);
@@ -312,7 +312,7 @@ public class ManageJavaActivity extends Activity {
 
     private void showRenameDialog(final int position) {
         boolean isFolder = adapter.isFolder(position);
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         LinearLayout root = (LinearLayout) getLayoutInflater().inflate(R.layout.dialog_input_layout, null);
 
         final EditText filename = root.findViewById(R.id.edittext_change_name);
@@ -375,7 +375,7 @@ public class ManageJavaActivity extends Activity {
     private void showDeleteDialog(final int position) {
         final boolean isInManifest = frc.getJavaManifestList().contains(adapter.getFullName(position));
 
-        new AlertDialog.Builder(this)
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle(adapter.getFileName(position))
                 .setMessage("Are you sure you want to delete this " + (adapter.isFolder(position) ? "folder" : "file") + "? "
                         + (isInManifest ? "This will also remove it from AndroidManifest. " : "")

@@ -87,7 +87,7 @@ public class AddCustomAttributeActivity extends AppCompatActivity {
     }
 
     private void dialog(String type, int position) {
-        AlertDialog dialog = new AlertDialog.Builder(this).create();
+        AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.custom_dialog_attribute, null);
         dialog.setView(inflate);
         dialog.setCanceledOnTouchOutside(false);

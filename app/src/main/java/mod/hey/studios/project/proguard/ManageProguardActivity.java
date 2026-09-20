@@ -56,7 +56,7 @@ public class ManageProguardActivity extends Activity implements View.OnClickList
             }
         }
 
-        AlertDialog.Builder bld = new AlertDialog.Builder(this);
+        AlertDialog.Builder bld = new com.sketchware.ai.ui.ObAlertBuilder(this);
         bld.setTitle("Select Local libraries");
         bld.setMultiChoiceItems(libraries, enabledLibraries, (dialog, which, isChecked) -> enabledLibraries[which] = isChecked);
         bld.setPositiveButton(R.string.common_word_save, (dialog, which) -> {

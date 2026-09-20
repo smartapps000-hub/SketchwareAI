@@ -101,7 +101,7 @@ public class ManageAssetsActivity extends Activity {
 
     @SuppressLint("SetTextI18n")
     private void showCreateDialog() {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
 
         final View view = getLayoutInflater().inflate(R.layout.dialog_create_new_file_layout, null);
         final RadioGroup folderOrFile = view.findViewById(R.id.dialog_radio_filetype);
@@ -173,7 +173,7 @@ public class ManageAssetsActivity extends Activity {
     }
 
     private void showRenameDialog(final int position) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         final View view = getLayoutInflater().inflate(R.layout.dialog_input_layout, null);
         final EditText newFileName = view.findViewById(R.id.edittext_change_name);
         final TextView cancel = view.findViewById(R.id.text_cancel);
@@ -200,7 +200,7 @@ public class ManageAssetsActivity extends Activity {
     }
 
     private void showDeleteDialog(final int position) {
-        new AlertDialog.Builder(this)
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle(myAdapter.getFileName(position))
                 .setMessage("Are you sure you want to delete this " + (myAdapter.isFolder(position) ? "folder" : "file") + "? "
                         + "This action cannot be reversed!")

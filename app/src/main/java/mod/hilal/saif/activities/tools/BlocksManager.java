@@ -265,7 +265,7 @@ public class BlocksManager extends AppCompatActivity {
             startActivity(intent);
         });
         card2.setOnLongClickListener(v -> {
-            new AlertDialog.Builder(BlocksManager.this)
+            new com.sketchware.ai.ui.ObAlertBuilder(BlocksManager.this)
                     .setTitle("Recycle bin")
                     .setMessage("Are you sure you want to empty the recycle bin? " +
                             "Blocks inside will be deleted PERMANENTLY, you CANNOT recover them!")
@@ -553,7 +553,7 @@ public class BlocksManager extends AppCompatActivity {
                             break;
 
                         case delete:
-                            new AlertDialog.Builder(BlocksManager.this)
+                            new com.sketchware.ai.ui.ObAlertBuilder(BlocksManager.this)
                                     .setTitle(pallet_listmap.get(position).get("name").toString())
                                     .setMessage("Remove all blocks related to this palette?")
                                     .setPositiveButton("Remove permanently", (dialog, which) -> {

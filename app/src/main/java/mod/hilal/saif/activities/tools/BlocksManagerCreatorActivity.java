@@ -161,7 +161,7 @@ public class BlocksManagerCreatorActivity extends AppCompatActivity {
                     "Header (h)"
             );
             AtomicInteger choice = new AtomicInteger();
-            new AlertDialog.Builder(this).setTitle("Block type")
+            new com.sketchware.ai.ui.ObAlertBuilder(this).setTitle("Block type")
                     .setSingleChoiceItems(choices.toArray(new String[0]),
                             types.indexOf(type.getText().toString()), (dialog, which) -> choice.set(which))
                     .setPositiveButton(R.string.common_word_save, (dialog, which) -> type.setText(types.get(choice.get())))

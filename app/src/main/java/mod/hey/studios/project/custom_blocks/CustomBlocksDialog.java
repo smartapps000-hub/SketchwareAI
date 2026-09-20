@@ -72,7 +72,7 @@ public class CustomBlocksDialog {
             }
         }
 
-        new AlertDialog.Builder(c)
+        new com.sketchware.ai.ui.ObAlertBuilder(c)
                 .setTitle("Used Custom Blocks")
                 .setPositiveButton(R.string.common_word_close, null)
                 .setView(background)

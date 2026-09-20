@@ -93,7 +93,7 @@ public final class ImportProgressDialog {
                 + ".swb backups stay in /.sketchware/backups.");
         root.addView(note);
 
-        dialog = new AlertDialog.Builder(activity, R.style.SketchwareAI_GlassAlertDialog)
+        dialog = new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("Importing from Sketchware Pro")
                 .setView(root)
                 .setCancelable(false)
@@ -107,7 +107,7 @@ public final class ImportProgressDialog {
                 callbacks.onRunInBackground();
             });
             View stop = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-            stop.setOnClickListener(v -> new AlertDialog.Builder(activity, R.style.SketchwareAI_GlassAlertDialog)
+            stop.setOnClickListener(v -> new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Stop importing?")
                     .setMessage("Projects that are already imported stay. The rest can be imported "
                             + "later: Sketchware AI offers to resume on its next start.")

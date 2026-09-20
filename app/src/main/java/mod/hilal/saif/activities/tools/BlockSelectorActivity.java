@@ -114,7 +114,7 @@ public class BlockSelectorActivity extends AppCompatActivity implements View.OnC
 
         listview1.setOnItemLongClickListener((parent, view, position, id) -> {
             if (current_item != 0) {
-                new AlertDialog.Builder(this).setTitle(contents.get(position))
+                new com.sketchware.ai.ui.ObAlertBuilder(this).setTitle(contents.get(position))
                         .setMessage("Delete this item?")
                         .setPositiveButton("Delete", (dialog, which) -> {
                             contents.remove(position);
@@ -246,7 +246,7 @@ public class BlockSelectorActivity extends AppCompatActivity implements View.OnC
             }
         } else if (id == R.id.dele) {
             if (current_item != 0) {
-                new AlertDialog.Builder(this).setMessage("Remove this menu and its items?")
+                new com.sketchware.ai.ui.ObAlertBuilder(this).setMessage("Remove this menu and its items?")
                         .setPositiveButton("Remove", (dialog, which) -> {
                             data.remove(spinner1.getSelectedItemPosition());
                             _save_item();

@@ -69,7 +69,7 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         if (!mB.a()) {
             int id = v.getId();
             if (id == R.id.social_slack) {
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(context);
                 builder.setItems(new String[]{
                                 Helper.getResString(R.string.main_drawer_context_menu_title_slack_invitation),
                                 Helper.getResString(R.string.main_drawer_context_menu_title_slack_open)},
@@ -154,7 +154,7 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
     private DrawerItemAdapter drawerItemAdapter;
 
     private void showAppThemeDialog(Activity activity) {
-        new AlertDialog.Builder(activity, R.style.SketchwareAI_GlassAlertDialog)
+        new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("App Theme")
                 .setSingleChoiceItems(com.sketchware.ai.ui.ThemeMode.LABELS,
                         com.sketchware.ai.ui.ThemeMode.get(activity), (dialog, which) -> {

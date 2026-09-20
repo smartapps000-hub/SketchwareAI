@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Framework AlertDialog window: Obsidian glass sheet, 26dp corners, inset 14dp from the screen edges. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="14dp"
+    android:insetTop="24dp"
+    android:insetRight="14dp"
+    android:insetBottom="24dp">
+    <shape>
+        <gradient android:angle="270" android:startColor="#F22A2A30" android:endColor="#F2161619" />
+        <stroke android:width="1dp" android:color="#33FFFFFF" />
+        <corners android:radius="26dp" />
+        <padding android:left="6dp" android:top="10dp" android:right="6dp" android:bottom="10dp" />
+    </shape>
+</inset>

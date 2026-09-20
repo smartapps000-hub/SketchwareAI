@@ -251,7 +251,7 @@ public class AndroidManifestInjection extends Activity {
 
 
     private void showLauncherActDialog(String actnamr) {
-        final AlertDialog create = new AlertDialog.Builder(this).create();
+        final AlertDialog create = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.custom_dialog_attribute, null);
         create.setView(inflate);
         create.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
@@ -279,7 +279,7 @@ public class AndroidManifestInjection extends Activity {
     }
 
     private void showAddActivityDialog() {
-        final AlertDialog create = new AlertDialog.Builder(this).create();
+        final AlertDialog create = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.custom_dialog_attribute, null);
         create.setView(inflate);
         create.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
@@ -497,14 +497,14 @@ public class AndroidManifestInjection extends Activity {
     }
 
     private void showQuickManifestSourceDialog() {
-        ProgressDialog progress = new ProgressDialog(this);
+        ProgressDialog progress = new ProgressDialog(this, com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
         progress.setMessage("Generating source...");
         progress.show();
 
         new Thread(() -> {
             final String source = new yq(getApplicationContext(), sc_id).getFileSrc("AndroidManifest.xml", jC.b(sc_id), jC.a(sc_id), jC.c(sc_id));
 
-            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this)
+            AlertDialog.Builder dialogBuilder = new com.sketchware.ai.ui.ObAlertBuilder(this)
                     .setTitle("AndroidManifest.xml")
                     .setPositiveButton("Dismiss", null);
 
@@ -596,7 +596,7 @@ public class AndroidManifestInjection extends Activity {
                 startActivity(intent);
             });
             linearLayout.setOnLongClickListener(v -> {
-                new AlertDialog.Builder(AndroidManifestInjection.this)
+                new com.sketchware.ai.ui.ObAlertBuilder(AndroidManifestInjection.this)
                         .setTitle((String) _data.get(position).get("act_name"))
                         .setMessage("Delete all attributes related to this activity?")
                         .setPositiveButton(R.string.common_word_delete, (dialog, which) -> deleteActivity(position))

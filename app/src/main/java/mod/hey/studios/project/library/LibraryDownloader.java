@@ -108,7 +108,7 @@ public class LibraryDownloader {
     public void showDialog(OnCompleteListener listener) {
         this.listener = listener;
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(context);
         LayoutInflater inflater = context.getLayoutInflater();
         View view = inflater.inflate(R.layout.library_downloader_dialog, null);
 
@@ -592,7 +592,7 @@ public class LibraryDownloader {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            progressDialog = new ProgressDialog(context);
+            progressDialog = new ProgressDialog(context, com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
             progressDialog.setTitle("Please wait");
             progressDialog.setCancelable(false);
             progressDialog.show();

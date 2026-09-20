@@ -65,7 +65,7 @@ public class SrcCodeEditorLegacy extends Activity {
     public void onBackPressed() {
         boolean exitConfirmationDialogEnabled = sp.getBoolean("exit_confirmation_dialog", false);
         if (exitConfirmationDialogEnabled) {
-            new AlertDialog.Builder(this)
+            new com.sketchware.ai.ui.ObAlertBuilder(this)
                     .setTitle("Save Changes?")
                     .setMessage("Do you want to save your changes? If not, the file will be reverted.")
                     .setPositiveButton(R.string.common_word_save, (dialog, which) -> {

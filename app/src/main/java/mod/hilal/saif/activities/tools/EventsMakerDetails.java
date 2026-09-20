@@ -182,7 +182,7 @@ public class EventsMakerDetails extends Activity {
                 startActivity(intent);
             });
             root.setOnLongClickListener(v -> {
-                dia = new AlertDialog.Builder(EventsMakerDetails.this)
+                dia = new com.sketchware.ai.ui.ObAlertBuilder(EventsMakerDetails.this)
                         .setTitle((String) _data.get(position).get("name"))
                         .setMessage("Delete this event?")
                         .setPositiveButton(R.string.common_word_delete, (dialog, which) -> deleteItem(position))

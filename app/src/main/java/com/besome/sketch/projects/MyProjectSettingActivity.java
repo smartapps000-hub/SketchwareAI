@@ -520,7 +520,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
     }
 
     private void showCustomIconOptions() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(this);
         builder.setTitle(Helper.getResString(R.string.myprojects_settings_context_menu_title_choose));
         builder.setItems(new String[]{
                 Helper.getResString(R.string.myprojects_settings_context_menu_title_choose_gallery),

@@ -117,7 +117,7 @@ public class AndroidManifestInjectionDetails extends Activity {
     }
 
     private void showDial(int pos) {
-        final AlertDialog create = new AlertDialog.Builder(this).create();
+        final AlertDialog create = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.custom_dialog_attribute, null);
         create.setView(inflate);
         create.setCanceledOnTouchOutside(true);
@@ -147,7 +147,7 @@ public class AndroidManifestInjectionDetails extends Activity {
     }
 
     private void showAddDial() {
-        final AlertDialog create = new AlertDialog.Builder(this).create();
+        final AlertDialog create = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         View inflate = getLayoutInflater().inflate(R.layout.custom_dialog_attribute, null);
         create.setView(inflate);
         create.setCanceledOnTouchOutside(true);
@@ -305,7 +305,7 @@ public class AndroidManifestInjectionDetails extends Activity {
 
             root.setOnClickListener(v -> showDial(position));
             root.setOnLongClickListener(v -> {
-                new AlertDialog.Builder(AndroidManifestInjectionDetails.this)
+                new com.sketchware.ai.ui.ObAlertBuilder(AndroidManifestInjectionDetails.this)
                         .setTitle("Delete this attribute?")
                         .setMessage("This action cannot be undone.")
                         .setPositiveButton(R.string.common_word_delete, (dialog, which) -> {

@@ -141,10 +141,10 @@ public class Tools extends Activity {
         dialog.setDialogSelectionListener(files -> {
             final boolean isDirectory = new File(files[0]).isDirectory();
             if (files.length > 1 || isDirectory) {
-                new AlertDialog.Builder(this)
+                new com.sketchware.ai.ui.ObAlertBuilder(this)
                         .setTitle("Select an action")
                         .setSingleChoiceItems(new String[]{"Delete"}, -1, (actionDialog, which) -> {
-                            new AlertDialog.Builder(this)
+                            new com.sketchware.ai.ui.ObAlertBuilder(this)
                                     .setTitle("Delete " + (isDirectory ? "folder" : "file") + "?")
                                     .setMessage("Are you sure you want to delete this " + (isDirectory ? "folder" : "file") + " permanently? This cannot be undone.")
                                     .setPositiveButton(R.string.common_word_delete, (deleteConfirmationDialog, pressedButton) -> {
@@ -159,7 +159,7 @@ public class Tools extends Activity {
                         })
                         .show();
             } else {
-                new AlertDialog.Builder(this)
+                new com.sketchware.ai.ui.ObAlertBuilder(this)
                         .setTitle("Select an action")
                         .setSingleChoiceItems(new String[]{"Edit", "Delete"}, -1, (actionDialog, which) -> {
                             switch (which) {
@@ -174,7 +174,7 @@ public class Tools extends Activity {
                                     break;
 
                                 case 1:
-                                    new AlertDialog.Builder(this)
+                                    new com.sketchware.ai.ui.ObAlertBuilder(this)
                                             .setTitle("Delete file?")
                                             .setMessage("Are you sure you want to delete this file permanently? This cannot be undone.")
                                             .setPositiveButton(R.string.common_word_delete, (deleteDialog, pressedButton) ->
@@ -340,7 +340,7 @@ public class Tools extends Activity {
 
         tv_progress.setText("Signing APK...");
 
-        AlertDialog building_dialog = new AlertDialog.Builder(this)
+        AlertDialog building_dialog = new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setView(building_root)
                 .create();
 

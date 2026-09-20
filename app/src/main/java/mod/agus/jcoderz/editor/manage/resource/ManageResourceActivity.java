@@ -122,7 +122,7 @@ public class ManageResourceActivity extends Activity implements View.OnClickList
     }
 
     private void createNewDialog(final boolean isFolder) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         final View view = getLayoutInflater().inflate(R.layout.dialog_create_new_file_layout, null);
         final TextView title = view.findViewById(R.id.dialog_create_new_file_layoutTitle);
         final View fileType = view.findViewById(R.id.dialog_radio_filetype);
@@ -246,7 +246,7 @@ public class ManageResourceActivity extends Activity implements View.OnClickList
     }
 
     private void showRenameDialog(final String path) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        final AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this).create();
         final View view = getLayoutInflater().inflate(R.layout.dialog_input_layout, null);
         final EditText newName = view.findViewById(R.id.edittext_change_name);
         final TextView cancel = view.findViewById(R.id.text_cancel);
@@ -280,7 +280,7 @@ public class ManageResourceActivity extends Activity implements View.OnClickList
     }
 
     private void showDeleteDialog(final int position) {
-        new AlertDialog.Builder(this)
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle(Uri.fromFile(new File(adapter.getItem(position))).getLastPathSegment())
                 .setMessage("Are you sure you want to delete this "
                         + (FileUtil.isDirectory(adapter.getItem(position)) ? "folder" : "file") + "? "

@@ -110,7 +110,7 @@ public class AsdDialog extends Dialog implements DialogInterface.OnDismissListen
                                 "VS2019",
                                 "NotepadXX"
                         };
-                        new AlertDialog.Builder(act)
+                        new com.sketchware.ai.ui.ObAlertBuilder(act)
                                 .setTitle("Switch theme")
                                 .setSingleChoiceItems(
                                         themeItems, -1, (dialog, which) -> {

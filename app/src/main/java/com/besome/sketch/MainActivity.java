@@ -258,7 +258,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
                             BackupRestoreManager manager = new BackupRestoreManager(MainActivity.this, projectsFragment);
 
                             if (BackupFactory.zipContainsFile(path, "local_libs")) {
-                                new AlertDialog.Builder(MainActivity.this)
+                                new com.sketchware.ai.ui.ObAlertBuilder(MainActivity.this)
                                         .setTitle("Warning")
                                         .setMessage(BackupRestoreManager.getRestoreIntegratedLocalLibrariesMessage(false, -1, -1, null))
                                         .setPositiveButton("Copy", (dialog, which) -> manager.doRestore(path, true))
@@ -379,7 +379,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
         int count = LegacyProjectMigrator.legacyProjectCount();
         boolean resume = LegacyProjectMigrator.wasInterrupted(this);
-        importOffer = new AlertDialog.Builder(this, R.style.SketchwareAI_GlassAlertDialog)
+        importOffer = new com.sketchware.ai.ui.ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle(resume ? "Resume import from Sketchware Pro" : "Import from Sketchware Pro")
                 .setMessage(resume
                         ? "The last import from Sketchware Pro did not finish. Continue it? "
@@ -450,7 +450,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         if (result.isSuccess()) {
             SketchwareUtil.toast(ImportProgressDialog.summary(result), Toast.LENGTH_LONG);
         } else {
-            new AlertDialog.Builder(this, R.style.SketchwareAI_GlassAlertDialog)
+            new com.sketchware.ai.ui.ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle(result.cancelled ? "Import stopped" : "Import failed")
                     .setMessage(ImportProgressDialog.summary(result))
                     .setPositiveButton(android.R.string.ok, null)

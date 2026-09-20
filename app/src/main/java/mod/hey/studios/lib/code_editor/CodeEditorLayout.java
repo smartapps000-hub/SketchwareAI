@@ -154,7 +154,7 @@ public class CodeEditorLayout extends LinearLayout implements TextWatcher {
         popup.setOnMenuItemClickListener(item -> {
             switch (item.getTitle().toString()) {
                 case "Font size":
-                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                    AlertDialog.Builder builder = new com.sketchware.ai.ui.ObAlertBuilder(context);
 
                     final NumberPicker numPicker = new NumberPicker(context);
                     numPicker.setMinValue(5);

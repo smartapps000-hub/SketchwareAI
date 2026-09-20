@@ -155,7 +155,7 @@ public class SrcViewerActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER));
 
-        new AlertDialog.Builder(this)
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Select font size")
                 .setIcon(R.drawable.ic_font_48dp)
                 .setView(layout)

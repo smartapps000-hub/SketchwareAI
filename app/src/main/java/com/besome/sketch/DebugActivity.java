@@ -16,7 +16,7 @@ public class DebugActivity extends Activity {
             String error = intent.getStringExtra("error");
 
             if (error != null) {
-                AlertDialog dialog = new AlertDialog.Builder(this)
+                AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this)
                         .setTitle("An error occurred")
                         .setMessage(error)
                         .setPositiveButton("End Application", (dialog1, which) -> finish())
