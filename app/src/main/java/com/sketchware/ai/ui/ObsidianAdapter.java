@@ -110,6 +110,11 @@ public final class ObsidianAdapter {
      * the view's content sits on a dark ground afterwards.
      */
     private static boolean resolveBackground(View view, boolean onDark) {
+        if (view instanceof androidx.cardview.widget.CardView) {
+            // Cards that GlassScreens made dark carry dark content; other cards are left alone.
+            ColorStateList card = ((androidx.cardview.widget.CardView) view).getCardBackgroundColor();
+            return card != null && luminance(card.getDefaultColor()) < 0.3;
+        }
         if (view.getClass().getName().contains("CardView")) return false;
         Drawable background = view.getBackground();
         if (background == null) return onDark;

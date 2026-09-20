@@ -1,6 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:orientation="vertical" android:background="@drawable/selector_toggle_list_view" android:layout_width="fill_parent" android:layout_height="wrap_content"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <TextView android:textSize="16.0sp" android:textColor="#ff404040" android:id="@id/tv_filename" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" android:layout_marginBottom="8.0dip" android:layout_marginStart="32.0dip" android:layout_marginEnd="32.0dip" />
-    <ImageView android:id="@id/img_add" android:visibility="gone" android:layout_width="32.0dip" android:layout_height="32.0dip" android:layout_marginTop="16.0dip" android:layout_marginBottom="8.0dip" android:src="@drawable/add_96_blue" android:scaleType="center" android:contentDescription="@null" />
+<!-- View picker row (CUSTOM VIEW tab): obsidian glass pill. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="3.0dip"
+    android:layout_marginBottom="3.0dip"
+    android:background="@drawable/ob_pill16_state"
+    android:minHeight="48.0dip"
+    android:gravity="center_vertical"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@id/tv_filename"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12.0dip"
+        android:layout_marginBottom="12.0dip"
+        android:layout_marginStart="20.0dip"
+        android:layout_marginEnd="20.0dip"
+        android:textColor="#FFF5F5F7"
+        android:textSize="14.0sp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@id/img_add"
+        android:layout_width="32.0dip"
+        android:layout_height="32.0dip"
+        android:layout_marginTop="12.0dip"
+        android:layout_marginBottom="8.0dip"
+        android:contentDescription="@null"
+        android:scaleType="center"
+        android:src="@drawable/add_96_blue"
+        android:tint="#FFFF7A29"
+        android:visibility="gone" />
 </LinearLayout>

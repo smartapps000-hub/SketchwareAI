@@ -5,8 +5,6 @@ import android.app.Application;
 import android.os.Bundle;
 import android.view.View;
 
-import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.sketchware.remod.R;
 
@@ -25,10 +23,7 @@ public final class LegacyScreens implements Application.ActivityLifecycleCallbac
 
     private static final String ADD_EVENT = "com.besome.sketch.editor.event.AddEventActivity";
     private static final String ADD_VIEW = "com.besome.sketch.editor.manage.view.AddViewActivity";
-    private static final int MAX_COLUMNS = 6;
-    private static final int MIN_COLUMNS = 3;
-    /** Narrowest tile that still shows an id like "button12" and "onTextChanged" at 9.5sp. */
-    private static final int MIN_TILE_DP = 76;
+    private static final String VIEW_SELECTOR = "com.besome.sketch.editor.manage.ViewSelectorActivity";
 
     public static void install(Application application) {
         application.registerActivityLifecycleCallbacks(new LegacyScreens());
@@ -37,30 +32,26 @@ public final class LegacyScreens implements Application.ActivityLifecycleCallbac
     @Override
     public void onActivityStarted(Activity activity) {
         String name = activity.getClass().getName();
-        if (!ADD_EVENT.equals(name) && !ADD_VIEW.equals(name)) return;
+        if (GlassScreens.handles(name)) {
+            View content = activity.findViewById(android.R.id.content);
+            if (content != null && content.getTag(R.id.ob_glassed) == null) {
+                content.setTag(R.id.ob_glassed, Boolean.TRUE);
+                try {
+                    GlassScreens.apply(activity);
+                } catch (Throwable t) {
+                    android.util.Log.w("LegacyScreens", "Couldn't restyle " + name, t);
+                }
+            }
+            return;
+        }
+        if (!ADD_EVENT.equals(name) && !ADD_VIEW.equals(name) && !VIEW_SELECTOR.equals(name)) return;
         try {
             View root = activity.findViewById(R.id.container);
             if (root == null || root.getTag(R.id.container) != null) return;
             root.setTag(R.id.container, Boolean.TRUE);
             ObsidianAdapter.adaptLive(root);
-            if (ADD_EVENT.equals(name)) {
-                RecyclerView list = activity.findViewById(R.id.event_list);
-                if (list != null) list.post(() -> useGrid(activity, list));
-            }
         } catch (Throwable t) {
             android.util.Log.w("LegacyScreens", "Couldn't restyle " + name, t);
-        }
-    }
-
-    private static void useGrid(Activity activity, RecyclerView list) {
-        try {
-            float density = activity.getResources().getDisplayMetrics().density;
-            int width = list.getWidth() - list.getPaddingLeft() - list.getPaddingRight();
-            if (width <= 0) width = activity.getResources().getDisplayMetrics().widthPixels - (int) (40 * density);
-            int columns = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, (int) (width / (MIN_TILE_DP * density))));
-            list.setLayoutManager(new GridLayoutManager(activity, columns));
-        } catch (Throwable t) {
-            android.util.Log.w("LegacyScreens", "Event grid unavailable, keeping the list", t);
         }
     }
 

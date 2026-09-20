@@ -35,7 +35,7 @@
                     android:layout_gravity="center"
                     android:contentDescription="@null"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/default_icon" />
+                    android:src="@drawable/ob_app_icon_placeholder" />
             </FrameLayout>
 
             <TextView

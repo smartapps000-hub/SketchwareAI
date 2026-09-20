@@ -5,7 +5,6 @@
     android:layout_height="wrap_content"
     android:layout_marginLeft="10dp"
     android:layout_marginRight="10dp"
-    android:background="#ffffffff"
     android:gravity="center"
     android:orientation="vertical"
     android:paddingTop="4dp"
@@ -25,9 +24,10 @@
             android:layout_weight="1"
             android:focusable="false"
             android:singleLine="true"
-            android:text="Write lib dependency"
-            android:textColor="#ff296cf7"
-            android:textSize="16sp" />
+            android:text="Download a library"
+            android:textColor="#FFFFB877"
+            android:textSize="17sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout
@@ -54,7 +54,7 @@
     <LinearLayout
         android:id="@id/linear4"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
+        android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="horizontal">
 
@@ -62,9 +62,18 @@
             android:id="@id/edittext1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Example: com.anjlab.android.iab.v3:library:1.0.44"
+            android:layout_marginLeft="4dp"
+            android:layout_marginRight="4dp"
+            android:background="@drawable/ob_field"
+            android:hint="group:artifact:version  e.g. com.google.code.gson:gson:2.10.1"
+            android:paddingLeft="12dp"
+            android:paddingTop="10dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="10dp"
             android:singleLine="true"
-            android:textSize="14sp" />
+            android:textColor="#FFF5F5F7"
+            android:textColorHint="#FF71717A"
+            android:textSize="13sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -82,11 +91,11 @@
             android:layout_weight="1"
             android:focusable="false"
             android:gravity="center|left|top"
-            android:paddingTop="2dp"
+            android:paddingTop="8dp"
             android:paddingBottom="10dp"
-            android:text="You can find the dependency of a library in Github, typically in the Readme file. However, please note that this is not Gradle system, so it won't download inner dependencies of a library. If the library you download has inner dependencies, you will need to download them seperately."
-            android:textColor="#ff757575"
-            android:textSize="14sp" />
+            android:text="Searches Google Maven, Maven Central, JitPack and more for an .aar, then a .jar. Dependencies of the library are not downloaded automatically: add each one the same way."
+            android:textColor="#FFA1A1AA"
+            android:textSize="12.5sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -99,10 +108,10 @@
         <LinearLayout
             android:id="@id/linear8"
             android:layout_width="wrap_content"
-            android:layout_height="35dp"
+            android:layout_height="40dp"
             android:layout_marginRight="2dp"
             android:layout_weight="1"
-            android:background="#ff296cf7"
+            android:background="@drawable/ob_safe_cta_state"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -111,19 +120,20 @@
                 android:layout_height="wrap_content"
                 android:focusable="false"
                 android:singleLine="true"
-                android:text="    Start    "
+                android:text="Download"
                 android:textColor="#ffffffff"
-                android:textSize="14sp" />
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@id/linear9"
             android:layout_width="wrap_content"
-            android:layout_height="35dp"
+            android:layout_height="40dp"
             android:layout_marginLeft="2dp"
             android:layout_marginRight="2dp"
             android:layout_weight="1"
-            android:background="#ff296cf7"
+            android:background="@drawable/ob_safe_cta_state"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -132,19 +142,20 @@
                 android:layout_height="wrap_content"
                 android:focusable="false"
                 android:singleLine="true"
-                android:text="  Pause  "
+                android:text="Pause"
                 android:textColor="#ffffffff"
-                android:textSize="14sp" />
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@id/linear10"
             android:layout_width="wrap_content"
-            android:layout_height="35dp"
+            android:layout_height="40dp"
             android:layout_marginLeft="2dp"
             android:layout_marginRight="2dp"
             android:layout_weight="1"
-            android:background="#ff296cf7"
+            android:background="@drawable/ob_safe_cta_state"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -155,16 +166,17 @@
                 android:singleLine="true"
                 android:text="Resume"
                 android:textColor="#ffffffff"
-                android:textSize="14sp" />
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@id/linear11"
             android:layout_width="wrap_content"
-            android:layout_height="35dp"
+            android:layout_height="40dp"
             android:layout_marginLeft="2dp"
             android:layout_weight="1"
-            android:background="#ff296cf7"
+            android:background="@drawable/ob_safe_cta_state"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -173,9 +185,10 @@
                 android:layout_height="wrap_content"
                 android:focusable="false"
                 android:singleLine="true"
-                android:text="  Cancel  "
+                android:text="Cancel"
                 android:textColor="#ffffffff"
-                android:textSize="14sp" />
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

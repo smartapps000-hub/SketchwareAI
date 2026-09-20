@@ -52,7 +52,10 @@ public class LibraryDownloader {
 
     public static final File CONFIGURED_REPOSITORIES_FILE = new File(Environment.getExternalStorageDirectory(),
             ".sketchware_ai" + File.separator + "libs" + File.separator + "repositories.json");
-    private static final String DEFAULT_REPOSITORIES_FILE_CONTENT = "[{\"url\":\"https://repo.hortonworks.com/content/repositories/releases\",\"name\":\"HortanWorks\"},{\"url\":\"https://maven.atlassian.com/content/repositories/atlassian-public\",\"name\":\"Atlassian\"},{\"url\":\"https://jitpack.io\",\"name\":\"JitPack\"},{\"url\":\"https://jcenter.bintray.com\",\"name\":\"JCenter\"},{\"url\":\"https://oss.sonatype.org/content/repositories/releases\",\"name\":\"Sonatype\"},{\"url\":\"https://repo.spring.io/plugins-release\",\"name\":\"Spring Plugins\"},{\"url\":\"https://repo.spring.io/libs-milestone\",\"name\":\"Spring Milestone\"},{\"url\":\"https://repo.maven.apache.org/maven2\",\"name\":\"Apache Maven\"},{\"url\":\"https://dl.google.com/dl/android/maven2\",\"name\":\"Google Maven\"},{\"url\":\"https://repo1.maven.org/maven2\",\"name\":\"Maven Central\"}]";
+    /** The upstream list: dead or auth-only hosts first, so a lookup could fail before reaching Google or Maven Central. */
+    private static final String OLD_DEFAULT_REPOSITORIES_FILE_CONTENT = "[{\"url\":\"https://repo.hortonworks.com/content/repositories/releases\",\"name\":\"HortanWorks\"},{\"url\":\"https://maven.atlassian.com/content/repositories/atlassian-public\",\"name\":\"Atlassian\"},{\"url\":\"https://jitpack.io\",\"name\":\"JitPack\"},{\"url\":\"https://jcenter.bintray.com\",\"name\":\"JCenter\"},{\"url\":\"https://oss.sonatype.org/content/repositories/releases\",\"name\":\"Sonatype\"},{\"url\":\"https://repo.spring.io/plugins-release\",\"name\":\"Spring Plugins\"},{\"url\":\"https://repo.spring.io/libs-milestone\",\"name\":\"Spring Milestone\"},{\"url\":\"https://repo.maven.apache.org/maven2\",\"name\":\"Apache Maven\"},{\"url\":\"https://dl.google.com/dl/android/maven2\",\"name\":\"Google Maven\"},{\"url\":\"https://repo1.maven.org/maven2\",\"name\":\"Maven Central\"}]";
+    /** Busiest repositories first; dead (HortonWorks) and login-only (Spring) hosts removed. */
+    private static final String DEFAULT_REPOSITORIES_FILE_CONTENT = "[{\"url\":\"https://dl.google.com/dl/android/maven2\",\"name\":\"Google Maven\"},{\"url\":\"https://repo1.maven.org/maven2\",\"name\":\"Maven Central\"},{\"url\":\"https://jitpack.io\",\"name\":\"JitPack\"},{\"url\":\"https://oss.sonatype.org/content/repositories/releases\",\"name\":\"Sonatype\"},{\"url\":\"https://maven.atlassian.com/content/repositories/atlassian-public\",\"name\":\"Atlassian\"},{\"url\":\"https://jcenter.bintray.com\",\"name\":\"JCenter\"}]";
     private final String downloadPath;
     private final ArrayList<String> repoUrls = new ArrayList<>();
     private final ArrayList<String> repoNames = new ArrayList<>();
@@ -65,6 +68,14 @@ public class LibraryDownloader {
     private String libName = "";
     private String currentRepo = "";
     private int counter = 0;
+    /** Second pass: plain-jar libraries (Gson, ZXing core, ...) have no .aar. */
+    private boolean searchingJar = false;
+    private int attempts = 0, connectionFailures = 0;
+    private String dependency = "";
+    private EditText vLibrary;
+    private TextView vMessage;
+    private LinearLayout vProgressBarContainer, vLibraryContainer, vStart, vPause, vResume, vCancel;
+    private ProgressBar vProgressbar;
     private ArrayList<HashMap<String, Object>> repoMap = new ArrayList<>();
 
     public LibraryDownloader(Activity context, boolean use_d8) {
@@ -160,24 +171,22 @@ public class LibraryDownloader {
                 cancel.setEnabled(true);
                 cancel.setVisibility(View.VISIBLE);
 
+                this.dependency = dependency.trim();
+                searchingJar = false;
+                attempts = 0;
+                connectionFailures = 0;
+                vLibrary = library;
+                vMessage = message;
+                vProgressBarContainer = progressBarContainer;
+                vLibraryContainer = libraryContainer;
+                vStart = start;
+                vPause = pause;
+                vResume = resume;
+                vCancel = cancel;
+                vProgressbar = progressbar1;
                 _getRepository();
                 counter = 0;
-                currentRepo = repoUrls.get(counter);
-
-                downloadId = _download(
-                        currentRepo.concat(_getAarDownloadLink(dependency)),
-                        downloadPath,
-                        _getLibName(dependency + ".zip"),
-                        library,
-                        message,
-                        progressBarContainer,
-                        libraryContainer,
-                        start,
-                        pause,
-                        resume,
-                        cancel,
-                        progressbar1
-                );
+                searchNext();
             }
         });
 
@@ -432,10 +441,20 @@ public class LibraryDownloader {
 
                         StringBuilder path2 = new StringBuilder();
                         path2.append(downloadPath);
-                        path2.append(_getLibName(library.getText().toString()).concat(".zip"));
+                        path2.append(_getLibName(dependency).concat(searchingJar ? ".jar" : ".zip"));
 
                         if (isAarDownloaded && isAarAvailable) {
-                            _unZipFile(path2.toString(), libName);
+                            if (searchingJar) {
+                                // A plain jar is the library's classes.jar.
+                                FileUtil.makeDir(libName);
+                                File target = new File(libName, "classes.jar");
+                                target.delete();
+                                if (!new File(path2.toString()).renameTo(target)) {
+                                    FileUtil.copyFile(path2.toString(), target.getAbsolutePath());
+                                }
+                            } else {
+                                _unZipFile(path2.toString(), libName);
+                            }
                             if (FileUtil.isExistFile(libName.concat("/classes.jar"))) {
                                 if (use_d8 || JarCheck.checkJar(libName.concat("/classes.jar"), 44, 51)) {
                                     message.setText("Download completed.");
@@ -474,67 +493,63 @@ public class LibraryDownloader {
 
                     @Override
                     public void onError(PRDownloader.Error e) {
-                        if (e.isServerError()) {
-                            if (!(isAarDownloaded || isAarAvailable)) {
-                                if (counter < repoUrls.size()) {
-                                    currentRepo = repoUrls.get(counter);
-                                    String name = repoNames.get(counter);
-
-                                    counter++;
-                                    message.setText("Searching... " + counter + "/" + repoUrls.size() + " [" + name + "]");
-
-                                    downloadId = _download(
-                                            currentRepo + _getAarDownloadLink(library.getText().toString()),
-                                            downloadPath,
-                                            _getLibName(library.getText().toString()) + ".zip",
-                                            library,
-                                            message,
-                                            progressBarContainer,
-                                            libraryContainer,
-                                            start,
-                                            pause,
-                                            resume,
-                                            cancel,
-                                            progressbar1
-                                    );
-
-                                } else {
-                                    FileUtil.deleteFile(libName);
-                                    message.setText("Library was not found in loaded repositories");
-                                    library.setEnabled(true);
-                                    start.setEnabled(true);
-                                    start.setVisibility(View.VISIBLE);
-
-                                    pause.setEnabled(false);
-                                    pause.setVisibility(View.INVISIBLE);
-
-                                    resume.setEnabled(false);
-                                    resume.setVisibility(View.INVISIBLE);
-
-                                    cancel.setEnabled(false);
-                                    cancel.setVisibility(View.INVISIBLE);
-                                }
-                            }
-                        } else {
-                            if (e.isConnectionError()) {
-                                message.setText("Downloading failed. No network");
-                                library.setEnabled(true);
-                                start.setEnabled(true);
-                                start.setVisibility(View.VISIBLE);
-
-                                pause.setEnabled(false);
-                                pause.setVisibility(View.INVISIBLE);
-
-                                resume.setEnabled(false);
-                                resume.setVisibility(View.INVISIBLE);
-
-                                cancel.setEnabled(false);
-                                cancel.setVisibility(View.INVISIBLE);
-
-                            }
-                        }
+                        if (isAarDownloaded) return;
+                        // A dead or unreachable repository is not "no network": try the next one.
+                        attempts++;
+                        if (e.isConnectionError()) connectionFailures++;
+                        searchNext();
                     }
                 });
+    }
+
+    /** Tries the next repository; after the last one, repeats the search for a plain .jar. */
+    private void searchNext() {
+        if (counter >= repoUrls.size()) {
+            if (!searchingJar) {
+                searchingJar = true;
+                counter = 0;
+                searchNext();
+                return;
+            }
+            FileUtil.deleteFile(libName);
+            vMessage.setText(attempts > 0 && connectionFailures == attempts
+                    ? "Downloading failed. No network"
+                    : "Library was not found in loaded repositories (searched .aar and .jar)");
+            resetButtons();
+            return;
+        }
+        currentRepo = repoUrls.get(counter);
+        String name = repoNames.get(counter);
+        counter++;
+        vMessage.setText("Searching " + (searchingJar ? ".jar" : ".aar") + "... " + counter + "/" + repoUrls.size() + " [" + name + "]");
+        String link = searchingJar ? _getJarDownloadLink(dependency) : _getAarDownloadLink(dependency);
+        downloadId = _download(
+                trimSlash(currentRepo) + link,
+                downloadPath,
+                _getLibName(dependency) + (searchingJar ? ".jar" : ".zip"),
+                vLibrary, vMessage, vProgressBarContainer, vLibraryContainer,
+                vStart, vPause, vResume, vCancel, vProgressbar);
+    }
+
+    private void resetButtons() {
+        vLibrary.setEnabled(true);
+        vStart.setEnabled(true);
+        vStart.setVisibility(View.VISIBLE);
+        vPause.setEnabled(false);
+        vPause.setVisibility(View.INVISIBLE);
+        vResume.setEnabled(false);
+        vResume.setVisibility(View.INVISIBLE);
+        vCancel.setEnabled(false);
+        vCancel.setVisibility(View.INVISIBLE);
+    }
+
+    private static String trimSlash(String url) {
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    private String _getJarDownloadLink(String str) {
+        String aar = _getAarDownloadLink(str);
+        return aar.substring(0, aar.length() - ".aar".length()) + ".jar";
     }
 
     private void _getRepository() {
@@ -546,6 +561,11 @@ public class LibraryDownloader {
         readRepositories:
         {
             String repositories;
+            if (CONFIGURED_REPOSITORIES_FILE.exists()
+                    && OLD_DEFAULT_REPOSITORIES_FILE_CONTENT.equals(FileUtil.readFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath()).trim())) {
+                // Untouched upstream list: upgrade it. Lists the user edited are kept as they are.
+                FileUtil.writeFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath(), DEFAULT_REPOSITORIES_FILE_CONTENT);
+            }
             if (CONFIGURED_REPOSITORIES_FILE.exists() && !(repositories = FileUtil.readFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath())).isEmpty()) {
                 try {
                     repoMap = new Gson().fromJson(repositories, Helper.TYPE_MAP_LIST);

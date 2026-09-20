@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New Project placeholder app icon (replaces the green robot in the dialog): amber squircle
+     with a white app-grid glyph. Solid fills only, so it renders the same on Android 5-17. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FFF4511E"
+        android:pathData="M14,2h20a12,12 0 0 1 12,12v20a12,12 0 0 1 -12,12h-20a12,12 0 0 1 -12,-12v-20a12,12 0 0 1 12,-12z" />
+    <path
+        android:fillColor="#FFFF8A3D"
+        android:pathData="M14,2h20a12,12 0 0 1 12,12v6c-8,-5 -30,-6 -44,4v-10a12,12 0 0 1 12,-12z" />
+    <path
+        android:fillColor="#33FFFFFF"
+        android:pathData="M14,3h20a11,11 0 0 1 11,11v1a11,11 0 0 0 -11,-11h-20a11,11 0 0 0 -11,11v-1a11,11 0 0 1 11,-11z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15,13h6a2,2 0 0 1 2,2v6a2,2 0 0 1 -2,2h-6a2,2 0 0 1 -2,-2v-6a2,2 0 0 1 2,-2z M27,13h6a2,2 0 0 1 2,2v6a2,2 0 0 1 -2,2h-6a2,2 0 0 1 -2,-2v-6a2,2 0 0 1 2,-2z M15,25h6a2,2 0 0 1 2,2v6a2,2 0 0 1 -2,2h-6a2,2 0 0 1 -2,-2v-6a2,2 0 0 1 2,-2z" />
+    <path
+        android:fillColor="#FFFFE0B2"
+        android:pathData="M30,25l1.6,3.4 3.4,1.6 -3.4,1.6 -1.6,3.4 -1.6,-3.4 -3.4,-1.6 3.4,-1.6z" />
+</vector>

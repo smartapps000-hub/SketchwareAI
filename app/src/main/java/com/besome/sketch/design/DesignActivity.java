@@ -491,6 +491,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         com.sketchware.ai.ui.ObsidianWindow.apply(this);
         toolbar.setNavigationOnClickListener(Helper.getBackPressedClickListener(this));
         toolbar.setPopupTheme(R.style.ThemeOverlay_ToolbarMenu);
+        com.sketchware.ai.ui.CompactToolbar.apply(toolbar, headerTitle, headerSubtitle);
         // Replaced empty anonymous class with null
         getSupportFragmentManager().a((Xf.c) null);
         drawer = findViewById(R.id.drawer_layout);
@@ -1157,11 +1158,31 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     runOnUiThread(() -> {
                         boolean isMissingDirectory = e.isMissingDirectory();
 
+                        // A missing folder (typically a local library without res/) is just
+                        // created, and the build runs again: no question to answer.
+                        if (isMissingDirectory && !e.getMissingFile().exists() && e.getMissingFile().mkdirs()) {
+                            SketchwareUtil.toast("Created missing folder " + e.getMissingFile().getName() + ", building again");
+                            runProject.postDelayed(new Runnable() {
+                                private int tries;
+
+                                @Override
+                                public void run() {
+                                    // Wait until this build has fully finished before the next.
+                                    if (!runProject.isClickable() && tries++ < 20) {
+                                        runProject.postDelayed(this, 250);
+                                        return;
+                                    }
+                                    if (!isDestroyed()) new BuildAsyncTask(getApplicationContext()).execute();
+                                }
+                            }, 250);
+                            return;
+                        }
+
                         aB dialog = new aB(DesignActivity.this);
                         if (isMissingDirectory) {
                             dialog.b("Missing directory detected");
                             dialog.a("A directory important for building is missing. " +
-                                    "Sketchware Pro can try creating " + e.getMissingFile().getAbsolutePath() +
+                                    "Sketchware AI can try creating " + e.getMissingFile().getAbsolutePath() +
                                     " if you'd like to.");
                             dialog.configureDefaultButton("Create", v -> {
                                 dialog.dismiss();

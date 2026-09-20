@@ -2,5 +2,5 @@
 <!-- Obsidian: dark glass (was white/light grey) for the Add Event / Add View popups. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:topLeftRadius="16dp" android:topRightRadius="16dp" />
-    <solid android:color="#D9161619" />
+    <solid android:color="#FF1B1B1F" />
 </shape>

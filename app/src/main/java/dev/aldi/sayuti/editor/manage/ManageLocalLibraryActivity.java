@@ -54,6 +54,11 @@ public class ManageLocalLibraryActivity extends Activity implements View.OnClick
 
     @Override
     public void onClick(View v) {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            // D8 does everything Dx does (and Java 8+ bytecode) on Android 8+: no question needed.
+            new LibraryDownloader(this, true).showDialog(this);
+            return;
+        }
         new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Dexer")
                 .setMessage("Would you like to use Dx or D8 to dex the library?\n" +

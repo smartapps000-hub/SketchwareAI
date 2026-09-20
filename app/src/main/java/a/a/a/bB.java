@@ -46,7 +46,7 @@ public class bB {
             TextView textView = inflate.findViewById(R.id.tv_stoast);
             if (toastType != TOAST_WARNING) {
                 linearLayout.setBackgroundResource(R.drawable.bg_toast_normal);
-                textView.setTextColor(context.getResources().getColor(R.color.scolor_black_01));
+                textView.setTextColor(0xFFF5F5F7);
             } else {
                 linearLayout.setBackgroundResource(R.drawable.bg_toast_warning);
                 textView.setTextColor(context.getResources().getColor(R.color.scolor_red_02));

@@ -9,17 +9,19 @@
 
     <LinearLayout
         android:id="@+id/layout_palette"
-        android:layout_width="114dp"
+        android:layout_width="92dp"
         android:layout_height="match_parent"
         android:layout_marginLeft="6dp"
         android:background="@drawable/ob_glass"
         android:forceDarkAllowed="false"
         android:orientation="vertical"
-        android:paddingLeft="4dp"
-        android:paddingTop="6dp"
-        android:paddingRight="4dp"
-        android:paddingBottom="6dp">
-        <!-- 6dp margin + 114dp = the 120dp the precompiled ViewEditor reserves for the palette. -->
+        android:paddingLeft="3dp"
+        android:paddingTop="4dp"
+        android:paddingRight="3dp"
+        android:paddingBottom="4dp">
+        <!-- 6dp margin + 92dp = the 98dp the precompiled ViewEditor reserves for the palette
+             (patched from 120dp in app/libs/com.besome.sketch-classes.jar; the preview grows
+             by the difference). -->
 
         <LinearLayout
             android:id="@+id/palette_group"

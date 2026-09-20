@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <stroke android:width="1.0dip" android:color="@color/color_primary" />
-    <corners android:topRightRadius="8.0dip" android:bottomRightRadius="8.0dip" />
-    <gradient android:startColor="@color/color_primary" android:endColor="@color/color_primary" />
+<!-- Obsidian segmented control (SelectableButtonBar, e.g. VIEW / CUSTOM VIEW). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient android:angle="0" android:startColor="#FFF4511E" android:endColor="#FFFF7A29" />
+    <stroke android:width="1dp" android:color="#66FFB877" />
+    <corners android:topRightRadius="12dp" android:bottomRightRadius="12dp" />
 </shape>

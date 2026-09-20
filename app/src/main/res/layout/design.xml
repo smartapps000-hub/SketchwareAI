@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Design editor, Obsidian liquid glass (design canvas board "Design editor").
      Vertical space is budgeted for the precompiled ViewEditor, which sizes the phone preview as
-     screen height - status bar - action bar - 152dp: header 104dp + bottom bar 76dp + gaps stay
+     screen height - status bar - action bar - 152dp: header 89dp + bottom bar 78dp + gaps stay
      inside that, so the preview never slides under the bottom bar. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -37,14 +37,14 @@
                     android:background="@drawable/ob_glass"
                     android:forceDarkAllowed="false"
                     android:orientation="vertical"
-                    android:paddingTop="8dp">
+                    android:paddingTop="3dp">
 
                     <androidx.appcompat.widget.Toolbar
                         android:id="@+id/toolbar"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
+                        android:layout_height="44dp"
                         android:background="@android:color/transparent"
-                        android:minHeight="48dp"
+                        android:minHeight="44dp"
                         android:theme="@style/Ob.EditorToolbarTheme"
                         app:contentInsetStart="0dp"
                         app:contentInsetStartWithNavigation="0dp"
@@ -76,7 +76,7 @@
                                 android:marqueeRepeatLimit="marquee_forever"
                                 android:singleLine="true"
                                 android:textColor="@color/ob_text"
-                                android:textSize="15sp" />
+                                android:textSize="14.7dp" />
 
                             <TextView
                                 android:id="@+id/ob_editor_subtitle"
@@ -89,7 +89,7 @@
                                 android:marqueeRepeatLimit="marquee_forever"
                                 android:singleLine="true"
                                 android:textColor="@color/ob_text_2"
-                                android:textSize="10.5sp" />
+                                android:textSize="10.5dp" />
                         </LinearLayout>
                     </androidx.appcompat.widget.Toolbar>
 
@@ -97,14 +97,14 @@
                         android:id="@+id/tab_layout"
                         style="@style/Ob.EditorTabs"
                         android:layout_width="match_parent"
-                        android:layout_height="40dp" />
+                        android:layout_height="34dp" />
                 </LinearLayout>
 
                 <androidx.coordinatorlayout.widget.CoordinatorLayout
                     android:id="@+id/layout_coordinator"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:layout_weight="1">
 
                     <com.besome.sketch.lib.ui.CustomViewPager
@@ -120,9 +120,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="64dp"
                     android:layout_marginLeft="8dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:layout_marginRight="8dp"
-                    android:layout_marginBottom="12dp"
+                    android:layout_marginBottom="8dp"
                     android:background="@drawable/ob_glass"
                     android:clipChildren="false"
                     android:clipToPadding="false"

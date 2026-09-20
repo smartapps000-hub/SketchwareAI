@@ -104,7 +104,7 @@
     </style>
     <style name="Ob.EditorTabText" parent="@style/TextAppearance.Design.Tab">
         <item name="android:fontFamily">@font/manrope_extrabold</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">12.5dp</item>
         <item name="textAllCaps">true</item>
         <item name="android:textAllCaps">true</item>
     </style>
@@ -153,5 +153,19 @@
     <style name="Ob.PopupText" parent="@android:style/TextAppearance.Material.Widget.PopupMenu.Large">
         <item name="android:textColor">#FFF5F5F7</item>
         <item name="android:textSize">15sp</item>
+    </style>
+    <!-- MoreBlock maker (make_block_layout): AppTheme widgets on the dark glass sheet. -->
+    <style name="Ob.MoreBlockTheme" parent="@style/AppTheme">
+        <item name="android:textColorPrimary">#FFF5F5F7</item>
+        <item name="android:textColorSecondary">#FFA1A1AA</item>
+        <item name="android:textColorHint">#FF8A8A93</item>
+        <item name="android:textColor">#FFF5F5F7</item>
+        <item name="colorPrimary">#FFFF7A29</item>
+        <item name="colorAccent">#FFFF7A29</item>
+        <item name="colorControlNormal">#99FFFFFF</item>
+        <item name="colorControlActivated">#FFFF7A29</item>
+        <item name="android:colorControlNormal">#99FFFFFF</item>
+        <item name="android:colorControlActivated">#FFFF7A29</item>
+        <item name="android:colorAccent">#FFFF7A29</item>
     </style>
 </resources>

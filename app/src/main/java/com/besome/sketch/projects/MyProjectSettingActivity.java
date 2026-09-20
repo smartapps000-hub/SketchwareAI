@@ -209,7 +209,9 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         projectThemeColors[4] = getResources().getColor(R.color.color_control_normal);
         for (int i = 0; i < themeColorKeys.length; i++) {
             ThemeColorView colorView = new ThemeColorView(getApplicationContext(), i);
-            colorView.name.setText(themeColorLabels[i]);
+            // "colorControlHighlight" etc.: drop the shared "color" prefix so the five swatches
+            // fit the row without scrolling.
+            colorView.name.setText(themeColorLabels[i].substring(5));
             colorView.color.setBackgroundColor(Color.WHITE);
             themeColorsContainer.addView(colorView);
             colorView.setOnClickListener(v -> {
@@ -452,10 +454,10 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
     private void showResetIconConfirmation() {
         aB dialog = new aB(this);
         dialog.b(Helper.getResString(R.string.common_word_settings));
-        dialog.a(R.drawable.default_icon);
+        dialog.a(R.drawable.ob_app_icon_placeholder);
         dialog.a(Helper.getResString(R.string.myprojects_settings_confirm_reset_icon));
         dialog.b(Helper.getResString(R.string.common_word_reset), v -> {
-            appIcon.setImageResource(R.drawable.default_icon);
+            appIcon.setImageResource(R.drawable.ob_app_icon_placeholder);
             projectHasCustomIcon = false;
             dialog.dismiss();
         });

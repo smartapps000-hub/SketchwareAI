@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
     <com.besome.sketch.lib.ui.CustomScrollView
         android:id="@+id/scv"
@@ -54,4 +53,15 @@
                 android:paddingBottom="4dp" />
         </LinearLayout>
     </com.besome.sketch.lib.ui.CustomScrollView>
-</LinearLayout>
+
+    <!-- Pinned copy of the category you are scrolling through (Layouts, AndroidX, Widgets,
+         List, ...), so the current category is always named. -->
+    <TextView
+        android:id="@+id/ob_palette_sticky"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/ob_palette_sticky_bg"
+        android:clickable="true"
+        android:singleLine="true"
+        android:visibility="gone" />
+</FrameLayout>

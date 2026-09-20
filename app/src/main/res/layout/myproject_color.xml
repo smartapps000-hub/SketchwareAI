@@ -7,9 +7,9 @@
     android:background="@drawable/ob_press_overlay"
     android:gravity="center"
     android:orientation="vertical"
-    android:paddingLeft="6dp"
-    android:paddingTop="8dp"
-    android:paddingRight="6dp"
+    android:paddingLeft="5dp"
+    android:paddingTop="7dp"
+    android:paddingRight="5dp"
     android:paddingBottom="6dp">
 
     <FrameLayout
@@ -29,8 +29,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
+        android:ellipsize="end"
         android:fontFamily="@font/manrope_medium"
         android:includeFontPadding="false"
+        android:maxWidth="84dp"
+        android:singleLine="true"
         android:textColor="@color/ob_text_3"
-        android:textSize="11sp" />
+        android:textSize="10dp" />
 </LinearLayout>

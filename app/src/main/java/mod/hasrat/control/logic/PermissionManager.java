@@ -66,6 +66,25 @@ public class PermissionManager {
         }
     }
 
+    /**
+     * Android 12+ (target 31+): Bluetooth needs BLUETOOTH_CONNECT and BLUETOOTH_SCAN granted at
+     * runtime, or the generated BluetoothConnect calls throw SecurityException. Only checked on
+     * API 31+, where they exist.
+     */
+    private void addBluetooth(boolean isAppCompat, int var1, ArrayList<String> checkPerm, ArrayList<String> reqPerm) {
+        if ((var1 & jq.PERMISSION_BLUETOOTH) != jq.PERMISSION_BLUETOOTH
+                || !com.sketchware.ai.project.BluetoothPermissions.targetsAndroid12(sc_id)) {
+            return;
+        }
+        for (String permission : new String[]{com.sketchware.ai.project.BluetoothPermissions.CONNECT,
+                com.sketchware.ai.project.BluetoothPermissions.SCAN}) {
+            String literal = "\"" + permission + "\"";
+            if (reqPerm.contains(literal) || reqPerm.contains("Manifest.permission." + permission.substring(19))) continue;
+            checkPerm.add("(Build.VERSION.SDK_INT >= 31 && " + formatPermission(isAppCompat, literal) + ")");
+            reqPerm.add(literal);
+        }
+    }
+
     public boolean hasNewPermission() {
         return addedPermissions().size() != 0;
     }
@@ -102,6 +121,7 @@ public class PermissionManager {
                 checkPerm.add("ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED");
                 addPerm.add("Manifest.permission.ACCESS_FINE_LOCATION");
             }
+            addBluetooth(true, var1, checkPerm, addPerm);
             removePermission(true, checkPerm, addPerm);
 
             if (checkPerm.size() != 0 && addPerm.size() != 0) {
@@ -150,6 +170,7 @@ public class PermissionManager {
                 checkPerm.add("checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED");
                 addPerm.add("Manifest.permission.ACCESS_FINE_LOCATION");
             }
+            addBluetooth(false, var1, checkPerm, addPerm);
             removePermission(false, checkPerm, addPerm);
 
             if (checkPerm.size() != 0 && addPerm.size() != 0) {

@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout android:orientation="vertical" android:id="@id/layout_drawer" android:background="@drawable/ob_drawer_bg" android:forceDarkAllowed="false" android:layout_width="250.0dip" android:layout_height="fill_parent"
   xmlns:android="http://schemas.android.com/apk/res/android">
-    <ScrollView android:layout_width="fill_parent" android:layout_height="0.0dip" android:fillViewport="true" android:layout_weight="1.0">
+    <ScrollView android:layout_width="fill_parent" android:layout_height="0.0dip" android:fillViewport="true" android:fadingEdgeLength="24.0dip" android:requiresFadingEdge="vertical" android:layout_weight="1.0">
         <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
             <TextView android:textSize="15.0sp" android:textStyle="bold" android:textColor="@color/ob_accent" android:gravity="center" android:id="@id/tv_title_configuration" android:padding="8.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" />
-            <View android:background="@color/scolor_light_grey" android:layout_width="fill_parent" android:layout_height="1.1999817dip" />
+            <View android:background="@drawable/ob_divider_fade" android:layout_width="fill_parent" android:layout_height="1.0dip" />
             <LinearLayout android:orientation="vertical" android:id="@id/layout_menus" android:layout_width="fill_parent" android:layout_height="wrap_content" />
         </LinearLayout>
     </ScrollView>
-    <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
-        <TextView android:textSize="14.0sp" android:textColor="@color/light_grey" android:gravity="left" android:id="@id/tv_title_global" android:padding="8.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" />
-        <View android:background="@color/scolor_light_grey" android:layout_width="fill_parent" android:layout_height="1.1999817dip" />
+    <LinearLayout android:orientation="vertical" android:background="#FF141417" android:layout_width="fill_parent" android:layout_height="wrap_content">
+        <View android:background="#33FF7A29" android:layout_width="fill_parent" android:layout_height="1.0dip" />
+        <TextView android:textSize="11.5dip" android:textStyle="bold" android:textColor="@color/ob_accent_2" android:gravity="left" android:id="@id/tv_title_global" android:paddingLeft="16.0dip" android:paddingTop="8.0dip" android:paddingBottom="2.0dip" android:letterSpacing="0.06" android:textAllCaps="true" android:layout_width="fill_parent" android:layout_height="wrap_content" />
     </LinearLayout>
-    <LinearLayout android:orientation="vertical" android:id="@id/layout_bottom_menus" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+    <LinearLayout android:orientation="vertical" android:id="@id/layout_bottom_menus" android:background="#FF141417" android:paddingBottom="6.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" />
 </LinearLayout>

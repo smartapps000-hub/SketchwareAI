@@ -2337,6 +2337,7 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
             }
         });
         this.k.setPopupTheme(R.style.ThemeOverlay_ToolbarMenu);
+        applyObsidianChrome();
         this.G = new DB(this.e, "P12").a("P12I0", true);
         this.A = ViewConfiguration.get(this.e).getScaledTouchSlop();
         this.F = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -2878,13 +2879,41 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         return bC.a(this.M.getJavaName(), this.C, this.D);
     }
 
+    /**
+     * Obsidian chrome for the block editor: dark window and glass toolbar (compact icons so the
+     * event name has room), dark canvas behind the blocks, dark block palette, glass palette FAB.
+     * Blocks keep their own colours.
+     */
+    private void applyObsidianChrome() {
+        try {
+            com.sketchware.ai.ui.ObsidianWindow.apply(this);
+            k.setBackgroundResource(R.drawable.ob_toolbar_glass);
+            com.sketchware.ai.ui.CompactToolbar.apply(k);
+            findViewById(R.id.editor).setBackgroundColor(0xFF17171A);
+            View palette = findViewById(R.id.palette_block);
+            if (palette != null) {
+                palette.setBackgroundColor(0xFF1C1C20);
+                com.sketchware.ai.ui.ObsidianAdapter.adaptLive(palette);
+            }
+            com.google.android.material.floatingactionbutton.FloatingActionButton fab = findViewById(R.id.fab_toggle_palette);
+            if (fab != null) {
+                fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF26262B));
+                fab.setImageTintList(android.content.res.ColorStateList.valueOf(0xFFFF7A29));
+                fab.setRippleColor(android.content.res.ColorStateList.valueOf(0x33FF7A29));
+            }
+        } catch (Throwable t) {
+            android.util.Log.w("LogicEditorActivity", "Obsidian chrome unavailable", t);
+        }
+    }
+
     public void showSourceCode() {
         yq yq = new yq(this, this.B);
         yq.a(jC.c(this.B), jC.b(this.B), jC.a(this.B), false);
         String code = new Fx(this.M.getActivityName(), yq.N, "", this.o.getBlocks()).a();
 
         CodeEditor codeEditor = new CodeEditor(this);
-        codeEditor.setColorScheme(new EditorColorScheme());
+        // Dark scheme to match the glass dialog (the white sheet was a hole in the theme).
+        codeEditor.setColorScheme(mod.jbk.code.CodeEditorColorSchemes.DRACULA);
         codeEditor.setEditable(false);
         codeEditor.setEditorLanguage(new JavaLanguage());
         codeEditor.setText(Lx.j(code, false));
@@ -2900,10 +2929,10 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
                 .create();
 
         dialog.setView(codeEditor,
-                (int) getDip(24),
-                (int) getDip(8),
-                (int) getDip(24),
-                (int) getDip(8));
+                (int) getDip(12),
+                (int) getDip(4),
+                (int) getDip(12),
+                (int) getDip(4));
         dialog.show();
     }
 

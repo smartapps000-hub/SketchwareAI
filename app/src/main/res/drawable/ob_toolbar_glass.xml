@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Obsidian toolbar for legacy screens: dark glass bar with a faint amber hairline. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <gradient android:angle="270" android:endColor="#FF141417" android:startColor="#FF1D1D21" />
+        </shape>
+    </item>
+    <item android:gravity="bottom" android:height="1dp">
+        <shape>
+            <solid android:color="#33FF7A29" />
+        </shape>
+    </item>
+</layer-list>

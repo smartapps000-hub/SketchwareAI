@@ -70,8 +70,13 @@ public class Ix {
      * @param permissionName The {@code uses-permission} {@link Nx} tag
      */
     private void writePermission(Nx manifestTag, String permissionName) {
+        writePermission(manifestTag, permissionName, null);
+    }
+
+    private void writePermission(Nx manifestTag, String permissionName, String maxSdkVersion) {
         Nx usesPermissionTag = new Nx("uses-permission");
         usesPermissionTag.a("android", "name", permissionName);
+        if (maxSdkVersion != null) usesPermissionTag.a("android", "maxSdkVersion", maxSdkVersion);
         manifestTag.a(usesPermissionTag);
     }
 
@@ -270,11 +275,23 @@ public class Ix {
             if (c.hasPermission(jq.PERMISSION_RECORD_AUDIO)) {
                 writePermission(a, Manifest.permission.RECORD_AUDIO);
             }
+            boolean bluetooth12 = (c.hasPermission(jq.PERMISSION_BLUETOOTH) || c.hasPermission(jq.PERMISSION_BLUETOOTH_ADMIN))
+                    && com.sketchware.ai.project.BluetoothPermissions.targetsAndroid12(settings);
             if (c.hasPermission(jq.PERMISSION_BLUETOOTH)) {
-                writePermission(a, Manifest.permission.BLUETOOTH);
+                writePermission(a, Manifest.permission.BLUETOOTH, bluetooth12 ? "30" : null);
             }
             if (c.hasPermission(jq.PERMISSION_BLUETOOTH_ADMIN)) {
-                writePermission(a, Manifest.permission.BLUETOOTH_ADMIN);
+                writePermission(a, Manifest.permission.BLUETOOTH_ADMIN, bluetooth12 ? "30" : null);
+            }
+            if (bluetooth12) {
+                // Android 12+ (target 31+): without these, every Bluetooth call throws
+                // SecurityException. The generated activity requests them at runtime.
+                java.util.List<String> custom = FileUtil.isExistFile(fpu.getPathPermission(c.sc_id))
+                        ? frc.getPermissionList() : new java.util.ArrayList<>();
+                for (String permission : new String[]{com.sketchware.ai.project.BluetoothPermissions.CONNECT,
+                        com.sketchware.ai.project.BluetoothPermissions.SCAN}) {
+                    if (!custom.contains(permission)) writePermission(a, permission);
+                }
             }
             if (c.hasPermission(jq.PERMISSION_ACCESS_FINE_LOCATION)) {
                 writePermission(a, Manifest.permission.ACCESS_FINE_LOCATION);

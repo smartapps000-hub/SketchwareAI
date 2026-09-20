@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pinned palette category header: opaque obsidian so tiles slide underneath, amber hairline. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <solid android:color="#FF1C1C20" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    <item android:gravity="bottom" android:height="1dp" android:left="6dp" android:right="6dp">
+        <shape>
+            <solid android:color="#40FF7A29" />
+        </shape>
+    </item>
+</layer-list>

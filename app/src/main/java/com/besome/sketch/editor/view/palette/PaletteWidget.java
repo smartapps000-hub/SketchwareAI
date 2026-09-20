@@ -54,6 +54,9 @@ public class PaletteWidget extends LinearLayout {
     private TextView titleLayouts;
     private TextView titleWidgets;
     private CustomScrollView scrollView;
+    /** Every category title (Layouts, Widgets and the extraTitle ones), in any order. */
+    private final java.util.ArrayList<TextView> sectionTitles = new java.util.ArrayList<>();
+    private TextView stickyTitle;
 
     public PaletteWidget(Context context) {
         super(context);
@@ -200,6 +203,67 @@ public class PaletteWidget extends LinearLayout {
         widgetsContainer.setOnHierarchyChangeListener(styler);
         styleSectionTitle(titleLayouts);
         styleSectionTitle(titleWidgets);
+        sectionTitles.add(titleLayouts);
+        sectionTitles.add(titleWidgets);
+
+        stickyTitle = findViewById(R.id.ob_palette_sticky);
+        styleSectionTitle(stickyTitle);
+        stickyTitle.setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4));
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            scrollView.setOnScrollChangeListener((v, x, y, ox, oy) -> updateStickyTitle());
+        }
+        scrollView.getViewTreeObserver().addOnGlobalLayoutListener(this::updateStickyTitle);
+    }
+
+    /** y of a view inside the scroll content. */
+    private int contentTop(View v) {
+        int y = 0;
+        while (v != null && v.getParent() != scrollView) {
+            y += v.getTop();
+            Object parent = v.getParent();
+            v = parent instanceof View ? (View) parent : null;
+        }
+        return y;
+    }
+
+    /** Pins the title of the category under the top edge once its own title has scrolled away. */
+    private void updateStickyTitle() {
+        if (stickyTitle == null) return;
+        int scrollY = scrollView.getScrollY();
+        TextView current = null;
+        int currentTop = Integer.MIN_VALUE;
+        for (TextView t : sectionTitles) {
+            if (t.getVisibility() != View.VISIBLE || !t.isShown()) continue;
+            int top = contentTop(t);
+            if (top <= scrollY && top > currentTop) {
+                current = t;
+                currentTop = top;
+            }
+        }
+        if (current == null || scrollY <= currentTop + dpToPx(2)) {
+            if (stickyTitle.getVisibility() != View.GONE) stickyTitle.setVisibility(View.GONE);
+            return;
+        }
+        CharSequence text = current.getText();
+        if (!text.equals(stickyTitle.getText())) stickyTitle.setText(text);
+        if (stickyTitle.getVisibility() != View.VISIBLE) stickyTitle.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        // The palette tabs and tiles must stay inside the glass column's rounded corners.
+        View column = getRootView().findViewById(R.id.layout_palette);
+        if (column != null && android.os.Build.VERSION.SDK_INT >= 21) {
+            final float radius = 22 * getResources().getDisplayMetrics().density;
+            column.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, android.graphics.Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+                }
+            });
+            column.setClipToOutline(true);
+        }
     }
 
     private static final java.util.Map<String, Integer> LINE_ICONS = new java.util.HashMap<>();
@@ -256,28 +320,28 @@ public class PaletteWidget extends LinearLayout {
     }
 
     /**
-     * Slim glass tile: 30dp pill, 3dp apart (the old tiles were 44dp + 7dp), 15dp line icon,
-     * 6dp gap, 12sp label. The column is 114dp because the precompiled ViewEditor reserves
-     * exactly 120dp for the palette.
+     * Slim glass tile: 32dp pill, 14dp line icon, 5dp gap, 11.5dp label (dp, so a large system
+     * font can't make the column bulky again). The column is 92dp + 6dp margin because the
+     * precompiled ViewEditor (patched in app/libs) reserves exactly 98dp for the palette.
      */
     private void styleTile(View child) {
         if (child instanceof com.besome.sketch.lib.base.BaseWidget) {
             com.besome.sketch.lib.base.BaseWidget tile = (com.besome.sketch.lib.base.BaseWidget) child;
             tile.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            tile.setMinimumHeight(dpToPx(33));
-            tile.setPadding(dpToPx(9), dpToPx(1), dpToPx(4), dpToPx(1));
+            tile.setMinimumHeight(dpToPx(32));
+            tile.setPadding(dpToPx(7), dpToPx(1), dpToPx(3), dpToPx(1));
             Integer lineIcon = LINE_ICONS.get(tile.getClass().getSimpleName());
             if (lineIcon != null && tile.a != null) tile.a.setImageResource(lineIcon);
             if (tile.a != null && tile.a.getLayoutParams() != null) {
-                tile.a.getLayoutParams().width = dpToPx(15);
-                tile.a.getLayoutParams().height = dpToPx(15);
+                tile.a.getLayoutParams().width = dpToPx(14);
+                tile.a.getLayoutParams().height = dpToPx(14);
                 tile.a.setPadding(0, 0, 0, 0);
             }
             if (tile.b != null) {
-                tile.b.setTextSize(12f);
+                tile.b.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 11.5f);
                 tile.b.setTextColor(0xFFF5F5F7);
                 tile.b.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.LEFT);
-                tile.b.setPadding(dpToPx(6), 0, 0, 0);
+                tile.b.setPadding(dpToPx(5), 0, 0, 0);
                 tile.b.setSingleLine(true);
                 tile.b.setEllipsize(android.text.TextUtils.TruncateAt.END);
             }
@@ -291,7 +355,8 @@ public class PaletteWidget extends LinearLayout {
 
     private void styleSectionTitle(TextView title) {
         title.setTextColor(0xFFFF9A4D);
-        title.setTextSize(11);
+        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 11.5f);
+        title.setLetterSpacing(0.04f);
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         title.setPadding(dpToPx(6), dpToPx(5), dpToPx(6), dpToPx(1));
     }
@@ -316,6 +381,7 @@ public class PaletteWidget extends LinearLayout {
         titleView.setText(title);
         target.addView(titleView);
         styleSectionTitle(titleView);
+        sectionTitles.add(titleView);
     }
 
     public View extraWidget(String tag, String title, String name) {

@@ -984,7 +984,12 @@ public class Lx {
                 "\r\n" +
                 "public void activateBluetooth() {\r\n" +
                 "Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);\r\n" +
+                "try {\r\n" +
                 "activity.startActivity(intent);\r\n" +
+                "} catch (Exception e) {\r\n" +
+                "// Android 12+ without BLUETOOTH_CONNECT, or no Bluetooth settings screen.\r\n" +
+                "e.printStackTrace();\r\n" +
+                "}\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "public String getRandomUUID() {\r\n" +
@@ -992,12 +997,26 @@ public class Lx {
                 "}\r\n" +
                 "\r\n" +
                 "public void getPairedDevices(ArrayList<HashMap<String, Object>> results) {\r\n" +
-                "Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();\r\n" +
+                "if (bluetoothAdapter == null) return;\r\n" +
+                "Set<BluetoothDevice> pairedDevices;\r\n" +
+                "try {\r\n" +
+                "pairedDevices = bluetoothAdapter.getBondedDevices();\r\n" +
+                "} catch (Exception e) {\r\n" +
+                "// Android 12+: BLUETOOTH_CONNECT not granted (yet).\r\n" +
+                "e.printStackTrace();\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
                 "\r\n" +
-                "if (pairedDevices.size() > 0) {\r\n" +
+                "if (pairedDevices != null && pairedDevices.size() > 0) {\r\n" +
                 "for (BluetoothDevice device : pairedDevices) {\r\n" +
                 "HashMap<String, Object> result = new HashMap<>();\r\n" +
-                "result.put(\"name\", device.getName());\r\n" +
+                "String name;\r\n" +
+                "try {\r\n" +
+                "name = device.getName();\r\n" +
+                "} catch (Exception e) {\r\n" +
+                "name = \"\";\r\n" +
+                "}\r\n" +
+                "result.put(\"name\", name);\r\n" +
                 "result.put(\"address\", device.getAddress());\r\n" +
                 "\r\n" +
                 "results.add(result);\r\n" +
@@ -1006,12 +1025,20 @@ public class Lx {
                 "}\r\n" +
                 "\r\n" +
                 "public void readyConnection(BluetoothConnectionListener listener, String tag) {\r\n" +
+                "if (bluetoothAdapter == null) {\r\n" +
+                "listener.onConnectionError(tag, BluetoothController.STATE_NONE, \"Bluetooth is not available on this device\");\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
                 "if (BluetoothController.getInstance().getState().equals(BluetoothController.STATE_NONE)) {\r\n" +
                 "BluetoothController.getInstance().start(this, listener, tag, UUID.fromString(DEFAULT_UUID), bluetoothAdapter);\r\n" +
                 "}\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "public void readyConnection(BluetoothConnectionListener listener, String uuid, String tag) {\r\n" +
+                "if (bluetoothAdapter == null) {\r\n" +
+                "listener.onConnectionError(tag, BluetoothController.STATE_NONE, \"Bluetooth is not available on this device\");\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
                 "if (BluetoothController.getInstance().getState().equals(BluetoothController.STATE_NONE)) {\r\n" +
                 "BluetoothController.getInstance().start(this, listener, tag, UUID.fromString(uuid), bluetoothAdapter);\r\n" +
                 "}\r\n" +
@@ -1019,13 +1046,33 @@ public class Lx {
                 "\r\n" +
                 "\r\n" +
                 "public void startConnection(BluetoothConnectionListener listener, String address, String tag) {\r\n" +
-                "BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);\r\n" +
+                "if (bluetoothAdapter == null) {\r\n" +
+                "listener.onConnectionError(tag, BluetoothController.STATE_NONE, \"Bluetooth is not available on this device\");\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
+                "BluetoothDevice device;\r\n" +
+                "try {\r\n" +
+                "device = bluetoothAdapter.getRemoteDevice(address);\r\n" +
+                "} catch (IllegalArgumentException e) {\r\n" +
+                "listener.onConnectionError(tag, BluetoothController.STATE_NONE, \"Invalid Bluetooth address: \" + address);\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
                 "\r\n" +
                 "BluetoothController.getInstance().connect(device, this, listener, tag, UUID.fromString(DEFAULT_UUID), bluetoothAdapter);\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "public void startConnection(BluetoothConnectionListener listener, String uuid, String address, String tag) {\r\n" +
-                "BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);\r\n" +
+                "if (bluetoothAdapter == null) {\r\n" +
+                "listener.onConnectionError(tag, BluetoothController.STATE_NONE, \"Bluetooth is not available on this device\");\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
+                "BluetoothDevice device;\r\n" +
+                "try {\r\n" +
+                "device = bluetoothAdapter.getRemoteDevice(address);\r\n" +
+                "} catch (IllegalArgumentException e) {\r\n" +
+                "listener.onConnectionError(tag, BluetoothController.STATE_NONE, \"Invalid Bluetooth address: \" + address);\r\n" +
+                "return;\r\n" +
+                "}\r\n" +
                 "\r\n" +
                 "BluetoothController.getInstance().connect(device, this, listener, tag, UUID.fromString(uuid), bluetoothAdapter);\r\n" +
                 "}\r\n" +
@@ -1343,7 +1390,13 @@ public class Lx {
                 "@Override\r\n" +
                 "public void run() {\r\n" +
                 "HashMap<String, Object> deviceMap = new HashMap<>();\r\n" +
-                "deviceMap.put(\"name\", device.getName());\r\n" +
+                "String name;\r\n" +
+                "try {\r\n" +
+                "name = device.getName();\r\n" +
+                "} catch (Exception e) {\r\n" +
+                "name = \"\";\r\n" +
+                "}\r\n" +
+                "deviceMap.put(\"name\", name);\r\n" +
                 "deviceMap.put(\"address\", device.getAddress());\r\n" +
                 "\r\n" +
                 "listener.onConnected(tag, deviceMap);\r\n" +
@@ -1385,7 +1438,7 @@ public class Lx {
                 "r = connectedThread;\r\n" +
                 "}\r\n" +
                 "\r\n" +
-                "r.write(out);\r\n" +
+                "if (r != null) r.write(out);\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "public void connectionFailed(BluetoothConnect bluetoothConnect, final BluetoothConnect.BluetoothConnectionListener listener, final String tag, final String message) {\r\n" +
@@ -1504,7 +1557,12 @@ public class Lx {
                 "\r\n" +
                 "@Override\r\n" +
                 "public void run() {\r\n" +
+                "// Android 12+: cancelDiscovery() needs BLUETOOTH_SCAN; without it, don't crash the thread.\r\n" +
+                "try {\r\n" +
                 "bluetoothAdapter.cancelDiscovery();\r\n" +
+                "} catch (Exception e) {\r\n" +
+                "e.printStackTrace();\r\n" +
+                "}\r\n" +
                 "\r\n" +
                 "try {\r\n" +
                 "socket.connect();\r\n" +
