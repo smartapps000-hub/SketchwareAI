@@ -279,15 +279,21 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_alignParentRight="true"
             android:layout_alignParentBottom="true"
+            android:gravity="right"
             android:padding="16dp">
 
+            <!-- Docs shrinks (ellipsised) so Add always keeps its one-line width, even with a
+                 large system font. -->
             <Button
                 android:id="@+id/docs_button"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:singleLine="true"
                 android:layout_height="40dp"
                 android:layout_marginRight="8dp"
                 android:background="@drawable/ob_safe_pill_state"
@@ -303,6 +309,7 @@
             <Button
                 android:id="@+id/add_button"
                 android:layout_width="wrap_content"
+                android:singleLine="true"
                 android:layout_height="40dp"
                 android:background="@drawable/ob_safe_cta_state"
                 android:minWidth="0dp"
