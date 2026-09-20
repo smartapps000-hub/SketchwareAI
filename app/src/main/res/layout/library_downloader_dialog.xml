@@ -93,7 +93,7 @@
             android:gravity="center|left|top"
             android:paddingTop="8dp"
             android:paddingBottom="10dp"
-            android:text="Searches Google Maven, Maven Central, JitPack and more for an .aar, then a .jar. Dependencies of the library are not downloaded automatically: add each one the same way."
+            android:text="Searches Google Maven, Maven Central, JitPack and more for an .aar, then a .jar. Offline: Import file takes a downloaded .aar, .jar or library .zip. Dependencies of the library are not downloaded automatically: add each one the same way."
             android:textColor="#FFA1A1AA"
             android:textSize="12.5sp" />
     </LinearLayout>
@@ -122,6 +122,29 @@
                 android:singleLine="true"
                 android:text="Download"
                 android:textColor="#ffffffff"
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Offline fallback: pick a downloaded .aar / .jar / library .zip. -->
+        <LinearLayout
+            android:id="@+id/ob_lib_import"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginLeft="2dp"
+            android:layout_marginRight="2dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_safe_pill_state"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:focusable="false"
+                android:singleLine="true"
+                android:text="Import file"
+                android:textColor="#FFF5F5F7"
                 android:textSize="13.5sp"
                 android:textStyle="bold" />
         </LinearLayout>

@@ -22,7 +22,7 @@ public class SketchDialog extends Dialog {
 
     private final Context mContext;
     //initialize view by id
-    public LinearLayout sdialog_root;
+    public android.view.ViewGroup sdialog_root; // dialog.xml root (FrameLayout since v1.6)
     public LinearLayout mDialogHeader;
     public ImageView dialog_img;
     public ImageView dialog_img_right;

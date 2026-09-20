@@ -18,6 +18,7 @@ import com.android.tools.r8.D8;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.sketchware.remod.R;
+import com.sketchware.ai.library.MavenFetcher;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -74,8 +75,8 @@ public class LibraryDownloader {
     private String dependency = "";
     private EditText vLibrary;
     private TextView vMessage;
-    private LinearLayout vProgressBarContainer, vLibraryContainer, vStart, vPause, vResume, vCancel;
-    private ProgressBar vProgressbar;
+    private LinearLayout vStart, vPause, vResume, vCancel, vImport;
+    private MavenFetcher fetcher;
     private ArrayList<HashMap<String, Object>> repoMap = new ArrayList<>();
 
     public LibraryDownloader(Activity context, boolean use_d8) {
@@ -125,88 +126,171 @@ public class LibraryDownloader {
 
         final LinearLayout linear1 = view.findViewById(R.id.linear1);
         final LinearLayout progressBarContainer = view.findViewById(R.id.linear3);
-        final ProgressBar progressbar1 = view.findViewById(R.id.progressbar1);
-        final LinearLayout libraryContainer = view.findViewById(R.id.linear4);
-        final TextView message = view.findViewById(R.id.textview3);
-        final LinearLayout start = view.findViewById(R.id.linear8);
-        final LinearLayout pause = view.findViewById(R.id.linear9);
-        final LinearLayout resume = view.findViewById(R.id.linear10);
-        final LinearLayout cancel = view.findViewById(R.id.linear11);
-        final EditText library = view.findViewById(R.id.edittext1);
+        vMessage = view.findViewById(R.id.textview3);
+        vStart = view.findViewById(R.id.linear8);
+        vPause = view.findViewById(R.id.linear9);
+        vResume = view.findViewById(R.id.linear10);
+        vCancel = view.findViewById(R.id.linear11);
+        vImport = view.findViewById(R.id.ob_lib_import);
+        vLibrary = view.findViewById(R.id.edittext1);
 
         linear1.removeView(progressBarContainer);
 
         builder.setView(view);
         dialog = builder.show();
 
-        pause.setEnabled(false);
-        pause.setVisibility(View.INVISIBLE);
-        resume.setEnabled(false);
-        resume.setVisibility(View.INVISIBLE);
-        cancel.setEnabled(false);
-        cancel.setVisibility(View.INVISIBLE);
+        // Pause/Resume belonged to the old downloader; downloads are small, Cancel stays.
+        vPause.setVisibility(View.GONE);
+        vResume.setVisibility(View.GONE);
+        resetButtons();
 
-        start.setOnClickListener(startView -> {
-            String dependency = library.getText().toString();
-
-            if (dependency.isEmpty()) {
-                SketchwareUtil.toastError("Dependency can't be empty");
-            } else if (!dependency.contains(":")) {
-                SketchwareUtil.toastError("Invalid dependency");
-            } else {
-                libName = downloadPath + _getLibName(dependency);
-
-                if (!FileUtil.isExistFile(libName)) {
-                    FileUtil.makeDir(libName);
-                }
-
-                isAarDownloaded = false;
-                isAarAvailable = false;
-
-                library.setEnabled(false);
-
-                start.setEnabled(false);
-                start.setVisibility(View.INVISIBLE);
-
-                cancel.setEnabled(true);
-                cancel.setVisibility(View.VISIBLE);
-
-                this.dependency = dependency.trim();
-                searchingJar = false;
-                attempts = 0;
-                connectionFailures = 0;
-                vLibrary = library;
-                vMessage = message;
-                vProgressBarContainer = progressBarContainer;
-                vLibraryContainer = libraryContainer;
-                vStart = start;
-                vPause = pause;
-                vResume = resume;
-                vCancel = cancel;
-                vProgressbar = progressbar1;
-                _getRepository();
-                counter = 0;
-                searchNext();
-            }
-        });
-
-        pause.setOnClickListener(pauseView -> {
-            if (PRDownloader.getStatus(downloadId) == Status.RUNNING) {
-                PRDownloader.pause(downloadId);
-            }
-        });
-
-        resume.setOnClickListener(resumeView -> {
-            if (PRDownloader.getStatus(downloadId) == Status.PAUSED) {
-                PRDownloader.resume(downloadId);
-            }
-        });
-
-        cancel.setOnClickListener(cancelView -> {
-            PRDownloader.cancel(downloadId);
-            library.setEnabled(false);
+        vStart.setOnClickListener(v -> startOnlineDownload());
+        vImport.setOnClickListener(v -> pickArchive());
+        vCancel.setOnClickListener(v -> {
+            if (fetcher != null) fetcher.cancel();
             dialog.dismiss();
         });
+    }
+
+    /** Request code the host activity forwards to {@link #onArchivePicked}. */
+    public static final int REQUEST_IMPORT_ARCHIVE = 7301;
+
+    private void startOnlineDownload() {
+        String dep = vLibrary.getText().toString();
+        final String[] gav = MavenFetcher.parse(dep);
+        if (gav == null) {
+            SketchwareUtil.toastError("Use group:artifact:version, e.g. com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0");
+            return;
+        }
+        dependency = gav[0] + ":" + gav[1] + ":" + gav[2];
+        libName = downloadPath + gav[1] + "_V_" + gav[2];
+        setBusy(true);
+
+        _getRepository();
+        final List<String[]> repos = new ArrayList<>();
+        for (int i = 0; i < repoUrls.size(); i++) repos.add(new String[]{repoNames.get(i), repoUrls.get(i)});
+
+        fetcher = new MavenFetcher();
+        final MavenFetcher current = fetcher;
+        new Thread(() -> {
+            MavenFetcher.Result result = current.fetch(dependency, repos, new File(downloadPath), new MavenFetcher.Listener() {
+                @Override
+                public void onStatus(String status) {
+                    context.runOnUiThread(() -> vMessage.setText(status));
+                }
+
+                @Override
+                public void onProgress(int percent) {
+                    context.runOnUiThread(() -> vMessage.setText("Library found. Downloading... " + percent + "%"));
+                }
+            });
+            context.runOnUiThread(() -> {
+                if (!dialog.isShowing()) return;
+                if (result.file == null) {
+                    setBusy(false);
+                    vMessage.setText((result.networkFailed
+                            ? "Downloading failed: no network connection."
+                            : "Library was not found in loaded repositories (searched .aar and .jar). "
+                            + "Check the name and version, or use Import file.") + "\n\n" + result.log);
+                } else {
+                    vMessage.setText("Downloaded from " + result.url + "\nInstalling...");
+                    installArchive(result.file, libName, dependency);
+                }
+            });
+        }, "LibraryDownloader").start();
+    }
+
+    /** Offline fallback: pick a .aar, .jar or library .zip from storage. */
+    private void pickArchive() {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        try {
+            context.startActivityForResult(intent, REQUEST_IMPORT_ARCHIVE);
+        } catch (Exception e) {
+            SketchwareUtil.toastError("No file picker available");
+        }
+    }
+
+    /** Called by the host activity's onActivityResult for {@link #REQUEST_IMPORT_ARCHIVE}. */
+    public void onArchivePicked(Uri uri) {
+        if (uri == null || dialog == null) return;
+        String display = "library";
+        try (android.database.Cursor c = context.getContentResolver().query(uri,
+                new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst() && c.getString(0) != null) display = c.getString(0);
+        } catch (Exception ignored) {
+        }
+        String base = display.replaceAll("\\.(zip|aar|jar)$", "").replaceAll("[^A-Za-z0-9._-]", "_");
+        if (base.isEmpty()) base = "library";
+        setBusy(true);
+        vMessage.setText("Importing " + display + "...");
+        final File copy = new File(context.getCacheDir(), "import_" + System.currentTimeMillis());
+        final String target = downloadPath + base;
+        final String hint = base;
+        new Thread(() -> {
+            boolean ok = false;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri);
+                 java.io.OutputStream out = new FileOutputStream(copy)) {
+                byte[] buffer = new byte[16384];
+                int r;
+                while ((r = in.read(buffer)) != -1) out.write(buffer, 0, r);
+                ok = true;
+            } catch (Exception e) {
+                Log.w("LibraryDownloader", "Import copy failed", e);
+            }
+            final boolean copied = ok;
+            context.runOnUiThread(() -> {
+                if (!copied) {
+                    setBusy(false);
+                    vMessage.setText("Couldn't read the selected file.");
+                    return;
+                }
+                libName = target;
+                installArchive(copy, target, hint);
+            });
+        }, "LibraryImport").start();
+    }
+
+    /** Extracts the archive into the local library folder, then dexes classes.jar. */
+    private void installArchive(File archive, String libDirectory, String packageHint) {
+        String reason;
+        try {
+            reason = MavenFetcher.install(archive, new File(libDirectory));
+        } catch (IOException e) {
+            reason = "Couldn't extract the library: " + e.getMessage();
+        }
+        archive.delete();
+        if (reason != null) {
+            FileUtil.deleteFile(libDirectory);
+            setBusy(false);
+            vMessage.setText(reason);
+            return;
+        }
+        String classesJar = libDirectory + "/classes.jar";
+        if (!use_d8 && !JarCheck.checkJar(classesJar, 44, 51)) {
+            setBusy(false);
+            vMessage.setText("This jar is not supported by Dx since Dx only supports up to Java 1.7. In order to proceed, you need to switch to D8 (if your Android version is 8+)");
+            return;
+        }
+        FileUtil.writeFile(libDirectory + "/config", findPackageName(libDirectory + "/", packageHint));
+        vMessage.setText("Download completed.");
+        setBusy(false);
+        new BackTask().execute(classesJar);
+    }
+
+    private void setBusy(boolean busy) {
+        vLibrary.setEnabled(!busy);
+        vStart.setVisibility(busy ? View.INVISIBLE : View.VISIBLE);
+        vStart.setEnabled(!busy);
+        vImport.setVisibility(busy ? View.INVISIBLE : View.VISIBLE);
+        vImport.setEnabled(!busy);
+        vCancel.setVisibility(busy ? View.VISIBLE : View.INVISIBLE);
+        vCancel.setEnabled(busy);
+    }
+
+    private void resetButtons() {
+        setBusy(false);
     }
 
     private String _getAarDownloadLink(String str) {
@@ -359,197 +443,6 @@ public class LibraryDownloader {
             if (p.startsWith("classes") && p.endsWith(".dex")) continue;
             if (!validFiles.contains(p)) FileUtil.deleteFile(f);
         }
-    }
-
-    private int _download(
-            final String url,
-            final String path,
-            final String name,
-
-            final EditText library,
-            final TextView message,
-            final LinearLayout progressBarContainer,
-            final LinearLayout libraryContainer,
-
-            final LinearLayout start,
-            final LinearLayout pause,
-            final LinearLayout resume,
-            final LinearLayout cancel,
-
-            final ProgressBar progressbar1) {
-
-        return PRDownloader
-                .download(url, path, name)
-                .build()
-                .setOnStartOrResumeListener(() -> {
-                    message.setText("Library found. Downloading...");
-                    library.setEnabled(false);
-                    libraryContainer.removeAllViews();
-                    libraryContainer.addView(progressBarContainer);
-
-                    start.setEnabled(false);
-                    start.setVisibility(View.INVISIBLE);
-
-                    pause.setEnabled(true);
-                    pause.setVisibility(View.VISIBLE);
-
-                    resume.setEnabled(false);
-                    resume.setVisibility(View.INVISIBLE);
-
-                    cancel.setEnabled(true);
-                    cancel.setVisibility(View.VISIBLE);
-                })
-                .setOnPauseListener(() -> {
-                    message.setText("Downloading paused.");
-
-                    start.setEnabled(false);
-                    start.setVisibility(View.INVISIBLE);
-
-                    pause.setEnabled(false);
-                    pause.setVisibility(View.INVISIBLE);
-
-                    resume.setEnabled(true);
-                    resume.setVisibility(View.VISIBLE);
-
-                    cancel.setEnabled(true);
-                    cancel.setVisibility(View.VISIBLE);
-                })
-                .setOnCancelListener(() -> {
-                    library.setEnabled(true);
-
-                    start.setEnabled(true);
-                    start.setVisibility(View.VISIBLE);
-
-                    pause.setEnabled(false);
-                    pause.setVisibility(View.INVISIBLE);
-
-                    resume.setEnabled(false);
-                    resume.setVisibility(View.INVISIBLE);
-
-                    cancel.setEnabled(false);
-                    cancel.setVisibility(View.INVISIBLE);
-                })
-                .setOnProgressListener(progress -> {
-                    int progressPercent = (int) (progress.currentBytes * 100 / progress.totalBytes);
-                    progressbar1.setProgress(progressPercent);
-                })
-                .start(new OnDownloadListener() {
-                    @Override
-                    public void onDownloadComplete() {
-                        isAarAvailable = true;
-                        isAarDownloaded = true;
-
-                        StringBuilder path2 = new StringBuilder();
-                        path2.append(downloadPath);
-                        path2.append(_getLibName(dependency).concat(searchingJar ? ".jar" : ".zip"));
-
-                        if (isAarDownloaded && isAarAvailable) {
-                            if (searchingJar) {
-                                // A plain jar is the library's classes.jar.
-                                FileUtil.makeDir(libName);
-                                File target = new File(libName, "classes.jar");
-                                target.delete();
-                                if (!new File(path2.toString()).renameTo(target)) {
-                                    FileUtil.copyFile(path2.toString(), target.getAbsolutePath());
-                                }
-                            } else {
-                                _unZipFile(path2.toString(), libName);
-                            }
-                            if (FileUtil.isExistFile(libName.concat("/classes.jar"))) {
-                                if (use_d8 || JarCheck.checkJar(libName.concat("/classes.jar"), 44, 51)) {
-                                    message.setText("Download completed.");
-
-                                    String[] test = new String[]{libName.concat("/classes.jar")};
-                                    new BackTask().execute(test);
-                                    FileUtil.deleteFile(path2.toString());
-
-                                    FileUtil.writeFile(libName + "/config", findPackageName(libName + "/", library.getText().toString()));
-
-                                    deleteUnnecessaryFiles(libName + "/");
-
-                                } else {
-                                    message.setText("This jar is not supported by Dx since Dx only supports up to Java 1.7. In order to proceed, you need to switch to D8 (if your Android version is 8+)");
-                                    FileUtil.deleteFile(path2.toString());
-                                }
-                            } else {
-                                message.setText("Library doesn't contain a jar file.");
-                                FileUtil.deleteFile(path2.toString());
-                            }
-                        }
-
-                        library.setEnabled(true);
-                        start.setEnabled(true);
-                        start.setVisibility(View.VISIBLE);
-
-                        pause.setEnabled(false);
-                        pause.setVisibility(View.INVISIBLE);
-
-                        resume.setEnabled(false);
-                        resume.setVisibility(View.INVISIBLE);
-
-                        cancel.setEnabled(false);
-                        cancel.setVisibility(View.INVISIBLE);
-                    }
-
-                    @Override
-                    public void onError(PRDownloader.Error e) {
-                        if (isAarDownloaded) return;
-                        // A dead or unreachable repository is not "no network": try the next one.
-                        attempts++;
-                        if (e.isConnectionError()) connectionFailures++;
-                        searchNext();
-                    }
-                });
-    }
-
-    /** Tries the next repository; after the last one, repeats the search for a plain .jar. */
-    private void searchNext() {
-        if (counter >= repoUrls.size()) {
-            if (!searchingJar) {
-                searchingJar = true;
-                counter = 0;
-                searchNext();
-                return;
-            }
-            FileUtil.deleteFile(libName);
-            vMessage.setText(attempts > 0 && connectionFailures == attempts
-                    ? "Downloading failed. No network"
-                    : "Library was not found in loaded repositories (searched .aar and .jar)");
-            resetButtons();
-            return;
-        }
-        currentRepo = repoUrls.get(counter);
-        String name = repoNames.get(counter);
-        counter++;
-        vMessage.setText("Searching " + (searchingJar ? ".jar" : ".aar") + "... " + counter + "/" + repoUrls.size() + " [" + name + "]");
-        String link = searchingJar ? _getJarDownloadLink(dependency) : _getAarDownloadLink(dependency);
-        downloadId = _download(
-                trimSlash(currentRepo) + link,
-                downloadPath,
-                _getLibName(dependency) + (searchingJar ? ".jar" : ".zip"),
-                vLibrary, vMessage, vProgressBarContainer, vLibraryContainer,
-                vStart, vPause, vResume, vCancel, vProgressbar);
-    }
-
-    private void resetButtons() {
-        vLibrary.setEnabled(true);
-        vStart.setEnabled(true);
-        vStart.setVisibility(View.VISIBLE);
-        vPause.setEnabled(false);
-        vPause.setVisibility(View.INVISIBLE);
-        vResume.setEnabled(false);
-        vResume.setVisibility(View.INVISIBLE);
-        vCancel.setEnabled(false);
-        vCancel.setVisibility(View.INVISIBLE);
-    }
-
-    private static String trimSlash(String url) {
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
-    }
-
-    private String _getJarDownloadLink(String str) {
-        String aar = _getAarDownloadLink(str);
-        return aar.substring(0, aar.length() - ".aar".length()) + ".jar";
     }
 
     private void _getRepository() {

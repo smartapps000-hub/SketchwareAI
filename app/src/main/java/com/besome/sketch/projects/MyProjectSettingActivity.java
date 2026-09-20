@@ -211,7 +211,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
             ThemeColorView colorView = new ThemeColorView(getApplicationContext(), i);
             // "colorControlHighlight" etc.: drop the shared "color" prefix so the five swatches
             // fit the row without scrolling.
-            colorView.name.setText(themeColorLabels[i].substring(5));
+            colorView.name.setText(themeColorLabels[i].substring(5).replace("Control", ""));
             colorView.color.setBackgroundColor(Color.WHITE);
             themeColorsContainer.addView(colorView);
             colorView.setOnClickListener(v -> {

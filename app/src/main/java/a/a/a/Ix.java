@@ -69,6 +69,29 @@ public class Ix {
      * @param manifestTag    AndroidManifest {@link Nx} object
      * @param permissionName The {@code uses-permission} {@link Nx} tag
      */
+    /**
+     * Android 11+ (target 30+) package visibility: without these, TextToSpeech finds no engine
+     * (silent) and SpeechToText finds no recognizer. Declaring them is harmless otherwise.
+     */
+    private void addPackageVisibilityQueries(Nx manifestTag) {
+        int target;
+        try {
+            target = Integer.parseInt(settings.getValue(ProjectSettings.SETTING_TARGET_SDK_VERSION, "28"));
+        } catch (Exception e) {
+            return;
+        }
+        if (target < 30) return;
+        Nx queries = new Nx("queries");
+        for (String action : new String[]{"android.intent.action.TTS_SERVICE", "android.speech.RecognitionService"}) {
+            Nx intent = new Nx("intent");
+            Nx actionTag = new Nx("action");
+            actionTag.a("android", "name", action);
+            intent.a(actionTag);
+            queries.a(intent);
+        }
+        manifestTag.a(queries);
+    }
+
     private void writePermission(Nx manifestTag, String permissionName) {
         writePermission(manifestTag, permissionName, null);
     }
@@ -303,6 +326,7 @@ public class Ix {
             }
         }
         ConstVarManifest.handlePermissionComponent(a, c.x);
+        addPackageVisibilityQueries(a);
         AndroidManifestInjector.getP(a, c.sc_id);
 
         Nx applicationTag = new Nx("application");

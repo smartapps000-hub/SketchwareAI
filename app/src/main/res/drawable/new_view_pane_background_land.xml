@@ -8,13 +8,13 @@
         <shape>
             <gradient android:angle="270" android:startColor="#FF1C1C20" android:endColor="#FF121215" />
             <stroke android:width="2dp" android:color="#29FFFFFF" />
-            <corners android:radius="44dp" />
+            <corners android:radius="16dp" />
         </shape>
     </item>
     <item android:left="2dp" android:right="2dp" android:top="2dp">
         <shape>
             <gradient android:angle="270" android:startColor="#26FFFFFF" android:centerColor="#00FFFFFF" android:endColor="#00FFFFFF" />
-            <corners android:radius="42dp" />
+            <corners android:radius="14dp" />
         </shape>
     </item>
 </layer-list>

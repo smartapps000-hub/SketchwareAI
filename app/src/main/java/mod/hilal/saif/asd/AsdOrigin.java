@@ -28,7 +28,7 @@ public class AsdOrigin extends Dialog {
 
     public Activity activity;
     public LogicEditorActivity logicEditorActivity;
-    public LinearLayout b;
+    public android.view.ViewGroup b; // dialog.xml root (FrameLayout since v1.6)
     public View c;
     public ImageView d;
     public TextView dialog_title;

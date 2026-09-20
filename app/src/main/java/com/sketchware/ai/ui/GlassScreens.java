@@ -30,6 +30,16 @@ public final class GlassScreens {
             "com.besome.sketch.editor.manage.library.compat.ManageCompatActivity",
             "com.besome.sketch.export.ExportProjectActivity",
             "dev.aldi.sayuti.editor.manage.ManageLocalLibraryActivity",
+            "com.besome.sketch.editor.manage.font.ManageFontActivity",
+            "com.besome.sketch.editor.manage.image.ManageImageActivity",
+            "com.besome.sketch.editor.manage.sound.ManageSoundActivity",
+            "com.besome.sketch.editor.manage.view.ManageViewActivity",
+            "mod.agus.jcoderz.editor.manage.permission.ManagePermissionActivity",
+            "mod.agus.jcoderz.editor.manage.resource.ManageResourceActivity",
+            "mod.hey.studios.activity.managers.assets.ManageAssetsActivity",
+            "mod.hey.studios.activity.managers.java.ManageJavaActivity",
+            "mod.hey.studios.activity.managers.nativelib.ManageNativelibsActivity",
+            "dev.aldi.sayuti.editor.manage.ManageCustomAttributeActivity",
     };
 
     private static final int CARD = 0xFF1E1E22;
@@ -79,6 +89,20 @@ public final class GlassScreens {
                 button.setMinimumHeight((int) (40 * d));
                 button.setPadding((int) (20 * d), 0, (int) (20 * d), 0);
                 button.setSingleLine(true);
+            } else if (isListRow(view)) {
+                // Every list row becomes a slim glass pill (inset, so rows don't touch),
+                // keeping an amber touch ripple.
+                view.setTag(R.id.ob_glassed, Boolean.TRUE);
+                float d = view.getResources().getDisplayMetrics().density;
+                android.graphics.drawable.Drawable tile = view.getContext().getDrawable(R.drawable.ob_tile);
+                android.graphics.drawable.InsetDrawable pill = new android.graphics.drawable.InsetDrawable(tile,
+                        (int) (6 * d), (int) (3 * d), (int) (6 * d), (int) (3 * d));
+                view.setBackground(new android.graphics.drawable.RippleDrawable(
+                        ColorStateList.valueOf(0x33FF7A29), pill, pill));
+            } else if (view instanceof android.widget.ListView) {
+                view.setTag(R.id.ob_glassed, Boolean.TRUE);
+                ((android.widget.ListView) view).setDivider(null);
+                ((android.widget.ListView) view).setDividerHeight(0);
             } else if (view.getId() == R.id.toolbar) {
                 view.setTag(R.id.ob_glassed, Boolean.TRUE);
                 view.setBackgroundResource(R.drawable.ob_toolbar_glass);
@@ -88,6 +112,16 @@ public final class GlassScreens {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) convert(group.getChildAt(i));
         }
+    }
+
+    /** A row of a ListView/GridView/RecyclerView that isn't already a card. */
+    private static boolean isListRow(View view) {
+        Object parent = view.getParent();
+        if (!(parent instanceof android.widget.AbsListView || parent instanceof androidx.recyclerview.widget.RecyclerView)) {
+            return false;
+        }
+        return !(view instanceof CardView) && !(view instanceof ViewGroup && ((ViewGroup) view).getChildCount() == 1
+                && ((ViewGroup) view).getChildAt(0) instanceof CardView);
     }
 
     /** Filled Material/AppCompat buttons (flat blue, indigo, red); text-only buttons are kept. */

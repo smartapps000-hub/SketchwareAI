@@ -56,19 +56,30 @@ public class ManageLocalLibraryActivity extends Activity implements View.OnClick
     public void onClick(View v) {
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             // D8 does everything Dx does (and Java 8+ bytecode) on Android 8+: no question needed.
-            new LibraryDownloader(this, true).showDialog(this);
+            (downloader = new LibraryDownloader(this, true)).showDialog(this);
             return;
         }
         new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Dexer")
                 .setMessage("Would you like to use Dx or D8 to dex the library?\n" +
                         "D8 supports Java 8, whereas Dx does not. Limitation: D8 only works on Android 8 and above.")
-                .setPositiveButton("D8", (dialog, which) -> new LibraryDownloader(ManageLocalLibraryActivity.this,
-                        true).showDialog(ManageLocalLibraryActivity.this))
-                .setNegativeButton("Dx", (dialog, which) -> new LibraryDownloader(ManageLocalLibraryActivity.this,
-                        false).showDialog(ManageLocalLibraryActivity.this))
+                .setPositiveButton("D8", (dialog, which) -> (downloader = new LibraryDownloader(ManageLocalLibraryActivity.this,
+                        true)).showDialog(ManageLocalLibraryActivity.this))
+                .setNegativeButton("Dx", (dialog, which) -> (downloader = new LibraryDownloader(ManageLocalLibraryActivity.this,
+                        false)).showDialog(ManageLocalLibraryActivity.this))
                 .setNeutralButton("Cancel", null)
                 .show();
+    }
+
+    private LibraryDownloader downloader;
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == LibraryDownloader.REQUEST_IMPORT_ARCHIVE && resultCode == RESULT_OK
+                && data != null && downloader != null) {
+            downloader.onArchivePicked(data.getData());
+        }
     }
 
     @Override

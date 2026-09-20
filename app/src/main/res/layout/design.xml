@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Design editor, Obsidian liquid glass (design canvas board "Design editor").
      Vertical space is budgeted for the precompiled ViewEditor, which sizes the phone preview as
-     screen height - status bar - action bar - 152dp: header 89dp + bottom bar 78dp + gaps stay
+     screen height - status bar - 173dp (patched in app/libs to match): header 89dp + gap 6dp + bottom bar 78dp; so
      inside that, so the preview never slides under the bottom bar. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"

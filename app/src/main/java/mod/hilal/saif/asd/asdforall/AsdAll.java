@@ -24,7 +24,7 @@ import a.a.a.Ss;
 public class AsdAll extends Dialog {
 
     public Activity activity;
-    public LinearLayout b;
+    public android.view.ViewGroup b; // dialog.xml root (FrameLayout since v1.6)
     public LinearLayout base;
     public boolean boo;
     public View c;

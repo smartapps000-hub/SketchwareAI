@@ -517,7 +517,11 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
             int available = parent.getMeasuredWidth() - parent.getPaddingLeft() - parent.getPaddingRight();
             int cell = Math.max((int) wB.a(parent.getContext(), 48.0f), available > 0 ? available / 6 : 0);
             if (available <= 0) cell = (int) wB.a(parent.getContext(), 56.0f);
-            itemView.setLayoutParams(new FlexboxLayoutManager.LayoutParams(cell, (int) wB.a(parent.getContext(), 72.0f)));
+            // Glass tile per component with a 2dp gap on every side.
+            int gap = (int) wB.a(parent.getContext(), 2.0f);
+            FlexboxLayoutManager.LayoutParams lp = new FlexboxLayoutManager.LayoutParams(cell - 2 * gap, (int) wB.a(parent.getContext(), 74.0f));
+            lp.setMargins(gap, gap, gap, gap);
+            itemView.setLayoutParams(lp);
             return new ViewHolder(itemView);
         }
 
