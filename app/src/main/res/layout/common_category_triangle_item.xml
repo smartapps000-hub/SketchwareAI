@@ -26,6 +26,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:textAlignment="center"
+            android:textColor="@color/ob_text_3"
             android:textSize="10sp" />
     </LinearLayout>
 
@@ -35,5 +36,5 @@
         android:layout_height="40dp"
         android:layout_alignParentEnd="true"
         android:layout_marginTop="8dp"
-        android:background="@drawable/triangle_point_left" />
+        android:background="@drawable/ob_rail_pointer" />
 </RelativeLayout>

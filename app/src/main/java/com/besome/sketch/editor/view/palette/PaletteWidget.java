@@ -205,36 +205,76 @@ public class PaletteWidget extends LinearLayout {
     private static final java.util.Map<String, Integer> LINE_ICONS = new java.util.HashMap<>();
 
     static {
-        LINE_ICONS.put("IconLinearHorizontal", R.drawable.ob_w_linear_h);
-        LINE_ICONS.put("IconLinearVertical", R.drawable.ob_w_linear_v);
-        LINE_ICONS.put("IconScrollViewHorizontal", R.drawable.ob_w_scroll_h);
-        LINE_ICONS.put("IconScrollViewVertical", R.drawable.ob_w_scroll_v);
-        LINE_ICONS.put("IconCardView", R.drawable.ob_w_card);
-        LINE_ICONS.put("IconTabLayout", R.drawable.ob_w_tabs);
-        LINE_ICONS.put("IconTextView", R.drawable.ob_w_text);
-        LINE_ICONS.put("IconEditText", R.drawable.ob_w_edit);
+        LINE_ICONS.put("IconAdView", R.drawable.ob_w_ad_view);
+        LINE_ICONS.put("IconAnalogClock", R.drawable.ob_w_analog_clock);
+        LINE_ICONS.put("IconAutoCompleteTextView", R.drawable.ob_w_auto_complete_text_view);
+        LINE_ICONS.put("IconBadgeView", R.drawable.ob_w_badge_view);
+        LINE_ICONS.put("IconBottomNavigationView", R.drawable.ob_w_bottom_navigation_view);
         LINE_ICONS.put("IconButton", R.drawable.ob_w_button);
+        LINE_ICONS.put("IconCalendarView", R.drawable.ob_w_calendar_view);
+        LINE_ICONS.put("IconCardView", R.drawable.ob_w_card_view);
+        LINE_ICONS.put("IconCheckBox", R.drawable.ob_w_check_box);
+        LINE_ICONS.put("IconCircleImageView", R.drawable.ob_w_circle_image_view);
+        LINE_ICONS.put("IconCodeView", R.drawable.ob_w_code_view);
+        LINE_ICONS.put("IconCollapsingToolbar", R.drawable.ob_w_collapsing_toolbar);
+        LINE_ICONS.put("IconDatePicker", R.drawable.ob_w_date_picker);
+        LINE_ICONS.put("IconDigitalClock", R.drawable.ob_w_digital_clock);
+        LINE_ICONS.put("IconEditText", R.drawable.ob_w_edit_text);
+        LINE_ICONS.put("IconGoogleSignInButton", R.drawable.ob_w_google_sign_in_button);
+        LINE_ICONS.put("IconGridView", R.drawable.ob_w_grid_view);
+        LINE_ICONS.put("IconImageView", R.drawable.ob_w_image_view);
+        LINE_ICONS.put("IconLinearHorizontal", R.drawable.ob_w_linear_horizontal);
+        LINE_ICONS.put("IconLinearVertical", R.drawable.ob_w_linear_vertical);
+        LINE_ICONS.put("IconListView", R.drawable.ob_w_list_view);
+        LINE_ICONS.put("IconLottieAnimation", R.drawable.ob_w_lottie_animation);
+        LINE_ICONS.put("IconMapView", R.drawable.ob_w_map_view);
+        LINE_ICONS.put("IconMaterialButton", R.drawable.ob_w_material_button);
+        LINE_ICONS.put("IconMultiAutoCompleteTextView", R.drawable.ob_w_multi_auto_complete_text_view);
+        LINE_ICONS.put("IconOTPView", R.drawable.ob_w_o_t_p_view);
+        LINE_ICONS.put("IconPatternLockView", R.drawable.ob_w_pattern_lock_view);
+        LINE_ICONS.put("IconProgressBar", R.drawable.ob_w_progress_bar);
+        LINE_ICONS.put("IconRadioButton", R.drawable.ob_w_radio_button);
+        LINE_ICONS.put("IconRadioGroup", R.drawable.ob_w_radio_group);
+        LINE_ICONS.put("IconRatingBar", R.drawable.ob_w_rating_bar);
+        LINE_ICONS.put("IconRecyclerView", R.drawable.ob_w_recycler_view);
+        LINE_ICONS.put("IconScrollViewHorizontal", R.drawable.ob_w_scroll_view_horizontal);
+        LINE_ICONS.put("IconScrollViewVertical", R.drawable.ob_w_scroll_view_vertical);
+        LINE_ICONS.put("IconSearchView", R.drawable.ob_w_search_view);
+        LINE_ICONS.put("IconSeekBar", R.drawable.ob_w_seek_bar);
+        LINE_ICONS.put("IconSpinner", R.drawable.ob_w_spinner);
+        LINE_ICONS.put("IconSwipeRefreshLayout", R.drawable.ob_w_swipe_refresh_layout);
+        LINE_ICONS.put("IconSwitch", R.drawable.ob_w_switch);
+        LINE_ICONS.put("IconTabLayout", R.drawable.ob_w_tab_layout);
+        LINE_ICONS.put("IconTextInputLayout", R.drawable.ob_w_text_input_layout);
+        LINE_ICONS.put("IconTextView", R.drawable.ob_w_text_view);
+        LINE_ICONS.put("IconTimePicker", R.drawable.ob_w_time_picker);
+        LINE_ICONS.put("IconVideoView", R.drawable.ob_w_video_view);
+        LINE_ICONS.put("IconViewPager", R.drawable.ob_w_view_pager);
+        LINE_ICONS.put("IconWaveSideBar", R.drawable.ob_w_wave_side_bar);
+        LINE_ICONS.put("IconWebView", R.drawable.ob_w_web_view);
+        LINE_ICONS.put("IconYoutubePlayer", R.drawable.ob_w_youtube_player);
     }
 
     /**
-     * 44dp glass tile (7dp apart), 16dp icon, 6dp gap, 12.5sp semibold label. The column is
-     * 114dp because the precompiled ViewEditor reserves exactly 120dp for the palette.
+     * Slim glass tile: 30dp pill, 3dp apart (the old tiles were 44dp + 7dp), 15dp line icon,
+     * 6dp gap, 12sp label. The column is 114dp because the precompiled ViewEditor reserves
+     * exactly 120dp for the palette.
      */
     private void styleTile(View child) {
         if (child instanceof com.besome.sketch.lib.base.BaseWidget) {
             com.besome.sketch.lib.base.BaseWidget tile = (com.besome.sketch.lib.base.BaseWidget) child;
             tile.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            tile.setMinimumHeight(dpToPx(51));
-            tile.setPadding(dpToPx(8), dpToPx(4), dpToPx(4), dpToPx(4));
+            tile.setMinimumHeight(dpToPx(33));
+            tile.setPadding(dpToPx(9), dpToPx(1), dpToPx(4), dpToPx(1));
             Integer lineIcon = LINE_ICONS.get(tile.getClass().getSimpleName());
             if (lineIcon != null && tile.a != null) tile.a.setImageResource(lineIcon);
             if (tile.a != null && tile.a.getLayoutParams() != null) {
-                tile.a.getLayoutParams().width = dpToPx(16);
-                tile.a.getLayoutParams().height = dpToPx(16);
+                tile.a.getLayoutParams().width = dpToPx(15);
+                tile.a.getLayoutParams().height = dpToPx(15);
                 tile.a.setPadding(0, 0, 0, 0);
             }
             if (tile.b != null) {
-                tile.b.setTextSize(12.5f);
+                tile.b.setTextSize(12f);
                 tile.b.setTextColor(0xFFF5F5F7);
                 tile.b.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.LEFT);
                 tile.b.setPadding(dpToPx(6), 0, 0, 0);
@@ -251,9 +291,9 @@ public class PaletteWidget extends LinearLayout {
 
     private void styleSectionTitle(TextView title) {
         title.setTextColor(0xFFFF9A4D);
-        title.setTextSize(12);
+        title.setTextSize(11);
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
-        title.setPadding(dpToPx(6), dpToPx(6), dpToPx(6), dpToPx(2));
+        title.setPadding(dpToPx(6), dpToPx(5), dpToPx(6), dpToPx(1));
     }
 
     public void b() {

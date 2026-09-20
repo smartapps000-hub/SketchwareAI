@@ -112,7 +112,7 @@ public class ComponentsMaker extends Activity {
         dialogProperties.error_dir = externalStorageDir;
         dialogProperties.offset = externalStorageDir;
         dialogProperties.extensions = new String[]{"json"};
-        FilePickerDialog filePickerDialog = new FilePickerDialog(this, dialogProperties);
+        FilePickerDialog filePickerDialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), dialogProperties);
         filePickerDialog.setTitle("Select a JSON file");
         filePickerDialog.setDialogSelectionListener(selections -> {
             if (FileUtil.readFile(selections[0]).equals("")) {

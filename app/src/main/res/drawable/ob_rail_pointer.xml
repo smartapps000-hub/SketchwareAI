@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Selected category marker on the glass rail: a short amber bar at the right edge. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:gravity="right|center_vertical" android:width="3dp" android:height="22dp">
+        <shape><solid android:color="#FFFF7A29" /><corners android:radius="2dp" /></shape>
+    </item>
+</layer-list>

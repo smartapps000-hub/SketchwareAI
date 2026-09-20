@@ -2,20 +2,20 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginLeft="4dp"
-    android:layout_marginTop="4dp"
-    android:layout_marginRight="4dp"
+    android:layout_marginLeft="6dp"
+    android:layout_marginTop="6dp"
+    android:layout_marginRight="6dp"
     android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:background="#ffffffff">
+        android:layout_height="58dp"
+        android:background="@drawable/ob_pill16">
 
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="?selectableItemBackground">
+            android:background="@drawable/ob_press_overlay">
 
             <TextView
                 android:id="@+id/tv_event_type"
@@ -52,7 +52,7 @@
                     android:id="@+id/tv_target_type"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#ff404040"
+                    android:textColor="@color/ob_text_2"
                     android:textSize="11sp" />
 
                 <TextView
@@ -61,9 +61,9 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:textColor="#ff202020"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="@font/manrope_bold"
+                    android:textColor="@color/ob_text"
+                    android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tv_event_name"
@@ -90,8 +90,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
-                        android:textColor="#ff9a9a9a"
-                        android:textSize="12sp" />
+                        android:textColor="@color/ob_text_2"
+                        android:textSize="11.5sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -105,7 +105,8 @@
                 android:clickable="true"
                 android:contentDescription="@null"
                 android:padding="16dp"
-                android:src="@drawable/ic_arrow_drop_down_grey600_24dp" />
+                android:src="@drawable/ob_ic_chevron_down"
+                android:tint="@color/ob_text_2" />
         </RelativeLayout>
     </RelativeLayout>
 
@@ -113,7 +114,7 @@
         android:id="@+id/event_option_layout"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:background="#ffffffff"
+        android:background="@android:color/transparent"
         android:orientation="vertical"
         android:visibility="gone">
 
@@ -122,7 +123,7 @@
             android:layout_height="1dp"
             android:layout_marginLeft="16dp"
             android:layout_marginRight="16dp"
-            android:background="@color/color_secondary" />
+            android:background="@drawable/ob_divider_fade" />
 
         <LinearLayout
             android:id="@+id/event_option"

@@ -91,6 +91,18 @@ public class BaseAppCompatActivity extends AppCompatActivity {
         return override != null ? override : super.checkPermission(permission, pid, uid);
     }
 
+    /**
+     * The file picker used by Restore projects (angads25 FilePickerDialog) asks
+     * checkCallingOrSelfPermission(READ_EXTERNAL_STORAGE). On Android 13+ that is never granted,
+     * so the picker only requested it and silently never opened. Same answer as checkPermission.
+     */
+    @Override
+    public int checkCallingOrSelfPermission(String permission) {
+        Integer override = StorageAccess.checkPermissionOverride(permission,
+                android.os.Process.myPid(), android.os.Process.myUid());
+        return override != null ? override : super.checkCallingOrSelfPermission(permission);
+    }
+
     @Override
     public int checkSelfPermission(String permission) {
         Integer override = StorageAccess.checkPermissionOverride(permission,

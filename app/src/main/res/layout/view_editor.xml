@@ -2,7 +2,10 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:tag="obsidian">
+    <!-- tag "obsidian": the automatic re-colouring of the Event/Component tabs must never touch
+         the design canvas, which previews the user's own colours. -->
 
     <LinearLayout
         android:id="@+id/layout_palette"

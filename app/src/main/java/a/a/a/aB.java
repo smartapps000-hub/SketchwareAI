@@ -107,6 +107,9 @@ public class aB extends Dialog {
             getWindow().setAttributes(attributes);
         }
         setContentView(R.layout.dialog);
+        // A floating dialog window is reset to WRAP_CONTENT when the content is installed, which
+        // made short dialogs (text edit) narrow: stretch it to the screen width again here.
+        getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
         ImageView dialogImage = findViewById(R.id.dialog_img);
         TextView dialogTitle = findViewById(R.id.dialog_title);

@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Add Component: Obsidian glass sheet (amber rim), 6-column icon grid below. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginLeft="8dp"
     android:layout_marginTop="16dp"
+    android:layout_marginRight="8dp"
     android:layout_marginBottom="16dp"
     android:animateLayoutChanges="true"
-    android:background="#ffffffff"
+    android:background="@drawable/ob_glass_sheet_accent"
+    android:forceDarkAllowed="false"
+    android:paddingLeft="4dp"
+    android:paddingTop="2dp"
+    android:paddingRight="4dp"
+    android:paddingBottom="4dp"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#ffffffff"
         android:orientation="vertical">
 
         <LinearLayout
@@ -29,22 +36,27 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="4dp"
-                android:src="@drawable/ic_left_back_blue_48dp" />
+                android:src="@drawable/ob_ic_back" />
 
             <TextView
                 android:id="@+id/tv_component_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="8dp"
-                android:textColor="@color/color_primary"
-                android:textSize="14sp"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
+                android:textColor="@color/ob_accent"
+                android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:background="@color/color_secondary" />
+            android:layout_height="1dp"
+            android:layout_marginLeft="8dp"
+            android:layout_marginRight="8dp"
+            android:background="@drawable/ob_divider_fade" />
     </LinearLayout>
 
     <RelativeLayout
@@ -80,8 +92,10 @@
 
                     <ImageView
                         android:id="@+id/img_icon"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/ob_pill"
+                        android:padding="10dp"
                         android:src="@drawable/widget_file" />
 
                     <TextView
@@ -91,6 +105,7 @@
                         android:layout_marginTop="2dp"
                         android:gravity="center"
                         android:lines="2"
+                        android:textColor="@color/ob_text"
                         android:textSize="12sp"
                         android:visibility="invisible" />
                 </LinearLayout>
@@ -102,7 +117,7 @@
                     android:layout_marginLeft="8dp"
                     android:layout_marginTop="28dp"
                     android:layout_marginRight="16dp"
-                    android:textColor="@color/grey"
+                    android:textColor="@color/ob_text_2"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -120,17 +135,19 @@
                     android:layout_marginLeft="28dp"
                     android:layout_marginRight="24dp"
                     android:gravity="left"
-                    android:textColor="#ffff0000"
+                    android:textColor="@color/ob_error"
                     android:textSize="12sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Design.TextInputLayout"
                     android:id="@+id/ti_input"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="24dp"
                     android:layout_marginTop="16dp"
                     android:layout_marginRight="24dp"
-                    android:importantForAutofill="noExcludeDescendants">
+                    android:importantForAutofill="noExcludeDescendants"
+                    android:textColorHint="@color/ob_text_3">
 
                     <EditText
                         android:id="@+id/ed_input"
@@ -138,11 +155,15 @@
                         android:layout_height="40dp"
                         android:imeOptions="actionDone"
                         android:inputType="text"
+                        android:backgroundTint="#66FFFFFF"
                         android:lines="1"
-                        android:textSize="16sp" />
+                        android:textColor="@color/ob_text"
+                        android:textColorHint="@color/ob_text_3"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Design.TextInputLayout"
                     android:id="@+id/ti_input_filename"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -150,6 +171,7 @@
                     android:layout_marginTop="16dp"
                     android:layout_marginRight="24dp"
                     android:importantForAutofill="noExcludeDescendants"
+                    android:textColorHint="@color/ob_text_3"
                     android:visibility="gone">
 
                     <EditText
@@ -158,11 +180,15 @@
                         android:layout_height="40dp"
                         android:imeOptions="actionDone"
                         android:inputType="text"
+                        android:backgroundTint="#66FFFFFF"
                         android:lines="1"
-                        android:textSize="16sp" />
+                        android:textColor="@color/ob_text"
+                        android:textColorHint="@color/ob_text_3"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Design.TextInputLayout"
                     android:id="@+id/ti_input_firebase_path"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -170,6 +196,7 @@
                     android:layout_marginTop="16dp"
                     android:layout_marginRight="24dp"
                     android:importantForAutofill="noExcludeDescendants"
+                    android:textColorHint="@color/ob_text_3"
                     android:visibility="gone">
 
                     <EditText
@@ -178,8 +205,11 @@
                         android:layout_height="40dp"
                         android:imeOptions="actionDone"
                         android:inputType="text"
+                        android:backgroundTint="#66FFFFFF"
                         android:lines="1"
-                        android:textSize="16sp" />
+                        android:textColor="@color/ob_text"
+                        android:textColorHint="@color/ob_text_3"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
@@ -188,6 +218,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="32dp"
                     android:layout_marginRight="24dp"
+                    android:textColor="@color/ob_text_3"
                     android:textSize="12sp"
                     android:textStyle="italic"
                     android:visibility="gone" />
@@ -203,11 +234,13 @@
                     android:visibility="gone">
 
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Design.TextInputLayout"
                         android:id="@+id/ti_input_file_picker"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:importantForAutofill="noExcludeDescendants">
+                        android:importantForAutofill="noExcludeDescendants"
+                    android:textColorHint="@color/ob_text_3">
 
                         <EditText
                             android:id="@+id/ed_input_file_picker"
@@ -215,8 +248,11 @@
                             android:layout_height="40dp"
                             android:imeOptions="actionDone"
                             android:inputType="text"
+                            android:backgroundTint="#66FFFFFF"
                             android:lines="1"
-                            android:textSize="16sp" />
+                            android:textColor="@color/ob_text"
+                            android:textColorHint="@color/ob_text_3"
+                            android:textSize="15sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <ImageView
@@ -225,7 +261,8 @@
                         android:layout_height="40dp"
                         android:layout_gravity="center_vertical"
                         android:padding="8sp"
-                        android:src="@drawable/ic_expand_more_grey600_24dp" />
+                        android:src="@drawable/ob_ic_chevron_down"
+                        android:tint="@color/ob_text_2" />
                 </LinearLayout>
 
                 <TextView
@@ -234,6 +271,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="32dp"
                     android:layout_marginRight="24dp"
+                    android:textColor="@color/ob_text_3"
                     android:textSize="12sp"
                     android:textStyle="italic"
                     android:visibility="gone" />
@@ -250,16 +288,31 @@
             <Button
                 android:id="@+id/docs_button"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#ffffffff"
-                android:theme="@style/AppTheme.Button.CoolGreen" />
+                android:layout_height="40dp"
+                android:layout_marginRight="8dp"
+                android:background="@drawable/ob_safe_pill_state"
+                android:minWidth="0dp"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:stateListAnimator="@null"
+                android:textAllCaps="false"
+                android:textColor="@color/ob_text"
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/add_button"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#ffffffff"
-                android:theme="@style/AppTheme.Button.LightBlue" />
+                android:layout_height="40dp"
+                android:background="@drawable/ob_safe_cta_state"
+                android:minWidth="0dp"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:stateListAnimator="@null"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </RelativeLayout>
 

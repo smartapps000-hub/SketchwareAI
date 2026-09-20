@@ -274,7 +274,7 @@ public class ManageFirebaseActivity extends BaseAppCompatActivity implements Vie
         properties.offset = Environment.getExternalStorageDirectory();
         properties.extensions = new String[]{"json"};
 
-        FilePickerDialog pickerDialog = new FilePickerDialog(this, properties);
+        FilePickerDialog pickerDialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
 
         pickerDialog.setTitle("Select your google-services.json");
         pickerDialog.setDialogSelectionListener(selections -> {

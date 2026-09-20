@@ -1,30 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Build progress (BuildingDialog, APK signing): one Obsidian glass sheet with the quiz on top
-     and the live build step below. -->
+<!-- Build progress (BuildingDialog, APK signing): compact, full-width Obsidian glass sheet with
+     an orange rim: live build step on top, the quiz below. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_gravity="center"
-    android:layout_marginLeft="14dp"
-    android:layout_marginRight="14dp"
-    android:background="@drawable/ob_glass_sheet"
+    android:layout_marginLeft="10dp"
+    android:layout_marginRight="10dp"
+    android:background="@drawable/ob_glass_sheet_accent"
     android:forceDarkAllowed="false"
     android:orientation="vertical"
-    android:padding="16dp">
-
-    <LinearLayout
-        android:id="@+id/layout_quiz"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="12dp"
-        android:background="@drawable/ob_divider_fade" />
+    android:paddingLeft="14dp"
+    android:paddingTop="12dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -33,14 +23,14 @@
         android:orientation="horizontal">
 
         <FrameLayout
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:background="@drawable/ob_pill">
 
             <com.airbnb.lottie.LottieAnimationView
                 android:id="@+id/animation_view"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:scaleType="centerCrop"
                 app:lottie_autoPlay="true"
                 app:lottie_fileName="anim/guide_create.json"
@@ -52,12 +42,27 @@
             android:id="@+id/tv_progress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="14dp"
+            android:layout_marginLeft="12dp"
+            android:ellipsize="marquee"
             android:fontFamily="@font/manrope_semibold"
             android:gravity="start|center_vertical"
-            android:lineSpacingExtra="2dp"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:singleLine="true"
             android:text="@string/common_message_loading"
             android:textColor="@color/ob_text"
-            android:textSize="14sp" />
+            android:textSize="13.5sp" />
     </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/ob_divider_fade" />
+
+    <LinearLayout
+        android:id="@+id/layout_quiz"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
 </LinearLayout>

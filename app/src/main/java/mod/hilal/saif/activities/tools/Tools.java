@@ -136,7 +136,7 @@ public class Tools extends Activity {
         properties.root = getFilesDir().getParentFile();
         properties.error_dir = getExternalCacheDir();
         properties.extensions = null;
-        FilePickerDialog dialog = new FilePickerDialog(this, properties);
+        FilePickerDialog dialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
         dialog.setTitle("Select an entry to modify");
         dialog.setDialogSelectionListener(files -> {
             final boolean isDirectory = new File(files[0]).isDirectory();
@@ -281,7 +281,7 @@ public class Tools extends Activity {
             properties.selection_mode = DialogConfigs.SINGLE_MODE;
             properties.selection_type = DialogConfigs.FILE_SELECT;
             properties.extensions = new String[]{"apk"};
-            FilePickerDialog dialog = new FilePickerDialog(this, properties);
+            FilePickerDialog dialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
             dialog.setDialogSelectionListener(files -> ed_input.getEditText().setText(files[0]));
             dialog.setTitle("Select the APK to sign");
             dialog.show();

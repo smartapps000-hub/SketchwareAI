@@ -193,6 +193,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
             projectFileBean = savedInstanceState.getParcelable("project_file");
         }
         tvComponentTitle = findViewById(R.id.tv_component_title);
+        tvComponentTitle.setSelected(true);
         tvDescription = findViewById(R.id.tv_description);
         tvName = findViewById(R.id.tv_name);
         tvWarning = findViewById(R.id.tv_warning);
@@ -223,7 +224,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         FlexboxLayoutManager flexboxLayoutManager = new FlexboxLayoutManager(this);
         flexboxLayoutManager.setFlexDirection(FlexDirection.ROW);
         flexboxLayoutManager.setFlexWrap(FlexWrap.WRAP);
-        flexboxLayoutManager.setJustifyContent(JustifyContent.CENTER);
+        flexboxLayoutManager.setJustifyContent(JustifyContent.FLEX_START);
         flexboxLayoutManager.setAlignItems(AlignItems.CENTER);
         componentsList.setLayoutManager(flexboxLayoutManager);
         componentsAdapter = new ComponentsAdapter();
@@ -414,7 +415,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
                 Helper.setViewsVisibility(false, tvDescFilePicker, inputFilePickerLayout);
                 break;
         }
-        imgIcon.setImageResource(ComponentBean.getIconResource(componentBean.type));
+        imgIcon.setImageResource(com.sketchware.ai.ui.ComponentIcons.forType(componentBean.type));
         tvComponentTitle.setText(ComponentBean.getComponentName(getApplicationContext(), componentBean.type));
         tvDescription.setText(ComponentsHandler.description(componentBean.type));
         tvDescription.setAlpha(FlexItem.FLEX_GROW_DEFAULT);
@@ -476,8 +477,9 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
             holder.b.setTranslationX(FlexItem.FLEX_GROW_DEFAULT);
             holder.b.setTranslationY(FlexItem.FLEX_GROW_DEFAULT);
             holder.itemName.setAlpha(1.0f);
-            holder.itemName.setText(componentName);
-            holder.itemIcon.setImageResource(ComponentBean.getIconResource(componentList.get(position).type));
+            // Break long names between words ("Shared|Preferences"), never mid-word, in the narrow cell.
+            holder.itemName.setText(com.sketchware.ai.ui.ComponentIcons.twoLineLabel(componentName));
+            holder.itemIcon.setImageResource(com.sketchware.ai.ui.ComponentIcons.forType(componentList.get(position).type));
             if (!x) {
                 return;
             }
@@ -495,7 +497,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
                         .setListener(new AnimatorListenerAdapter() {
                             @Override
                             public void onAnimationEnd(Animator animation) {
-                                tvName.setText(componentName);
+                                tvName.setText(com.sketchware.ai.ui.ComponentIcons.twoLineLabel(componentName));
                                 s();
                                 y = false;
                             }
@@ -511,8 +513,11 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         // RecyclerView.Adapter#onCreateViewHolder(ViewGroup, int)
         public ViewHolder b(ViewGroup parent, int viewType) {
             View itemView = wB.a(parent.getContext(), R.layout.component_add_item);
-            int lengthAndWidth = (int) wB.a(parent.getContext(), 76.0f);
-            itemView.setLayoutParams(new FlexboxLayoutManager.LayoutParams(lengthAndWidth, lengthAndWidth));
+            // 6-column grid: each cell is a sixth of the list's width (at least 48dp).
+            int available = parent.getMeasuredWidth() - parent.getPaddingLeft() - parent.getPaddingRight();
+            int cell = Math.max((int) wB.a(parent.getContext(), 48.0f), available > 0 ? available / 6 : 0);
+            if (available <= 0) cell = (int) wB.a(parent.getContext(), 56.0f);
+            itemView.setLayoutParams(new FlexboxLayoutManager.LayoutParams(cell, (int) wB.a(parent.getContext(), 72.0f)));
             return new ViewHolder(itemView);
         }
 

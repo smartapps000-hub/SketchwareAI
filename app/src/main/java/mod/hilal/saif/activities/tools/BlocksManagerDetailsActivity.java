@@ -152,7 +152,7 @@ public class BlocksManagerDetailsActivity extends AppCompatActivity {
         properties.error_dir = externalStorageDir;
         properties.offset = externalStorageDir;
         properties.extensions = new String[]{"json"};
-        FilePickerDialog filePickerDialog = new FilePickerDialog(this, properties);
+        FilePickerDialog filePickerDialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
         filePickerDialog.setTitle("Select a JSON file");
         filePickerDialog.setDialogSelectionListener(selections -> {
             if (FileUtil.readFile(selections[0]).equals("")) {

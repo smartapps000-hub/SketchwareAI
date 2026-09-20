@@ -26,6 +26,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.widget.Toolbar;
@@ -193,6 +194,30 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         });
         /* Set the text color to yellow */
         snackbar.f(Color.YELLOW);
+        snackbar.n();
+    }
+
+    /**
+     * A build finished but something was skipped, downgraded or needs attention (see
+     * {@link com.sketchware.ai.project.BuildWarnings}): never silent. The warnings are saved as
+     * the last compile log and a Snackbar offers to show them.
+     */
+    private void indicateBuildWarnings(String report, int count) {
+        new CompileErrorSaver(q.sc_id).writeLogsToFile(report);
+        Snackbar snackbar = Snackbar.a(coordinatorLayout, "Built with " + count
+                + (count == 1 ? " warning" : " warnings"), 0 /* BaseTransientBottomBar.LENGTH_LONG */);
+        snackbar.a(Helper.getResString(R.string.common_word_show), v -> {
+            if (!mB.a()) {
+                snackbar.c();
+                Intent intent = new Intent(getApplicationContext(), CompileLogActivity.class);
+                intent.putExtra("error", report);
+                intent.putExtra("sc_id", sc_id);
+                intent.putExtra(CompileLogActivity.EXTRA_FROM_EDITOR, true);
+                intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(intent);
+            }
+        });
+        snackbar.f(0xFFFFB877);
         snackbar.n();
     }
 
@@ -366,7 +391,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
             if (v.getId() == R.id.btn_execute) {
                 new BuildAsyncTask(getApplicationContext()).execute();
             } else if (v.getId() == R.id.btn_compiler_opt) {
-                PopupMenu popupMenu = new PopupMenu(this, findViewById(R.id.btn_compiler_opt));
+                PopupMenu popupMenu = new PopupMenu(new android.view.ContextThemeWrapper(this, R.style.Ob_PopupTheme), findViewById(R.id.btn_compiler_opt));
                 Menu menu = popupMenu.getMenu();
 
                 // TODO: Add nice title item(s) which are smaller, can't be selected, etc.
@@ -450,8 +475,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         t = new DB(getApplicationContext(), "P12");
 
         Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setSubtitle("#" + sc_id + " · main.xml");
         a(toolbar);
+        // Title/subtitle live in the header's own marquee TextViews (see design.xml).
+        d().a("");
+        TextView headerTitle = findViewById(R.id.ob_editor_title);
+        TextView headerSubtitle = findViewById(R.id.ob_editor_subtitle);
+        headerSubtitle.setText("#" + sc_id + " · main.xml");
+        headerTitle.setSelected(true);
+        headerSubtitle.setSelected(true);
         findViewById(R.id.layout_main_logo).setVisibility(View.GONE);
         d().d(true);
         d().e(true);
@@ -475,7 +506,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         projectFileSelector.setOnSelectedFileChangeListener((i, projectFileBean) -> {
             if (projectFileBean != null) {
                 // Header subtitle follows the open file: "#630 · main.xml".
-                toolbar.setSubtitle("#" + sc_id + " · " + (i == 0 ? projectFileBean.getXmlName() : projectFileBean.getJavaName()));
+                headerSubtitle.setText("#" + sc_id + " · " + (i == 0 ? projectFileBean.getXmlName() : projectFileBean.getJavaName()));
             }
             if (i == 0) {
                 if (viewTabAdapter != null && projectFileBean != null) {
@@ -558,6 +589,11 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
             }
         });
         viewPager.getAdapter().b();
+        // Event and Component tabs are classic light layouts: re-colour them for the Obsidian
+        // ground (the View tab's editor is tagged "obsidian" and left untouched).
+        com.sketchware.ai.ui.ObsidianAdapter.adaptLive(viewPager);
+        View propertyPanel = findViewById(R.id.view_property);
+        if (propertyPanel != null) com.sketchware.ai.ui.ObsidianAdapter.adaptLive(propertyPanel);
         ((TabLayout) findViewById(R.id.tab_layout)).setupWithViewPager(viewPager);
     }
 
@@ -588,7 +624,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         k();
 
         HashMap<String, Object> projectInfo = lC.b(sc_id);
-        d().a(yB.c(projectInfo, "my_ws_name"));
+        d().a("");
+        ((TextView) findViewById(R.id.ob_editor_title)).setText(yB.c(projectInfo, "my_ws_name"));
         q = new yq(getApplicationContext(), wq.d(sc_id), projectInfo);
 
         try {
@@ -1031,6 +1068,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     q.e();
 
                     Dp mDp = new Dp(this, a, q);
+                    com.sketchware.ai.project.BuildWarnings.begin(q);
 
                     mDp.maybeExtractAapt2();
                     if (canceled) {
@@ -1109,6 +1147,11 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                         return;
                     }
 
+                    int warningCount = com.sketchware.ai.project.BuildWarnings.count();
+                    if (warningCount > 0) {
+                        String report = com.sketchware.ai.project.BuildWarnings.report();
+                        runOnUiThread(() -> indicateBuildWarnings(report, warningCount));
+                    }
                     installBuiltApk();
                 } catch (MissingFileException e) {
                     runOnUiThread(() -> {
@@ -1137,7 +1180,9 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     });
                 } catch (Throwable tr) {
                     LogUtil.e("DesignActivity$BuildAsyncTask", "Failed to build project", tr);
-                    indicateCompileErrorOccurred(tr instanceof zy ? tr.getMessage() : Log.getStackTraceString(tr));
+                    String failure = tr instanceof zy ? tr.getMessage() : Log.getStackTraceString(tr);
+                    failure = failure + com.sketchware.ai.project.BuildWarnings.failureAppendix();
+                    indicateCompileErrorOccurred(failure);
                 }
             }
         }

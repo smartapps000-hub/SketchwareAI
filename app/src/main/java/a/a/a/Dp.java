@@ -300,6 +300,23 @@ public class Dp {
 
         /* Add local libraries to the classpath */
         classpath.append(mll.getJarLocalLibrary());
+        /* A local library whose files were deleted/moved used to vanish from the build silently */
+        for (HashMap<String, Object> localLibrary : mll.list) {
+            Object name = localLibrary.get("name");
+            Object jarPath = localLibrary.get("jarPath");
+            if (jarPath instanceof String && !((String) jarPath).isEmpty() && !new File((String) jarPath).exists()) {
+                com.sketchware.ai.project.BuildWarnings.add("Local library '" + name + "' is enabled but its classes.jar "
+                        + "is missing (" + jarPath + "), so it wasn't compiled in. Re-download or re-import it in Local Library Manager.");
+            }
+        }
+
+        /* Same for the user's custom classpath entries in Build Settings */
+        for (String entry : build_settings.getValue(BuildSettings.SETTING_CLASSPATH, "").split(":")) {
+            if (!entry.trim().isEmpty() && !new File(entry.trim()).exists()) {
+                com.sketchware.ai.project.BuildWarnings.add("Classpath entry in Build Settings doesn't exist and was "
+                        + "ignored: " + entry.trim());
+            }
+        }
 
         /* Append user's custom classpath */
         if (!build_settings.getValue(BuildSettings.SETTING_CLASSPATH, "").equals("")) {
@@ -598,6 +615,9 @@ public class Dp {
             if (!compiled && fallback != null
                     && (crash != null || com.sketchware.ai.project.ModernProjectDefaults.isSystemLibraryFailure(errors))) {
                 LogUtil.w(TAG, "Java " + javaVersion + " compilation failed outside user code, retrying with Java " + fallback);
+                com.sketchware.ai.project.BuildWarnings.add("Java " + javaVersion + " couldn't be used (the compiler "
+                        + "couldn't load the Java " + javaVersion + " system library), so the app was compiled as Java "
+                        + fallback + ". Java " + javaVersion + "-only syntax such as 'var' won't compile.");
                 args.set(args.indexOf("-" + javaVersion), "-" + fallback);
                 if (!classpathHasLambdaStubs(args)) {
                     int cp = args.indexOf("-cp") + 1;
@@ -1057,6 +1077,8 @@ public class Dp {
             KB.a(context, "stringfog/stringfog.zip", yq.compiledClassesPath);
         } catch (Exception e) {
             LogUtil.e("StringFog", "Failed to run StringFog", e);
+            com.sketchware.ai.project.BuildWarnings.add("String encryption (StringFog) failed and was skipped, so "
+                    + "strings in this APK are NOT encrypted: " + e);
         }
     }
 

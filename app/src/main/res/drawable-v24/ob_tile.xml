@@ -2,7 +2,7 @@
 <!-- Palette tile (mockup .tile), see com.sketchware.ai.ui.GlassDrawable. -->
 <drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
     class="com.sketchware.ai.ui.GlassDrawable"
-    app:swRadius="16dp"
+    app:swRadius="11dp"
     app:swFillTop="#17FFFFFF"
     app:swFillBottom="#05FFFFFF"
     app:swRimTop="#47FFFFFF"

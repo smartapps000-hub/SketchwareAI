@@ -52,10 +52,19 @@ public final class ObsidianAdapter {
     }
 
     public static void adapt(View view) {
-        if (view == null || TAG_NATIVE.equals(view.getTag())) return;
-        clearLightBackground(view);
+        adapt(view, true);
+    }
 
-        if (view instanceof TextView) {
+    /**
+     * @param onDark whether what shows behind this view is dark. Text is only lightened on a dark
+     *               ground: under a background we can't read (a card, a 9-patch, a selector) the
+     *               original dark text stays, so it never ends up light-on-light either.
+     */
+    private static void adapt(View view, boolean onDark) {
+        if (view == null || TAG_NATIVE.equals(view.getTag())) return;
+        onDark = resolveBackground(view, onDark);
+
+        if (view instanceof TextView && onDark) {
             TextView text = (TextView) view;
             ColorStateList colors = text.getTextColors();
             if (colors != null) {
@@ -77,7 +86,7 @@ public final class ObsidianAdapter {
                         new int[][]{{android.R.attr.state_checked}, {}},
                         new int[]{ACCENT, 0x99FFFFFF}));
             }
-        } else if (view instanceof ImageView) {
+        } else if (view instanceof ImageView && onDark) {
             ImageView image = (ImageView) view;
             ColorStateList tint = image.getImageTintList();
             if (tint != null && isNeutral(tint.getDefaultColor()) && luminance(tint.getDefaultColor()) < 0.5) {
@@ -91,26 +100,60 @@ public final class ObsidianAdapter {
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) {
-                adapt(group.getChildAt(i));
+                adapt(group.getChildAt(i), onDark);
             }
         }
     }
 
-    private static void clearLightBackground(View view) {
+    /**
+     * Clears flat light-grey/white backgrounds (the glass shows through) and returns whether
+     * the view's content sits on a dark ground afterwards.
+     */
+    private static boolean resolveBackground(View view, boolean onDark) {
+        if (view.getClass().getName().contains("CardView")) return false;
         Drawable background = view.getBackground();
+        if (background == null) return onDark;
+        if (background instanceof android.graphics.drawable.InsetDrawable
+                && ((android.graphics.drawable.InsetDrawable) background).getDrawable() != null) {
+            background = ((android.graphics.drawable.InsetDrawable) background).getDrawable();
+        }
         int color;
         if (background instanceof ColorDrawable) {
             color = ((ColorDrawable) background).getColor();
         } else if (Build.VERSION.SDK_INT >= 24 && background instanceof android.graphics.drawable.GradientDrawable) {
-            ColorStateList fill = ((android.graphics.drawable.GradientDrawable) background).getColor();
-            if (fill == null) return;
-            color = fill.getDefaultColor();
+            android.graphics.drawable.GradientDrawable shape = (android.graphics.drawable.GradientDrawable) background;
+            ColorStateList fill = shape.getColor();
+            int[] gradient = shape.getColors();
+            if (fill != null) {
+                color = fill.getDefaultColor();
+            } else if (gradient != null && gradient.length > 0) {
+                color = gradient[0];
+            } else {
+                return onDark;
+            }
+        } else if (background instanceof GlassDrawable
+                || background instanceof android.graphics.drawable.RippleDrawable
+                || background instanceof android.graphics.drawable.StateListDrawable && isPressOverlay(view)) {
+            return onDark;
         } else {
-            return;
+            // Unknown artwork (9-patch, card, image): assume it's light, leave text alone.
+            return false;
         }
-        if (Color.alpha(color) > 40 && isNeutral(color) && luminance(color) > 0.75) {
+        if (Color.alpha(color) < 40) return onDark;
+        if (isNeutral(color) && luminance(color) > 0.75) {
+            if (background != view.getBackground()) return false; // light artwork we can't remove
             view.setBackground(null);
+            return onDark;
         }
+        return luminance(color) < 0.5;
+    }
+
+    /** Our own selectors (press overlays, glass pill states) are dark-surface artwork. */
+    private static boolean isPressOverlay(View view) {
+        return view.getBackground().getCurrent() instanceof GlassDrawable
+                || view.getBackground().getCurrent() == null
+                || view.getBackground().getCurrent() instanceof ColorDrawable
+                && Color.alpha(((ColorDrawable) view.getBackground().getCurrent()).getColor()) < 40;
     }
 
     /** Greys and near-greys; saturated colours are meaningful and keep their hue. */
@@ -121,5 +164,30 @@ public final class ObsidianAdapter {
 
     private static double luminance(int color) {
         return (0.2126 * Color.red(color) + 0.7152 * Color.green(color) + 0.0722 * Color.blue(color)) / 255.0;
+    }
+
+    /**
+     * Legacy menu icons that are plain black artwork (e.g. the "Tt" font icon) vanish on glass.
+     * If every visible pixel of the icon is a dark grey, tint it light; coloured icons are kept.
+     */
+    public static void lightenIfDarkMono(ImageView image) {
+        try {
+            Drawable d = image.getDrawable();
+            if (!(d instanceof android.graphics.drawable.BitmapDrawable) || image.getImageTintList() != null) return;
+            android.graphics.Bitmap bmp = ((android.graphics.drawable.BitmapDrawable) d).getBitmap();
+            if (bmp == null) return;
+            int w = bmp.getWidth(), h = bmp.getHeight(), seen = 0;
+            int step = Math.max(1, Math.min(w, h) / 24);
+            for (int y = 0; y < h; y += step) {
+                for (int x = 0; x < w; x += step) {
+                    int c = bmp.getPixel(x, y);
+                    if (Color.alpha(c) < 60) continue;
+                    if (!isNeutral(c) || luminance(c) > 0.35) return; // coloured or light: leave it
+                    seen++;
+                }
+            }
+            if (seen > 0) image.setImageTintList(ColorStateList.valueOf(0xFFE4E4E7));
+        } catch (RuntimeException ignored) {
+        }
     }
 }

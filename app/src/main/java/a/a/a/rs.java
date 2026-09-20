@@ -132,6 +132,8 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         ViewGroup view = (ViewGroup) inflater.inflate(R.layout.fr_logic_list, container, false);
+        // Event tab on Obsidian glass: rows added later by the adapters are re-coloured too.
+        com.sketchware.ai.ui.ObsidianAdapter.adaptLive(view);
         initialize(view);
         setHasOptionsMenu(true);
         if (savedInstanceState != null) {

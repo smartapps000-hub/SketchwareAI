@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Left palette tile (Layouts / AndroidX / Widgets), Obsidian glass: mockup .tile, and .tile-on
-     while pressed. 3.5dp vertical inset keeps the 7dp gap between tiles; 10dp side padding. -->
+     while pressed. 1.5dp vertical inset keeps a 3dp gap between the slim 30dp tiles. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android" android:enterFadeDuration="90" android:exitFadeDuration="220">
     <item android:state_pressed="true">
-        <inset android:drawable="@drawable/ob_tile_on" android:insetTop="3.5dp" android:insetBottom="3.5dp" />
+        <inset android:drawable="@drawable/ob_tile_on" android:insetTop="1.5dp" android:insetBottom="1.5dp" />
     </item>
     <item>
-        <inset android:drawable="@drawable/ob_tile" android:insetTop="3.5dp" android:insetBottom="3.5dp" />
+        <inset android:drawable="@drawable/ob_tile" android:insetTop="1.5dp" android:insetBottom="1.5dp" />
     </item>
 </selector>

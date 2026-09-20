@@ -8,24 +8,24 @@
     android:clipChildren="false"
     android:clipToPadding="false"
     android:forceDarkAllowed="false"
-    android:paddingLeft="14dp"
-    android:paddingTop="14dp"
-    android:paddingRight="14dp"
-    android:paddingBottom="14dp">
+    android:paddingLeft="10dp"
+    android:paddingTop="10dp"
+    android:paddingRight="10dp"
+    android:paddingBottom="10dp">
 
     <LinearLayout
         android:id="@+id/ob_sheet"
         android:layout_width="460dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:background="@drawable/ob_glass_sheet"
+        android:background="@drawable/ob_glass_sheet_accent"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:orientation="vertical"
-        android:paddingLeft="20dp"
-        android:paddingTop="22dp"
-        android:paddingRight="20dp"
-        android:paddingBottom="18dp">
+        android:paddingLeft="16dp"
+        android:paddingTop="14dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="14dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -41,12 +41,12 @@
 
                 <ImageView
                     android:id="@+id/dialog_img"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:layout_marginRight="12dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginRight="10dp"
                     android:background="@drawable/ob_tile_orange"
                     android:contentDescription="@null"
-                    android:padding="9dp"
+                    android:padding="6dp"
                     android:scaleType="fitCenter"
                     android:tint="#FFFFFFFF" />
 
@@ -56,7 +56,10 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:lineSpacingExtra="2dp" />
+                    android:ellipsize="marquee"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:singleLine="true"
+                    android:textSize="17sp" />
             </LinearLayout>
 
             <TextView
@@ -64,21 +67,21 @@
                 style="@style/Ob.Text.Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="10dp"
                 android:textIsSelectable="false" />
 
             <FrameLayout
                 android:id="@+id/custom_view"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp" />
+                android:layout_marginTop="8dp" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/layout_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="12dp"
             android:clipChildren="false"
             android:clipToPadding="false"
             android:gravity="center_vertical"
@@ -88,7 +91,7 @@
                 android:id="@+id/common_dialog_default_button"
                 style="@style/Ob.Text.Button"
                 android:layout_width="0dp"
-                android:layout_height="50dp"
+                android:layout_height="42dp"
                 android:layout_marginRight="10dp"
                 android:layout_weight="1"
                 android:background="@drawable/ob_pill16_state"
@@ -102,7 +105,7 @@
                 android:id="@+id/dialog_btn_no"
                 style="@style/Ob.Text.Button"
                 android:layout_width="0dp"
-                android:layout_height="50dp"
+                android:layout_height="42dp"
                 android:layout_marginRight="10dp"
                 android:layout_weight="1"
                 android:background="@drawable/ob_pill16_state"
@@ -116,7 +119,7 @@
             <FrameLayout
                 android:id="@+id/ob_yes_slot"
                 android:layout_width="0dp"
-                android:layout_height="50dp"
+                android:layout_height="42dp"
                 android:layout_weight="1"
                 android:clipChildren="false"
                 android:clipToPadding="false">

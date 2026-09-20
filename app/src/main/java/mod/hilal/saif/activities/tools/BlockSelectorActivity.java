@@ -315,7 +315,7 @@ public class BlockSelectorActivity extends AppCompatActivity implements View.OnC
         dialogProperties.error_dir = file;
         dialogProperties.offset = file;
         dialogProperties.extensions = new String[]{"json"};
-        FilePickerDialog filePickerDialog = new FilePickerDialog(this, dialogProperties);
+        FilePickerDialog filePickerDialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), dialogProperties);
         filePickerDialog.setTitle("Select a JSON file");
         filePickerDialog.setDialogSelectionListener(selections -> {
             String fileContent = FileUtil.readFile(selections[0]);

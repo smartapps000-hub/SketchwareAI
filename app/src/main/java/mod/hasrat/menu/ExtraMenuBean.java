@@ -86,7 +86,7 @@ public class ExtraMenuBean {
     private String splitter;
 
     public ExtraMenuBean(LogicEditorActivity logicA) {
-        fpd = new FilePickerDialog(logicA);
+        fpd = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(logicA));
         logicEditor = logicA;
         sc_id = logicA.B;
         fpu = new FilePathUtil();

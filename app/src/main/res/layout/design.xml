@@ -45,7 +45,7 @@
                         android:layout_height="48dp"
                         android:background="@android:color/transparent"
                         android:minHeight="48dp"
-                        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+                        android:theme="@style/Ob.EditorToolbarTheme"
                         app:contentInsetStart="0dp"
                         app:contentInsetStartWithNavigation="0dp"
                         app:navigationIcon="@drawable/ob_ic_back"
@@ -57,6 +57,40 @@
                             android:layout_width="0dp"
                             android:layout_height="0dp"
                             android:visibility="gone" />
+
+                        <!-- Own title block: slimmer type, and long names scroll (marquee)
+                             instead of being cut off by the action icons. -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_vertical"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/ob_editor_title"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:ellipsize="marquee"
+                                android:fontFamily="@font/sora_bold"
+                                android:includeFontPadding="false"
+                                android:marqueeRepeatLimit="marquee_forever"
+                                android:singleLine="true"
+                                android:textColor="@color/ob_text"
+                                android:textSize="15sp" />
+
+                            <TextView
+                                android:id="@+id/ob_editor_subtitle"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:ellipsize="marquee"
+                                android:fontFamily="@font/manrope_medium"
+                                android:includeFontPadding="false"
+                                android:marqueeRepeatLimit="marquee_forever"
+                                android:singleLine="true"
+                                android:textColor="@color/ob_text_2"
+                                android:textSize="10.5sp" />
+                        </LinearLayout>
                     </androidx.appcompat.widget.Toolbar>
 
                     <com.google.android.material.tabs.TabLayout
@@ -179,6 +213,8 @@
                 android:id="@+id/view_property"
                 android:layout_width="match_parent"
                 android:layout_height="156dp"
+                android:background="@drawable/ob_safe_sheet"
+                android:forceDarkAllowed="false"
                 android:layout_alignParentBottom="true"
                 android:translationY="156dp" />
         </RelativeLayout>

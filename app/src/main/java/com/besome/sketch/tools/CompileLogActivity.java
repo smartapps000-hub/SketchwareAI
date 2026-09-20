@@ -63,6 +63,7 @@ public class CompileLogActivity extends Activity {
         } else {
             title.setText("Compile log");
         }
+        title.setSelected(true); // marquee when the title is longer than the header
 
         String sc_id = getIntent().getStringExtra("sc_id");
         if (sc_id == null) {
@@ -83,7 +84,7 @@ public class CompileLogActivity extends Activity {
         final String monospacedFontLabel = "Monospaced font";
         final String fontSizeLabel = "Font size";
 
-        PopupMenu options = new PopupMenu(this, menu);
+        PopupMenu options = new PopupMenu(new android.view.ContextThemeWrapper(this, R.style.Ob_PopupTheme), menu);
         options.getMenu().add(wrapTextLabel).setCheckable(true).setChecked(getWrappedTextPreference());
         options.getMenu().add(monospacedFontLabel).setCheckable(true).setChecked(getMonospacedFontPreference());
         options.getMenu().add(fontSizeLabel);

@@ -1565,6 +1565,12 @@ public class Lx {
                 "try {\r\n" +
                 "final byte[] buffer = new byte[1024];\r\n" +
                 "final int bytes = inputStream.read(buffer);\r\n" +
+                // Android 17 (target 37): a closed RFCOMM socket's read() returns -1 instead of
+                // throwing, which would otherwise spin here forever delivering -1-byte "data".
+                "if (bytes < 0) {\r\n" +
+                "connectionLost(bluetoothConnect, listener, tag);\r\n" +
+                "break;\r\n" +
+                "}\r\n" +
                 "\r\n" +
                 "bluetoothConnect.getActivity().runOnUiThread(new Runnable() {\r\n" +
                 "@Override\r\n" +

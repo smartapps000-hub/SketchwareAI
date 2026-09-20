@@ -72,4 +72,33 @@ public final class StorageAccess {
     public static void openAllFilesAccessSettings(Activity activity) {
         FileUtil.requestAllFilesAccessPermission(activity);
     }
+
+    /**
+     * Context for the angads25 FilePickerDialog (restore, import Java/assets/resources/native libs,
+     * tools). The picker only opens when checkCallingOrSelfPermission(READ_EXTERNAL_STORAGE) is
+     * granted, which never happens on Android 13+; there it just requested the permission and
+     * nothing appeared. This wrapper answers storage permission checks with All files access
+     * (the permission Sketchware AI really uses) and passes everything else to the activity.
+     */
+    public static Context pickerContext(Context context) {
+        return new android.content.ContextWrapper(context) {
+            @Override
+            public int checkCallingOrSelfPermission(String permission) {
+                Integer override = checkPermissionOverride(permission, Process.myPid(), Process.myUid());
+                return override != null ? override : super.checkCallingOrSelfPermission(permission);
+            }
+
+            @Override
+            public int checkSelfPermission(String permission) {
+                Integer override = checkPermissionOverride(permission, Process.myPid(), Process.myUid());
+                return override != null ? override : super.checkSelfPermission(permission);
+            }
+
+            @Override
+            public int checkPermission(String permission, int pid, int uid) {
+                Integer override = checkPermissionOverride(permission, pid, uid);
+                return override != null ? override : super.checkPermission(permission, pid, uid);
+            }
+        };
+    }
 }

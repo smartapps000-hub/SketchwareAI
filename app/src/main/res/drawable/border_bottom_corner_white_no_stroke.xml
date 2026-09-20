@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <corners android:bottomLeftRadius="16.0dip" android:bottomRightRadius="16.0dip" />
-    <gradient android:startColor="#ffffffff" android:endColor="#ffffffff" />
+<!-- Obsidian: dark glass (was white/light grey) for the Add Event / Add View popups. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:bottomLeftRadius="18dp" android:bottomRightRadius="18dp" />
+    <solid android:color="#F22A2A30" />
 </shape>

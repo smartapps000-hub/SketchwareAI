@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 80dp FAB artwork for the Event / Component tabs: 56dp solar button + 12dp glow, 24dp plus. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ob_fab" />
+    <item android:drawable="@drawable/ob_ic_plus" android:left="28dp" android:top="28dp" android:right="28dp" android:bottom="28dp" />
+</layer-list>

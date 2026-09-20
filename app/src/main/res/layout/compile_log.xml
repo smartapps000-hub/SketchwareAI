@@ -38,22 +38,24 @@
             style="@style/Ob.Text.Screen"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="6dp"
+            android:layout_marginLeft="4dp"
             android:layout_marginRight="6dp"
             android:layout_weight="1"
-            android:ellipsize="end"
-            android:singleLine="true" />
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:singleLine="true"
+            android:textSize="15sp" />
 
         <ImageView
             android:id="@+id/ob_log_copy"
-            style="@style/Ob.IconPill"
+            style="@style/Ob.IconPill.Compact"
             android:layout_marginRight="6dp"
             android:contentDescription="Copy log"
             android:src="@drawable/ob_ic_copy" />
 
         <ImageView
             android:id="@+id/ob_log_share"
-            style="@style/Ob.IconPill"
+            style="@style/Ob.IconPill.Compact"
             android:layout_marginRight="6dp"
             android:contentDescription="Share log"
             android:src="@drawable/ob_ic_share" />
@@ -61,13 +63,13 @@
         <!-- 44dp amber AI pill; 6dp larger each side for its glow. -->
         <ImageView
             android:id="@+id/ob_log_ai"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:layout_marginLeft="-6dp"
             android:layout_marginRight="0dp"
             android:background="@drawable/ob_ai_button"
             android:contentDescription="AI diagnostic"
-            android:padding="18dp"
+            android:padding="16dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ob_ic_spark"
             android:stateListAnimator="@animator/sw_press"

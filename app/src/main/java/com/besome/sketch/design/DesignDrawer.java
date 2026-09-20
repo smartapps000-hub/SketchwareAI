@@ -41,6 +41,8 @@ public class DesignDrawer extends LinearLayout implements View.OnClickListener {
     private void initialize(Context context) {
         this.context = context;
         wB.a(context, this, R.layout.design_drawer);
+        // Obsidian glass drawer: menu rows added below are re-coloured as they appear.
+        com.sketchware.ai.ui.ObsidianAdapter.adaptLive(this);
         TextView tv_title_configuration = findViewById(R.id.tv_title_configuration);
         tv_title_configuration.setText(Helper.getResString(R.string.design_drawer_menu_title));
         ((TextView) findViewById(R.id.tv_title_global)).setText(Helper.getResString(R.string.design_drawer_menu_bottom_title));
@@ -234,6 +236,7 @@ public class DesignDrawer extends LinearLayout implements View.OnClickListener {
 
         public void setContent(int iconResId, String rootTitleText, String subTitleText) {
             imgIcon.setImageResource(iconResId);
+            com.sketchware.ai.ui.ObsidianAdapter.lightenIfDarkMono(imgIcon);
             titleTextView.setText(rootTitleText);
             subTitleTextView.setText(subTitleText);
         }

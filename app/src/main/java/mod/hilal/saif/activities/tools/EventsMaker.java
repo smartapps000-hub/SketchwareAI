@@ -284,7 +284,7 @@ public class EventsMaker extends Activity {
         dialogProperties.error_dir = file;
         dialogProperties.offset = file;
         dialogProperties.extensions = null;
-        FilePickerDialog filePickerDialog = new FilePickerDialog(this, dialogProperties);
+        FilePickerDialog filePickerDialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), dialogProperties);
         filePickerDialog.setTitle("Select a .txt file");
         filePickerDialog.setDialogSelectionListener(selections -> {
             if (FileUtil.readFile(selections[0]).equals("")) {

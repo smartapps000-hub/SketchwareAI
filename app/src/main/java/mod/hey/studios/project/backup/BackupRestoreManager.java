@@ -135,7 +135,7 @@ public class BackupRestoreManager {
         properties.offset = new File(BackupFactory.getBackupDir());
         properties.extensions = new String[]{BackupFactory.EXTENSION};
 
-        FilePickerDialog fpd = new FilePickerDialog(act, properties);
+        FilePickerDialog fpd = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(act), properties);
         fpd.setTitle("Select backups to restore (" + BackupFactory.EXTENSION + ")");
         fpd.setDialogSelectionListener(files -> {
             for (int i = 0; i < files.length; i++) {

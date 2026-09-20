@@ -36,6 +36,7 @@ public class BuildingDialog extends Dialog {
         setTitle(Helper.getResString(R.string.common_message_progress));
         tvProgress = findViewById(R.id.tv_progress);
         tvProgress.setText(Helper.getResString(R.string.common_message_loading));
+        tvProgress.setSelected(true); // long step names scroll instead of being cut
         super.setCanceledOnTouchOutside(false);
         super.setCancelable(true);
     }

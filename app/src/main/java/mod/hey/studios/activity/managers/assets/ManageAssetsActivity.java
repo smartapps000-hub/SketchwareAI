@@ -155,7 +155,7 @@ public class ManageAssetsActivity extends Activity {
         properties.offset = Environment.getExternalStorageDirectory();
         properties.extensions = null;
 
-        FilePickerDialog dialog = new FilePickerDialog(this, properties);
+        FilePickerDialog dialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
         dialog.setTitle("Select an asset file");
         dialog.setDialogSelectionListener(selections -> {
             for (String path : selections) {

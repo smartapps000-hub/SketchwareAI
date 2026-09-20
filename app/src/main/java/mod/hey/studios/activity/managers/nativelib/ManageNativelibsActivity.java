@@ -228,7 +228,7 @@ public class ManageNativelibsActivity extends Activity implements View.OnClickLi
         properties.offset = externalStorageDir;
         properties.extensions = new String[]{"so"};
 
-        filePicker = new FilePickerDialog(this, properties);
+        filePicker = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
         filePicker.setTitle("Select a native library (.so)");
         filePicker.setDialogSelectionListener(selections -> {
             for (String path : selections) {

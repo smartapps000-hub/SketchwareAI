@@ -230,7 +230,7 @@ public class ManageResourceActivity extends Activity implements View.OnClickList
         properties.error_dir = Environment.getExternalStorageDirectory();
         properties.offset = Environment.getExternalStorageDirectory();
         properties.extensions = null;
-        dialog = new FilePickerDialog(this, properties);
+        dialog = new FilePickerDialog(com.sketchware.ai.storage.StorageAccess.pickerContext(this), properties);
         dialog.setTitle("Select a resource file");
         dialog.setDialogSelectionListener(selections -> {
             for (String path : selections) {

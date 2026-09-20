@@ -121,4 +121,37 @@
         <item name="android:windowMinWidthMajor">100%</item>
         <item name="android:windowMinWidthMinor">100%</item>
     </style>
+    <!-- Editor header toolbar: compact 40dp action icons so the title keeps its room. -->
+    <style name="Ob.EditorToolbarTheme" parent="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
+        <item name="actionButtonStyle">@style/Ob.CompactActionButton</item>
+        <item name="android:actionButtonStyle">@style/Ob.CompactActionButton</item>
+    </style>
+    <style name="Ob.CompactActionButton" parent="@style/Widget.AppCompat.ActionButton">
+        <item name="android:minWidth">40dp</item>
+        <item name="android:paddingLeft">8dp</item>
+        <item name="android:paddingRight">8dp</item>
+    </style>
+    <style name="Ob.IconPill.Compact">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:padding">10dp</item>
+    </style>
+    <!-- Context theme for PopupMenus on glass screens (build options, log options). -->
+    <style name="Ob.PopupTheme" parent="@android:style/Theme.Material">
+        <item name="android:popupMenuStyle">@style/Ob.PopupMenu</item>
+        <item name="android:textColorPrimary">#FFF5F5F7</item>
+        <item name="android:textColorSecondary">#FFA1A1AA</item>
+        <item name="android:colorAccent">#FFFF7A29</item>
+        <item name="android:colorControlActivated">#FFFF7A29</item>
+        <item name="android:textAppearanceLargePopupMenu">@style/Ob.PopupText</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/Ob.PopupText</item>
+    </style>
+    <style name="Ob.PopupMenu" parent="@android:style/Widget.Material.PopupMenu">
+        <item name="android:popupBackground">@drawable/ob_popup_bg</item>
+        <item name="android:popupElevation">8dp</item>
+    </style>
+    <style name="Ob.PopupText" parent="@android:style/TextAppearance.Material.Widget.PopupMenu.Large">
+        <item name="android:textColor">#FFF5F5F7</item>
+        <item name="android:textSize">15sp</item>
+    </style>
 </resources>

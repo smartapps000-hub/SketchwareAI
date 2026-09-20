@@ -1,13 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout android:background="@drawable/selector_toggle_list_view" android:layout_width="fill_parent" android:layout_height="64.0dip" android:layout_marginLeft="8.0dip" android:layout_marginTop="4.0dip" android:layout_marginRight="8.0dip"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <ImageView android:id="@id/img_icon" android:layout_width="28.0dip" android:layout_height="28.0dip" android:layout_marginLeft="12.0dip" android:layout_marginRight="12.0dip" android:layout_centerVertical="true" android:contentDescription="@null" />
-    <TextView android:textSize="13.0sp" android:textColor="#ff404040" android:id="@id/tv_target_type" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="56.0dip" android:layout_marginTop="16.0dip" android:layout_marginStart="56.0dip" />
-    <TextView android:textSize="13.0sp" android:textColor="#ff404040" android:id="@id/tv_sep" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:text=" : " android:layout_toRightOf="@id/tv_target_type" />
-    <TextView android:textSize="14.0sp" android:textStyle="bold" android:textColor="#ff202020" android:id="@id/tv_target_id" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:layout_marginRight="16.0dip" android:layout_toRightOf="@id/tv_sep" android:layout_marginEnd="16.0dip" />
-    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="56.0dip" android:layout_marginRight="16.0dip" android:layout_below="@id/tv_target_id" android:layout_marginStart="56.0dip" android:layout_marginEnd="16.0dip">
-        <LinearLayout android:orientation="horizontal" android:id="@id/events_preview" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-        <TextView android:textSize="11.0sp" android:textColor="#ff9a9a9a" android:gravity="center_vertical" android:id="@id/tv_event_name" android:layout_width="fill_parent" android:layout_height="wrap_content" />
-    </LinearLayout>
-    <CheckBox android:gravity="center" android:id="@id/checkbox" android:clickable="true" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginRight="8.0dip" android:layout_alignParentRight="true" android:layout_centerVertical="true" android:contentDescription="@null" android:layout_alignParentEnd="true" />
+<!-- Add Event grid tile (up to 6 per row): event icon on a glass pill, target id, event name,
+     compact check box in the corner. Ids and view types are the ones AddEventActivity binds. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="80.0dip"
+    android:layout_margin="3.0dip"
+    android:background="@drawable/ob_tile">
+
+    <LinearLayout
+        android:id="@id/events_preview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginLeft="4.0dip"
+        android:layout_marginTop="4.0dip"
+        android:orientation="horizontal" />
+
+    <CheckBox
+        android:id="@id/checkbox"
+        android:layout_width="26.0dip"
+        android:layout_height="26.0dip"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentRight="true"
+        android:buttonTint="@color/ob_accent"
+        android:clickable="true"
+        android:contentDescription="@null"
+        android:minWidth="0.0dip"
+        android:minHeight="0.0dip"
+        android:scaleX="0.8"
+        android:scaleY="0.8" />
+
+    <ImageView
+        android:id="@id/img_icon"
+        android:layout_width="34.0dip"
+        android:layout_height="34.0dip"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8.0dip"
+        android:background="@drawable/ob_pill"
+        android:contentDescription="@null"
+        android:padding="7.0dip" />
+
+    <TextView
+        android:id="@id/tv_target_type"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@id/tv_sep"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@id/tv_target_id"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/img_icon"
+        android:layout_marginTop="4.0dip"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:paddingLeft="3.0dip"
+        android:paddingRight="3.0dip"
+        android:singleLine="true"
+        android:textColor="@color/ob_text"
+        android:textSize="11.0sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@id/tv_event_name"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_target_id"
+        android:layout_marginTop="2.0dip"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:paddingLeft="3.0dip"
+        android:paddingRight="3.0dip"
+        android:singleLine="true"
+        android:textColor="@color/ob_amber"
+        android:textSize="9.5sp" />
 </RelativeLayout>

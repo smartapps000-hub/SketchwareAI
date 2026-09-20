@@ -33,6 +33,7 @@ public class SketchApplication extends Application {
         // apps targeting new API levels) keeps that from crashing with FileUriExposedException.
         android.os.StrictMode.setVmPolicy(new android.os.StrictMode.VmPolicy.Builder().build());
         com.sketchware.ai.ui.ThemeMode.install(this);
+        com.sketchware.ai.ui.LegacyScreens.install(this);
         Thread.UncaughtExceptionHandler uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e("SketchApplication", "Uncaught exception on thread " + thread.getName(), throwable);
@@ -65,6 +66,18 @@ public class SketchApplication extends Application {
     public int checkPermission(String permission, int pid, int uid) {
         Integer override = StorageAccess.checkPermissionOverride(permission, pid, uid);
         return override != null ? override : super.checkPermission(permission, pid, uid);
+    }
+
+    /**
+     * The file picker used by Restore projects (angads25 FilePickerDialog) asks
+     * checkCallingOrSelfPermission(READ_EXTERNAL_STORAGE). On Android 13+ that is never granted,
+     * so the picker only requested it and silently never opened. Same answer as checkPermission.
+     */
+    @Override
+    public int checkCallingOrSelfPermission(String permission) {
+        Integer override = StorageAccess.checkPermissionOverride(permission,
+                Process.myPid(), Process.myUid());
+        return override != null ? override : super.checkCallingOrSelfPermission(permission);
     }
 
     @Override

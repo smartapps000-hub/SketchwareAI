@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact dialog sheet with a warm orange rim, see com.sketchware.ai.ui.GlassDrawable. -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="22dp"
+    app:swFillTop="#E62A2A30"
+    app:swFillBottom="#E6161619"
+    app:swSheen="#12FFFFFF"
+    app:swRimTop="#B3FF9A4D"
+    app:swRimBottom="#59F4511E" />

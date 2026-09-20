@@ -62,10 +62,11 @@ public class EventBean extends CollapsibleBean implements Parcelable {
 
             case EVENT_TYPE_VIEW:
             case EVENT_TYPE_DRAWER_VIEW:
-                return ViewBean.getViewTypeResId(targetType);
+                // Obsidian line icons, matching the palette and the Add Component grid.
+                return com.sketchware.ai.ui.ComponentIcons.forView(targetType);
 
             case EVENT_TYPE_COMPONENT:
-                return ComponentBean.getIconResource(targetType);
+                return com.sketchware.ai.ui.ComponentIcons.forType(targetType);
 
             default:
                 return R.drawable.widget_module;
