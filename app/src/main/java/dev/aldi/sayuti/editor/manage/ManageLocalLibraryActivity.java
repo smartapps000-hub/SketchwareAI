@@ -114,6 +114,11 @@ public class ManageLocalLibraryActivity extends Activity implements View.OnClick
                 FileUtil.writeFile(local_lib_file, "[]");
             } else {
                 project_used_libs = new Gson().fromJson(fileContent, Helper.TYPE_MAP_LIST);
+                if (project_used_libs == null) project_used_libs = new ArrayList<>();
+                if (com.sketchware.ai.storage.LocalLibraryPaths.repair(project_used_libs,
+                        android.os.Environment.getExternalStorageDirectory())) {
+                    FileUtil.writeFile(local_lib_file, new Gson().toJson(project_used_libs));
+                }
             }
         }
         ArrayList<String> arrayList = new ArrayList<>();

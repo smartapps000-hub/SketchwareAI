@@ -306,7 +306,9 @@ public class Dp {
             Object jarPath = localLibrary.get("jarPath");
             if (jarPath instanceof String && !((String) jarPath).isEmpty() && !new File((String) jarPath).exists()) {
                 com.sketchware.ai.project.BuildWarnings.add("Local library '" + name + "' is enabled but its classes.jar "
-                        + "is missing (" + jarPath + "), so it wasn't compiled in. Re-download or re-import it in Local Library Manager.");
+                        + "is missing (" + jarPath + "), so it wasn't compiled in. The library folder isn't in "
+                        + "/.sketchware_ai/libs/local_libs or /.sketchware/libs/local_libs: download it again "
+                        + "(Local Library Manager > download) or use Import file with its .aar/.jar.");
             }
         }
 

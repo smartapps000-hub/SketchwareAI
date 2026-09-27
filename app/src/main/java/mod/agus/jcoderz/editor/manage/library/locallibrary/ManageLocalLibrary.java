@@ -36,6 +36,12 @@ public class ManageLocalLibrary {
 
                     // fall-through to shared error handler
                 } else {
+                    // Restored / Pro-made projects point at /.sketchware/...: fix them to the
+                    // folders that really hold the libraries, and save the fixed list.
+                    if (com.sketchware.ai.storage.LocalLibraryPaths.repair(list,
+                            android.os.Environment.getExternalStorageDirectory())) {
+                        FileUtil.writeFile(localLibraryConfigPath, new Gson().toJson(list));
+                    }
                     return;
                 }
             } catch (JsonParseException e) {
