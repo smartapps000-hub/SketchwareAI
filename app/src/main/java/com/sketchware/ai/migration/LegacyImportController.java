@@ -177,7 +177,7 @@ public final class LegacyImportController {
         if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL_ID) == null) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Project import",
                     NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Progress of copying projects from Sketchware Pro");
+            channel.setDescription("Progress of moving projects back to /.sketchware");
             channel.setShowBadge(false);
             nm.createNotificationChannel(channel);
         }
@@ -230,7 +230,7 @@ public final class LegacyImportController {
         if (nm == null) return;
         Notification.Builder builder = builder()
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle(result.isSuccess() ? "Import complete"
+                .setContentTitle(result.isSuccess() ? "Projects moved back"
                         : result.cancelled ? "Import stopped" : "Import failed")
                 .setContentText(ImportTexts.summary(result))
                 .setAutoCancel(true);

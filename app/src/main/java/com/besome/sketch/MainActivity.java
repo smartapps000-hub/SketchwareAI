@@ -232,7 +232,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         fab = findViewById(R.id.fab);
         coordinator = findViewById(R.id.layout_coordinator);
 
-        // Nothing touches /sdcard/.sketchware_ai (and no import starts) until access is granted.
+        // Nothing touches /sdcard/.sketchware (and no import starts) until access is granted.
         // Without it, the user is sent to the system settings; onResume re-checks on return.
         boolean hasStorageAccess = j();
         if (!hasStorageAccess) {
@@ -380,16 +380,18 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         int count = LegacyProjectMigrator.legacyProjectCount();
         boolean resume = LegacyProjectMigrator.wasInterrupted(this);
         importOffer = new com.sketchware.ai.ui.ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
-                .setTitle(resume ? "Resume import from Sketchware Pro" : "Import from Sketchware Pro")
+                .setTitle(resume ? "Resume moving projects back" : "Move projects back to /.sketchware")
                 .setMessage(resume
-                        ? "The last import from Sketchware Pro did not finish. Continue it? "
-                        + "Projects that are already imported are skipped."
-                        : "Found " + count + (count == 1 ? " project" : " projects")
-                        + " in Sketchware Pro's folder (/.sketchware).\n\n"
-                        + "Copy them, with your custom blocks, components and local libraries, "
-                        + "into Sketchware AI? The copy runs in the background with progress; "
-                        + "Sketchware Pro's files are not changed.")
-                .setPositiveButton(resume ? "Resume" : "Import", (dialog, which) -> startLegacyImport())
+                        ? "Moving your Sketchware AI projects back to /.sketchware did not finish. "
+                        + "Continue? Projects already moved are skipped."
+                        : "Sketchware AI now uses the original folder /.sketchware again, exactly like "
+                        + "Sketchware Pro 6.4.0, so old backups and libraries work as they are.\n\n"
+                        + "Found " + count + (count == 1 ? " project" : " projects")
+                        + " saved by earlier versions in /.sketchware_ai. Copy the ones /.sketchware "
+                        + "doesn't have (or has an older copy of), with their libraries and custom "
+                        + "blocks, into /.sketchware? Older copies are kept in "
+                        + "/.sketchware/backups/sketchware_ai_merge. /.sketchware_ai is not changed.")
+                .setPositiveButton(resume ? "Resume" : "Move back", (dialog, which) -> startLegacyImport())
                 .setNegativeButton("Not now", null)
                 .setNeutralButton("Don't ask again",
                         (dialog, which) -> LegacyProjectMigrator.markDeclined(this))
@@ -466,7 +468,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         dialog.b(Helper.getResString(R.string.common_message_permission_title_storage));
         dialog.a(R.drawable.color_about_96);
         if (StorageAccess.usesAllFilesAccess()) {
-            dialog.a("Sketchware AI keeps your projects, libraries and builds in /.sketchware_ai. "
+            dialog.a("Sketchware AI keeps your projects, libraries and builds in /.sketchware. "
                     + "On Android 11 and newer this needs \"All files access\".\n\n"
                     + "Tap Settings, switch on \"Allow access to manage all files\", then come back.");
             dialog.b(Helper.getResString(R.string.common_word_settings), v -> {

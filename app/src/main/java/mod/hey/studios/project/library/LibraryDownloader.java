@@ -52,7 +52,7 @@ import mod.jbk.build.BuiltInLibraries;
 public class LibraryDownloader {
 
     public static final File CONFIGURED_REPOSITORIES_FILE = new File(Environment.getExternalStorageDirectory(),
-            ".sketchware_ai" + File.separator + "libs" + File.separator + "repositories.json");
+            ".sketchware" + File.separator + "libs" + File.separator + "repositories.json");
     /** The upstream list: dead or auth-only hosts first, so a lookup could fail before reaching Google or Maven Central. */
     private static final String OLD_DEFAULT_REPOSITORIES_FILE_CONTENT = "[{\"url\":\"https://repo.hortonworks.com/content/repositories/releases\",\"name\":\"HortanWorks\"},{\"url\":\"https://maven.atlassian.com/content/repositories/atlassian-public\",\"name\":\"Atlassian\"},{\"url\":\"https://jitpack.io\",\"name\":\"JitPack\"},{\"url\":\"https://jcenter.bintray.com\",\"name\":\"JCenter\"},{\"url\":\"https://oss.sonatype.org/content/repositories/releases\",\"name\":\"Sonatype\"},{\"url\":\"https://repo.spring.io/plugins-release\",\"name\":\"Spring Plugins\"},{\"url\":\"https://repo.spring.io/libs-milestone\",\"name\":\"Spring Milestone\"},{\"url\":\"https://repo.maven.apache.org/maven2\",\"name\":\"Apache Maven\"},{\"url\":\"https://dl.google.com/dl/android/maven2\",\"name\":\"Google Maven\"},{\"url\":\"https://repo1.maven.org/maven2\",\"name\":\"Maven Central\"}]";
     /** Busiest repositories first; dead (HortonWorks) and login-only (Spring) hosts removed. */
@@ -83,7 +83,7 @@ public class LibraryDownloader {
         this.context = context;
         this.use_d8 = use_d8;
 
-        downloadPath = FileUtil.getExternalStorageDir() + "/.sketchware_ai/libs/local_libs/";
+        downloadPath = FileUtil.getExternalStorageDir() + "/.sketchware/libs/local_libs/";
     }
 
     private static void mkdirs(File file, String str) {
@@ -445,52 +445,56 @@ public class LibraryDownloader {
         }
     }
 
+    /** Always searched first, whatever repositories.json says (it is shared with Sketchware Pro). */
+    private static final String[][] BUILT_IN_REPOSITORIES = {
+            {"Google Maven", "https://dl.google.com/dl/android/maven2"},
+            {"Maven Central", "https://repo1.maven.org/maven2"},
+            {"JitPack", "https://jitpack.io"},
+    };
+    /** Shut down or login-only hosts: they can only answer with SSL errors or 401. */
+    private static final String[] DEAD_HOSTS = {"repo.hortonworks.com", "repo.spring.io", "jcenter.bintray.com"};
+
+    private static String normalize(String url) {
+        String u = url.trim().toLowerCase(java.util.Locale.ROOT);
+        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
+        return u.replace("http://", "https://").replace("repo.maven.apache.org/maven2", "repo1.maven.org/maven2");
+    }
+
+    /**
+     * Search order: Google Maven, Maven Central, JitPack, then the custom repositories from
+     * /.sketchware/libs/repositories.json (duplicates and dead hosts left out). The file itself
+     * is only read, never rewritten, because Sketchware Pro uses the same file.
+     */
     private void _getRepository() {
         repoUrls.clear();
-        repoMap.clear();
         repoNames.clear();
         counter = 0;
-
-        readRepositories:
-        {
-            String repositories;
-            if (CONFIGURED_REPOSITORIES_FILE.exists()
-                    && OLD_DEFAULT_REPOSITORIES_FILE_CONTENT.equals(FileUtil.readFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath()).trim())) {
-                // Untouched upstream list: upgrade it. Lists the user edited are kept as they are.
-                FileUtil.writeFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath(), DEFAULT_REPOSITORIES_FILE_CONTENT);
-            }
-            if (CONFIGURED_REPOSITORIES_FILE.exists() && !(repositories = FileUtil.readFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath())).isEmpty()) {
-                try {
-                    repoMap = new Gson().fromJson(repositories, Helper.TYPE_MAP_LIST);
-
-                    if (repoMap != null) {
-                        break readRepositories;
-                    }
-                } catch (JsonParseException ignored) {
-                    // fall-through to shared error toast
-                }
-
-                SketchwareUtil.showFailedToParseJsonDialog(context, CONFIGURED_REPOSITORIES_FILE, "Custom Repositories", v -> _getRepository());
-            } else {
-                FileUtil.writeFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath(), DEFAULT_REPOSITORIES_FILE_CONTENT);
-            }
-
-            repoMap = new Gson().fromJson(DEFAULT_REPOSITORIES_FILE_CONTENT, Helper.TYPE_MAP_LIST);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String[] repo : BUILT_IN_REPOSITORIES) {
+            repoNames.add(repo[0]);
+            repoUrls.add(repo[1]);
+            seen.add(normalize(repo[1]));
         }
-
-        for (HashMap<String, Object> configuration : repoMap) {
-            Object repoUrl = configuration.get("url");
-
-            if (repoUrl instanceof String) {
-                Object repoName = configuration.get("name");
-
-                if (repoName instanceof String) {
-                    repoUrls.add((String) repoUrl);
-                    repoNames.add((String) repoName);
-                }
-            }
-
-            counter++;
+        ArrayList<HashMap<String, Object>> configured = null;
+        String json = CONFIGURED_REPOSITORIES_FILE.exists()
+                ? FileUtil.readFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath()) : "";
+        if (json.trim().isEmpty()) json = DEFAULT_REPOSITORIES_FILE_CONTENT;
+        try {
+            configured = new Gson().fromJson(json, Helper.TYPE_MAP_LIST);
+        } catch (JsonParseException e) {
+            SketchwareUtil.toastError("repositories.json is invalid; using the built-in repositories");
+        }
+        if (configured == null) return;
+        for (HashMap<String, Object> configuration : configured) {
+            Object url = configuration.get("url");
+            if (!(url instanceof String) || ((String) url).trim().isEmpty()) continue;
+            String key = normalize((String) url);
+            boolean dead = false;
+            for (String host : DEAD_HOSTS) if (key.contains(host)) dead = true;
+            if (dead || !seen.add(key)) continue;
+            Object name = configuration.get("name");
+            repoNames.add(name instanceof String ? (String) name : (String) url);
+            repoUrls.add(((String) url).trim());
         }
     }
 

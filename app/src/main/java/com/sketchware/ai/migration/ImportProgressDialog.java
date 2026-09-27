@@ -87,14 +87,13 @@ public final class ImportProgressDialog {
 
         TextView note = new TextView(activity);
         note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        note.setTextColor(0x8A000000);
+        note.setTextColor(0xFFA1A1AA);
         note.setPadding(0, dp(activity, 12), 0, 0);
-        note.setText("Sketchware Pro's files are only read, never changed. "
-                + ".swb backups stay in /.sketchware/backups.");
+        note.setText("/.sketchware_ai is only read, never changed.");
         root.addView(note);
 
         dialog = new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
-                .setTitle("Importing from Sketchware Pro")
+                .setTitle("Moving projects back to /.sketchware")
                 .setView(root)
                 .setCancelable(false)
                 .setPositiveButton("Run in background", null)

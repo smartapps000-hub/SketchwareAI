@@ -543,7 +543,7 @@ public class ComponentsHandler {
     }
 
     public static String getPath() {
-        return FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/system/component.json");
+        return FileUtil.getExternalStorageDir().concat("/.sketchware/data/system/component.json");
     }
 
     /**

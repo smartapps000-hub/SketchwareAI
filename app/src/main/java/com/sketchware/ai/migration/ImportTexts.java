@@ -8,10 +8,10 @@ final class ImportTexts {
 
     static String headline(LegacyProjectMigrator.Progress p) {
         if (p.projectTotal > 0 && p.projectIndex > 0) {
-            return "Importing project " + Math.min(p.projectIndex, p.projectTotal)
+            return "Moving project " + Math.min(p.projectIndex, p.projectTotal)
                     + " of " + p.projectTotal + "…";
         }
-        return p.bytesTotal <= 0 ? "Preparing import…" : "Copying shared files…";
+        return p.bytesTotal <= 0 ? "Preparing…" : "Copying shared files…";
     }
 
     static String detail(LegacyProjectMigrator.Progress p) {
@@ -25,7 +25,7 @@ final class ImportTexts {
 
     static String summary(LegacyProjectMigrator.Result r) {
         if (r.error != null) return r.error;
-        String base = "Imported " + r.importedProjects + (r.importedProjects == 1 ? " project" : " projects");
+        String base = "Moved back " + r.importedProjects + (r.importedProjects == 1 ? " project" : " projects");
         if (r.skippedProjects > 0) base += " (" + r.skippedProjects + " already present)";
         if (r.cancelled) base += ". Stopped before the rest; you can resume it later.";
         return base;

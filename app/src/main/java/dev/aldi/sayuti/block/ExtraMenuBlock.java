@@ -66,11 +66,11 @@ public class ExtraMenuBlock {
     }
 
     public final void b(JSONObject json, AsdAll asdAll, ArrayList<String> selectableItems, String sc_id) {
-        String menus = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/" + sc_id + "/files/resource/menu/");
-        String layouts = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/" + sc_id + "/files/resource/layout/");
-        String animations = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/" + sc_id + "/files/resource/anim/");
-        String drawables = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/" + sc_id + "/files/resource/drawable/");
-        String drawables_xhdpi = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/" + sc_id + "/files/resource/drawable-xhdpi/");
+        String menus = FileUtil.getExternalStorageDir().concat("/.sketchware/data/" + sc_id + "/files/resource/menu/");
+        String layouts = FileUtil.getExternalStorageDir().concat("/.sketchware/data/" + sc_id + "/files/resource/layout/");
+        String animations = FileUtil.getExternalStorageDir().concat("/.sketchware/data/" + sc_id + "/files/resource/anim/");
+        String drawables = FileUtil.getExternalStorageDir().concat("/.sketchware/data/" + sc_id + "/files/resource/drawable/");
+        String drawables_xhdpi = FileUtil.getExternalStorageDir().concat("/.sketchware/data/" + sc_id + "/files/resource/drawable-xhdpi/");
         try {
             switch (json.getString("id")) {
                 case "menu":

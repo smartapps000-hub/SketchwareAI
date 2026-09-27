@@ -306,9 +306,8 @@ public class Dp {
             Object jarPath = localLibrary.get("jarPath");
             if (jarPath instanceof String && !((String) jarPath).isEmpty() && !new File((String) jarPath).exists()) {
                 com.sketchware.ai.project.BuildWarnings.add("Local library '" + name + "' is enabled but its classes.jar "
-                        + "is missing (" + jarPath + "), so it wasn't compiled in. The library folder isn't in "
-                        + "/.sketchware_ai/libs/local_libs or /.sketchware/libs/local_libs: download it again "
-                        + "(Local Library Manager > download) or use Import file with its .aar/.jar.");
+                        + "is missing (" + jarPath + "), so it wasn't compiled in. Download it again in Local Library "
+                        + "Manager, or use Import file with its .aar/.jar.");
             }
         }
 
@@ -326,7 +325,7 @@ public class Dp {
         }
 
         /* Add JARs from project's classpath */
-        String path = FileUtil.getExternalStorageDir() + "/.sketchware_ai/data/" + yq.sc_id + "/files/classpath/";
+        String path = FileUtil.getExternalStorageDir() + "/.sketchware/data/" + yq.sc_id + "/files/classpath/";
         ArrayList<String> jars = FileUtil.listFiles(path, "jar");
         classpath.append(":").append(TextUtils.join(":", jars));
 

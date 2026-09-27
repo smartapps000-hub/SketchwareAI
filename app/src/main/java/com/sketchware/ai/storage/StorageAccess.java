@@ -13,7 +13,7 @@ import mod.agus.jcoderz.lib.FileUtil;
 /**
  * One definition of "Sketchware AI may use shared storage", valid at targetSdkVersion 34.
  * <p>
- * Sketchware keeps projects in /sdcard/.sketchware_ai and works on them with java.io.File.
+ * Sketchware keeps projects in /sdcard/.sketchware and works on them with java.io.File.
  * On Android 11 and newer, an app targeting API 30+ can only do that with "All files access"
  * (MANAGE_EXTERNAL_STORAGE). The old READ/WRITE_EXTERNAL_STORAGE permissions no longer grant
  * it, and on Android 13+ they are never granted at all to apps targeting API 33+.

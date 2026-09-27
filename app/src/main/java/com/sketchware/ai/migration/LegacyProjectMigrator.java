@@ -34,14 +34,17 @@ import java.util.Set;
  */
 public final class LegacyProjectMigrator {
 
-    public static final String LEGACY_ROOT_NAME = ".sketchware";
-    public static final String ROOT_NAME = ".sketchware_ai";
+    // v1.6.6: Sketchware AI uses Sketchware Pro's own folder (/.sketchware) again, exactly like
+    // 6.4.0-rc05. This now runs once in the other direction: it brings what Sketchware AI
+    // 1.0-1.6.5 saved in /.sketchware_ai back into /.sketchware. /.sketchware_ai is only read.
+    public static final String LEGACY_ROOT_NAME = ".sketchware_ai";
+    public static final String ROOT_NAME = ".sketchware";
 
     private static final String TAG = "LegacyProjectMigrator";
-    private static final String DECLINED_MARKER = ".legacy_import_declined";
-    private static final String DONE_MARKER = ".legacy_import_done";
+    private static final String DECLINED_MARKER = ".ai_folder_merge_declined";
+    private static final String DONE_MARKER = ".ai_folder_merge_done";
     /** Present while an import is running or was interrupted; lets the next start resume it. */
-    private static final String IN_PROGRESS_MARKER = ".legacy_import_in_progress";
+    private static final String IN_PROGRESS_MARKER = ".ai_folder_merge_in_progress";
 
     /** Top-level folders of the legacy root that hold nothing worth importing. */
     private static final Set<String> SKIPPED_TOP_LEVEL = new HashSet<>(Arrays.asList(
@@ -185,8 +188,13 @@ public final class LegacyProjectMigrator {
             return false;
         }
         if (legacyProjectCount() == 0) return false;
-        // An interrupted import resumes: finished projects and existing files are skipped.
-        return projectCount() == 0 || new File(filesDir, IN_PROGRESS_MARKER).exists();
+        if (new File(filesDir, IN_PROGRESS_MARKER).exists()) return true;
+        // Offer only if at least one project would move (missing in /.sketchware, or newer).
+        File legacyList = new File(legacyRoot(), "mysc" + File.separator + "list");
+        for (String id : projectIds(legacyList)) {
+            if (needsImport(id)) return true;
+        }
+        return false;
     }
 
     /** Whether an earlier import was interrupted (app killed, cancelled, error). */
@@ -202,6 +210,47 @@ public final class LegacyProjectMigrator {
     public static void resetOffer(Context context) {
         new File(context.getFilesDir(), DECLINED_MARKER).delete();
         new File(context.getFilesDir(), DONE_MARKER).delete();
+    }
+
+    /**
+     * A project moves back when /.sketchware doesn't have it, or when the /.sketchware_ai copy
+     * was changed more recently (it was edited in Sketchware AI after the import).
+     */
+    static boolean needsImport(String id) {
+        File legacy = legacyRoot(), target = root();
+        File targetEntry = new File(target, "mysc" + File.separator + "list" + File.separator + id);
+        if (!targetEntry.exists()) return true;
+        return newest(legacy, id) > newest(target, id) + 2000;
+    }
+
+    private static long newest(File root, String id) {
+        long newest = newestIn(new File(root, "mysc" + File.separator + "list" + File.separator + id));
+        return Math.max(newest, newestIn(new File(root, "data" + File.separator + id)));
+    }
+
+    private static long newestIn(File file) {
+        if (!file.exists()) return 0;
+        long newest = file.isFile() ? file.lastModified() : 0;
+        File[] children = file.listFiles();
+        if (children != null) for (File child : children) newest = Math.max(newest, newestIn(child));
+        return newest;
+    }
+
+    /** Moves /.sketchware's older copy of a project aside before the newer one is copied in. */
+    private static void backUpTargetProject(File legacy, File target, String id) throws IOException {
+        File backup = new File(target, "backups" + File.separator + "sketchware_ai_merge"
+                + File.separator + id + "-" + System.currentTimeMillis());
+        java.util.List<String> paths = projectPaths(legacy, id);
+        paths.add("mysc" + File.separator + "list" + File.separator + id);
+        for (String path : paths) {
+            File from = new File(target, path);
+            if (!from.exists()) continue;
+            File to = new File(backup, path);
+            if (!to.getParentFile().isDirectory() && !to.getParentFile().mkdirs()) {
+                throw new IOException("Cannot create " + to.getParentFile());
+            }
+            if (!from.renameTo(to)) throw new IOException("Cannot move " + from + " to " + to);
+        }
     }
 
     /** Per-project folders, relative to the root, besides mysc/list/&lt;id&gt;. */
@@ -268,8 +317,8 @@ public final class LegacyProjectMigrator {
         java.util.List<String> toImport = new java.util.ArrayList<>();
         int skipped = 0;
         for (String id : ids) {
-            if (new File(targetList, id).exists()) skipped++;
-            else toImport.add(id);
+            if (needsImport(id)) toImport.add(id);
+            else skipped++;
         }
 
         // Every per-project path is copied in the project phase, never in the shared phase.
@@ -321,6 +370,7 @@ public final class LegacyProjectMigrator {
                 // Numbered among all of Sketchware Pro's projects, so a resumed import reads
                 // "Importing project 10 of 26" rather than restarting at 1.
                 meter.step(skipped + i + 1, name);
+                if (new File(targetList, id).exists()) backUpTargetProject(legacy, target, id);
                 for (String path : projectPaths(legacy, id)) {
                     copyTreeWithoutOverwriting(new File(legacy, path), new File(target, path), null, meter);
                 }
@@ -330,7 +380,6 @@ public final class LegacyProjectMigrator {
                 deleteTree(staging);
                 copyTreeWithoutOverwriting(new File(legacyList, id), staging, null, meter);
                 rewriteLegacyPaths(new File(target, "data" + File.separator + id));
-                writeImportMarker(new File(target, "data" + File.separator + id));
                 if (!staging.renameTo(new File(targetList, id))) {
                     deleteTree(staging);
                     throw new IOException("Could not move project " + id + " into place");

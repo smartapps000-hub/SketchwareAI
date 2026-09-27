@@ -59,7 +59,7 @@ public class ComponentsMakerCreator extends Activity implements View.OnClickList
     }
 
     private void fillUp() {
-        String concat = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/system/component.json");
+        String concat = FileUtil.getExternalStorageDir().concat("/.sketchware/data/system/component.json");
         if (FileUtil.isExistFile(concat)) {
             ArrayList<HashMap<String, Object>> arrayList = new Gson().fromJson(FileUtil.readFile(concat), Helper.TYPE_MAP_LIST);
             coName.setText((String) arrayList.get(pos).get("name"));
@@ -144,7 +144,7 @@ public class ComponentsMakerCreator extends Activity implements View.OnClickList
 
     private void save() {
         ArrayList<HashMap<String, Object>> arrayList;
-        String concat = FileUtil.getExternalStorageDir().concat("/.sketchware_ai/data/system/component.json");
+        String concat = FileUtil.getExternalStorageDir().concat("/.sketchware/data/system/component.json");
         if (FileUtil.isExistFile(concat)) {
             arrayList = new Gson().fromJson(FileUtil.readFile(concat), Helper.TYPE_MAP_LIST);
         } else {

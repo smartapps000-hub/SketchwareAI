@@ -641,7 +641,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
                 lC.a(sc_id, data);
                 wq.a(getApplicationContext(), sc_id);
                 new oB().b(wq.b(sc_id));
-                // After the line above: it empties /.sketchware_ai/data/<sc_id>, which is where
+                // After the line above: it empties /.sketchware/data/<sc_id>, which is where
                 // project_config and build_config live. Writing the defaults before it (v1.2-v1.4)
                 // meant they were deleted immediately and new projects fell back to target 28.
                 com.sketchware.ai.project.ModernProjectDefaults.applyToNewProject(sc_id);

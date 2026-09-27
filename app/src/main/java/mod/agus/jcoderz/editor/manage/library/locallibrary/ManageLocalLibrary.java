@@ -26,7 +26,9 @@ public class ManageLocalLibrary {
         String localLibraryConfigPath = new FilePathUtil().getPathLocalLibrary(projectId);
         if (FileUtil.isExistFile(localLibraryConfigPath)) {
             try {
-                list = new Gson().fromJson(FileUtil.readFile(localLibraryConfigPath), Helper.TYPE_MAP_LIST);
+                // Lists written by Sketchware AI 1.0-1.6.5 (which used /.sketchware_ai/) point back at /.sketchware/.
+                list = new Gson().fromJson(FileUtil.readFile(localLibraryConfigPath)
+                        .replace("/.sketchware_ai/", "/.sketchware/"), Helper.TYPE_MAP_LIST);
 
                 if (list == null) {
                     LogUtil.w(getClass().getSimpleName(), "Read null from file " + localLibraryConfigPath + ", deleting invalid configuration.");
@@ -36,12 +38,6 @@ public class ManageLocalLibrary {
 
                     // fall-through to shared error handler
                 } else {
-                    // Restored / Pro-made projects point at /.sketchware/...: fix them to the
-                    // folders that really hold the libraries, and save the fixed list.
-                    if (com.sketchware.ai.storage.LocalLibraryPaths.repair(list,
-                            android.os.Environment.getExternalStorageDirectory())) {
-                        FileUtil.writeFile(localLibraryConfigPath, new Gson().toJson(list));
-                    }
                     return;
                 }
             } catch (JsonParseException e) {
@@ -120,7 +116,7 @@ public class ManageLocalLibrary {
         for (String packageName : getPackageNames()) {
             if (!packageName.isEmpty()) {
                 File projectGenFolder = new File(Environment.getExternalStorageDirectory(),
-                        ".sketchware_ai/mysc/".concat(projectId).concat("/gen"));
+                        ".sketchware/mysc/".concat(projectId).concat("/gen"));
                 String rJavaPath = packageName.replace(".", File.separator)
                         .concat(File.separator).concat("R.java");
                 genPaths.add(new File(projectGenFolder, rJavaPath).getAbsolutePath());
