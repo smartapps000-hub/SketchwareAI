@@ -323,6 +323,28 @@
         </LinearLayout>
     </RelativeLayout>
 
+    <!-- Filters the grid by name as you type. -->
+    <EditText
+        android:id="@+id/ob_component_search"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginRight="8dp"
+        android:background="@drawable/ob_field"
+        android:drawableLeft="@drawable/ob_w_search_view"
+        android:drawablePadding="8dp"
+        android:drawableTint="#FFFF9A4D"
+        android:hint="Search components"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:singleLine="true"
+        android:textColor="#FFF5F5F7"
+        android:textColorHint="#FF71717A"
+        android:textSize="14sp" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/component_list"
         android:layout_width="match_parent"

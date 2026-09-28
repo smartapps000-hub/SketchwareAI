@@ -123,6 +123,8 @@ public class PermissionManager {
             if ((var1 & jq.PERMISSION_ACCESS_FINE_LOCATION) == jq.PERMISSION_ACCESS_FINE_LOCATION) {
                 checkPerm.add("ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED");
                 addPerm.add("Manifest.permission.ACCESS_FINE_LOCATION");
+                checkPerm.add("ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_DENIED");
+                addPerm.add("Manifest.permission.ACCESS_COARSE_LOCATION");
             }
             addBluetooth(true, var1, checkPerm, addPerm);
             removePermission(true, checkPerm, addPerm);
@@ -172,6 +174,8 @@ public class PermissionManager {
             if ((var1 & jq.PERMISSION_ACCESS_FINE_LOCATION) == jq.PERMISSION_ACCESS_FINE_LOCATION) {
                 checkPerm.add("checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED");
                 addPerm.add("Manifest.permission.ACCESS_FINE_LOCATION");
+                checkPerm.add("checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_DENIED");
+                addPerm.add("Manifest.permission.ACCESS_COARSE_LOCATION");
             }
             addBluetooth(false, var1, checkPerm, addPerm);
             removePermission(false, checkPerm, addPerm);

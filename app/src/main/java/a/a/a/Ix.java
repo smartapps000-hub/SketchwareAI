@@ -313,11 +313,20 @@ public class Ix {
                         ? frc.getPermissionList() : new java.util.ArrayList<>();
                 for (String permission : new String[]{com.sketchware.ai.project.BluetoothPermissions.CONNECT,
                         com.sketchware.ai.project.BluetoothPermissions.SCAN}) {
-                    if (!custom.contains(permission)) writePermission(a, permission);
+                    if (custom.contains(permission)) continue;
+                    Nx tag = new Nx("uses-permission");
+                    tag.a("android", "name", permission);
+                    // Scanning only finds Bluetooth devices: no location permission needed (API 31+).
+                    if (permission.equals(com.sketchware.ai.project.BluetoothPermissions.SCAN)) {
+                        tag.a("android", "usesPermissionFlags", "neverForLocation");
+                    }
+                    a.a(tag);
                 }
             }
             if (c.hasPermission(jq.PERMISSION_ACCESS_FINE_LOCATION)) {
                 writePermission(a, Manifest.permission.ACCESS_FINE_LOCATION);
+                // Android 12+: FINE must be requested together with COARSE (users may grant only approximate).
+                writePermission(a, Manifest.permission.ACCESS_COARSE_LOCATION);
             }
         }
         if (FileUtil.isExistFile(fpu.getPathPermission(c.sc_id))) {

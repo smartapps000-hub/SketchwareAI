@@ -78,6 +78,9 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
     private RecyclerView componentsList;
     private ComponentsAdapter componentsAdapter;
     private ArrayList<ComponentBean> componentList;
+    /** Every component; componentList holds the ones matching the search box. */
+    private final ArrayList<ComponentBean> allComponents = new ArrayList<>();
+    private android.widget.EditText componentSearch;
     private HashMap<Integer, Pair<Integer, Integer>> w;
     private boolean x;
     private boolean y;
@@ -222,6 +225,22 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         docsButton.setText(Helper.getResString(R.string.component_add_docs_button_title_go_to_docs));
         tvComponentTitle.setText(Helper.getResString(R.string.component_title_add_component));
         componentsList = findViewById(R.id.component_list);
+        componentSearch = findViewById(R.id.ob_component_search);
+        componentSearch.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                if (allComponents.isEmpty()) return;
+                filterComponents(s.toString());
+            }
+        });
         // Even grid, as many ~92dp columns as the screen allows (4 on a phone, 3-7 elsewhere), so
         // names like "Bluetooth Connect" and "SoundPool" fit without mid-word breaks.
         float density = getResources().getDisplayMetrics().density;
@@ -348,6 +367,22 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         componentList.add(new ComponentBean(ComponentBean.COMPONENT_TYPE_ONESIGNAL));
         componentList.add(new ComponentBean(ComponentBean.COMPONENT_TYPE_FACEBOOK_ADS_BANNER));
         componentList.add(new ComponentBean(ComponentBean.COMPONENT_TYPE_FACEBOOK_ADS_INTERSTITIAL));
+        allComponents.clear();
+        allComponents.addAll(componentList);
+        filterComponents(componentSearch == null ? "" : componentSearch.getText().toString());
+    }
+
+    /** Shows components whose name (or type name) contains the query; empty shows all. */
+    private void filterComponents(String query) {
+        String q = query.trim().toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+        componentList.clear();
+        for (ComponentBean bean : allComponents) {
+            String name = ComponentBean.getComponentName(getApplicationContext(), bean.type);
+            String typeName = ComponentBean.getComponentTypeName(bean.type);
+            String haystack = ((name == null ? "" : name) + " " + (typeName == null ? "" : typeName))
+                    .toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+            if (q.isEmpty() || haystack.contains(q)) componentList.add(bean);
+        }
         componentsAdapter.c();
     }
 
@@ -381,6 +416,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
                             x = false;
                             Helper.setViewsVisibility(true, descriptionLayout, tvDescription, imgBack, imgIconLayout);
                             componentsList.setVisibility(View.VISIBLE);
+                            if (componentSearch != null) componentSearch.setVisibility(View.VISIBLE);
                             tvComponentTitle.setText(Helper.getResString(R.string.component_title_add_component));
                             componentsAdapter.c();
                         }
@@ -391,6 +427,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
     private void s() {
         Helper.setViewsVisibility(false, imgIcon, descriptionLayout, inputsLayout, imgIconLayout, tvDescription, imgBack);
         componentsList.setVisibility(View.GONE);
+        if (componentSearch != null) componentSearch.setVisibility(View.GONE);
         imgIconLayout.setTranslationX(FlexItem.FLEX_GROW_DEFAULT);
         imgIconLayout.setTranslationY(FlexItem.FLEX_GROW_DEFAULT);
         ComponentBean componentBean = componentList.get(componentsAdapter.layoutPosition);
