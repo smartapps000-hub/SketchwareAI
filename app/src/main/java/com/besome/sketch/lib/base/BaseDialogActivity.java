@@ -94,6 +94,27 @@ public class BaseDialogActivity extends BaseAppCompatActivity {
         p.setVisibility(View.GONE);
     }
 
+    /**
+     * For screens that draw their own glass sheet (Add Component): drop the frame's sheet,
+     * padding and title so the content runs (almost) edge to edge instead of a sheet in a sheet.
+     */
+    protected void useOwnSheet() {
+        View sheet = findViewById(R.id.ob_dialog_sheet);
+        if (sheet != null) {
+            sheet.setBackground(null);
+            sheet.setPadding(0, 0, 0, 0);
+            if (sheet.getParent() instanceof View) {
+                View scroll = (View) sheet.getParent();
+                scroll.setPadding(scroll.getPaddingLeft(), (int) (8 * getResources().getDisplayMetrics().density),
+                        scroll.getPaddingRight(), (int) (8 * getResources().getDisplayMetrics().density));
+            }
+        }
+        k.setPadding((int) (4 * getResources().getDisplayMetrics().density), k.getPaddingTop(),
+                (int) (4 * getResources().getDisplayMetrics().density), k.getPaddingBottom());
+        n.setVisibility(View.GONE);
+        m.setVisibility(View.GONE);
+    }
+
     @Override
     public void onPostCreate(Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);

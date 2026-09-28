@@ -196,7 +196,8 @@ public class Jx {
             addImport("android.app.FragmentManager");
             addImport("android.app.DialogFragment");
         }
-        if (permissionManager.hasNewPermission() || buildConfig.a(projectFileBean.getActivityName()).a()) {
+        if (permissionManager.hasNewPermission() || buildConfig.a(projectFileBean.getActivityName()).a()
+                || permissionManager.needsBluetoothRuntimeCheck(buildConfig.a(projectFileBean.getActivityName()).c)) {
             if (buildConfig.g) {
                 addImport("androidx.core.content.ContextCompat");
                 addImport("androidx.core.app.ActivityCompat");

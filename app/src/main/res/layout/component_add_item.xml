@@ -27,8 +27,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:autoSizeMaxTextSize="10sp"
-        android:autoSizeMinTextSize="7sp"
+        android:autoSizeMaxTextSize="12sp"
+        android:autoSizeMinTextSize="8.5sp"
         android:autoSizeStepGranularity="0.5sp"
         android:autoSizeTextType="uniform"
         android:gravity="center"
@@ -36,6 +36,6 @@
         android:lines="2"
         android:paddingLeft="1dp"
         android:paddingRight="1dp"
-        android:textColor="@color/ob_text_4"
-        android:textSize="9.5sp" />
+        android:textColor="#FFF5F5F7"
+        android:textSize="11.5sp" />
 </LinearLayout>

@@ -184,6 +184,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         setContentView(R.layout.logic_popup_add_component_temp);
         l();
         m();
+        useOwnSheet();
         if (savedInstanceState == null) {
             Intent intent = getIntent();
             sc_id = intent.getStringExtra("sc_id");
@@ -221,12 +222,12 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         docsButton.setText(Helper.getResString(R.string.component_add_docs_button_title_go_to_docs));
         tvComponentTitle.setText(Helper.getResString(R.string.component_title_add_component));
         componentsList = findViewById(R.id.component_list);
-        FlexboxLayoutManager flexboxLayoutManager = new FlexboxLayoutManager(this);
-        flexboxLayoutManager.setFlexDirection(FlexDirection.ROW);
-        flexboxLayoutManager.setFlexWrap(FlexWrap.WRAP);
-        flexboxLayoutManager.setJustifyContent(JustifyContent.FLEX_START);
-        flexboxLayoutManager.setAlignItems(AlignItems.CENTER);
-        componentsList.setLayoutManager(flexboxLayoutManager);
+        // Even grid, as many ~92dp columns as the screen allows (4 on a phone, 3-7 elsewhere), so
+        // names like "Bluetooth Connect" and "SoundPool" fit without mid-word breaks.
+        float density = getResources().getDisplayMetrics().density;
+        float availableDp = getResources().getDisplayMetrics().widthPixels / density - 28;
+        int columns = Math.max(3, Math.min(7, (int) (availableDp / 92)));
+        componentsList.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, columns));
         componentsAdapter = new ComponentsAdapter();
         componentsList.setHasFixedSize(true);
         componentsList.setAdapter(componentsAdapter);
@@ -416,6 +417,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
                 break;
         }
         imgIcon.setImageResource(com.sketchware.ai.ui.ComponentIcons.forType(componentBean.type));
+        com.sketchware.ai.ui.ComponentIcons.colorize(imgIcon, componentBean.type);
         tvComponentTitle.setText(ComponentBean.getComponentName(getApplicationContext(), componentBean.type));
         tvDescription.setText(ComponentsHandler.description(componentBean.type));
         tvDescription.setAlpha(FlexItem.FLEX_GROW_DEFAULT);
@@ -480,6 +482,7 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
             // Break long names between words ("Shared|Preferences"), never mid-word, in the narrow cell.
             holder.itemName.setText(com.sketchware.ai.ui.ComponentIcons.twoLineLabel(componentName));
             holder.itemIcon.setImageResource(com.sketchware.ai.ui.ComponentIcons.forType(componentList.get(position).type));
+            com.sketchware.ai.ui.ComponentIcons.colorize(holder.itemIcon, componentList.get(position).type);
             if (!x) {
                 return;
             }
@@ -513,13 +516,9 @@ public class ComponentAddActivity extends BaseDialogActivity implements View.OnC
         // RecyclerView.Adapter#onCreateViewHolder(ViewGroup, int)
         public ViewHolder b(ViewGroup parent, int viewType) {
             View itemView = wB.a(parent.getContext(), R.layout.component_add_item);
-            // 6-column grid: each cell is a sixth of the list's width (at least 48dp).
-            int available = parent.getMeasuredWidth() - parent.getPaddingLeft() - parent.getPaddingRight();
-            int cell = Math.max((int) wB.a(parent.getContext(), 48.0f), available > 0 ? available / 6 : 0);
-            if (available <= 0) cell = (int) wB.a(parent.getContext(), 56.0f);
-            // Glass tile per component with a 2dp gap on every side.
-            int gap = (int) wB.a(parent.getContext(), 2.0f);
-            FlexboxLayoutManager.LayoutParams lp = new FlexboxLayoutManager.LayoutParams(cell - 2 * gap, (int) wB.a(parent.getContext(), 74.0f));
+            // Cell fills its grid column; 3dp gap on every side.
+            int gap = (int) wB.a(parent.getContext(), 3.0f);
+            RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) wB.a(parent.getContext(), 82.0f));
             lp.setMargins(gap, gap, gap, gap);
             itemView.setLayoutParams(lp);
             return new ViewHolder(itemView);

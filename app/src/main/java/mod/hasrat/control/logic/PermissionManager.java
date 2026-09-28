@@ -71,11 +71,14 @@ public class PermissionManager {
      * runtime, or the generated BluetoothConnect calls throw SecurityException. Only checked on
      * API 31+, where they exist.
      */
+    /** Whether {@link #addBluetooth} will emit checks (the activity then needs Manifest/PackageManager imports). */
+    public boolean needsBluetoothRuntimeCheck(int var1) {
+        return (var1 & jq.PERMISSION_BLUETOOTH) == jq.PERMISSION_BLUETOOTH
+                && com.sketchware.ai.project.BluetoothPermissions.targetsAndroid12(sc_id);
+    }
+
     private void addBluetooth(boolean isAppCompat, int var1, ArrayList<String> checkPerm, ArrayList<String> reqPerm) {
-        if ((var1 & jq.PERMISSION_BLUETOOTH) != jq.PERMISSION_BLUETOOTH
-                || !com.sketchware.ai.project.BluetoothPermissions.targetsAndroid12(sc_id)) {
-            return;
-        }
+        if (!needsBluetoothRuntimeCheck(var1)) return;
         for (String permission : new String[]{com.sketchware.ai.project.BluetoothPermissions.CONNECT,
                 com.sketchware.ai.project.BluetoothPermissions.SCAN}) {
             String literal = "\"" + permission + "\"";

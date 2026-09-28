@@ -12,6 +12,51 @@ public final class ComponentIcons {
     private ComponentIcons() {
     }
 
+    /**
+     * Each component's own colour (Firebase amber, Bluetooth blue, ...): the line icon is drawn
+     * in it on a faint tile of the same hue. Custom component types keep their original icon.
+     */
+    public static int colorFor(int type) {
+        switch (type) {
+            case 1: return 0xFF60A5FA;  // Intent - blue
+            case 2: return 0xFFA78BFA;  // SharedPreferences - violet
+            case 3: case 24: case 25: return 0xFFF87171; // Calendar / date / time - red
+            case 4: return 0xFFF472B6;  // Vibrator - pink
+            case 5: return 0xFF34D399;  // Timer - green
+            case 6: case 12: case 14: case 28: case 29: case 30: return 0xFFFFB020; // Firebase - amber
+            case 7: case 23: return 0xFF38BDF8; // Dialogs - sky
+            case 8: case 9: return 0xFFFB7185; // Media / SoundPool - rose
+            case 10: return 0xFFC084FC;  // ObjectAnimator - purple
+            case 11: return 0xFF2DD4BF;  // Gyroscope - teal
+            case 13: case 22: case 33: case 34: return 0xFFFACC15; // Ads - yellow
+            case 15: return 0xFF94A3B8;  // Camera - slate
+            case 16: return 0xFF7DD3FC;  // File picker - light blue
+            case 17: return 0xFF22D3EE;  // RequestNetwork - cyan
+            case 18: case 19: return 0xFF4ADE80; // TTS / STT - green
+            case 20: return 0xFF3B82F6;  // Bluetooth - blue
+            case 21: return 0xFFEF4444;  // Location - red
+            case 26: return 0xFFFB923C;  // Notification - orange
+            case 27: return 0xFF818CF8;  // FragmentAdapter - indigo
+            case 31: return 0xFF4285F4;  // Google login - Google blue
+            case 32: return 0xFFF43F5E;  // OneSignal - red
+            default: return 0;
+        }
+    }
+
+    /** Tints a component icon (and its glass tile) with {@link #colorFor}. */
+    public static void colorize(android.widget.ImageView icon, int type) {
+        int color = colorFor(type);
+        if (color == 0) {
+            icon.setImageTintList(null);
+            return;
+        }
+        icon.setImageTintList(android.content.res.ColorStateList.valueOf(color));
+        if (icon.getBackground() != null) {
+            icon.setBackgroundTintList(android.content.res.ColorStateList.valueOf((color & 0x00FFFFFF) | 0x33000000));
+            icon.setBackgroundTintMode(android.graphics.PorterDuff.Mode.SRC_OVER);
+        }
+    }
+
     public static int forType(int type) {
         switch (type) {
             case 1: return R.drawable.ob_c_intent;
