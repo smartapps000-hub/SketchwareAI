@@ -634,6 +634,40 @@ public class Dp {
                 crash = null;
             }
 
+            /*
+             * Auto-heal: safe, behaviour-preserving fixes (unreachable code after a return/break,
+             * missing imports of well-known classes) applied to this build's GENERATED sources only,
+             * then compiled again, at most twice. If it still fails, the files are restored and the
+             * original log is reported. The project's blocks are never modified.
+             */
+            if (!compiled && crash == null && android.os.Build.VERSION.SDK_INT >= 26
+                    && com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id)) {
+                String originalErrors = errors;
+                com.sketchware.ai.project.AutoHeal heal = new com.sketchware.ai.project.AutoHeal(new File(yq.javaFilesPath));
+                try {
+                    for (int pass = 0; pass < 2 && !compiled; pass++) {
+                        if (heal.apply(errors) == 0) break;
+                        EclipseErrOutputStream healErr = new EclipseErrOutputStream();
+                        PrintWriter healErrWriter = new PrintWriter(healErr);
+                        org.eclipse.jdt.internal.compiler.batch.Main again = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, healErrWriter, false, null, null);
+                        compiled = again.compile(args.toArray(new String[0])) && again.globalErrorsCount <= 0;
+                        healErrWriter.flush();
+                        errors = healErr.getOut();
+                    }
+                } catch (RuntimeException e) {
+                    LogUtil.e(TAG, "Auto-heal failed", e);
+                    compiled = false;
+                }
+                if (compiled) {
+                    for (String fix : heal.fixes()) {
+                        com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + fix);
+                    }
+                } else {
+                    heal.rollback();
+                    errors = originalErrors;
+                }
+            }
+
             LogUtil.d(TAG, "System.out of Eclipse compiler: " + outOutputStream.getOut());
             if (compiled) {
                 LogUtil.d(TAG, "System.err of Eclipse compiler: " + errors);

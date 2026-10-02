@@ -204,8 +204,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
      */
     private void indicateBuildWarnings(String report, int count) {
         new CompileErrorSaver(q.sc_id).writeLogsToFile(report);
-        Snackbar snackbar = Snackbar.a(coordinatorLayout, "Built with " + count
-                + (count == 1 ? " warning" : " warnings"), 0 /* BaseTransientBottomBar.LENGTH_LONG */);
+        int autoFixes = 0;
+        for (int at = report.indexOf("auto-fix: "); at >= 0; at = report.indexOf("auto-fix: ", at + 1)) autoFixes++;
+        int others = Math.max(0, count - autoFixes);
+        String headline = autoFixes == 0
+                ? "Built with " + count + (count == 1 ? " warning" : " warnings")
+                : "Build succeeded with " + autoFixes + (autoFixes == 1 ? " auto-fix" : " auto-fixes")
+                + (others > 0 ? " and " + others + (others == 1 ? " warning" : " warnings") : "");
+        Snackbar snackbar = Snackbar.a(coordinatorLayout, headline, 0 /* BaseTransientBottomBar.LENGTH_LONG */);
         snackbar.a(Helper.getResString(R.string.common_word_show), v -> {
             if (!mB.a()) {
                 snackbar.c();

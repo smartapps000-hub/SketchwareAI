@@ -100,7 +100,8 @@ public final class BuildWarnings {
         StringBuilder out = new StringBuilder("Build succeeded with " + warnings.size()
                 + (warnings.size() == 1 ? " warning" : " warnings") + ":\n");
         for (int i = 0; i < warnings.size(); i++) {
-            out.append('\n').append(i + 1).append(". warning: ").append(warnings.get(i)).append('\n');
+            out.append('\n').append(i + 1).append(warnings.get(i).startsWith("auto-fix: ") ? ". " : ". warning: ")
+                    .append(warnings.get(i)).append('\n');
         }
         if (!notes.isEmpty()) {
             out.append("\nNotes for this target / toolchain:\n");

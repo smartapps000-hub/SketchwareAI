@@ -31,6 +31,17 @@ public final class ModernProjectDefaults {
 
     /** Project setting: "true" to draw under the system bars (edge-to-edge) with auto-padding. */
     public static final String SETTING_EDGE_TO_EDGE = "edge_to_edge";
+    /** Auto-heal builds (see {@link AutoHeal}); on unless the project turns it off. */
+    public static final String SETTING_AUTO_HEAL = "auto_heal";
+
+    public static boolean autoHealEnabled(String sc_id) {
+        try {
+            return !ProjectSettings.SETTING_GENERIC_VALUE_FALSE.equals(
+                    new ProjectSettings(sc_id).getValue(SETTING_AUTO_HEAL, ProjectSettings.SETTING_GENERIC_VALUE_TRUE));
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
 
     private ModernProjectDefaults() {
     }

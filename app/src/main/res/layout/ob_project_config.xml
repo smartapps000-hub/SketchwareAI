@@ -137,6 +137,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp" />
 
+        <include
+            android:id="@+id/ob_cfg_row_heal"
+            layout="@layout/ob_toggle_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+
         <!-- Older projects only (target below 37). -->
         <LinearLayout
             android:id="@+id/ob_cfg_upgrade"

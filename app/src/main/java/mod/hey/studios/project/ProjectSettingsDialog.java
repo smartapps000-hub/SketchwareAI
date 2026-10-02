@@ -54,6 +54,11 @@ public class ProjectSettingsDialog {
                 ProjectSettings.SETTING_ENABLE_BRIDGELESS_THEMES,
                 "MaterialComponents AppTheme", "Buttons become MaterialButton");
 
+        CheckBox autoHeal = bindToggle(content.findViewById(R.id.ob_cfg_row_heal),
+                com.sketchware.ai.project.ModernProjectDefaults.SETTING_AUTO_HEAL,
+                "Auto-heal builds", "Fixes unreachable code and missing imports, then rebuilds");
+        autoHeal.setChecked(!settings.getValue(com.sketchware.ai.project.ModernProjectDefaults.SETTING_AUTO_HEAL, "true").equals("false"));
+
         TextView targetHint = content.findViewById(R.id.ob_cfg_target_hint);
         Runnable updateHint = () -> {
             int target;
@@ -109,6 +114,7 @@ public class ProjectSettingsDialog {
                 applicationClassName,
                 removeOldMethods,
                 edgeToEdge,
+                autoHeal,
                 useNewMaterialComponentsAppTheme
         };
 
