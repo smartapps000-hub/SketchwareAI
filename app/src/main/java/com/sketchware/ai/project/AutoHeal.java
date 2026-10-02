@@ -27,9 +27,8 @@ import java.util.regex.Pattern;
  * <p>
  * Only fixes that cannot change what the program does are made:
  * <ul>
- *     <li>Unreachable code after a return/break/continue/throw: the jump becomes
- *     {@code if (true) return;}. The code after it still never runs, exactly as written, but
- *     it compiles.</li>
+ *     <li>Unreachable code after a return/break/continue/throw (in any form): the dead
+ *     statements are removed up to the end of their block. They could never run.</li>
  *     <li>A well-known class used without its import (PackageManager, Uri, Settings, ...):
  *     the import is added.</li>
  * </ul>
@@ -40,8 +39,6 @@ public final class AutoHeal {
     private static final Pattern HEADER = Pattern.compile("ERROR in (.+?\\.java) \\(at line (\\d+)\\)");
     private static final Pattern UNRESOLVED = Pattern.compile(
             "^([A-Z]\\w*) cannot be resolved(?: to a (?:type|variable))?\\s*$");
-    private static final Pattern JUMP = Pattern.compile(
-            "^(return\\b[^;{}]*;|break\\s*;|continue\\s*;|throw\\b[^;{}]*;)\\s*(//.*)?$");
 
     /** Classes custom code commonly uses that generated activities don't import by default. */
     private static final Map<String, String> IMPORTS = new HashMap<>();
@@ -118,7 +115,8 @@ public final class AutoHeal {
      * @return how many fixes were made in this pass (0: nothing this engine can safely fix)
      */
     public int apply(String compilerLog) {
-        Map<File, Set<Integer>> unreachable = new LinkedHashMap<>();
+        // file -> (line -> column of the first unreachable character, or 0)
+        Map<File, Map<Integer, Integer>> unreachable = new LinkedHashMap<>();
         Map<File, Set<String>> imports = new LinkedHashMap<>();
         // ECJ prints one block per problem, separated by lines of dashes: a header, the source
         // excerpt (one or more lines), a ^^^^ marker and, last, the message.
@@ -130,7 +128,14 @@ public final class AutoHeal {
             String[] blockLines = block.trim().split("\\r?\\n");
             String message = blockLines[blockLines.length - 1].trim();
             if (message.equals("Unreachable code")) {
-                unreachable.computeIfAbsent(file, k -> new LinkedHashSet<>()).add(Integer.parseInt(m.group(2)));
+                int column = 0;
+                // Single-line excerpt: header, source, marker, message. The marker's first ^ gives
+                // the column inside the (indent-stripped) source line.
+                if (blockLines.length == 4 && blockLines[2].indexOf('^') > 0) {
+                    column = blockLines[2].indexOf('^') - 1;
+                }
+                unreachable.computeIfAbsent(file, k -> new java.util.TreeMap<>(java.util.Collections.reverseOrder()))
+                        .put(Integer.parseInt(m.group(2)), column);
             } else {
                 Matcher u = UNRESOLVED.matcher(message);
                 if (u.matches() && IMPORTS.containsKey(u.group(1))) {
@@ -148,8 +153,8 @@ public final class AutoHeal {
                 String eol = text.contains("\r\n") ? "\r\n" : "\n";
                 List<String> lines = new ArrayList<>(Arrays.asList(text.split("\\r?\\n", -1)));
                 int made = fixes.size();
-                for (int line : unreachable.getOrDefault(file, new LinkedHashSet<>())) {
-                    fixUnreachable(file, lines, line);
+                for (Map.Entry<Integer, Integer> at : unreachable.getOrDefault(file, new LinkedHashMap<>()).entrySet()) {
+                    removeUnreachable(file, lines, at.getKey(), at.getValue());
                 }
                 for (String fqn : imports.getOrDefault(file, new LinkedHashSet<>())) {
                     addImport(file, lines, fqn);
@@ -186,23 +191,105 @@ public final class AutoHeal {
         }
     }
 
-    /** {@code return x;} right before the unreachable line becomes {@code if (true) return x;}. */
-    private void fixUnreachable(File file, List<String> lines, int errorLine) {
-        int index = errorLine - 2; // 0-based index of the line before the error line
-        while (index >= 0) {
-            String t = lines.get(index).trim();
-            if (!t.isEmpty() && !t.startsWith("//")) break;
-            index--;
+    /**
+     * Removes the dead statements: from the first unreachable character to the end of the
+     * enclosing block (or the next case/default label). Every statement after a jump in the same
+     * block is unreachable, so nothing that could ever run is removed. Line breaks are kept, so
+     * line numbers in later messages don't move.
+     */
+    private void removeUnreachable(File file, List<String> lines, int errorLine, int column) {
+        if (errorLine < 1 || errorLine > lines.size()) return;
+        String first = lines.get(errorLine - 1);
+        int indent = first.length() - first.replaceAll("^\\s+", "").length();
+        int startInLine = Math.min(first.length(), indent + Math.max(0, column));
+
+        StringBuilder text = new StringBuilder();
+        int start = 0;
+        for (int i = 0; i < lines.size(); i++) {
+            if (i == errorLine - 1) start = text.length() + startInLine;
+            text.append(lines.get(i)).append('\n');
         }
-        if (index < 0) return;
-        String line = lines.get(index);
-        String trimmed = line.trim();
-        if (!JUMP.matcher(trimmed).matches() || !balanced(trimmed)) return;
-        String indent = line.substring(0, line.indexOf(trimmed));
-        lines.set(index, indent + "if (true) " + trimmed + " // auto-fix: code below was unreachable");
-        fixes.add(file.getName() + ":" + (index + 1) + " unreachable code after \"" + shorten(trimmed)
-                + "\": changed to \"if (true) " + shorten(trimmed) + "\" so it compiles. The code after it still "
-                + "never runs; move or delete it in your block.");
+        int end = deadRegionEnd(text, start);
+        if (end <= start) return;
+
+        StringBuilder kept = new StringBuilder();
+        int removedLines = 1;
+        for (int i = start; i < end; i++) {
+            if (text.charAt(i) == '\n') {
+                kept.append('\n');
+                removedLines++;
+            }
+        }
+        String region = text.substring(start, end).trim();
+        if (region.isEmpty()) return;
+        String patched = text.substring(0, start) + "/* auto-fix: unreachable code removed */" + kept + text.substring(end);
+        List<String> result = new ArrayList<>(Arrays.asList(patched.split("\n", -1)));
+        result.remove(result.size() - 1); // the '\n' appended after the last line
+        lines.clear();
+        lines.addAll(result);
+        fixes.add(file.getName() + ":" + errorLine + " removed " + removedLines
+                + (removedLines == 1 ? " line" : " lines") + " of unreachable code starting at \""
+                + shorten(region.split("\\r?\\n")[0].trim()) + "\" (it could never run: it follows a return/break/"
+                + "continue/throw in the same block). Your blocks are unchanged.");
+    }
+
+    /** Offset of the '}' closing the block that contains {@code start}, or of the next case label. */
+    private static int deadRegionEnd(CharSequence text, int start) {
+        int depth = 0;
+        boolean statementStart = true;
+        for (int i = start; i < text.length(); i++) {
+            char c = text.charAt(i);
+            char next = i + 1 < text.length() ? text.charAt(i + 1) : 0;
+            if (c == '/' && next == '/') {
+                while (i < text.length() && text.charAt(i) != '\n') i++;
+                continue;
+            }
+            if (c == '/' && next == '*') {
+                i += 2;
+                while (i + 1 < text.length() && !(text.charAt(i) == '*' && text.charAt(i + 1) == '/')) i++;
+                i++;
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                char quote = c;
+                i++;
+                while (i < text.length() && text.charAt(i) != quote && text.charAt(i) != '\n') {
+                    if (text.charAt(i) == '\\') i++;
+                    i++;
+                }
+                statementStart = false;
+                continue;
+            }
+            if (c == '{') {
+                depth++;
+                statementStart = true;
+                continue;
+            }
+            if (c == '}') {
+                if (depth == 0) return i;
+                depth--;
+                statementStart = true;
+                continue;
+            }
+            if (c == ';') {
+                statementStart = true;
+                continue;
+            }
+            if (Character.isWhitespace(c)) continue;
+            if (depth == 0 && statementStart && Character.isJavaIdentifierStart(c)) {
+                int e = i;
+                while (e < text.length() && Character.isJavaIdentifierPart(text.charAt(e))) e++;
+                String word = text.subSequence(i, e).toString();
+                if (i > start && word.equals("case")) return i;
+                if (i > start && word.equals("default")) {
+                    int k = e;
+                    while (k < text.length() && Character.isWhitespace(text.charAt(k))) k++;
+                    if (k < text.length() && text.charAt(k) == ':') return i;
+                }
+            }
+            statementStart = false;
+        }
+        return -1;
     }
 
     private void addImport(File file, List<String> lines, String fqn) {
@@ -219,20 +306,6 @@ public final class AutoHeal {
         if (packageLine < 0) return;
         lines.set(packageLine, lines.get(packageLine) + " " + statement);
         fixes.add(file.getName() + ": added missing \"" + statement + "\"");
-    }
-
-    private static boolean balanced(String s) {
-        int depth = 0;
-        boolean inString = false;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '"' && (i == 0 || s.charAt(i - 1) != '\\')) inString = !inString;
-            if (inString) continue;
-            if (c == '(') depth++;
-            if (c == ')') depth--;
-            if (depth < 0) return false;
-        }
-        return depth == 0 && !inString;
     }
 
     private static String shorten(String s) {

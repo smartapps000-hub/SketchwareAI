@@ -62,11 +62,17 @@
         </LinearLayout>
     </LinearLayout>
 
-    <ScrollView
+    <!-- The sheet doesn't clip its children (glows), so this frame keeps scrolled text inside. -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
         android:layout_weight="1"
+        android:clipChildren="true">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:fadingEdgeLength="14dp"
         android:overScrollMode="ifContentScrolls"
         android:requiresFadingEdge="vertical"
@@ -124,11 +130,12 @@
                 android:paddingTop="12dp"
                 android:paddingRight="14dp"
                 android:paddingBottom="12dp"
-                android:text="On-device autonomous error diagnosis coming soon."
+                android:text="Missing libraries, missing imports and unreachable code are repaired automatically when you build again."
                 android:textColor="@color/ob_text_2"
                 android:textSize="13sp" />
         </LinearLayout>
     </ScrollView>
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

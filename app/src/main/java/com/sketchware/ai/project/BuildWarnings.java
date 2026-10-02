@@ -28,13 +28,22 @@ public final class BuildWarnings {
     /** Advisory facts about the target/toolchain: logged and listed, but never a "warning" alone. */
     private static final List<String> notes = new ArrayList<>();
 
+    /** Entries from a build that restarted itself, shown with the build that follows. */
+    private static final List<String> carried = new ArrayList<>();
+
     private BuildWarnings() {
+    }
+
+    public static synchronized void carry(List<String> entries) {
+        carried.addAll(entries);
     }
 
     /** Starts a build: clears old warnings and checks the project's settings and features. */
     public static synchronized void begin(yq project) {
         warnings.clear();
         notes.clear();
+        warnings.addAll(carried);
+        carried.clear();
         if (project == null) return;
         try {
             ProjectSettings settings = new ProjectSettings(project.sc_id);

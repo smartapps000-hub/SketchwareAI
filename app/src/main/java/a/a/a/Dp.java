@@ -642,6 +642,41 @@ public class Dp {
              */
             if (!compiled && crash == null && android.os.Build.VERSION.SDK_INT >= 26
                     && com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id)) {
+                /*
+                 * A package the code uses isn't on the classpath: enable the installed local library
+                 * that provides it (downloading the well-known one if it isn't installed), then
+                 * compile again. Libraries with resources need the whole build to start over.
+                 */
+                try {
+                    com.sketchware.ai.project.LibraryHeal.Result libraryFix = com.sketchware.ai.project.LibraryHeal.run(
+                            yq.sc_id, errors, mll.list,
+                            text -> { if (progressReceiver != null) progressReceiver.onProgress(text); });
+                    if (libraryFix.needsRebuild && com.sketchware.ai.project.LibraryHeal.claimRebuild()) {
+                        com.sketchware.ai.project.BuildWarnings.carry(libraryFix.notes);
+                        throw new com.sketchware.ai.project.RebuildRequested();
+                    }
+                    for (String note : libraryFix.notes) com.sketchware.ai.project.BuildWarnings.add(note);
+                    if (!libraryFix.jars.isEmpty()) {
+                        int cp = args.indexOf("-cp") + 1;
+                        StringBuilder extended = new StringBuilder(args.get(cp));
+                        for (String jar : libraryFix.jars) extended.append(":").append(jar);
+                        args.set(cp, extended.toString());
+                        if (progressReceiver != null) progressReceiver.onProgress("Java is compiling...");
+                        EclipseErrOutputStream libraryErr = new EclipseErrOutputStream();
+                        PrintWriter libraryErrWriter = new PrintWriter(libraryErr);
+                        org.eclipse.jdt.internal.compiler.batch.Main again = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, libraryErrWriter, false, null, null);
+                        compiled = again.compile(args.toArray(new String[0])) && again.globalErrorsCount <= 0;
+                        libraryErrWriter.flush();
+                        errors = libraryErr.getOut();
+                    }
+                } catch (com.sketchware.ai.project.RebuildRequested e) {
+                    throw e;
+                } catch (RuntimeException e) {
+                    LogUtil.e(TAG, "Library auto-resolve failed", e);
+                }
+            }
+            if (!compiled && crash == null && android.os.Build.VERSION.SDK_INT >= 26
+                    && com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id)) {
                 String originalErrors = errors;
                 com.sketchware.ai.project.AutoHeal heal = new com.sketchware.ai.project.AutoHeal(new File(yq.javaFilesPath));
                 try {

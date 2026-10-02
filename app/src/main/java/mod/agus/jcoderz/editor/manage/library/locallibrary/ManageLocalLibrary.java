@@ -38,6 +38,15 @@ public class ManageLocalLibrary {
 
                     // fall-through to shared error handler
                 } else {
+                    // An enabled library whose entry lost its paths gets them back from its own folder.
+                    try {
+                        if (com.sketchware.ai.project.LibraryAutoResolve.repairEntries(list,
+                                com.sketchware.ai.project.LibraryHeal.localLibs())) {
+                            com.sketchware.ai.project.LibraryHeal.save(projectId, list);
+                        }
+                    } catch (RuntimeException e) {
+                        LogUtil.e(getClass().getSimpleName(), "Couldn't repair local library entries", e);
+                    }
                     return;
                 }
             } catch (JsonParseException e) {

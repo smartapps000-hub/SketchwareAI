@@ -395,6 +395,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     public void onClick(View v) {
         if (!mB.a()) {
             if (v.getId() == R.id.btn_execute) {
+                com.sketchware.ai.project.LibraryHeal.userStartedBuild();
                 new BuildAsyncTask(getApplicationContext()).execute();
             } else if (v.getId() == R.id.btn_compiler_opt) {
                 PopupMenu popupMenu = new PopupMenu(new android.view.ContextThemeWrapper(this, R.style.Ob_PopupTheme), findViewById(R.id.btn_compiler_opt));
@@ -1185,6 +1186,11 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                         dialog.b("Dismiss", Helper.getDialogDismissListener(dialog));
                         dialog.show();
                     });
+                } catch (com.sketchware.ai.project.RebuildRequested restart) {
+                    // A missing library was enabled for the project: build once more, from the start.
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (!isDestroyed()) new BuildAsyncTask(getApplicationContext()).execute();
+                    }, 400);
                 } catch (Throwable tr) {
                     LogUtil.e("DesignActivity$BuildAsyncTask", "Failed to build project", tr);
                     String failure = tr instanceof zy ? tr.getMessage() : Log.getStackTraceString(tr);
