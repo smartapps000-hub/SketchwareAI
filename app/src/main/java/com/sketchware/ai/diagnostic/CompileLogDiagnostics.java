@@ -50,6 +50,35 @@ public final class CompileLogDiagnostics {
                     "Two resources have the same name (for example an imported file and a generated one). Rename or remove one."),
             new Rule("failed linking file resources|failed linking references",
                     "AAPT2 couldn't link the app's resources. The line(s) just above this message name the exact file and line."),
+            new Rule("Unreachable code",
+                    "The marked line can never run: the line just before it in the same block is a return, break, "
+                            + "continue, throw or finish-and-return. This is in your own code (an Add Source Directly "
+                            + "block, a MoreBlock or a custom Java file), not generated code. Move the marked line above "
+                            + "that return/break, or delete it. Manual Bluetooth permission code can simply be removed: "
+                            + "Sketchware AI already requests BLUETOOTH_CONNECT and BLUETOOTH_SCAN at start (target 31+)."),
+            new Rule("Duplicate local variable (\\w+)",
+                    "The variable %s is declared twice in the same method (often the same Add Source Directly code "
+                            + "pasted twice, or a name that a block already uses). Rename one or delete the copy."),
+            new Rule("Duplicate (method|field) ([\\w()., ]+)",
+                    "The same method or variable is defined twice in the activity (a MoreBlock and custom code with "
+                            + "the same name, or code pasted twice). Remove or rename one."),
+            new Rule("Unhandled exception type (\\w+)",
+                    "This call can throw %s and Java requires handling it. Wrap the code in try { ... } catch (Exception e) { }."),
+            new Rule("Type mismatch: cannot convert from ([\\w.<>\\[\\]]+ to [\\w.<>\\[\\]]+)",
+                    "A value of the wrong type is used (%s). Check the block's input type, or convert it "
+                            + "(String.valueOf(...), Double.parseDouble(...), (int) ...)."),
+            new Rule("may not have been initialized",
+                    "A variable is used before it gets a value on every path. Give it a starting value where it is "
+                            + "declared (= 0, = \"\", = null)."),
+            new Rule("must return a result of type (\\w+)",
+                    "A method that returns %s has a path with no return. Add a return at the end of the MoreBlock/method."),
+            new Rule("The method (\\w+)\\([^)]*\\) in the type \\w+ is not applicable",
+                    "The method %s is called with the wrong number or types of arguments. Compare the call with its definition."),
+            new Rule("Cannot make a static reference|non-static",
+                    "Code in a static method uses something that belongs to the activity instance. Remove 'static' "
+                            + "or pass the activity/context in."),
+            new Rule("is not visible|has private access",
+                    "The code uses a private member of another class, or an API hidden in the bundled Android 13 android.jar."),
             new Rule("(\\w+) cannot be resolved to a type",
                     "Java doesn't know the type %s. Add its import (Custom Imports / ASD), enable the library that "
                             + "provides it, or fix the spelling."),
