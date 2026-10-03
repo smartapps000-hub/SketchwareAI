@@ -153,6 +153,15 @@ public class Jx {
      * @return Generated Java code of the current View (not Widget)
      */
     public String generateCode() {
+        String formatted = formattedCode();
+        String written = CommandBlock.CB(formatted);
+        // Notes which lines every block's code is on (com.sketchware.ai.sourcemap); changes nothing here.
+        com.sketchware.ai.sourcemap.SourceMaps.build(buildConfig, projectFileBean, projectDataManager, formatted, written);
+        return written;
+    }
+
+    /** The activity's Java code, formatted, before command blocks are applied. */
+    public String formattedCode() {
         boolean isDialogFragment = projectFileBean.fileName.contains("_dialog_fragment");
         boolean isBottomDialogFragment = projectFileBean.fileName.contains("_bottomdialog_fragment");
         boolean isFragment = projectFileBean.fileName.contains("_fragment");
@@ -576,7 +585,7 @@ public class Jx {
             code = code.replaceAll("getFragmentManager", "getSupportFragmentManager");
         }
 
-        return CommandBlock.CB(Lx.j(code, false));
+        return Lx.j(code, false);
     }
 
     private String getListDeclarationAndAddImports(int listType, String listName) {
@@ -778,7 +787,8 @@ public class Jx {
         addImport("java.util.regex.*");
         addImport("java.text.*");
         addImport("org.json.*");
-        onCreateEventCode = new Fx(projectFileBean.getActivityName(), buildConfig, "onCreate_initializeLogic", projectDataManager.a(projectFileBean.getJavaName(), "onCreate_initializeLogic")).a();
+        onCreateEventCode = new Fx(projectFileBean.getActivityName(), buildConfig, "onCreate_initializeLogic", com.sketchware.ai.sourcemap.SourceMapMarkers.wrap(
+                projectDataManager.a(projectFileBean.getJavaName(), "onCreate_initializeLogic"), "onCreate", "onCreate", "initializeLogic")).a();
     }
 
     private String getDrawerViewInitializer(ViewBean viewBean) {
@@ -794,7 +804,8 @@ public class Jx {
             String xmlName = ProjectFileBean.getXmlName(viewBean.customView);
             this.projectFileBean.getJavaName();
             String eventName = viewBean.id + "_onBindCustomView";
-            String adapterLogic = new Fx(projectFileBean.getActivityName(), buildConfig, eventName, projectDataManager.a(projectFileBean.getJavaName(), eventName)).a();
+            String adapterLogic = new Fx(projectFileBean.getActivityName(), buildConfig, eventName, com.sketchware.ai.sourcemap.SourceMapMarkers.wrap(
+                    projectDataManager.a(projectFileBean.getJavaName(), eventName), "adapter", viewBean.id, "onBindCustomView")).a();
             String adapterCode;
             if (viewBean.type == ViewBeans.VIEW_TYPE_LAYOUT_VIEWPAGER) {
                 adapterCode = Lx.pagerAdapter(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
@@ -824,7 +835,8 @@ public class Jx {
         for (int index = 0, pairsSize = pairs.size(); index < pairsSize; index++) {
             Pair<String, String> next = pairs.get(index);
             String name = next.first + "_moreBlock";
-            String code = Lx.getMoreBlockCode(next.first, next.second, new Fx(projectFileBean.getActivityName(), buildConfig, name, projectDataManager.a(javaName, name)).a());
+            String code = Lx.getMoreBlockCode(next.first, next.second, new Fx(projectFileBean.getActivityName(), buildConfig, name, com.sketchware.ai.sourcemap.SourceMapMarkers.wrap(
+                    projectDataManager.a(javaName, name), "moreBlock", next.first, "moreBlock")).a());
             if (index < (pairsSize - 1)) {
                 moreBlocks.add(code);
             } else {

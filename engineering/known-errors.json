@@ -1,0 +1,34 @@
+{
+  "note": "Compile errors the build repairs itself, and ones it reports. 'verifiedOn' lists where the repair was seen working; a real phone is only listed when the user confirmed it.",
+  "errors": [
+    {
+      "fingerprint": "ECJ: Unreachable code",
+      "rootCause": "A statement follows one that always leaves the method/loop (return/throw/break, or a try whose every path returns).",
+      "repair": "GENERATED_CODE_REWRITE: wrap the statement in front in if (true) { } (kept code, void contexts) or remove the dead statements (value-returning methods, or when keeping doesn't compile). Line count never changes.",
+      "scope": "generated sources of this build only; blocks unchanged; re-applied at every build",
+      "verifiedOn": ["JVM 17", "Android 12 ART (API 31) x86_64"],
+      "notVerifiedOn": ["any phone: v1.7.1 failed on the user's device for project #639; no log for v1.7.2+ yet"]
+    },
+    {
+      "fingerprint": "ECJ: X cannot be resolved to a type / The import X cannot be resolved",
+      "rootCause": "Missing import, or the library that has the class isn't enabled for the project.",
+      "repair": "IMPORT_SYNTHESIS (class found on the build classpath) or DEPENDENCY_RESOLUTION (enable the installed local library; download a known coordinate from Google Maven / Maven Central / JitPack; link its sub-dependencies).",
+      "verifiedOn": ["JVM 17", "Android 12 ART (API 31) x86_64 (download step with network)"]
+    },
+    {
+      "fingerprint": "ECJ: Syntax error, insert \";\" / Type mismatch: cannot convert from double to int / Unreachable catch block",
+      "repair": "GENERATED_CODE_REWRITE: add the semicolon / add the narrowing cast / remove the catch block.",
+      "verifiedOn": ["JVM 17", "Android 12 ART (API 31) x86_64"]
+    },
+    {
+      "fingerprint": "ECJ: The method m() is undefined for the type T (typo in custom code)",
+      "repair": "none: reported with its origin (activity -> event/MoreBlock -> block -> line in the block's code).",
+      "verifiedOn": ["Android 12 ART (API 31) x86_64"]
+    },
+    {
+      "fingerprint": "device: MainActivity.java:6379 Unreachable code, v1.7.1, project #639",
+      "rootCause": "unknown",
+      "repair": "not reproduced off-device with the reconstructed code; needs the v1.7.2+ log, which now carries the auto-fix report, the origin of each error and the build map."
+    }
+  ]
+}

@@ -1053,6 +1053,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
             } else {
                 try {
                     publishProgress("Deleting temporary files...");
+                    com.sketchware.ai.buildmap.BuildMap.begin(sc_id, q.projectMyscPath);
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.PREPARE);
                     FileUtil.deleteFile(q.projectMyscPath);
 
                     q.c(a);
@@ -1071,6 +1073,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     kC.c(q.resDirectoryPath + File.separator + "raw");
                     kC = jC.d(sc_id);
                     kC.a(q.assetsPath + File.separator + "fonts");
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.GENERATE);
                     generateProjectDebugFiles();
                     q.f();
                     q.e();
@@ -1078,6 +1081,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     Dp mDp = new Dp(this, a, q);
                     com.sketchware.ai.project.BuildWarnings.begin(q);
 
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.LIBRARIES);
                     mDp.maybeExtractAapt2();
                     if (canceled) {
                         cancel(true);
@@ -1092,12 +1096,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     publishProgress("AAPT2 is running...");
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.RESOURCES);
                     mDp.compileResources();
                     if (canceled) {
                         cancel(true);
                         return;
                     }
 
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.KOTLIN);
                     KotlinCompilerBridge.compileKotlinCodeIfPossible(this, mDp);
                     if (canceled) {
                         cancel(true);
@@ -1105,6 +1111,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     publishProgress("Java is compiling...");
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.JAVA);
                     mDp.compileJavaCode();
                     if (canceled) {
                         cancel(true);
@@ -1112,6 +1119,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     /* Encrypt Strings in classes if enabled */
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.STRINGFOG);
                     StringfogHandler stringfogHandler = new StringfogHandler(q.sc_id);
                     stringfogHandler.start(this, mDp);
                     if (canceled) {
@@ -1120,6 +1128,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     /* Obfuscate classes if enabled */
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.PROGUARD);
                     ProguardHandler proguardHandler = new ProguardHandler(q.sc_id);
                     proguardHandler.start(this, mDp);
                     if (canceled) {
@@ -1128,6 +1137,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     publishProgress(mDp.getDxRunningText());
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.DEX);
                     mDp.createDexFilesFromClasses();
                     if (canceled) {
                         cancel(true);
@@ -1135,6 +1145,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     publishProgress("Merging DEX files...");
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.DEX_MERGE);
                     mDp.getDexFilesReady();
                     if (canceled) {
                         cancel(true);
@@ -1142,6 +1153,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     publishProgress("Building APK...");
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.PACKAGE);
                     mDp.buildApk();
                     if (canceled) {
                         cancel(true);
@@ -1149,6 +1161,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     publishProgress("Signing APK...");
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.SIGN);
                     mDp.signDebugApk();
                     if (canceled) {
                         cancel(true);
@@ -1156,6 +1169,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     }
 
                     int warningCount = com.sketchware.ai.project.BuildWarnings.count();
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.INSTALL);
+                    com.sketchware.ai.buildmap.BuildMap.succeeded(warningCount);
                     if (warningCount > 0) {
                         String report = com.sketchware.ai.project.BuildWarnings.report();
                         runOnUiThread(() -> indicateBuildWarnings(report, warningCount));
@@ -1188,6 +1203,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     });
                 } catch (com.sketchware.ai.project.RebuildRequested restart) {
                     // A missing library was enabled for the project: build once more, from the start.
+                    com.sketchware.ai.buildmap.BuildMap.restarted();
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                         if (!isDestroyed()) new BuildAsyncTask(getApplicationContext()).execute();
                     }, 400);
@@ -1195,6 +1211,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     LogUtil.e("DesignActivity$BuildAsyncTask", "Failed to build project", tr);
                     String failure = tr instanceof zy ? tr.getMessage() : Log.getStackTraceString(tr);
                     failure = failure + com.sketchware.ai.project.BuildWarnings.failureAppendix();
+                    com.sketchware.ai.buildmap.BuildMap.failed(failure);
+                    failure = failure + "\n\n" + com.sketchware.ai.buildmap.BuildMap.report() + "\n";
                     indicateCompileErrorOccurred(failure);
                 }
             }

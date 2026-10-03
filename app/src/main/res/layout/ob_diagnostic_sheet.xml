@@ -111,6 +111,14 @@
                     android:textIsSelectable="true" />
             </LinearLayout>
 
+            <!-- One card per Java compiler error (ob_diagnostic_problem), filled in code. -->
+            <LinearLayout
+                android:id="@+id/ob_diag_problems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/ob_diag_advice"
                 style="@style/Ob.Text.Body"

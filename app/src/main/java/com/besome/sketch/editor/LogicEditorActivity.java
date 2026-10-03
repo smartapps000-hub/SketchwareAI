@@ -266,7 +266,44 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
             }
             this.o.getRoot().k();
             this.o.b();
+            focusRequestedBlock(blockIdsAndBlocks);
         }
+    }
+
+    /**
+     * Sketchware AI: "Open block" in the compile log starts this editor with the block an error
+     * line was generated from. The block is scrolled into view and marked for a few seconds.
+     */
+    private void focusRequestedBlock(HashMap<Integer, Rs> blocks) {
+        Intent intent = getIntent();
+        String wanted = intent.getStringExtra("focus_block_id");
+        if (wanted == null) return;
+        intent.removeExtra("focus_block_id");
+        Rs found = null;
+        String opCode = intent.getStringExtra("focus_block_op");
+        try {
+            found = blocks.get(Integer.valueOf(wanted));
+            if (found != null && opCode != null && !opCode.equals(found.getBean().opCode)) found = null;
+        } catch (RuntimeException ignored) {
+            found = null;
+        }
+        if (found == null) {
+            mod.SketchwareUtil.toast("That block isn't here any more: the blocks changed since the build.");
+            return;
+        }
+        final Rs block = found;
+        final int line = intent.getIntExtra("focus_line", 0);
+        n.postDelayed(() -> {
+            try {
+                if (isFinishing() || block.getParent() == null) return;
+                com.sketchware.ai.sourcemap.BlockFocus.show(n, o, block, 0, 0);
+                if (line > 1) {
+                    mod.SketchwareUtil.toast("Line " + line + " of this block's code");
+                }
+            } catch (RuntimeException e) {
+                // Only the marking is lost; the event is open.
+            }
+        }, 450);
     }
 
     private void redo() {

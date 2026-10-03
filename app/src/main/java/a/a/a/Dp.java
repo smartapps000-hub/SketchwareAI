@@ -599,6 +599,9 @@ public class Dp {
              * "Unreachable code". It is found from the block structure and made compilable in the
              * GENERATED source before the compiler runs; the app behaves exactly the same.
              */
+            // Which block each generated line comes from; read before any repair touches the files.
+            final com.sketchware.ai.sourcemap.ErrorOrigins.Session origins = com.sketchware.ai.sourcemap.ErrorOrigins.session(
+                    new File(yq.projectMyscPath), new File(yq.javaFilesPath));
             boolean autoFix = com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id);
             com.sketchware.ai.project.AutoHeal prepass = null;
             if (autoFix) {
@@ -682,7 +685,7 @@ public class Dp {
             }
             if (compiled && prepass != null) {
                 for (String fix : prepass.fixes()) {
-                    com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + fix);
+                    com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + origins.annotate(fix));
                 }
             }
             if (!compiled && crash == null && !autoFix) {
@@ -749,7 +752,7 @@ public class Dp {
                 if (healed.compiled) {
                     compiled = true;
                     for (String fix : healed.fixes) {
-                        com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + fix);
+                        com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + origins.annotate(fix));
                     }
                 } else {
                     StringBuilder report = new StringBuilder(errors);
@@ -768,6 +771,8 @@ public class Dp {
                 if (crash != null) {
                     throw new zy("Java compiler crashed: " + android.util.Log.getStackTraceString(crash));
                 }
+                String where = origins.report(errors);
+                if (!where.isEmpty()) errors = errors + "\n\n" + where + "\n";
                 throw new zy(errors);
             }
         }

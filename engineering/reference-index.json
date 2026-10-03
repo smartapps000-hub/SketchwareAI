@@ -1,0 +1,50 @@
+{
+  "note": "Reference material supplied for this project. No secrets are stored here. 'available' says whether the file was present in the workspace when this index was last written (2026-10-03).",
+  "references": [
+    {
+      "id": "src-v6.4.0-rc05",
+      "file": "Sketchware-Pro-6_4_0-rc05.zip",
+      "alsoUploadedAs": ["Sketchware-Pro-6_4_0-rc05_1.zip (byte-identical)"],
+      "sha256": "ac9c63106dd81879ece6178fc83bb0356dfb0aef6a5493eebf338008d2b1f0b8",
+      "purpose": "Upstream source this fork is built on (git base 966d905).",
+      "version": "Sketchware Pro 6.4.0-rc05",
+      "relevantModules": ["app/src/main/java", "app/libs/*.jar (precompiled, obfuscated core incl. a.a.a.Fx block-to-code)"],
+      "knownIssues": ["Fx, eC, BlockPane and most of a.a.a are only present as compiled classes"],
+      "lastAnalysis": "Base of every release; storage root /.sketchware/ kept identical.",
+      "available": true
+    },
+    {
+      "id": "src-v7.0.0-beta-01",
+      "file": "Sketchware-Pro-7_0_0-beta-01_2.zip",
+      "alsoUploadedAs": ["Sketchware-Pro-7_0_0-beta-01_3.zip (byte-identical)"],
+      "sha256": "5bedbed9a7f613c2792f9224971c758869e3e86a84dc7e8e537b69e6e25994b1",
+      "purpose": "Readable source of classes that are obfuscated in 6.4.0 (Fx, Hx, Jx, eC, ViewLogicEditor, LogicEditorScrollView). Read-only reference; nothing is copied wholesale.",
+      "version": "Sketchware Pro 7.0.0-beta-01",
+      "relevantModules": ["a.a.a.Fx (block-to-code)", "com.besome.sketch.editor.view"],
+      "knownIssues": [],
+      "lastAnalysis": "Used to confirm how the logic editor scrolls (plain scrollTo) and how blocks are chained.",
+      "available": true
+    },
+    {
+      "id": "apk-v6.4.0-rc05-minApi26",
+      "file": "Sketchware_Pro_v6_4_0-rc05-minApi26.apk",
+      "purpose": "Upstream release APK, reference for resource ids and behaviour.",
+      "version": "6.4.0-rc05",
+      "available": true
+    },
+    {
+      "id": "fixture-639-code",
+      "file": "engineering fixture: Bt_Perm MoreBlock code of project #639 (taken from an earlier chat)",
+      "purpose": "Regression fixture only: unreachable code after a try/catch that returns on every path. Nothing in the engine refers to this project, its names or Bluetooth.",
+      "knownIssues": ["The user's real project file was never supplied; the fixture is a reconstruction of one MoreBlock."],
+      "available": true
+    },
+    {
+      "id": "device-logs",
+      "file": "compile logs and screenshots sent in chat (v1.7.0, v1.7.1 failures on project #639/#643)",
+      "purpose": "Evidence of on-device failures.",
+      "lastAnalysis": "v1.7.1 failure (MainActivity.java:6379 Unreachable code) could not be reproduced off-device; cause still unknown. No device log for v1.7.2 or later received yet.",
+      "available": true
+    }
+  ]
+}

@@ -217,6 +217,8 @@ public class CompileLogActivity extends Activity {
             ((TextView) content.findViewById(R.id.ob_diag_first_error)).setText(result.firstError);
         }
 
+        showProblems(content, sheet, log);
+
         StringBuilder advice = new StringBuilder();
         if (found == 0) {
             advice.append(log.trim().isEmpty() ? "There is nothing to diagnose yet."
@@ -245,6 +247,107 @@ public class CompileLogActivity extends Activity {
             primary.setOnClickListener(v -> sheet.dismiss());
         }
         sheet.show();
+    }
+
+    /**
+     * One card per Java compiler error: where it is, and which block it was generated from when
+     * the build's source map can vouch for that line. "Open block" and "View source" need the
+     * project to be open, so they are only offered when this screen was opened from the editor.
+     */
+    private void showProblems(View content, android.app.Dialog sheet, String log) {
+        java.util.List<com.sketchware.ai.sourcemap.ErrorOrigins.Item> problems;
+        try {
+            problems = com.sketchware.ai.sourcemap.ErrorOrigins.find(new java.io.File(a.a.a.wq.d(scId)), log);
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (problems.isEmpty()) return;
+        LinearLayout box = content.findViewById(R.id.ob_diag_problems);
+        box.setVisibility(View.VISIBLE);
+        content.findViewById(R.id.ob_diag_first_box).setVisibility(View.GONE);
+        boolean fromEditor = getIntent().getBooleanExtra(EXTRA_FROM_EDITOR, false);
+        int shown = 0;
+        for (com.sketchware.ai.sourcemap.ErrorOrigins.Item problem : problems) {
+            if (shown == 6) {
+                TextView more = new TextView(this);
+                more.setText((problems.size() - shown) + " more in the log, with their origins at its end.");
+                more.setTextColor(getResources().getColor(R.color.ob_text_2));
+                more.setTextSize(13);
+                more.setPadding(0, 0, 0, dpToPx(10));
+                box.addView(more);
+                break;
+            }
+            View card = getLayoutInflater().inflate(R.layout.ob_diagnostic_problem, box, false);
+            ((TextView) card.findViewById(R.id.ob_problem_where)).setText(problem.fileName + ":" + problem.line);
+            ((TextView) card.findViewById(R.id.ob_problem_message)).setText(
+                    problem.excerpt.isEmpty() ? problem.message : problem.message + "\n" + problem.excerpt);
+            ((TextView) card.findViewById(R.id.ob_problem_origin)).setText(problem.originText());
+            View open = card.findViewById(R.id.ob_problem_open);
+            View source = card.findViewById(R.id.ob_problem_source);
+            if (!fromEditor) {
+                ((View) open.getParent()).setVisibility(View.GONE);
+            } else {
+                if (problem.origin == null) {
+                    open.setVisibility(View.GONE);
+                } else {
+                    open.setOnClickListener(v -> {
+                        if (openBlock(problem)) sheet.dismiss();
+                    });
+                }
+                source.setOnClickListener(v -> {
+                    android.content.Intent intent = new android.content.Intent(this, com.besome.sketch.common.SrcViewerActivity.class);
+                    intent.putExtra("sc_id", scId);
+                    intent.putExtra("current", problem.fileName);
+                    intent.putExtra("path", problem.file.getPath());
+                    intent.putExtra("line", problem.line);
+                    startActivity(intent);
+                });
+            }
+            box.addView(card);
+            shown++;
+        }
+    }
+
+    /** Opens the logic editor at the block the error line was generated from. */
+    private boolean openBlock(com.sketchware.ai.sourcemap.ErrorOrigins.Item problem) {
+        try {
+            com.sketchware.ai.sourcemap.SourceMap.EventInfo event = problem.origin.event;
+            com.sketchware.ai.sourcemap.SourceMap.Entry block = problem.origin.block;
+            com.besome.sketch.beans.ProjectFileBean activity = null;
+            for (com.besome.sketch.beans.ProjectFileBean file : a.a.a.jC.b(scId).b()) {
+                if (problem.fileName.equals(file.getJavaName())) activity = file;
+            }
+            java.util.ArrayList<com.besome.sketch.beans.BlockBean> blocks = activity == null ? null
+                    : a.a.a.jC.a(scId).a(activity.getJavaName(), event.targetId + "_" + event.eventName);
+            boolean present = false;
+            if (blocks != null && block != null) {
+                for (com.besome.sketch.beans.BlockBean bean : blocks) {
+                    if (block.blockId.equals(bean.id) && (block.opCode == null || block.opCode.equals(bean.opCode))) present = true;
+                }
+            }
+            if (!present) {
+                SketchwareUtil.toast("That block isn't in the project any more: the blocks changed since this build. Build again.");
+                return false;
+            }
+            android.content.Intent intent = new android.content.Intent(this, com.besome.sketch.editor.LogicEditorActivity.class);
+            intent.setFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.putExtra("sc_id", scId);
+            intent.putExtra("id", event.targetId);
+            intent.putExtra("event", event.eventName);
+            intent.putExtra("project_file", activity);
+            // The same toolbar text the Events list gives the editor.
+            intent.putExtra("event_text", "moreBlock".equals(event.eventName)
+                    ? mod.hey.studios.moreblock.ReturnMoreblockManager.getMbTypeList(event.targetId)
+                    : a.a.a.oq.a(event.eventName, this));
+            intent.putExtra("focus_block_id", block.blockId);
+            intent.putExtra("focus_block_op", block.opCode);
+            intent.putExtra("focus_line", block.end > block.start ? problem.origin.lineInBlock : 0);
+            startActivity(intent);
+            return true;
+        } catch (RuntimeException e) {
+            SketchwareUtil.toast("Couldn't open that block: " + e);
+            return false;
+        }
     }
 
     public static final String EXTRA_FROM_EDITOR = "from_design_editor";

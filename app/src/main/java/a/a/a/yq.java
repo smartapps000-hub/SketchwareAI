@@ -633,6 +633,27 @@ public class yq {
      * Generates the project's files, such as layouts, Java files, but also build.gradle and secrets.xml.
      */
     public void b(hC projectFileManager, eC projectDataManger, iC projectLibraryManager, boolean exportingProject) {
+        if (exportingProject) {
+            // An exported project is the user's sources only: no source map is made or left in it.
+            generateAndWriteSources(projectFileManager, projectDataManger, projectLibraryManager, true);
+            new File(projectMyscPath, com.sketchware.ai.sourcemap.SourceMaps.FILE_NAME).delete();
+        } else {
+            // Source map: made while the activities are generated, kept once the files are on disk.
+            com.sketchware.ai.sourcemap.SourceMaps.start(sc_id);
+            try {
+                generateAndWriteSources(projectFileManager, projectDataManger, projectLibraryManager, false);
+            } finally {
+                com.sketchware.ai.sourcemap.SourceMaps.finish(sc_id, new File(projectMyscPath),
+                        new File(javaFilesPath + File.separator + packageNameAsFolders));
+            }
+        }
+        if (N.isFirebaseEnabled || N.isAdMobEnabled || N.isMapUsed) {
+            writeSecrets(projectLibraryManager);
+        }
+        h();
+    }
+
+    private void generateAndWriteSources(hC projectFileManager, eC projectDataManger, iC projectLibraryManager, boolean exportingProject) {
         ArrayList<SrcCodeBean> srcCodeBeans = a(projectFileManager, projectDataManger, projectLibraryManager, exportingProject);
         if (N.u) {
             Nx pathsTag = new Nx("paths");
@@ -648,7 +669,10 @@ public class yq {
         for (SrcCodeBean bean : srcCodeBeans) {
             a(bean.srcFileName, bean.source);
         }
-        if (N.isFirebaseEnabled || N.isAdMobEnabled || N.isMapUsed) {
+    }
+
+    private void writeSecrets(iC projectLibraryManager) {
+        {
             ProjectLibraryBean firebaseLibrary = projectLibraryManager.d();
             Mx mx = new Mx();
             mx.a("google_play_services_version", 12451000);
@@ -671,7 +695,6 @@ public class yq {
             fileUtil.b(resDirectoryPath + File.separator + filePath,
                     CommandBlock.applyCommands(filePath, mx.toCode()));
         }
-        h();
     }
 
     /**

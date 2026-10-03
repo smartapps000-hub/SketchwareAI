@@ -121,15 +121,15 @@ public final class AutoHeal {
         for (String name : names) IMPORTS.put(name.substring(name.lastIndexOf('.') + 1), name);
     }
 
-    static final class Problem {
-        File file;
-        int line;
+    public static final class Problem {
+        public File file;
+        public int line;
         /** First line of the source excerpt, without the tab ECJ puts in front. */
-        String excerpt = "";
+        public String excerpt = "";
         /** Offset of the marked code inside the excerpt, and its length. */
-        int column;
-        int length;
-        String message = "";
+        public int column;
+        public int length;
+        public String message = "";
     }
 
     private static final class Edit {
@@ -279,7 +279,7 @@ public final class AutoHeal {
     // ------------------------------------------------------------------ log parsing
 
     /** ECJ prints one block per problem, separated by lines of dashes: header, excerpt, ^^^ marker, message. */
-    static List<Problem> parse(String compilerLog) {
+    public static List<Problem> parse(String compilerLog) {
         List<Problem> problems = new ArrayList<>();
         List<String> block = new ArrayList<>();
         String[] lines = compilerLog.split("\n", -1);

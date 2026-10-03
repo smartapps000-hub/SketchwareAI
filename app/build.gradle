@@ -23,8 +23,8 @@ android {
         namespace "com.sketchware.remod"
         //noinspection ExpiredTargetSdkVersion since we don't target getting Sketchware Pro on Google Play.
         targetSdkVersion 34
-        versionCode 169
-        versionName "v1.7.2-" + getCommitHash()
+        versionCode 170
+        versionName "v1.8.0-" + getCommitHash()
 
         buildConfigField("String", "GIT_HASH", "\"${gitCommitHash}\"")
 

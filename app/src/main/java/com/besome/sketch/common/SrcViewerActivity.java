@@ -77,6 +77,7 @@ public class SrcViewerActivity extends AppCompatActivity {
                 codeViewer.setText(bean.source);
                 currentPageFileName = bean.srcFileName;
                 setCorrectCodeEditorLanguage();
+                jumpToRequestedLine();
             }
 
             @Override
@@ -98,12 +99,21 @@ public class SrcViewerActivity extends AppCompatActivity {
             }
         }
 
+        // Sketchware AI: from the compile log, the one file the compiler read is shown as it is on disk.
+        final String compiledFilePath = getIntent().getStringExtra("path");
         new Thread(() -> {
-            srcCodeBean = new yq(getBaseContext(), sc_id).a(jC.b(sc_id), jC.a(sc_id), jC.c(sc_id));
+            if (compiledFilePath != null) {
+                srcCodeBean = readCompiledFile(compiledFilePath);
+            } else {
+                srcCodeBean = new yq(getBaseContext(), sc_id).a(jC.b(sc_id), jC.a(sc_id), jC.c(sc_id));
+            }
 
             try {
                 runOnUiThread(() -> {
-                    if (srcCodeBean == null) {
+                    if (srcCodeBean == null && compiledFilePath != null) {
+                        bB.b(getApplicationContext(), "That file isn't there any more. Build again, then open it from the new log.", bB.TOAST_NORMAL).show();
+                        finish();
+                    } else if (srcCodeBean == null) {
                         bB.b(getApplicationContext(), Helper.getResString(R.string.common_error_unknown), bB.TOAST_NORMAL).show();
                     } else {
                         filesListSpinner.setAdapter(new FilesListSpinnerAdapter());
@@ -113,7 +123,9 @@ public class SrcViewerActivity extends AppCompatActivity {
                                 break;
                             }
                         }
-                        codeViewer.setText(srcCodeBean.get(filesListSpinner.getSelectedItemPosition()).source);
+                        SrcCodeBean shown = srcCodeBean.get(filesListSpinner.getSelectedItemPosition());
+                        codeViewer.setText(shown.source);
+                        if (shown.srcFileName.equals(currentPageFileName)) jumpToRequestedLine();
 
                         progressContainer.setVisibility(View.GONE);
                         filesListSpinner.setVisibility(View.VISIBLE);
@@ -124,6 +136,46 @@ public class SrcViewerActivity extends AppCompatActivity {
                 // May occur if the activity is killed
             }
         }).start();
+    }
+
+    /** @return the file as the only entry of the list, or null if it can't be read */
+    private static ArrayList<SrcCodeBean> readCompiledFile(String path) {
+        try {
+            java.io.File file = new java.io.File(path);
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.io.InputStream in = new java.io.FileInputStream(file)) {
+                byte[] buffer = new byte[16384];
+                int n;
+                while ((n = in.read(buffer)) > 0) bytes.write(buffer, 0, n);
+            }
+            ArrayList<SrcCodeBean> list = new ArrayList<>();
+            list.add(new SrcCodeBean(file.getName(), new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8)));
+            return list;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Sketchware AI: "View source" from the compile log opens the file at the error's line. Called
+     * each time a file's text is put in the viewer, until the requested file has been shown.
+     */
+    private void jumpToRequestedLine() {
+        final int line = getIntent().getIntExtra("line", 0);
+        String wanted = getIntent().getStringExtra("current");
+        if (line <= 0 || wanted == null || !wanted.equals(currentPageFileName)) return;
+        getIntent().removeExtra("line");
+        codeViewer.postDelayed(() -> {
+            try {
+                if (line <= codeViewer.getLineCount()) {
+                    // Go a few lines past it first, so the line isn't the last one on screen.
+                    codeViewer.ensurePositionVisible(Math.min(codeViewer.getLineCount() - 1, line + 6), 0);
+                    codeViewer.jumpToLine(line - 1);
+                }
+            } catch (RuntimeException ignored) {
+                // The viewer just stays at the top.
+            }
+        }, 300);
     }
 
     @Override

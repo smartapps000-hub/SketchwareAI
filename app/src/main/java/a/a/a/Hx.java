@@ -129,7 +129,8 @@ public class Hx {
         for (EventBean eventBean : events) {
             ArrayList<BlockBean> eventLogicBlocks = logicBlocks.get(eventBean.targetId + "_" + eventBean.eventName);
             String eventLogic = (eventLogicBlocks == null || eventLogicBlocks.size() == 0) ? "" :
-                    new Fx(projectFileBean.getActivityName(), jq, eventBean.eventName, eventLogicBlocks).a();
+                    new Fx(projectFileBean.getActivityName(), jq, eventBean.eventName, com.sketchware.ai.sourcemap.SourceMapMarkers.wrap(
+                            eventLogicBlocks, "event", eventBean.targetId, eventBean.eventName)).a();
 
             switch (eventBean.eventType) {
                 case EventBean.EVENT_TYPE_VIEW:

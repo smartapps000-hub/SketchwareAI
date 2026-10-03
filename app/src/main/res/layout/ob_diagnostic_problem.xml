@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One compiler error in the diagnostic sheet: where it is, what it says, which block it comes from. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:background="@drawable/ob_accent_box"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/ob_problem_where"
+        style="@style/Ob.Text.Mono"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/ob_accent"
+        android:textIsSelectable="true" />
+
+    <TextView
+        android:id="@+id/ob_problem_message"
+        style="@style/Ob.Text.Mono"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:lineSpacingMultiplier="1.3"
+        android:textIsSelectable="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:fontFamily="@font/manrope_extrabold"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.03"
+        android:text="ORIGIN"
+        android:textColor="@color/ob_text_2"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/ob_problem_origin"
+        style="@style/Ob.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/ob_text"
+        android:textIsSelectable="true" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/ob_problem_open"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginRight="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_amber_pill"
+            android:maxLines="1"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Open block"
+            android:textColor="@color/ob_accent"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/ob_problem_source"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_pill16_state"
+            android:maxLines="1"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="View source"
+            android:textSize="14sp" />
+    </LinearLayout>
+</LinearLayout>
