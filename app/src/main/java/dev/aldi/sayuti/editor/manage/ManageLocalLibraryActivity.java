@@ -215,6 +215,22 @@ public class ManageLocalLibraryActivity extends Activity implements View.OnClick
                         }
                     }
                     project_used_libs.add(localLibrary);
+                    // Libraries this one needs, if they are installed: ticked with it (it can't run without them).
+                    try {
+                        java.util.List<String> linked = com.sketchware.ai.project.LibraryAutoResolve.linkDependencies(
+                                project_used_libs, java.util.Collections.singletonList(name),
+                                new java.io.File(mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar").getAbsolutePath(),
+                                new java.io.File(local_libs_path));
+                        if (!linked.isEmpty()) {
+                            SketchwareUtil.toast("Also enabled (needed by " + name + "): " + android.text.TextUtils.join(", ", linked),
+                                    android.widget.Toast.LENGTH_LONG);
+                            FileUtil.writeFile(local_lib_file, new Gson().toJson(project_used_libs));
+                            notifyDataSetChanged();
+                            return;
+                        }
+                    } catch (RuntimeException e) {
+                        mod.jbk.util.LogUtil.e("ManageLocalLibraryActivity", "Couldn't link sub-dependencies", e);
+                    }
                 }
                 FileUtil.writeFile(local_lib_file, new Gson().toJson(project_used_libs));
             });

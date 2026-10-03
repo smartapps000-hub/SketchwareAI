@@ -51,11 +51,9 @@ public final class CompileLogDiagnostics {
             new Rule("failed linking file resources|failed linking references",
                     "AAPT2 couldn't link the app's resources. The line(s) just above this message name the exact file and line."),
             new Rule("Unreachable code",
-                    "The marked line can never run: the line just before it in the same block is a return, break, "
-                            + "continue, throw or finish-and-return. This is in your own code (an Add Source Directly "
-                            + "block, a MoreBlock or a custom Java file), not generated code. Move the marked line above "
-                            + "that return/break, or delete it. Manual Bluetooth permission code can simply be removed: "
-                            + "Sketchware AI already requests BLUETOOTH_CONNECT and BLUETOOTH_SCAN at start (target 31+)."),
+                    "The marked line can never run because the statement before it always leaves the method or "
+                            + "loop. Auto-fix repairs this during the build, so no manual edit is needed; if the build "
+                            + "still stopped here, the Auto-fix report at the end of the log says what was tried."),
             new Rule("Duplicate local variable (\\w+)",
                     "The variable %s is declared twice in the same method (often the same Add Source Directly code "
                             + "pasted twice, or a name that a block already uses). Rename one or delete the copy."),
@@ -119,7 +117,16 @@ public final class CompileLogDiagnostics {
         if (ecj.find()) {
             shortFirst = ecj.group(1) + ":" + ecj.group(2) + " · " + ecj.group(3).trim();
         }
-        List<String> advice = new ArrayList<>(matchAdvice(log));
+        List<String> advice = new ArrayList<>();
+        // What the build's own repair pass did comes first: it is specific to this build.
+        int report = log.indexOf("Auto-fix report");
+        if (report < 0) report = log.indexOf("Auto-fix: off");
+        if (report >= 0) {
+            int end = log.indexOf("\n\n", report);
+            String text = log.substring(report, end < 0 ? log.length() : end).trim();
+            advice.add(text.length() > 900 ? text.substring(0, 900) + "..." : text);
+        }
+        advice.addAll(matchAdvice(log));
         // The generic "failed linking" note only repeats what a specific resource rule said.
         if (advice.size() > 1) {
             for (java.util.Iterator<String> it = advice.iterator(); it.hasNext(); ) {

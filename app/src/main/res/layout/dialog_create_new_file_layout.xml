@@ -25,7 +25,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Create a new file"
-            android:textColor="#fff4511e"
+            android:textColor="@color/ob_accent"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -74,7 +74,8 @@
             android:autofillHints=""
             android:hint="Filename"
             android:inputType="text"
-            android:textColorHint="#fff4511e"
+            android:textColor="@color/ob_text"
+            android:textColorHint="@color/ob_text_2"
             android:textSize="18sp" />
 
     </com.google.android.material.textfield.TextInputLayout>
@@ -82,29 +83,34 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#fff4511e"
-        android:gravity="right"
         android:orientation="horizontal"
-        android:paddingTop="10dp"
+        android:paddingLeft="18dp"
+        android:paddingTop="6dp"
         android:paddingRight="18dp"
-        android:paddingBottom="10dp">
+        android:paddingBottom="16dp">
 
         <TextView
             android:id="@+id/dialog_text_cancel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginRight="15dp"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_pill16_state"
+            android:maxLines="1"
             android:text="@string/common_word_cancel"
-            android:textColor="#ffffffff"
-            android:textStyle="bold" />
+            android:textColor="@color/ob_text"
+            android:textSize="15sp" />
 
         <TextView
             android:id="@+id/dialog_text_save"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="15dp"
+            style="@style/Ob.Text.Button.Cta"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_marginLeft="10dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_safe_cta_state"
+            android:maxLines="1"
             android:text="@string/common_word_save"
-            android:textColor="#ffffffff"
-            android:textStyle="bold" />
+            android:textSize="15sp" />
     </LinearLayout>
 </LinearLayout>

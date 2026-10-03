@@ -593,6 +593,25 @@ public class Dp {
                 LogUtil.w(TAG, "Failed to delete file " + rJavaFileWithoutPackage.getAbsolutePath());
             }
 
+            /*
+             * Pre-compile pass (com.sketchware.ai.project.AutoHeal#wrapDeadCode): code that follows a
+             * statement which always leaves the method or loop would stop the compiler with
+             * "Unreachable code". It is found from the block structure and made compilable in the
+             * GENERATED source before the compiler runs; the app behaves exactly the same.
+             */
+            boolean autoFix = com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id);
+            com.sketchware.ai.project.AutoHeal prepass = null;
+            if (autoFix) {
+                try {
+                    prepass = new com.sketchware.ai.project.AutoHeal(new File(yq.javaFilesPath));
+                    if (prepass.wrapDeadCode() == 0) prepass = null;
+                } catch (Throwable e) {
+                    LogUtil.e(TAG, "Pre-compile pass failed", e);
+                    if (prepass != null) prepass.rollback();
+                    prepass = null;
+                }
+            }
+
             /* Start compiling */
             org.eclipse.jdt.internal.compiler.batch.Main main = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, errWriter, false, null, null);
             LogUtil.d(TAG, "Running Eclipse compiler with these arguments: " + args);
@@ -635,13 +654,43 @@ public class Dp {
             }
 
             /*
-             * Auto-heal: safe, behaviour-preserving fixes (unreachable code after a return/break,
-             * missing imports of well-known classes) applied to this build's GENERATED sources only,
-             * then compiled again, at most twice. If it still fails, the files are restored and the
-             * original log is reported. The project's blocks are never modified.
+             * Auto-fix (see com.sketchware.ai.project.AutoHealLoop): offline, deterministic repairs
+             * applied to this build's GENERATED sources only, each followed by a recompile. If the
+             * build still fails, the files are restored and the log says what was tried. The
+             * project's blocks are never modified.
              */
-            if (!compiled && crash == null && android.os.Build.VERSION.SDK_INT >= 26
-                    && com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id)) {
+            if (!compiled && crash == null && prepass != null) {
+                // The build has other errors as well: take the pre-compile rewrite back and let the
+                // repair loop below work on the code as it was generated.
+                prepass.rollback();
+                prepass = null;
+                EclipseErrOutputStream plainErr = new EclipseErrOutputStream();
+                PrintWriter plainErrWriter = new PrintWriter(plainErr);
+                org.eclipse.jdt.internal.compiler.batch.Main plain = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, plainErrWriter, false, null, null);
+                try {
+                    compiled = plain.compile(args.toArray(new String[0])) && plain.globalErrorsCount <= 0;
+                    plainErrWriter.flush();
+                    errors = plainErr.getOut();
+                } catch (RuntimeException e) {
+                    compiled = false;
+                    crash = e;
+                }
+            }
+            if (crash != null && prepass != null) {
+                prepass.rollback();
+                prepass = null;
+            }
+            if (compiled && prepass != null) {
+                for (String fix : prepass.fixes()) {
+                    com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + fix);
+                }
+            }
+            if (!compiled && crash == null && !autoFix) {
+                errors = errors + "\n\nAuto-fix: off for this project (Project Configuration > Auto-heal builds).\n";
+            }
+            for (int libraryRound = 0; libraryRound < 3 && !compiled && crash == null && autoFix
+                    && android.os.Build.VERSION.SDK_INT >= 26; libraryRound++) {
+                boolean libraryAdded = false;
                 /*
                  * A package the code uses isn't on the classpath: enable the installed local library
                  * that provides it (downloading the well-known one if it isn't installed), then
@@ -649,7 +698,7 @@ public class Dp {
                  */
                 try {
                     com.sketchware.ai.project.LibraryHeal.Result libraryFix = com.sketchware.ai.project.LibraryHeal.run(
-                            yq.sc_id, errors, mll.list,
+                            yq.sc_id, errors, mll.list, args.get(args.indexOf("-cp") + 1),
                             text -> { if (progressReceiver != null) progressReceiver.onProgress(text); });
                     if (libraryFix.needsRebuild && com.sketchware.ai.project.LibraryHeal.claimRebuild()) {
                         com.sketchware.ai.project.BuildWarnings.carry(libraryFix.notes);
@@ -657,6 +706,7 @@ public class Dp {
                     }
                     for (String note : libraryFix.notes) com.sketchware.ai.project.BuildWarnings.add(note);
                     if (!libraryFix.jars.isEmpty()) {
+                        libraryAdded = true;
                         int cp = args.indexOf("-cp") + 1;
                         StringBuilder extended = new StringBuilder(args.get(cp));
                         for (String jar : libraryFix.jars) extended.append(":").append(jar);
@@ -674,32 +724,38 @@ public class Dp {
                 } catch (RuntimeException e) {
                     LogUtil.e(TAG, "Library auto-resolve failed", e);
                 }
+                // A library enabled in this round can need another one for what it left unresolved.
+                if (!libraryAdded) break;
             }
-            if (!compiled && crash == null && android.os.Build.VERSION.SDK_INT >= 26
-                    && com.sketchware.ai.project.ModernProjectDefaults.autoHealEnabled(yq.sc_id)) {
-                String originalErrors = errors;
-                com.sketchware.ai.project.AutoHeal heal = new com.sketchware.ai.project.AutoHeal(new File(yq.javaFilesPath));
+            if (!compiled && crash == null && autoFix) {
+                if (progressReceiver != null) progressReceiver.onProgress("Auto-fixing compile errors...");
+                final String[] compileArgs = args.toArray(new String[0]);
+                com.sketchware.ai.project.AutoHealLoop.Result healed;
                 try {
-                    for (int pass = 0; pass < 2 && !compiled; pass++) {
-                        if (heal.apply(errors) == 0) break;
-                        EclipseErrOutputStream healErr = new EclipseErrOutputStream();
-                        PrintWriter healErrWriter = new PrintWriter(healErr);
-                        org.eclipse.jdt.internal.compiler.batch.Main again = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, healErrWriter, false, null, null);
-                        compiled = again.compile(args.toArray(new String[0])) && again.globalErrorsCount <= 0;
-                        healErrWriter.flush();
-                        errors = healErr.getOut();
-                    }
-                } catch (RuntimeException e) {
-                    LogUtil.e(TAG, "Auto-heal failed", e);
-                    compiled = false;
+                    healed = com.sketchware.ai.project.AutoHealLoop.run(new File(yq.javaFilesPath),
+                            args.get(args.indexOf("-cp") + 1), errors, () -> {
+                                EclipseErrOutputStream healErr = new EclipseErrOutputStream();
+                                PrintWriter healErrWriter = new PrintWriter(healErr);
+                                org.eclipse.jdt.internal.compiler.batch.Main again = new org.eclipse.jdt.internal.compiler.batch.Main(outWriter, healErrWriter, false, null, null);
+                                boolean ok = again.compile(compileArgs) && again.globalErrorsCount <= 0;
+                                healErrWriter.flush();
+                                return ok ? null : healErr.getOut();
+                            });
+                } catch (Throwable e) {
+                    LogUtil.e(TAG, "Auto-fix failed", e);
+                    healed = new com.sketchware.ai.project.AutoHealLoop.Result();
+                    healed.report.add("Auto-fix stopped with " + android.util.Log.getStackTraceString(e));
                 }
-                if (compiled) {
-                    for (String fix : heal.fixes()) {
+                if (healed.compiled) {
+                    compiled = true;
+                    for (String fix : healed.fixes) {
                         com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + fix);
                     }
                 } else {
-                    heal.rollback();
-                    errors = originalErrors;
+                    StringBuilder report = new StringBuilder(errors);
+                    report.append("\n\nAuto-fix report (").append(com.sketchware.ai.project.AutoHealLoop.VERSION).append("):\n");
+                    for (String line : healed.report) report.append(line).append('\n');
+                    errors = report.toString();
                 }
             }
 

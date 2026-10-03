@@ -167,7 +167,7 @@
     <color name="colorAccent">#ff3f51b5</color>
     <color name="textColorPrimary">#ffffffff</color>
     <color name="textColorSecondary">#ffffffff</color>
-    <color name="colorHeader">@color/colorPrimary</color>
+    <color name="colorHeader">#FF1E1E22</color>
     <color name="darkGrey">#ff272822</color>
     <color name="black">#ff000000</color>
     <color name="orange">#ffcc7832</color>

@@ -68,7 +68,7 @@ public final class LibraryHeal {
         FileUtil.writeFile(new FilePathUtil().getPathLocalLibrary(sc_id), new Gson().toJson(libraries));
     }
 
-    public static Result run(String sc_id, String compilerLog, List<HashMap<String, Object>> libraries, Progress progress) {
+    public static Result run(String sc_id, String compilerLog, List<HashMap<String, Object>> libraries, String classpath, Progress progress) {
         Result result = new Result();
         File root = localLibs();
         int before = libraries.size();
@@ -89,6 +89,23 @@ public final class LibraryHeal {
             if (installed) {
                 LibraryAutoResolve.Outcome second = LibraryAutoResolve.resolve(compilerLog, libraries, root);
                 outcome.enabled.addAll(second.enabled);
+            }
+        }
+
+        for (String line : outcome.unavailable) {
+            if (!line.contains("(download ")) {
+                result.notes.add("No installed local library has " + line + ": add the library that contains it in Local library manager.");
+            }
+        }
+
+        // What the newly enabled libraries need themselves (sub-dependencies), from the installed libraries.
+        if (libraries.size() > before) {
+            List<String> start = new ArrayList<>();
+            for (int i = before; i < libraries.size(); i++) start.add(String.valueOf(libraries.get(i).get("name")));
+            try {
+                LibraryAutoResolve.linkDependencies(libraries, start, classpath, root);
+            } catch (RuntimeException e) {
+                LogUtil.e(TAG, "Couldn't link sub-dependencies", e);
             }
         }
 

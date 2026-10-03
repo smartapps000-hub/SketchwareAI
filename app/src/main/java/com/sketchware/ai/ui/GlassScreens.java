@@ -40,6 +40,19 @@ public final class GlassScreens {
             "mod.hey.studios.activity.managers.java.ManageJavaActivity",
             "mod.hey.studios.activity.managers.nativelib.ManageNativelibsActivity",
             "dev.aldi.sayuti.editor.manage.ManageCustomAttributeActivity",
+            // Developer Tools
+            "mod.hilal.saif.activities.tools.Tools",
+            "mod.hilal.saif.activities.tools.ConfigActivity",
+            "mod.hilal.saif.activities.tools.BlocksManager",
+            "mod.hilal.saif.activities.tools.BlocksManagerDetailsActivity",
+            "mod.hilal.saif.activities.tools.BlocksManagerCreatorActivity",
+            "mod.hilal.saif.activities.tools.BlockSelectorActivity",
+            "mod.hilal.saif.activities.tools.ComponentsMaker",
+            "mod.hilal.saif.activities.tools.ComponentsMakerCreator",
+            "mod.hilal.saif.activities.tools.EventsMaker",
+            "mod.hilal.saif.activities.tools.EventsMakerCreator",
+            "mod.hilal.saif.activities.tools.EventsMakerDetails",
+            "mod.khaled.logcat.LogReaderActivity",
     };
 
     private static final int CARD = 0xFF1E1E22;

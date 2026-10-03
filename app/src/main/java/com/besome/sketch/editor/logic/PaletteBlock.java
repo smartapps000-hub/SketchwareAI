@@ -56,9 +56,18 @@ public class PaletteBlock extends LinearLayout {
     public TextView a(String title) {
         TextView textView = new TextView(a);
         textView.setLayoutParams(new LayoutParams(-1, (int) (f * 30.0F)));
-        textView.setBackgroundResource(R.drawable.bg_feed);
+        boolean night = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        if (night) {
+            // Dark glass pill instead of the white classic button, which glared on the obsidian palette.
+            textView.setBackgroundResource(R.drawable.ob_pill16_state);
+            textView.setTextColor(0xFFF5F5F7);
+            ((LayoutParams) textView.getLayoutParams()).height = (int) (f * 34.0F);
+        } else {
+            textView.setBackgroundResource(R.drawable.bg_feed);
+        }
         textView.setText(title);
-        textView.setTextSize(10.0F);
+        textView.setTextSize(night ? 12.0F : 10.0F);
         textView.setGravity(17);
         textView.setPadding((int) (f * 8.0F), 0, (int) (f * 8.0F), 0);
         blockBuilder.addView(textView);

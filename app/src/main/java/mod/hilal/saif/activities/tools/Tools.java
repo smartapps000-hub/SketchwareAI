@@ -83,10 +83,10 @@ public class Tools extends Activity {
         CardView cardView = new CardView(this);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(width, height, weight);
         layoutParams.setMargins(
+                (int) SketchwareUtil.getDip(10),
                 (int) SketchwareUtil.getDip(4),
-                (int) SketchwareUtil.getDip(2),
-                (int) SketchwareUtil.getDip(4),
-                (int) SketchwareUtil.getDip(2)
+                (int) SketchwareUtil.getDip(10),
+                (int) SketchwareUtil.getDip(4)
         );
         cardView.setLayoutParams(layoutParams);
         cardView.setPadding(
@@ -110,8 +110,12 @@ public class Tools extends Activity {
                 (int) SketchwareUtil.getDip(1)
         );
         GradientDrawable gradientDrawable = new GradientDrawable();
-        gradientDrawable.setColor(Color.WHITE);
-        linearLayout.setBackground(new RippleDrawable(new ColorStateList(new int[][]{new int[0]}, new int[]{Color.parseColor("#64B5F6")}), gradientDrawable, null));
+        // Transparent, so the glass card shows; amber touch ripple bounded by the row.
+        gradientDrawable.setColor(Color.TRANSPARENT);
+        GradientDrawable mask = new GradientDrawable();
+        mask.setColor(Color.WHITE);
+        mask.setCornerRadius(SketchwareUtil.getDip(16));
+        linearLayout.setBackground(new RippleDrawable(new ColorStateList(new int[][]{new int[0]}, new int[]{0x33FF7A29}), gradientDrawable, mask));
         linearLayout.setClickable(true);
         linearLayout.setFocusable(true);
         return linearLayout;
