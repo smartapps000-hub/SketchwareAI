@@ -304,7 +304,8 @@ public class Dp {
         for (HashMap<String, Object> localLibrary : mll.list) {
             Object name = localLibrary.get("name");
             Object jarPath = localLibrary.get("jarPath");
-            if (jarPath instanceof String && !((String) jarPath).isEmpty() && !new File((String) jarPath).exists()) {
+            if (jarPath instanceof String && !((String) jarPath).isEmpty() && !new File((String) jarPath).exists()
+                    && !com.sketchware.ai.project.BuildWarnings.mentions("'" + name + "' is enabled but its classes.jar")) {
                 com.sketchware.ai.project.BuildWarnings.add("Local library '" + name + "' is enabled but its classes.jar "
                         + "is missing (" + jarPath + "), so it wasn't compiled in. Download it again in Local Library "
                         + "Manager, or use Import file with its .aar/.jar.");
@@ -684,9 +685,7 @@ public class Dp {
                 prepass = null;
             }
             if (compiled && prepass != null) {
-                for (String fix : prepass.fixes()) {
-                    com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + origins.annotate(fix));
-                }
+                reportFixes(origins, prepass.fixes());
             }
             if (!compiled && crash == null && !autoFix) {
                 errors = errors + "\n\nAuto-fix: off for this project (Project Configuration > Auto-heal builds).\n";
@@ -751,9 +750,7 @@ public class Dp {
                 }
                 if (healed.compiled) {
                     compiled = true;
-                    for (String fix : healed.fixes) {
-                        com.sketchware.ai.project.BuildWarnings.add("auto-fix: " + origins.annotate(fix));
-                    }
+                    reportFixes(origins, healed.fixes);
                 } else {
                     StringBuilder report = new StringBuilder(errors);
                     report.append("\n\nAuto-fix report (").append(com.sketchware.ai.project.AutoHealLoop.VERSION).append("):\n");
@@ -775,6 +772,31 @@ public class Dp {
                 if (!where.isEmpty()) errors = errors + "\n\n" + where + "\n";
                 throw new zy(errors);
             }
+        }
+    }
+
+    /**
+     * The repairs of a build that compiled go to the build's warnings. Where a repair lies
+     * wholly inside one "add source directly" block, the block's code with the repair is worked
+     * out too (mysc/&lt;sc_id&gt;/autofix.json), so the compile log can offer to store it in the block.
+     */
+    private void reportFixes(com.sketchware.ai.sourcemap.ErrorOrigins.Session origins, java.util.List<String> fixes) {
+        java.util.List<com.sketchware.ai.sourcemap.BlockWriteBack.Proposal> proposals = new ArrayList<>();
+        try {
+            // Only for the project that is open in the editor: its data is what a stored fix changes.
+            if (jC.a != null && yq.sc_id.equals(jC.a.a)) {
+                proposals = com.sketchware.ai.sourcemap.BlockWriteBack.collect(origins, jC.a, fixes);
+            }
+            com.sketchware.ai.sourcemap.BlockWriteBack.save(new File(yq.projectMyscPath), proposals);
+        } catch (Throwable t) {
+            LogUtil.e(TAG, "Couldn't work out block fixes", t);
+        }
+        for (String fix : fixes) {
+            String text = "auto-fix: " + origins.annotate(fix);
+            if (com.sketchware.ai.sourcemap.BlockWriteBack.covers(proposals, fix)) {
+                text += " To keep this fix, tap the spark button in this log and choose Apply to block.";
+            }
+            com.sketchware.ai.project.BuildWarnings.add(text);
         }
     }
 

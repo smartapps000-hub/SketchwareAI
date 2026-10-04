@@ -16,19 +16,59 @@
       "id": "651",
       "kind": "encrypted Sketchware project",
       "content": "13 events: onCreate with 4 nesting levels (forever, ifElse, if, repeat), timer block with inner class, view events (onClick, onTextChanged, onCheckedChange, onItemClicked), ListView custom adapter (onBindCustomView), component events (RequestNetwork onResponse/onErrorResponse), activity events (onBackPressed, onResume), MoreBlock with parameters, empty MoreBlock, empty and whitespace-only add-source-directly blocks.",
-      "checks": ["source map exact; 36 statement blocks mapped; each printed range checked against the generated lines"]
+      "checks": [
+        "source map exact; 36 statement blocks mapped; each printed range checked against the generated lines"
+      ]
     },
     {
       "id": "639-643",
       "kind": "hand-written generated sources (no project data)",
       "content": "639: #639 Bt_Perm shape; 640: library not enabled + dead code + missing imports; 641: auto-fix switched off; 642: error auto-fix cannot repair; 643: ESC/POS library that needs ZXing.",
-      "checks": ["real Dp.compileJavaCode(): expected result per scenario (see known-errors.json)"]
+      "checks": [
+        "real Dp.compileJavaCode(): expected result per scenario (see known-errors.json)"
+      ]
     },
     {
       "id": "render",
       "kind": "layoutlib (Paparazzi) renders, not a device",
       "content": "diagnostic sheet with problem cards; BlockFocus on a scroller + pane",
-      "checks": ["visual check of the sheet", "BlockFocus scroll position and ring bounds asserted"]
+      "checks": [
+        "visual check of the sheet",
+        "BlockFocus scroll position and ring bounds asserted"
+      ]
+    },
+    {
+      "id": "650-writeback",
+      "kind": "encrypted Sketchware project",
+      "content": "fixture 650; after the repaired build the proposal is applied, the project saved and reloaded from disk",
+      "checks": [
+        "proposal names MoreBlock Bt_Perm block 2 with the two changed lines",
+        "apply is proved by regeneration",
+        "second build: compiles with 0 warnings and no autofix.json",
+        "apply then undo: second build repairs again"
+      ]
+    },
+    {
+      "id": "660",
+      "kind": "hand-written generated source + project library list",
+      "content": "enabled library AestheticDialogs_V_1.0.0 whose folder is missing or holds only the .aar; code uses AestheticDialog without an import",
+      "checks": [
+        "before: the two errors and the warning of the device log of project #606",
+        "restore from the .aar on the Android runtime, then compile succeeds",
+        "restore by download on the JVM; edited res/config in the folder keep their hashes",
+        "unknown and look-alike names (appcompat_V_1.3.1, recyclerview_V_1.2.1) are refused"
+      ]
+    },
+    {
+      "id": "png",
+      "kind": "damaged PNG files",
+      "content": "cut-off PNGs of five colour types, the exact shape of the device log (IDAT header promising 8192 bytes at the end of the file), wrong checksum, not a PNG",
+      "checks": [
+        "shipped aapt2 crashes with exit 139 before",
+        "resources compile after the repair",
+        "rows that could be read are identical to the original image",
+        "a user's folder is never modified (hashes compared)"
+      ]
     }
   ]
 }

@@ -30,6 +30,71 @@ public final class ObsidianDialogs {
         }
     }
 
+    /**
+     * For dialog classes that inflate R.layout.dialog themselves (the block menus' "select"
+     * dialogs, the source-code input dialog, SketchDialog): the same window as a.a.a.aB. Call
+     * before setContentView.
+     */
+    public static void window(android.app.Dialog dialog) {
+        try {
+            android.view.Window window = dialog.getWindow();
+            if (window == null) return;
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+            window.setDimAmount(0.55f);
+            android.view.WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            window.setAttributes(attributes);
+        } catch (RuntimeException ignored) {
+            // The dialog still works with its default window.
+        }
+    }
+
+    /**
+     * The left pill of R.layout.dialog as a named action ("Code Editor"). Those dialog classes
+     * used to add a bare text view in front of the row, which pushed the other buttons together
+     * until their names no longer fitted.
+     *
+     * @return the pill
+     */
+    public static android.widget.TextView leftButton(android.app.Dialog dialog, String text, View.OnClickListener listener) {
+        android.widget.TextView pill = dialog.findViewById(R.id.common_dialog_default_button);
+        pill.setText(text);
+        pill.setOnClickListener(listener);
+        pill.setVisibility(View.VISIBLE);
+        return pill;
+    }
+
+    /**
+     * Call at the end of such a dialog's onCreate, after its content view is filled: re-colours
+     * the custom content for the dark sheet (option names, radio buttons, input fields), hides
+     * the pills that have no name, and keeps the gaps of the pill row right.
+     */
+    public static void finish(android.app.Dialog dialog, View customView) {
+        try {
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (customView != null) ObsidianAdapter.adaptLive(customView);
+            android.widget.TextView left = dialog.findViewById(R.id.common_dialog_default_button);
+            View no = dialog.findViewById(R.id.dialog_btn_no);
+            View yes = dialog.findViewById(R.id.dialog_btn_yes);
+            View yesSlot = dialog.findViewById(R.id.ob_yes_slot);
+            if (left.getText() == null || left.getText().toString().trim().isEmpty()) left.setVisibility(View.GONE);
+            yesSlot.setVisibility(yes.getVisibility());
+            View[] pills = {left, no, yesSlot};
+            View lastVisible = null;
+            for (View pill : pills) {
+                if (pill.getVisibility() == View.VISIBLE) lastVisible = pill;
+            }
+            float density = dialog.getContext().getResources().getDisplayMetrics().density;
+            for (View pill : pills) {
+                if (pill != yesSlot) {
+                    ((ViewGroup.MarginLayoutParams) pill.getLayoutParams()).rightMargin = pill == lastVisible ? 0 : (int) (10 * density);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Cosmetic only.
+        }
+    }
+
     private static void styleButton(Button button, boolean primary, float density) {
         if (button == null || button.getVisibility() != View.VISIBLE) return;
         button.setBackgroundResource(primary ? R.drawable.ob_safe_cta_state : R.drawable.ob_safe_pill_state);

@@ -1073,6 +1073,12 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     kC.c(q.resDirectoryPath + File.separator + "raw");
                     kC = jC.d(sc_id);
                     kC.a(q.assetsPath + File.separator + "fonts");
+                    // An enabled local library whose classes.jar is gone is put back before the sources are
+                    // generated (they import the library's package) and before anything is compiled.
+                    com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.LIBRARIES);
+                    com.sketchware.ai.project.BuildWarnings.carry(com.sketchware.ai.project.LibraryIntegrity.restore(
+                            sc_id, text -> publishProgress(text)));
+
                     com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.GENERATE);
                     generateProjectDebugFiles();
                     q.f();
@@ -1281,7 +1287,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         @Override
         public void onPreExecute() {
             super.onPreExecute();
-            runProject.setText("Building APK file...");
+            runProject.setText("Building");
             runProject.setClickable(false);
             r.a("P1I10", true);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

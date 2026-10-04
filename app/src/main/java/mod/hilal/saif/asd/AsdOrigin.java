@@ -70,16 +70,8 @@ public class AsdOrigin extends Dialog {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        if (code_editor_theme == 0) {
-            getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_white);
-        } else if (code_editor_theme == 1) {
-            getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_light_grey);
-        } else if (code_editor_theme == 2) {
-            getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_black);
-        }
-        WindowManager.LayoutParams attributes = getWindow().getAttributes();
-        attributes.width = WindowManager.LayoutParams.MATCH_PARENT;
-        getWindow().setAttributes(attributes);
+        // Sketchware AI: the dark glass sheet of R.layout.dialog needs aB's clear window.
+        com.sketchware.ai.ui.ObsidianDialogs.window(this);
         setContentView(R.layout.dialog);
 
         space = new Space(getContext());
@@ -91,22 +83,7 @@ public class AsdOrigin extends Dialog {
 
         LinearLayout base = findViewById(R.id.layout_button);
 
-        title = new TextView(getContext());
-        title.setText("Code Editor");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(14);
-        title.setPadding(
-                (int) getDip(12),
-                (int) getDip(0),
-                (int) getDip(0),
-                (int) getDip(0)
-        );
-        title.setLayoutParams(new LinearLayout.LayoutParams(
-                -2,
-                -1,
-                0.0f
-        ));
-        title.setGravity(Gravity.CENTER);
+        title = com.sketchware.ai.ui.ObsidianDialogs.leftButton(this, "Code Editor", null);
         title.setOnClickListener(v -> {
             if (ConfigActivity.isLegacyCeEnabled()) {
                 AsdOldDialog asdOldDialog = new AsdOldDialog(activity);
@@ -123,8 +100,6 @@ public class AsdOrigin extends Dialog {
             }
             dismiss();
         });
-        base.addView(space, 0);
-        base.addView(title, 0);
 
         b = findViewById(R.id.sdialog_root);
         d = findViewById(R.id.dialog_img);
@@ -164,9 +139,10 @@ public class AsdOrigin extends Dialog {
         if (c != null) {
             custom_view.setVisibility(View.VISIBLE);
             custom_view.addView(c);
-            return;
+        } else {
+            custom_view.setVisibility(View.GONE);
         }
-        custom_view.setVisibility(View.GONE);
+        com.sketchware.ai.ui.ObsidianDialogs.finish(this, c);
     }
 
     @Override

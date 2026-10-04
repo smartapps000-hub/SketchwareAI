@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A build repair that can be stored in a block: where, what was wrong, the lines before and after. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/ob_accent_box"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/manrope_extrabold"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.03"
+        android:text="FIXED BY THE BUILD"
+        android:textColor="@color/ob_accent"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/ob_fix_where"
+        style="@style/Ob.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:lineSpacingMultiplier="1.1"
+        android:textColor="@color/ob_text"
+        android:textIsSelectable="true"
+        android:textSize="12.5sp" />
+
+    <TextView
+        android:id="@+id/ob_fix_problem"
+        style="@style/Ob.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:lineSpacingMultiplier="1.1"
+        android:textSize="12sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:fontFamily="@font/manrope_extrabold"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.03"
+        android:text="BEFORE"
+        android:textColor="#FFFF8A80"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/ob_fix_before"
+        style="@style/Ob.Text.Mono"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:background="#26FF5252"
+        android:lineSpacingMultiplier="1.15"
+        android:padding="6dp"
+        android:textIsSelectable="true"
+        android:textSize="11sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:fontFamily="@font/manrope_extrabold"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.03"
+        android:text="AFTER"
+        android:textColor="#FF8BE28B"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/ob_fix_after"
+        style="@style/Ob.Text.Mono"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:background="#2644C767"
+        android:lineSpacingMultiplier="1.15"
+        android:padding="6dp"
+        android:textIsSelectable="true"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/ob_fix_status"
+        style="@style/Ob.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="11.5sp" />
+
+    <LinearLayout
+        android:id="@+id/ob_fix_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/ob_fix_apply"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_marginRight="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_amber_pill"
+            android:maxLines="1"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Apply to block"
+            android:textColor="@color/ob_accent"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/ob_fix_open"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_pill16_state"
+            android:maxLines="1"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Open block"
+            android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

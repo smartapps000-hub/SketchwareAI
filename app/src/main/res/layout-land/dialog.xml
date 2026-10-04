@@ -95,10 +95,13 @@
                 android:layout_marginRight="10dp"
                 android:layout_weight="1"
                 android:background="@drawable/ob_pill16_state"
-                android:ellipsize="end"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
-                android:singleLine="true"
+                android:autoSizeMaxTextSize="16sp"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeStepGranularity="0.5sp"
+                android:autoSizeTextType="uniform"
+                android:maxLines="1"
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
                 android:stateListAnimator="@animator/sw_press" />
 
             <TextView
@@ -109,10 +112,13 @@
                 android:layout_marginRight="10dp"
                 android:layout_weight="1"
                 android:background="@drawable/ob_pill16_state"
-                android:ellipsize="end"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
-                android:singleLine="true"
+                android:autoSizeMaxTextSize="16sp"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeStepGranularity="0.5sp"
+                android:autoSizeTextType="uniform"
+                android:maxLines="1"
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
                 android:stateListAnimator="@animator/sw_press" />
 
             <!-- 50dp CTA; the text view reaches 9dp past its slot on each side for the solar glow. -->
@@ -134,10 +140,13 @@
                     android:layout_marginRight="-9dp"
                     android:layout_marginBottom="-9dp"
                     android:background="@drawable/ob_cta_state"
-                    android:ellipsize="end"
-                    android:paddingLeft="19dp"
-                    android:paddingRight="19dp"
-                    android:singleLine="true"
+                    android:autoSizeMaxTextSize="16sp"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeStepGranularity="0.5sp"
+                    android:autoSizeTextType="uniform"
+                    android:maxLines="1"
+                    android:paddingLeft="15dp"
+                    android:paddingRight="15dp"
                     android:stateListAnimator="@animator/sw_press" />
             </FrameLayout>
         </LinearLayout>

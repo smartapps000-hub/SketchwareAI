@@ -60,6 +60,13 @@ public class SrcViewerActivity extends AppCompatActivity {
         codeViewer.setPinLineNumber(true);
         setCorrectCodeEditorLanguage();
 
+        // Sketchware AI: opened from the compile log, long lines wrap and the error's line is marked.
+        if (getIntent().hasExtra("path")) {
+            codeViewer.setWordwrap(true);
+            codeViewer.setHighlightCurrentLine(true);
+        }
+        applyObsidianChrome();
+
         LinearLayout contentLayout = (LinearLayout) (findViewById(R.id.pager_soruce_code).getParent());
         contentLayout.removeAllViews();
         contentLayout.addView(codeViewer);
@@ -138,6 +145,20 @@ public class SrcViewerActivity extends AppCompatActivity {
         }).start();
     }
 
+    /** The file bar in the app's dark glass instead of the old plain bar. */
+    private void applyObsidianChrome() {
+        try {
+            com.sketchware.ai.ui.ObsidianWindow.apply(this);
+            View bar = findViewById(R.id.layout_srclist);
+            bar.setBackgroundResource(R.drawable.ob_toolbar_glass);
+            ((View) bar.getParent()).setBackgroundColor(0xFF121214);
+            View size = findViewById(R.id.imgv_src_size);
+            size.setBackgroundResource(R.drawable.ob_pill16_state);
+        } catch (Throwable t) {
+            android.util.Log.w("SrcViewerActivity", "Obsidian chrome unavailable", t);
+        }
+    }
+
     /** @return the file as the only entry of the list, or null if it can't be read */
     private static ArrayList<SrcCodeBean> readCompiledFile(String path) {
         try {
@@ -168,9 +189,12 @@ public class SrcViewerActivity extends AppCompatActivity {
         codeViewer.postDelayed(() -> {
             try {
                 if (line <= codeViewer.getLineCount()) {
-                    // Go a few lines past it first, so the line isn't the last one on screen.
-                    codeViewer.ensurePositionVisible(Math.min(codeViewer.getLineCount() - 1, line + 6), 0);
+                    // Go some lines past it first, so the line ends up in the upper part of the screen.
+                    int rows = Math.max(6, codeViewer.getHeight() / Math.max(1, codeViewer.getRowHeight()));
+                    codeViewer.ensurePositionVisible(Math.min(codeViewer.getLineCount() - 1, line - 1 + rows * 2 / 3), 0);
                     codeViewer.jumpToLine(line - 1);
+                    // The whole line is selected, so it stands out.
+                    codeViewer.setSelectionRegion(line - 1, 0, line - 1, codeViewer.getText().getColumnCount(line - 1));
                 }
             } catch (RuntimeException ignored) {
                 // The viewer just stays at the top.

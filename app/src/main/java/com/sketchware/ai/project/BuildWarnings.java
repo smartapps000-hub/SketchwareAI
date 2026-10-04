@@ -99,6 +99,13 @@ public final class BuildWarnings {
         LogUtil.d(TAG, "note: " + note);
     }
 
+    /** @return true if a warning of this build (or one carried into it) contains {@code text} */
+    public static synchronized boolean mentions(String text) {
+        for (String warning : warnings) if (warning.contains(text)) return true;
+        for (String warning : carried) if (warning.contains(text)) return true;
+        return false;
+    }
+
     /** Real problems only (a step failed, was skipped or downgraded); notes don't count. */
     public static synchronized int count() {
         return warnings.size();

@@ -59,9 +59,11 @@ public class SketchDialog extends Dialog {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
+        com.sketchware.ai.ui.ObsidianDialogs.window(this);
         setContentView(R.layout.dialog);
         initialize();
         initializeLogic();
+        com.sketchware.ai.ui.ObsidianDialogs.finish(this, mCustomView);
     }
 
     private void initialize() {
@@ -108,6 +110,8 @@ public class SketchDialog extends Dialog {
 
         dialog_btn_no.setText(mNegativeStr);
         dialog_btn_yes.setText(mPositiveStr);
+        // The left pill shows only when it was given a name and an action.
+        dialog_btn_neutral.setText(mNeutralClick == null ? "" : mNeutralStr);
 
         if (mCustomView != null) {
             custom_view.addView(mCustomView);

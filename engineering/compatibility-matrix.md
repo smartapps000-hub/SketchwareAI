@@ -18,7 +18,8 @@ Four different things, tracked separately. A row says "tested" only for what was
 | JVM 17 (desktop) | same engine classes, larger corpora (false-positive scans) | passes |
 | layoutlib (Paparazzi) | layouts of the diagnostic sheet and dialogs; `BlockFocus` | rendered / asserted |
 | Any real phone or emulator, by the developer of this fork | nothing | **not tested** |
-| User's phone | every release is installed and used by the user | results come back as screenshots/logs; Android version not recorded here |
+| User's phone | every release is installed and used by the user | v1.8.0: project #644 built, installed and started; #623 failed in AAPT2 (damaged PNG); #606 failed in Java compile (library without classes.jar). Android version not recorded here |
+| Network from the Android runtime here | not possible: the sandbox kernel has no IPv6 and Android opens IPv6 sockets | downloads are run on JVM 17 with the same classes |
 
 Not run anywhere off-device: Activities (logic editor, compile log screen, source viewer), AAPT2, DEX merge, APK packaging/signing, installation.
 
@@ -40,3 +41,4 @@ Whether a generated APK runs on a given Android version depends on that project'
 | Device API | Result |
 |---|---|
 | (none by the developer of this fork) | no generated APK has been installed or started off-device |
+| user's phone (API not recorded) | project #644's APK installed and started (v1.8.0) |

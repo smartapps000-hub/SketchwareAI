@@ -71,16 +71,8 @@ public class AsdAll extends Dialog {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        if (o == 0) {
-            getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_white);
-        } else if (o == 1) {
-            getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_light_grey);
-        } else if (o == 2) {
-            getWindow().setBackgroundDrawableResource(R.drawable.custom_dialog_inset_black);
-        }
-        WindowManager.LayoutParams attributes = getWindow().getAttributes();
-        attributes.width = -1;
-        getWindow().setAttributes(attributes);
+        // Sketchware AI: the dark glass sheet of R.layout.dialog needs aB's clear window.
+        com.sketchware.ai.ui.ObsidianDialogs.window(this);
         setContentView(R.layout.dialog);
         space = new Space(getContext());
         space.setLayoutParams(new LinearLayout.LayoutParams(
@@ -89,22 +81,7 @@ public class AsdAll extends Dialog {
                 1.0f
         ));
         base = findViewById(R.id.layout_button);
-        codeE = new TextView(getContext());
-        codeE.setText("Code Editor");
-        codeE.setTextColor(Color.WHITE);
-        codeE.setTextSize(14.0f);
-        codeE.setPadding(
-                (int) getDip(12),
-                0,
-                0,
-                0
-        );
-        codeE.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0.0f
-        ));
-        codeE.setGravity(17);
+        codeE = com.sketchware.ai.ui.ObsidianDialogs.leftButton(this, "Code Editor", null);
         codeE.setOnClickListener(v -> {
             AsdAllEditor asdAllEditor = new AsdAllEditor(activity);
             asdAllEditor.setCon(ss.getArgValue().toString());
@@ -113,8 +90,6 @@ public class AsdAll extends Dialog {
             asdAllEditor.cancelLis(lea, asdAllEditor);
             dismiss();
         });
-        base.addView(space, 0);
-        base.addView(codeE, 0);
         b = findViewById(R.id.sdialog_root);
         d = findViewById(R.id.dialog_img);
         e = findViewById(R.id.dialog_title);
@@ -153,9 +128,10 @@ public class AsdAll extends Dialog {
         if (c != null) {
             g.setVisibility(View.VISIBLE);
             g.addView(c);
-            return;
+        } else {
+            g.setVisibility(View.GONE);
         }
-        g.setVisibility(View.GONE);
+        com.sketchware.ai.ui.ObsidianDialogs.finish(this, c);
     }
 
     @Override

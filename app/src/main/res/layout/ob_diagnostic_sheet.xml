@@ -9,10 +9,10 @@
     android:clipToPadding="false"
     android:forceDarkAllowed="false"
     android:orientation="vertical"
-    android:paddingLeft="20dp"
-    android:paddingTop="12dp"
-    android:paddingRight="20dp"
-    android:paddingBottom="22dp">
+    android:paddingLeft="14dp"
+    android:paddingTop="10dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="14dp">
 
     <View
         android:layout_width="44dp"
@@ -30,12 +30,12 @@
 
         <!-- 44dp AI tile; 8dp larger each side for its glow. -->
         <ImageView
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:layout_marginLeft="-8dp"
             android:background="@drawable/ob_tile_ai"
             android:contentDescription="@null"
-            android:padding="19dp"
+            android:padding="17dp"
             android:src="@drawable/ob_ic_spark" />
 
         <LinearLayout
@@ -50,15 +50,17 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/sora_bold"
+                android:maxLines="1"
                 android:text="Sketchware AI Diagnostic"
-                android:textSize="18sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/ob_diag_subtitle"
                 style="@style/Ob.Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" />
+                android:layout_marginTop="2dp"
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -89,7 +91,7 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/ob_accent_box"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="10dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -99,17 +101,26 @@
                     android:letterSpacing="0.03"
                     android:text="FIRST ERROR"
                     android:textColor="@color/ob_accent"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
 
                 <TextView
                     android:id="@+id/ob_diag_first_error"
                     style="@style/Ob.Text.Mono"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:lineSpacingMultiplier="1.3"
-                    android:textIsSelectable="true" />
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingMultiplier="1.2"
+                    android:textIsSelectable="true"
+                    android:textSize="11sp" />
             </LinearLayout>
+
+            <!-- One card per repair that can be stored in a block (ob_diagnostic_fix), filled in code. -->
+            <LinearLayout
+                android:id="@+id/ob_diag_fixes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
 
             <!-- One card per Java compiler error (ob_diagnostic_problem), filled in code. -->
             <LinearLayout
@@ -124,23 +135,24 @@
                 style="@style/Ob.Text.Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:lineSpacingMultiplier="1.35"
-                android:textIsSelectable="true" />
+                android:layout_marginTop="8dp"
+                android:lineSpacingMultiplier="1.15"
+                android:textIsSelectable="true"
+                android:textSize="12.5sp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/ob_dashed_box"
                 android:fontFamily="@font/manrope_regular"
-                android:paddingLeft="14dp"
-                android:paddingTop="12dp"
-                android:paddingRight="14dp"
-                android:paddingBottom="12dp"
+                android:paddingLeft="10dp"
+                android:paddingTop="8dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="8dp"
                 android:text="Missing libraries, missing imports and unreachable code are repaired automatically when you build again."
                 android:textColor="@color/ob_text_2"
-                android:textSize="13sp" />
+                android:textSize="11.5sp" />
         </LinearLayout>
     </ScrollView>
     </FrameLayout>
@@ -148,7 +160,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="10dp"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:orientation="horizontal">
@@ -157,17 +169,18 @@
             android:id="@+id/ob_diag_copy"
             style="@style/Ob.Text.Button"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/ob_pill16_state"
             android:stateListAnimator="@animator/sw_press"
+            android:maxLines="1"
             android:text="Copy log"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
 
         <FrameLayout
             android:id="@+id/ob_diag_primary_slot"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="44dp"
             android:layout_marginLeft="10dp"
             android:layout_weight="1"
             android:clipChildren="false"
@@ -184,8 +197,9 @@
                 android:layout_marginBottom="-9dp"
                 android:background="@drawable/ob_cta_state"
                 android:stateListAnimator="@animator/sw_press"
+                android:maxLines="1"
                 android:text="Build again"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
         </FrameLayout>
     </LinearLayout>
 </LinearLayout>

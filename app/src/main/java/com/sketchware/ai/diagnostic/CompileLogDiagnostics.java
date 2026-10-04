@@ -48,6 +48,14 @@ public final class CompileLogDiagnostics {
                             + "prefix, or a stray < or & (write &amp;)."),
             new Rule("duplicate value for resource|resource previously defined|Duplicate resources",
                     "Two resources have the same name (for example an imported file and a generated one). Rename or remove one."),
+            new Rule("PNG chunk type|failed reading from input|\\.png: error: file failed to compile",
+                    "An image file is damaged (cut off or corrupt), usually from an interrupted copy or download. "
+                            + "Sketchware AI repairs damaged PNGs in the build's copy before AAPT2 runs and says which "
+                            + "image it was; replace that image in Image Manager with a good copy."),
+            new Rule("Exit code (139|134|135|136) from \\S*aapt2",
+                    "AAPT2 itself crashed (exit code %s) while reading a resource; this is not an error in your code. "
+                            + "The file named just above that line is the one it was reading. Damaged PNGs are now "
+                            + "repaired before AAPT2 runs; if another kind of file is named, replace that file."),
             new Rule("failed linking file resources|failed linking references",
                     "AAPT2 couldn't link the app's resources. The line(s) just above this message name the exact file and line."),
             new Rule("Unreachable code",

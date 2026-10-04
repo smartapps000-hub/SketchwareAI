@@ -267,7 +267,7 @@ public final class SourceMaps {
         }
     }
 
-    private static String sha1(byte[] bytes) {
+    static String sha1(byte[] bytes) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-1").digest(bytes);
             StringBuilder hex = new StringBuilder();

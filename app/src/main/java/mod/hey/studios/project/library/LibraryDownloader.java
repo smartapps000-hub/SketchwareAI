@@ -274,6 +274,10 @@ public class LibraryDownloader {
             return;
         }
         FileUtil.writeFile(libDirectory + "/config", findPackageName(libDirectory + "/", packageHint));
+        if (packageHint != null && MavenFetcher.parse(packageHint) != null) {
+            // Where the library came from, so a later build can fetch it again if its files get lost.
+            com.sketchware.ai.project.LibraryIntegrity.writeSource(new File(libDirectory), packageHint, null);
+        }
         vMessage.setText("Download completed.");
         setBusy(false);
         new BackTask().execute(classesJar);
@@ -428,7 +432,8 @@ public class LibraryDownloader {
                 "AndroidManifest.xml",
                 "jni",
                 "assets",
-                "proguard.txt"
+                "proguard.txt",
+                com.sketchware.ai.project.LibraryIntegrity.SOURCE_FILE
         };
 
         List<String> validFiles = new ArrayList<>(Arrays.asList(list));

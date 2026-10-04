@@ -4,8 +4,8 @@
     class="com.sketchware.ai.ui.GlassDrawable"
     app:swRadius="30dp"
     app:swCorners="top"
-    app:swFillTop="#FA2C2C32"
-    app:swFillBottom="#F716161A"
+    app:swFillTop="#FF2C2C32"
+    app:swFillBottom="#FF16161A"
     app:swSheen="#14FFFFFF"
     app:swRimTop="#6BFFFFFF"
     app:swRimBottom="#1FFFFFFF" />

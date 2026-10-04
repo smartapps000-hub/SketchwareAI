@@ -45,6 +45,22 @@ public final class ErrorOrigins {
     public static final class Session {
         private final Map<String, SourceMap> verified = new HashMap<>();
         private final java.util.Set<String> checked = new java.util.HashSet<>();
+        /** The generated text of each mapped file as it was before any repair. */
+        private final Map<String, String> originals = new HashMap<>();
+
+        /** Paths of the generated files this build has a proven map for. */
+        public java.util.Set<String> mappedFiles() {
+            return verified.keySet();
+        }
+
+        public SourceMap map(String path) {
+            return verified.get(path);
+        }
+
+        /** @return the file's text as generated, before the build repaired anything; null if not kept */
+        public String original(String path) {
+            return originals.get(path);
+        }
 
         /** What a line of a generated file comes from, or null. */
         public SourceMap.Origin resolve(File javaFile, int line) {
@@ -102,9 +118,13 @@ public final class ErrorOrigins {
             for (File file : files) {
                 SourceMap map = SourceMaps.get(projectMyscDirectory, file.getName());
                 if (map == null || !map.exact || map.sourceHash == null) continue;
-                if (map.sourceHash.equals(SourceMaps.sha1(file))) session.verified.put(file.getPath(), map);
+                byte[] bytes = SourceMaps.read(file);
+                if (map.sourceHash.equals(SourceMaps.sha1(bytes))) {
+                    session.verified.put(file.getPath(), map);
+                    session.originals.put(file.getPath(), new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+                }
             }
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | java.io.IOException e) {
             // No origins for this build.
         }
         return session;

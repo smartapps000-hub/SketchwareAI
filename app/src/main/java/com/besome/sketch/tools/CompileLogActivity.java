@@ -217,6 +217,7 @@ public class CompileLogActivity extends Activity {
             ((TextView) content.findViewById(R.id.ob_diag_first_error)).setText(result.firstError);
         }
 
+        showFixes(content, sheet);
         showProblems(content, sheet, log);
 
         StringBuilder advice = new StringBuilder();
@@ -305,6 +306,134 @@ public class CompileLogActivity extends Activity {
             }
             box.addView(card);
             shown++;
+        }
+    }
+
+    /**
+     * One card per repair of the last build that can be stored in an "add source directly" block:
+     * where it is, what was wrong, the changed lines before and after, and Apply to block (with
+     * Undo). Storing is proved first: the activity is generated again from the changed block and
+     * must give the repaired code that compiled.
+     */
+    private void showFixes(View content, android.app.Dialog sheet) {
+        if (!getIntent().getBooleanExtra(EXTRA_FROM_EDITOR, false)) return;
+        final a.a.a.eC data = a.a.a.jC.a;
+        if (data == null || !scId.equals(data.a)) return;
+        java.util.List<com.sketchware.ai.sourcemap.BlockWriteBack.Proposal> proposals =
+                com.sketchware.ai.sourcemap.BlockWriteBack.load(new java.io.File(a.a.a.wq.d(scId)));
+        if (proposals.isEmpty()) return;
+        // Only for the log of that build: it names each repaired line.
+        String log = logText();
+        LinearLayout box = content.findViewById(R.id.ob_diag_fixes);
+        for (com.sketchware.ai.sourcemap.BlockWriteBack.Proposal proposal : proposals) {
+            if (!log.contains(proposal.file + ":")) continue;
+            View card = getLayoutInflater().inflate(R.layout.ob_diagnostic_fix, box, false);
+            ((TextView) card.findViewById(R.id.ob_fix_where)).setText(proposal.where());
+            ((TextView) card.findViewById(R.id.ob_fix_problem)).setText(explain(proposal));
+            ((TextView) card.findViewById(R.id.ob_fix_before)).setText(joinLines(proposal.removed));
+            ((TextView) card.findViewById(R.id.ob_fix_after)).setText(joinLines(proposal.added));
+            card.findViewById(R.id.ob_fix_open).setOnClickListener(v -> {
+                com.sketchware.ai.sourcemap.ErrorOrigins.Item item = new com.sketchware.ai.sourcemap.ErrorOrigins.Item();
+                item.fileName = proposal.file;
+                item.origin = new com.sketchware.ai.sourcemap.SourceMap.Origin();
+                item.origin.event = new com.sketchware.ai.sourcemap.SourceMap.EventInfo();
+                item.origin.event.kind = proposal.kind;
+                item.origin.event.targetId = proposal.targetId;
+                item.origin.event.eventName = proposal.eventName;
+                item.origin.block = new com.sketchware.ai.sourcemap.SourceMap.Entry();
+                item.origin.block.blockId = proposal.blockId;
+                item.origin.block.opCode = "addSourceDirectly";
+                item.origin.block.start = proposal.startLine;
+                item.origin.block.end = proposal.endLine;
+                item.origin.lineInBlock = proposal.problemLine > 0 ? proposal.problemLine : proposal.firstChangedLine;
+                if (openBlock(item)) sheet.dismiss();
+            });
+            bindFixState(card, proposal, data);
+            box.addView(card);
+        }
+        if (box.getChildCount() > 0) {
+            box.setVisibility(View.VISIBLE);
+            content.findViewById(R.id.ob_diag_first_box).setVisibility(View.GONE);
+        }
+    }
+
+    private static String joinLines(java.util.List<String> lines) {
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < lines.size() && i < 8; i++) {
+            if (i > 0) text.append('\n');
+            text.append(lines.get(i));
+        }
+        if (lines.size() > 8) text.append("\n(").append(lines.size() - 8).append(" more lines)");
+        return text.toString();
+    }
+
+    /** What was wrong, in plain words, from the build's own message. */
+    private static String explain(com.sketchware.ai.sourcemap.BlockWriteBack.Proposal proposal) {
+        String message = proposal.message == null ? "" : proposal.message;
+        message = message.replace(" It still never runs; your blocks are unchanged.", "")
+                .replace("; your blocks are unchanged.", ".");
+        if (message.startsWith("unreachable code")) {
+            String from = proposal.problemLine > 0 ? "the code from line " + proposal.problemLine + " of this block on"
+                    : "part of this block's code";
+            return "Problem: " + from + " can never run, because "
+                    + "everything in front of it always returns, and Java refuses to compile that.\n"
+                    + "Fix: the statement in front is wrapped in if (true) { }, so it compiles. The code behind it "
+                    + "still never runs: move it above the return if it should.";
+        }
+        return "Fix: " + message;
+    }
+
+    private void bindFixState(View card, com.sketchware.ai.sourcemap.BlockWriteBack.Proposal proposal, a.a.a.eC data) {
+        TextView apply = card.findViewById(R.id.ob_fix_apply);
+        TextView status = card.findViewById(R.id.ob_fix_status);
+        int state = com.sketchware.ai.sourcemap.BlockWriteBack.state(data, proposal);
+        apply.setEnabled(true);
+        apply.setAlpha(1f);
+        if (state == com.sketchware.ai.sourcemap.BlockWriteBack.APPLIED) {
+            status.setText("Stored in the block. Save the project to keep it; the next build needs no repair here.");
+            apply.setText("Undo");
+            apply.setOnClickListener(v -> {
+                String problem = com.sketchware.ai.sourcemap.BlockWriteBack.undo(data, proposal);
+                if (problem != null) {
+                    SketchwareUtil.toastError(problem);
+                } else {
+                    data.k();
+                }
+                bindFixState(card, proposal, data);
+            });
+        } else if (state == com.sketchware.ai.sourcemap.BlockWriteBack.NOT_APPLIED) {
+            status.setText("The build repairs this each time. Apply to block stores the fix in your project.");
+            apply.setText("Apply to block");
+            apply.setOnClickListener(v -> {
+                apply.setEnabled(false);
+                apply.setAlpha(0.5f);
+                apply.setText("Checking...");
+                new Thread(() -> {
+                    String problem;
+                    try {
+                        problem = com.sketchware.ai.sourcemap.BlockWriteBack.apply(data, proposal, name -> {
+                            // The same generation the source viewer uses, from the project as it is now.
+                            for (com.besome.sketch.beans.SrcCodeBean bean : new a.a.a.yq(getApplicationContext(), scId)
+                                    .a(a.a.a.jC.b(scId), a.a.a.jC.a(scId), a.a.a.jC.c(scId))) {
+                                if (name.equals(bean.srcFileName)) return bean.source;
+                            }
+                            return null;
+                        }, new java.io.File(a.a.a.wq.b(scId)));
+                        if (problem == null) data.k();
+                    } catch (Throwable t) {
+                        problem = "Couldn't store the fix: " + t;
+                    }
+                    final String result = problem;
+                    runOnUiThread(() -> {
+                        if (isFinishing()) return;
+                        if (result != null) SketchwareUtil.toastError(result, android.widget.Toast.LENGTH_LONG);
+                        bindFixState(card, proposal, data);
+                    });
+                }, "BlockWriteBack").start();
+            });
+        } else {
+            status.setText("This block was edited since the build. Build again to see the current state.");
+            apply.setVisibility(View.GONE);
         }
     }
 

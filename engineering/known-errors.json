@@ -6,29 +6,67 @@
       "rootCause": "A statement follows one that always leaves the method/loop (return/throw/break, or a try whose every path returns).",
       "repair": "GENERATED_CODE_REWRITE: wrap the statement in front in if (true) { } (kept code, void contexts) or remove the dead statements (value-returning methods, or when keeping doesn't compile). Line count never changes.",
       "scope": "generated sources of this build only; blocks unchanged; re-applied at every build",
-      "verifiedOn": ["JVM 17", "Android 12 ART (API 31) x86_64"],
-      "notVerifiedOn": ["any phone: v1.7.1 failed on the user's device for project #639; no log for v1.7.2+ yet"]
+      "verifiedOn": [
+        "JVM 17",
+        "Android 12 ART (API 31) x86_64",
+        "user's phone, v1.8.0: project #644 (Vehicle Parking) built, installed and started (reported 2026-10-04)"
+      ],
+      "permanent": "v1.8.1: when the repaired lines lie inside one add-source-directly block, the compile log offers Apply to block; storing is proved by regenerating the activity."
     },
     {
       "fingerprint": "ECJ: X cannot be resolved to a type / The import X cannot be resolved",
       "rootCause": "Missing import, or the library that has the class isn't enabled for the project.",
       "repair": "IMPORT_SYNTHESIS (class found on the build classpath) or DEPENDENCY_RESOLUTION (enable the installed local library; download a known coordinate from Google Maven / Maven Central / JitPack; link its sub-dependencies).",
-      "verifiedOn": ["JVM 17", "Android 12 ART (API 31) x86_64 (download step with network)"]
+      "verifiedOn": [
+        "JVM 17",
+        "Android 12 ART (API 31) x86_64 for the offline steps; downloads on JVM 17 only (the sandbox kernel has no IPv6, so the Android runtime cannot open sockets there)"
+      ]
     },
     {
       "fingerprint": "ECJ: Syntax error, insert \";\" / Type mismatch: cannot convert from double to int / Unreachable catch block",
       "repair": "GENERATED_CODE_REWRITE: add the semicolon / add the narrowing cast / remove the catch block.",
-      "verifiedOn": ["JVM 17", "Android 12 ART (API 31) x86_64"]
+      "verifiedOn": [
+        "JVM 17",
+        "Android 12 ART (API 31) x86_64"
+      ]
     },
     {
       "fingerprint": "ECJ: The method m() is undefined for the type T (typo in custom code)",
       "repair": "none: reported with its origin (activity -> event/MoreBlock -> block -> line in the block's code).",
-      "verifiedOn": ["Android 12 ART (API 31) x86_64"]
+      "verifiedOn": [
+        "Android 12 ART (API 31) x86_64"
+      ]
     },
     {
       "fingerprint": "device: MainActivity.java:6379 Unreachable code, v1.7.1, project #639",
       "rootCause": "unknown",
-      "repair": "not reproduced off-device with the reconstructed code; needs the v1.7.2+ log, which now carries the auto-fix report, the origin of each error and the build map."
+      "repair": "No longer occurs with v1.8.0 on the user's phone (same project built). Cause of the v1.7.1 failure was never established."
+    },
+    {
+      "fingerprint": "AAPT2: 'PNG chunk type 49444154 is too large' then 'Exit code 139' (segmentation fault)",
+      "rootCause": "A PNG that is cut off or has damaged data. The shipped static aapt2 crashes on it; with damaged pixel data it crashes without naming the file.",
+      "repair": "PngSanitizer: structure check of every PNG before 'aapt2 compile'; after a failure a thorough check (checksums, pixel data size). The damaged image is replaced by a valid PNG that keeps the readable rows, in the build's copy (or in a copy of the folder for imported and library resources). The user's image is not changed. Only drawable*/mipmap* folders are checked (res/raw is copied verbatim by AAPT2 and left alone). With checksum damage the rows below the damaged spot can be wrong, and the warning says so.",
+      "verifiedOn": [
+        "JVM 17 with the shipped x86_64 aapt2: crash reproduced (exit 139) and gone after the repair, for cut-off RGBA/RGB/gray/palette/gray+alpha PNGs, a wrong-checksum PNG and a non-PNG file; independent review ran 117 valid PNGs of every type with no false alarm and 850 salvaged outputs that all open",
+        "Android 12 ART (API 31) x86_64: sanitizer classes"
+      ],
+      "notVerifiedOn": [
+        "the user's phone (project #623)",
+        "interlaced PNGs (handed to BitmapFactory, which cannot run off-device)"
+      ]
+    },
+    {
+      "fingerprint": "ECJ: X cannot be resolved + warning 'Local library ... is enabled but its classes.jar is missing'",
+      "rootCause": "The project's library list points to a library folder whose classes.jar is gone (folder deleted, moved, or only partly restored).",
+      "repair": "LibraryIntegrity at build start: restore from an .aar/.jar left in the folder; else download the same library again, but only when its coordinate is certain (recorded at install in source.json, or a well-known library with exactly that folder name). A name is never looked up in a repository: look-alike artifacts exist under popular names (found in review: appcompat, recyclerview, exoplayer under foreign groups on Maven Central). Only missing files are added; res, manifest and config in the folder are kept. A failed download is not retried for 5 minutes.",
+      "verifiedOn": [
+        "JVM 17 with network: AestheticDialogs 1.0.0 from JitPack (folder gone; folder with edited res/config kept unchanged); unknown names and appcompat/recyclerview look-alikes refused without download; path-like names skipped; resource-only library left alone; jar present but dex missing -> dex made",
+        "Android 12 ART (API 31) x86_64: restore from an .aar in the folder incl. D8, then the project compiled"
+      ],
+      "notVerifiedOn": [
+        "the user's phone (project #606)",
+        "the AAPT2 resource step for the restored library"
+      ]
     }
   ]
 }

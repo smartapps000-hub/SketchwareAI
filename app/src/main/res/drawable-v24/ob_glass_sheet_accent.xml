@@ -3,8 +3,8 @@
 <drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
     class="com.sketchware.ai.ui.GlassDrawable"
     app:swRadius="22dp"
-    app:swFillTop="#FA2A2A30"
-    app:swFillBottom="#F7161619"
+    app:swFillTop="#FF2A2A30"
+    app:swFillBottom="#FF161619"
     app:swSheen="#12FFFFFF"
     app:swRimTop="#B3FF9A4D"
     app:swRimBottom="#59F4511E" />

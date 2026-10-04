@@ -142,34 +142,34 @@ public final class LibraryHeal {
 
     /** @return null on success, otherwise why it failed */
     private static String download(String coordinate, File root) {
+        return download(coordinate, root, null);
+    }
+
+    /**
+     * @param folderName the library's folder under {@code root}; null for "artifact_V_version"
+     * @return null on success, otherwise why it failed
+     */
+    static String download(String coordinate, File root, String folderName) {
         String[] gav = MavenFetcher.parse(coordinate);
         if (gav == null) return "not a Maven coordinate";
-        File directory = new File(root, gav[1] + "_V_" + gav[2]);
+        File directory = new File(root, folderName != null ? folderName : gav[1] + "_V_" + gav[2]);
         try {
             root.mkdirs();
             if (!new File(directory, "classes.jar").isFile()) {
-                MavenFetcher.Result fetched = new MavenFetcher().fetch(coordinate, Arrays.asList(REPOSITORIES), root,
-                        new MavenFetcher.Listener() {
-                            @Override
-                            public void onStatus(String status) {
-                            }
-
-                            @Override
-                            public void onProgress(int percent) {
-                            }
-                        });
+                MavenFetcher.Result fetched = fetch(coordinate, root);
                 if (fetched.file == null) {
                     return fetched.networkFailed ? "no internet connection" : "not found in Google Maven, Maven Central or JitPack";
                 }
                 String reason = MavenFetcher.install(fetched.file, directory);
                 fetched.file.delete();
                 if (reason != null) {
-                    FileUtil.deleteFile(directory.getAbsolutePath());
+                    // A folder that was there before (res, config of a library being restored) is kept.
+                    if (folderName == null) FileUtil.deleteFile(directory.getAbsolutePath());
                     return reason;
                 }
+                LibraryIntegrity.writeSource(directory, gav[0] + ":" + gav[1] + ":" + gav[2], fetched.url);
             }
-            File config = new File(directory, "config");
-            if (!config.exists()) FileUtil.writeFile(config.getAbsolutePath(), gav[0]);
+            writeConfig(directory, gav[0]);
             if (!new File(directory, "classes.dex").isFile()) dex(new File(directory, "classes.jar"));
             return new File(directory, "classes.dex").isFile() ? null : "couldn't convert it to dex";
         } catch (Throwable e) {
@@ -178,15 +178,57 @@ public final class LibraryHeal {
         }
     }
 
-    private static void dex(File classesJar) throws Exception {
+    /** Downloads the artifact's .aar/.jar into {@code root}. A request that broke off is tried once more. */
+    static MavenFetcher.Result fetch(String coordinate, File root) {
+        MavenFetcher.Result fetched = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            fetched = new MavenFetcher().fetch(coordinate, Arrays.asList(REPOSITORIES), root, null);
+            if (fetched.file != null || fetched.networkFailed || fetched.log.indexOf("Exception") < 0) break;
+        }
+        return fetched;
+    }
+
+    private static final java.util.regex.Pattern MANIFEST_PACKAGE =
+            java.util.regex.Pattern.compile("<manifest[^>]*\\spackage=\"([^\"]+)\"", java.util.regex.Pattern.DOTALL);
+    private static final java.util.regex.Pattern JAVA_PACKAGE =
+            java.util.regex.Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
+
+    /**
+     * The library's "config" file holds the package its R class is generated for and that
+     * activities import. That is the package of its AndroidManifest.xml; for a plain .jar the
+     * Maven group is used as before, but only when it is a valid Java package name
+     * ("com.github.some-user" is not, and would break the import and the resource link).
+     */
+    static void writeConfig(File directory, String group) {
+        File config = new File(directory, "config");
+        if (config.exists()) return; // what is there (possibly set by the user) stays
+        String packageName = null;
+        File manifest = new File(directory, "AndroidManifest.xml");
+        if (manifest.isFile()) {
+            java.util.regex.Matcher m = MANIFEST_PACKAGE.matcher(FileUtil.readFile(manifest.getAbsolutePath()));
+            if (m.find()) packageName = m.group(1).trim();
+        }
+        if (packageName == null) packageName = group;
+        if (packageName == null || !JAVA_PACKAGE.matcher(packageName).matches()) return;
+        FileUtil.writeFile(config.getAbsolutePath(), packageName);
+    }
+
+    static void dex(File classesJar) throws Exception {
         File libs = BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH;
-        String[] arguments = {
+        // D8 needs the bundled android.jar, which the first build after an install hasn't unpacked yet.
+        if (!new File(libs, "android.jar").isFile()) a.a.a.Dp.maybeExtractAndroidJar(null);
+        List<String> arguments = new ArrayList<>(Arrays.asList(
                 "--release", "--intermediate",
-                "--lib", new File(libs, "android.jar").getAbsolutePath(),
-                "--classpath", new File(libs, "core-lambda-stubs.jar").getAbsolutePath(),
-                "--output", classesJar.getParentFile().getAbsolutePath(),
-                classesJar.getAbsolutePath()};
+                "--lib", new File(libs, "android.jar").getAbsolutePath()));
+        File lambdaStubs = new File(libs, "core-lambda-stubs.jar");
+        if (lambdaStubs.isFile()) {
+            arguments.add("--classpath");
+            arguments.add(lambdaStubs.getAbsolutePath());
+        }
+        arguments.add("--output");
+        arguments.add(classesJar.getParentFile().getAbsolutePath());
+        arguments.add(classesJar.getAbsolutePath());
         // Not D8.main(): that calls System.exit() on failure.
-        D8.run(D8Command.parse(arguments, Origin.root()).build());
+        D8.run(D8Command.parse(arguments.toArray(new String[0]), Origin.root()).build());
     }
 }

@@ -26,7 +26,7 @@ public final class BuildMap {
 
     public static final String PREPARE = "Prepare project files";
     public static final String GENERATE = "Generate sources";
-    public static final String LIBRARIES = "Built-in libraries";
+    public static final String LIBRARIES = "Libraries";
     public static final String RESOURCES = "Resources (AAPT2)";
     public static final String KOTLIN = "Kotlin compile";
     public static final String JAVA = "Java compile";

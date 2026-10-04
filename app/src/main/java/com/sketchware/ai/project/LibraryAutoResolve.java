@@ -55,6 +55,13 @@ public final class LibraryAutoResolve {
             {"com.github.mikephil.charting", "com.github.PhilJay:MPAndroidChart:v3.1.0"},
     };
 
+    /** The coordinates of {@link #KNOWN}, for restoring a library by its folder name. */
+    static List<String> knownCoordinates() {
+        List<String> coordinates = new ArrayList<>();
+        for (String[] known : KNOWN) coordinates.add(known[1]);
+        return coordinates;
+    }
+
     public static final class Outcome {
         /** Libraries added to the project's list. */
         public final List<String> enabled = new ArrayList<>();
@@ -443,6 +450,11 @@ public final class LibraryAutoResolve {
             if (fallback == null && directory.isDirectory()) fallback = directory;
         }
         return fallback;
+    }
+
+    /** Sets an entry's paths (classes.jar, dex, res, manifest, ...) and package from its folder. */
+    static boolean refresh(HashMap<String, Object> library, File directory) {
+        return fill(library, directory);
     }
 
     private static boolean fill(HashMap<String, Object> library, File directory) {
