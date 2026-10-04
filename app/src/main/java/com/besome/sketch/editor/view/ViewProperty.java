@@ -3,7 +3,6 @@ package com.besome.sketch.editor.view;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Color;
 import android.text.InputType;
 import android.util.AttributeSet;
 import android.view.View;
@@ -115,7 +114,9 @@ public class ViewProperty extends LinearLayout implements Kw {
             showAllShower.setInterpolator(new DecelerateInterpolator());
         }
         if (showAllHider == null) {
-            showAllHider = ObjectAnimator.ofFloat(layoutPropertySeeAll, View.TRANSLATION_Y, wB.a(getContext(), 84.0f));
+            // "See All" has its own place beside the tile strip now (view_property.xml) and no
+            // longer covers the last tile, so it stays put instead of sliding away on a scroll.
+            showAllHider = ObjectAnimator.ofFloat(layoutPropertySeeAll, View.TRANSLATION_Y, 0.0f);
             showAllHider.setDuration(200L);
             showAllHider.setInterpolator(new DecelerateInterpolator());
         }
@@ -131,15 +132,8 @@ public class ViewProperty extends LinearLayout implements Kw {
         for (int i = 0; i < layoutPropertyGroup.getChildCount(); i++) {
             GroupItem item = (GroupItem) layoutPropertyGroup.getChildAt(i);
 
-            if (selectedGroupId == (Integer) item.getTag()) {
-                item.setSelected(true);
-                item.title.setTextColor(Color.WHITE);
-                item.animate().scaleX(1).scaleY(1).alpha(1).start();
-            } else {
-                item.setSelected(false);
-                item.title.setTextColor(0xff1d2129);
-                item.animate().scaleX(0.8f).scaleY(0.8f).alpha(0.6f).start();
-            }
+            // Obsidian pills: amber when selected, dark glass with a light label otherwise.
+            com.sketchware.ai.ui.ObsidianPropertyPanel.tab(item, item.title, selectedGroupId == (Integer) item.getTag());
         }
         if (idsAdapter.getSelectedItemPosition() < projectActivityViews.size()) {
             ViewBean viewBean = projectActivityViews.get(idsAdapter.getSelectedItemPosition());
@@ -382,6 +376,8 @@ public class ViewProperty extends LinearLayout implements Kw {
 
             ViewBean view = views.get(position);
             item.a(ViewBean.getViewTypeResId(view.type), view.id, isSelected);
+            // The header pill and the drop-down are dark: light ids instead of grey / white.
+            com.sketchware.ai.ui.ObsidianPropertyPanel.idItem(item, isDropDownView, view.id.charAt(0) == '_');
             return item;
         }
     }
@@ -440,7 +436,7 @@ public class ViewProperty extends LinearLayout implements Kw {
             propertyMenuItem.setVisibility(VISIBLE);
             icon.setImageResource(imageResId);
             title.setText(Helper.getResString(propertyNameResId));
-            title.setTextColor(0xffff951b);
+            com.sketchware.ai.ui.ObsidianPropertyPanel.seeAll(icon, title);
             setOnClickListener(this);
         }
 

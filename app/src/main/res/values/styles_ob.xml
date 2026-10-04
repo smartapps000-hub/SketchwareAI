@@ -65,6 +65,10 @@
         <item name="android:textSize">12sp</item>
         <item name="android:fontFamily">@font/manrope_medium</item>
     </style>
+    <!-- The same label while its field has the focus (com.sketchware.ai.ui.ObsidianInputs). -->
+    <style name="Ob.FieldLabel.Focused">
+        <item name="android:textColor">@color/ob_accent</item>
+    </style>
     <style name="Ob.Field">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">48dp</item>

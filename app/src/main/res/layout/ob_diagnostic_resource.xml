@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The resources a screen names that are not on the phone, and what can be done about them. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/ob_accent_box"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/manrope_extrabold"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.03"
+        android:text="RESOURCE REQUIRED"
+        android:textColor="@color/ob_accent"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/ob_resource_list"
+        style="@style/Ob.Text.Mono"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:lineSpacingMultiplier="1.2"
+        android:textIsSelectable="true"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/ob_resource_status"
+        style="@style/Ob.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:lineSpacingMultiplier="1.1"
+        android:textColor="@color/ob_text_3"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/ob_resource_choose"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_marginRight="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/ob_amber_pill"
+            android:maxLines="1"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Add images"
+            android:textColor="@color/ob_accent"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/ob_resource_remove"
+            style="@style/Ob.Text.Button"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1.35"
+            android:background="@drawable/ob_pill16_state"
+            android:maxLines="1"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Remove references"
+            android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

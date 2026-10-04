@@ -15,7 +15,8 @@ import com.sketchware.remod.R;
  *     <li>Add Event: the event list becomes a grid of tiles, up to 6 per row (fewer when the
  *     screen is narrow, so target ids and event names stay readable), and dark legacy text is
  *     lightened;</li>
- *     <li>Add View (new screen): dark legacy text is lightened on the glass panel.</li>
+ *     <li>Add View (new screen): dark legacy text is lightened on the glass panel;</li>
+ *     <li>See All properties: Obsidian window ground behind the restyled rows.</li>
  * </ul>
  * Everything here is best-effort: a failure leaves the screen as the XML made it.
  */
@@ -24,6 +25,7 @@ public final class LegacyScreens implements Application.ActivityLifecycleCallbac
     private static final String ADD_EVENT = "com.besome.sketch.editor.event.AddEventActivity";
     private static final String ADD_VIEW = "com.besome.sketch.editor.manage.view.AddViewActivity";
     private static final String VIEW_SELECTOR = "com.besome.sketch.editor.manage.ViewSelectorActivity";
+    private static final String PROPERTY = "com.besome.sketch.editor.PropertyActivity";
 
     public static void install(Application application) {
         application.registerActivityLifecycleCallbacks(new LegacyScreens());
@@ -41,6 +43,23 @@ public final class LegacyScreens implements Application.ActivityLifecycleCallbac
                 } catch (Throwable t) {
                     android.util.Log.w("LegacyScreens", "Couldn't restyle " + name, t);
                 }
+            }
+            return;
+        }
+        if (PROPERTY.equals(name)) {
+            // "See All" properties: its layout (property.xml) and rows are Obsidian in XML; the
+            // window ground, the system bars and anything the precompiled code adds with classic
+            // colours (switches, the "no data" text) are finished here.
+            View content = activity.findViewById(android.R.id.content);
+            if (content == null || content.getTag(R.id.ob_glassed) != null) return;
+            content.setTag(R.id.ob_glassed, Boolean.TRUE);
+            try {
+                ObsidianWindow.apply(activity);
+                View toolbar = activity.findViewById(R.id.toolbar);
+                if (toolbar != null) toolbar.setBackgroundResource(R.drawable.ob_toolbar_glass);
+                ObsidianAdapter.adaptLive(content);
+            } catch (Throwable t) {
+                android.util.Log.w("LegacyScreens", "Couldn't restyle " + name, t);
             }
             return;
         }

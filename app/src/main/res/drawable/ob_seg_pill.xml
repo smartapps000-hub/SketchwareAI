@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Segment pill (Basic / Recent / Event of the view property panel): amber when selected,
+     dark glass otherwise. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android" android:enterFadeDuration="90" android:exitFadeDuration="220">
+    <item android:state_selected="true" android:drawable="@drawable/ob_tile_orange" />
+    <item android:state_pressed="true" android:drawable="@drawable/ob_pill_pressed" />
+    <item android:drawable="@drawable/ob_pill" />
+</selector>

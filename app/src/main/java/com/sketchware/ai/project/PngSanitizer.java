@@ -240,9 +240,29 @@ public final class PngSanitizer {
         }
     }
 
+    /** Takes a repaired image over into the project itself, so the next build has nothing to repair. */
+    public interface Keeper {
+        /**
+         * @param buildFile the damaged image in the build's res folder
+         * @param repaired  the repaired PNG
+         * @return where the damaged original was put aside, or null when the project's image wasn't replaced
+         */
+        String keep(File buildFile, byte[] repaired);
+    }
+
+    private static final ThreadLocal<Keeper> KEEPER = new ThreadLocal<>();
+
+    /** Set while the project's own res folder is compiled; null otherwise. */
+    public static void keeper(Keeper keeper) {
+        if (keeper == null) KEEPER.remove();
+        else KEEPER.set(keeper);
+    }
+
     /** Writes a usable version of {@code source} to {@code target} and says what was done. */
     private static String repair(File source, File target, String problem) {
-        String what = "Image " + source.getName() + " is damaged: " + problem + ". ";
+        String damaged = "Image " + source.getName() + " is damaged: " + problem + ". ";
+        // A repair is listed with the build's other repairs; a failure to repair stays a warning.
+        String what = "auto-fix: " + damaged;
         try {
             byte[] bytes = readAll(source);
             Salvaged salvaged = salvage(bytes);
@@ -250,21 +270,33 @@ public final class PngSanitizer {
             if (salvaged == null) {
                 write(target, encode(1, 1, 8, 6, null, null, new byte[]{0, 0, 0, 0, 0}));
                 return what + "Nothing of it could be read, so the build used an empty (transparent) image in its place. "
-                        + "Replace it in Image Manager; your file was not changed.";
+                        + "Temporary repair: redone at every build. Replace the image in Image Manager; your file was not changed.";
             }
             write(target, salvaged.png);
+            String kept = null;
+            Keeper keeper = KEEPER.get();
+            if (keeper != null && source.equals(target)) {
+                try {
+                    kept = keeper.keep(source, salvaged.png);
+                } catch (RuntimeException e) {
+                    kept = null;
+                }
+            }
+            String permanence = kept != null
+                    ? "Permanent: the project's image is now this repaired copy, so the next build has nothing to repair; "
+                    + "the damaged file is kept as " + kept + "."
+                    : "Temporary repair: redone at every build; your file was not changed.";
             if (salvaged.guessed) {
-                return what + "The build used a rewritten copy: the picture is intact down to the damaged spot and can "
-                        + "look wrong below it. Replace the image in Image Manager; your file was not changed.";
+                return what + "The picture is intact down to the damaged spot and can look wrong below it; replace it in "
+                        + "Image Manager with a good copy. " + permanence;
             }
             if (salvaged.rows >= salvaged.height) {
-                return what + "The whole picture could still be read; the build used a rewritten copy. "
-                        + "Replace it in Image Manager when you can; your file was not changed.";
+                return what + "The whole picture could still be read and was written again as a sound file. " + permanence;
             }
-            return what + "The build used a repaired copy that keeps the first " + salvaged.rows + " of " + salvaged.height
-                    + " pixel rows; the rest is empty. Replace the image in Image Manager; your file was not changed.";
+            return what + "The first " + salvaged.rows + " of " + salvaged.height + " pixel rows could be read; the rest is "
+                    + "empty. Replace it in Image Manager with a good copy. " + permanence;
         } catch (IOException | RuntimeException | OutOfMemoryError e) {
-            return what + "It couldn't be repaired (" + e + ").";
+            return damaged + "It couldn't be repaired (" + e + ").";
         }
     }
 

@@ -459,6 +459,7 @@ public class BackupFactory {
     }
 
     private void restore(File swbPath, String name) {
+        mod.hey.studios.build.BuildSettings.forgetMisplaced(sc_id);
 
         createBackupsFolder();
 

@@ -95,6 +95,10 @@ public class Dp {
     public FilePathUtil fpu;
     private final oB fileUtil;
     public ManageLocalLibrary mll;
+    /** Enabled local libraries whose files aren't on the phone: not part of this build. */
+    private java.util.List<String> leftOutLibraries = new java.util.ArrayList<>();
+    /** The android.jar set in Build Settings when that file doesn't exist; the bundled one is used then. */
+    private String missingCustomAndroidJar;
     public Kp builtInLibraryManager;
     public String androidJarPath;
     public ProguardHandler proguard;
@@ -141,9 +145,17 @@ public class Dp {
         fpu = new FilePathUtil();
         fileUtil = new oB(false);
         mll = new ManageLocalLibrary(yqVar.sc_id);
+        // A library whose classes.jar or classes.dex isn't on the phone is left out of this build
+        // (the project's own list keeps it): its path must not reach ECJ, D8 or the APK builder.
+        leftOutLibraries = com.sketchware.ai.project.LibraryIntegrity.usable(yqVar.sc_id, mll.list);
         builtInLibraryManager = new Kp();
         File defaultAndroidJar = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar");
-        androidJarPath = build_settings.getValue(BuildSettings.SETTING_ANDROID_JAR_PATH, defaultAndroidJar.getAbsolutePath());
+        String customAndroidJar = build_settings.getValue(BuildSettings.SETTING_ANDROID_JAR_PATH, "").trim();
+        if (!customAndroidJar.isEmpty() && !new File(customAndroidJar).isFile()) {
+            missingCustomAndroidJar = customAndroidJar;
+            customAndroidJar = "";
+        }
+        androidJarPath = customAndroidJar.isEmpty() ? defaultAndroidJar.getAbsolutePath() : customAndroidJar;
         proguard = new ProguardHandler(yqVar.sc_id);
         settings = new ProjectSettings(yqVar.sc_id);
     }
@@ -206,6 +218,15 @@ public class Dp {
     }
 
     public boolean isD8Enabled() {
+        // Dx reads Java 7 class files only and stops at most libraries. Where D8 can run (Android 8+)
+        // it is used even when the project still says Dx; the build's warnings say so.
+        if (Build.VERSION.SDK_INT >= 26) {
+            if (BuildSettings.SETTING_DEXER_DX.equals(build_settings.getValue(BuildSettings.SETTING_DEXER, ""))) {
+                com.sketchware.ai.project.BuildWarnings.note("This project is set to the legacy Dx dexer; D8 was used "
+                        + "instead (Dx can't read Java 8+ code). Its Java version setting is unchanged.");
+            }
+            return true;
+        }
         return build_settings.getValue(
                 BuildSettings.SETTING_DEXER,
                 com.sketchware.ai.project.ModernProjectDefaults.defaultDexer()
@@ -300,15 +321,17 @@ public class Dp {
 
         /* Add local libraries to the classpath */
         classpath.append(mll.getJarLocalLibrary());
+        if (missingCustomAndroidJar != null) {
+            com.sketchware.ai.project.BuildWarnings.add("The custom android.jar in Build Settings doesn't exist ("
+                    + missingCustomAndroidJar + "); the bundled Android " + (com.sketchware.ai.project.BuildWarnings.BUNDLED_ANDROID_JAR_API - 20)
+                    + " android.jar is used instead.");
+        }
         /* A local library whose files were deleted/moved used to vanish from the build silently */
-        for (HashMap<String, Object> localLibrary : mll.list) {
-            Object name = localLibrary.get("name");
-            Object jarPath = localLibrary.get("jarPath");
-            if (jarPath instanceof String && !((String) jarPath).isEmpty() && !new File((String) jarPath).exists()
-                    && !com.sketchware.ai.project.BuildWarnings.mentions("'" + name + "' is enabled but its classes.jar")) {
+        for (String name : leftOutLibraries) {
+            if (!com.sketchware.ai.project.BuildWarnings.mentions("'" + name + "' is enabled but its classes.jar")) {
                 com.sketchware.ai.project.BuildWarnings.add("Local library '" + name + "' is enabled but its classes.jar "
-                        + "is missing (" + jarPath + "), so it wasn't compiled in. Download it again in Local Library "
-                        + "Manager, or use Import file with its .aar/.jar.");
+                        + "or classes.dex is missing, so it is left out of this build. Download it again in Local "
+                        + "library manager, or use Import file with its .aar/.jar.");
             }
         }
 
@@ -320,9 +343,11 @@ public class Dp {
             }
         }
 
-        /* Append user's custom classpath */
-        if (!build_settings.getValue(BuildSettings.SETTING_CLASSPATH, "").equals("")) {
-            classpath.append(":").append(build_settings.getValue(BuildSettings.SETTING_CLASSPATH, ""));
+        /* Append user's custom classpath (only entries that exist: D8 stops at a missing library file) */
+        for (String entry : build_settings.getValue(BuildSettings.SETTING_CLASSPATH, "").split(":")) {
+            if (!entry.trim().isEmpty() && new File(entry.trim()).exists()) {
+                classpath.append(":").append(entry.trim());
+            }
         }
 
         /* Add JARs from project's classpath */
@@ -781,23 +806,90 @@ public class Dp {
      * out too (mysc/&lt;sc_id&gt;/autofix.json), so the compile log can offer to store it in the block.
      */
     private void reportFixes(com.sketchware.ai.sourcemap.ErrorOrigins.Session origins, java.util.List<String> fixes) {
-        java.util.List<com.sketchware.ai.sourcemap.BlockWriteBack.Proposal> proposals = new ArrayList<>();
+        com.sketchware.ai.sourcemap.BlockWriteBack.Collected collected = new com.sketchware.ai.sourcemap.BlockWriteBack.Collected();
+        boolean projectOpen = false;
         try {
             // Only for the project that is open in the editor: its data is what a stored fix changes.
-            if (jC.a != null && yq.sc_id.equals(jC.a.a)) {
-                proposals = com.sketchware.ai.sourcemap.BlockWriteBack.collect(origins, jC.a, fixes);
+            projectOpen = jC.a != null && yq.sc_id.equals(jC.a.a);
+            if (projectOpen) {
+                collected = com.sketchware.ai.sourcemap.BlockWriteBack.collectAll(origins, jC.a, fixes);
             }
-            com.sketchware.ai.sourcemap.BlockWriteBack.save(new File(yq.projectMyscPath), proposals);
+            com.sketchware.ai.sourcemap.BlockWriteBack.save(new File(yq.projectMyscPath), collected.proposals);
         } catch (Throwable t) {
             LogUtil.e(TAG, "Couldn't work out block fixes", t);
         }
+        // A repair that lies wholly in add-source-directly code is stored in the block(s) right away,
+        // after proving that the blocks then generate exactly the code that compiled. The next build
+        // has nothing to repair there; the Build Doctor shows what changed and can take it back.
+        java.util.Map<String, String> stored = new java.util.HashMap<>();
+        java.util.Set<String> done = new java.util.HashSet<>();
+        if (projectOpen) {
+            for (com.sketchware.ai.sourcemap.BlockWriteBack.Proposal proposal : collected.proposals) {
+                String key = proposal.group != null ? proposal.group : proposal.file + "#" + proposal.blockId + "#" + proposal.eventName + "#" + proposal.targetId;
+                if (!done.add(key)) continue;
+                java.util.List<com.sketchware.ai.sourcemap.BlockWriteBack.Proposal> group =
+                        com.sketchware.ai.sourcemap.BlockWriteBack.groupOf(collected.proposals, proposal);
+                String problem;
+                try {
+                    problem = com.sketchware.ai.sourcemap.BlockWriteBack.apply(jC.a, group, fixGenerator(), new File(wq.b(yq.sc_id)));
+                    if (problem == null) jC.a.k();
+                } catch (Throwable t) {
+                    problem = String.valueOf(t);
+                    LogUtil.e(TAG, "Couldn't store a fix in its block", t);
+                }
+                StringBuilder where = new StringBuilder(proposal.where());
+                for (com.sketchware.ai.sourcemap.BlockWriteBack.Proposal member : group) {
+                    if (member != proposal) where.append(" and block ").append(member.position);
+                }
+                for (com.sketchware.ai.sourcemap.BlockWriteBack.Proposal member : group) {
+                    stored.put(member.file + "#" + member.blockId + "#" + member.startLine, problem == null ? "+" + where : "-" + problem);
+                }
+            }
+        }
         for (String fix : fixes) {
-            String text = "auto-fix: " + origins.annotate(fix);
-            if (com.sketchware.ai.sourcemap.BlockWriteBack.covers(proposals, fix)) {
-                text += " To keep this fix, tap the spark button in this log and choose Apply to block.";
+            String text = "auto-fix: " + origins.annotate(fix).replace(" It still never runs; your blocks are unchanged.", " It still never runs.")
+                    .replace("; your blocks are unchanged.", ".");
+            String outcome = null;
+            if (com.sketchware.ai.sourcemap.BlockWriteBack.covers(collected.proposals, fix)) {
+                for (com.sketchware.ai.sourcemap.BlockWriteBack.Proposal proposal : collected.proposals) {
+                    if (!com.sketchware.ai.sourcemap.BlockWriteBack.covers(java.util.Collections.singletonList(proposal), fix)
+                            && !(proposal.group != null && com.sketchware.ai.sourcemap.BlockWriteBack.covers(
+                            com.sketchware.ai.sourcemap.BlockWriteBack.groupOf(collected.proposals, proposal), fix))) continue;
+                    outcome = stored.get(proposal.file + "#" + proposal.blockId + "#" + proposal.startLine);
+                    if (outcome != null) break;
+                }
+            }
+            if (outcome != null && outcome.startsWith("+")) {
+                text += " Permanent: the repair is now stored in " + outcome.substring(1) + " (save the project to keep it), so the "
+                        + "next build has nothing to repair here. The spark button in this log shows the change and can undo it.";
+            } else if (outcome != null) {
+                text += " Temporary repair: it is redone at every build. It couldn't be stored in the block: " + outcome.substring(1);
+            } else {
+                String why = null;
+                try {
+                    why = projectOpen ? com.sketchware.ai.sourcemap.BlockWriteBack.whyNot(origins, collected, yq.sc_id, fix)
+                            : null;
+                } catch (Throwable t) {
+                    LogUtil.e(TAG, "Couldn't say why a fix can't be stored", t);
+                }
+                text += " Temporary repair: it is redone at every build."
+                        + (why == null ? "" : " Permanent mapping not yet available: " + why + ".");
             }
             com.sketchware.ai.project.BuildWarnings.add(text);
         }
+    }
+
+    /** Set by tests; otherwise the activity is generated from the open project as the build does. */
+    public com.sketchware.ai.sourcemap.BlockWriteBack.Generator fixGenerator;
+
+    private com.sketchware.ai.sourcemap.BlockWriteBack.Generator fixGenerator() {
+        if (fixGenerator != null) return fixGenerator;
+        return name -> {
+            for (com.besome.sketch.beans.ProjectFileBean file : jC.b(yq.sc_id).b()) {
+                if (name.equals(file.getJavaName())) return new Jx(yq.N, file, jC.a).generateCode();
+            }
+            return null;
+        };
     }
 
     public void buildApk() throws By {

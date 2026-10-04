@@ -53,13 +53,13 @@ public final class LibraryAutoResolve {
             {"com.hoho.android.usbserial", "com.github.mik3y:usb-serial-for-android:3.8.1"},
             {"eightbitlab.com.blurview", "com.github.Dimezis:BlurView:version-2.0.6"},
             {"com.github.mikephil.charting", "com.github.PhilJay:MPAndroidChart:v3.1.0"},
+            // 1.0.0 has the static AestheticDialog.showToaster(...); 1.3.x removed it.
+            {"com.thecode.aestheticdialogs", "com.github.gabriel-TheCode:AestheticDialogs:1.0.0"},
     };
 
-    /** The coordinates of {@link #KNOWN}, for restoring a library by its folder name. */
-    static List<String> knownCoordinates() {
-        List<String> coordinates = new ArrayList<>();
-        for (String[] known : KNOWN) coordinates.add(known[1]);
-        return coordinates;
+    /** {package, coordinate} of each well-known library, for restoring one by its folder name. */
+    static String[][] knownLibraries() {
+        return KNOWN;
     }
 
     public static final class Outcome {

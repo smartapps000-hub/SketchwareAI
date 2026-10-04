@@ -68,6 +68,11 @@ public final class LibraryHeal {
         FileUtil.writeFile(new FilePathUtil().getPathLocalLibrary(sc_id), new Gson().toJson(libraries));
     }
 
+    /** Saves a build's list: the libraries the build left out (files missing) stay in the project. */
+    private static void saveBuildList(String sc_id, List<HashMap<String, Object>> libraries) {
+        save(sc_id, LibraryIntegrity.withLeftOut(sc_id, libraries));
+    }
+
     public static Result run(String sc_id, String compilerLog, List<HashMap<String, Object>> libraries, String classpath, Progress progress) {
         Result result = new Result();
         File root = localLibs();
@@ -128,7 +133,7 @@ public final class LibraryHeal {
         }
 
         if (libraries.size() == before && !repaired) return result;
-        save(sc_id, libraries);
+        saveBuildList(sc_id, libraries);
         for (int i = before; i < libraries.size(); i++) {
             HashMap<String, Object> entry = libraries.get(i);
             result.notes.add("auto-fix: enabled local library " + entry.get("name") + " for this project");

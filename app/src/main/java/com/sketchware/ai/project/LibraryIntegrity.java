@@ -17,11 +17,13 @@ import mod.jbk.util.LogUtil;
 /**
  * Checked before a build compiles anything: every local library the project has enabled must
  * really have its classes.jar. One that doesn't is restored, first from what is still on the
- * phone (an .aar/.jar left in its folder), then by downloading the very same library again:
- * the coordinate recorded when it was installed, or a well-known library's coordinate. A name
- * alone is never looked up in a repository: other people publish look-alike artifacts under
- * the same name. Only the missing files are added; res, manifest and config that are still in
- * the folder stay as they are. When the library can't be identified the build goes on and says so.
+ * phone (an .aar/.jar left in its folder, or the project's own backup), then by downloading
+ * the very same library again: the coordinate recorded when it was installed, the coordinate
+ * its folder name spells out, or a well-known library's coordinate. A name alone is never
+ * looked up in a repository: other people publish look-alike artifacts under the same name.
+ * Only the missing files are added; res, manifest and config that are still in the folder stay
+ * as they are. A library that can't be restored is left out of the build ({@link #usable}),
+ * so a path to a file that isn't there never reaches the compiler or the dexer.
  */
 public final class LibraryIntegrity {
 
@@ -60,6 +62,7 @@ public final class LibraryIntegrity {
             if (libraries == null) return notes;
             File root = LibraryHeal.localLibs();
             boolean changed = false;
+            List<File> backups = null;
             for (HashMap<String, Object> library : libraries) {
                 Object name = library.get("name");
                 if (!(name instanceof String) || !safeName((String) name)) continue;
@@ -89,14 +92,15 @@ public final class LibraryIntegrity {
                 // No classes.jar. A library that never had one (resources only) is left alone: it is
                 // restored only if the project lists a jar for it, or its dex shows it had classes.
                 if (!jarListedButGone && !dex.isFile() && !hasArchive(directory)
-                        && coordinate((String) name, directory) == null) continue;
+                        && candidates((String) name, directory).isEmpty()) continue;
                 Long failedAt = FAILED.get(name);
                 if (failedAt != null && System.currentTimeMillis() - failedAt < RETRY_AFTER_MS) {
                     notes.add(missingNote((String) name, "a download was tried a few minutes ago and failed; it is tried again later."));
                     continue;
                 }
                 if (progress != null) progress.show("Restoring library " + name + "...");
-                String how = restoreOne((String) name, directory, root);
+                if (backups == null) backups = backups(scId);
+                String how = restoreOne((String) name, directory, root, backups);
                 if (jar.isFile() && dex.isFile()) {
                     LibraryAutoResolve.refresh(library, directory);
                     changed = true;
@@ -117,10 +121,20 @@ public final class LibraryIntegrity {
         File[] files = directory.listFiles();
         if (files == null) return false;
         for (File file : files) {
-            String lower = file.getName().toLowerCase(Locale.ROOT);
-            if (file.isFile() && !lower.equals("classes.jar") && (lower.endsWith(".aar") || lower.endsWith(".jar"))) return true;
+            if (file.isFile() && isLibraryArchive(file.getName())) return true;
         }
         return false;
+    }
+
+    /**
+     * An .aar/.jar left in a library's folder that can be the library itself. Not the parts of an
+     * unpacked .aar (lint.jar), sources or javadoc, or a leftover of an interrupted install.
+     */
+    private static boolean isLibraryArchive(String fileName) {
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        if (!(lower.endsWith(".aar") || lower.endsWith(".jar"))) return false;
+        return !lower.equals("classes.jar") && !lower.equals("lint.jar") && !lower.startsWith("_inner_")
+                && !lower.endsWith("-sources.jar") && !lower.endsWith("-javadoc.jar") && !lower.startsWith(".");
     }
 
     private static final long RETRY_AFTER_MS = 5 * 60_000L;
@@ -129,8 +143,8 @@ public final class LibraryIntegrity {
 
     private static String missingNote(String name, String why) {
         return "Local library '" + name + "' is enabled but its classes.jar is missing and it couldn't be restored: "
-                + why + " Download it again in Local library manager (or Import file with its .aar/.jar), or switch "
-                + "it off if the project doesn't use it.";
+                + why + " It is left out of this build. Download it again in Local library manager (or Import file "
+                + "with its .aar/.jar), or switch it off if the project doesn't use it.";
     }
 
     /** A library's name is its folder name: one path segment, nothing that leads out of local_libs. */
@@ -140,37 +154,93 @@ public final class LibraryIntegrity {
     }
 
     /** @return how the library was restored, or why it wasn't */
-    private static String restoreOne(String name, File directory, File root) {
+    private static String restoreOne(String name, File directory, File root, List<File> backups) {
         // 1. From what is still on the phone.
         File[] files = directory.listFiles();
         if (files != null) {
             for (File file : files) {
-                String lower = file.getName().toLowerCase(Locale.ROOT);
-                if (!file.isFile() || lower.equals("classes.jar")) continue;
-                if (!(lower.endsWith(".aar") || lower.endsWith(".jar"))) continue;
+                if (!file.isFile() || !isLibraryArchive(file.getName())) continue;
                 if (addMissingFiles(file, directory, root) && finish(directory, null)) {
                     return "it was restored from " + file.getName() + " in its folder.";
                 }
             }
         }
-        // 2. The same library again from its repository.
-        String coordinate = coordinate(name, directory);
-        if (coordinate == null) {
-            return "its folder has no .aar/.jar to restore it from, and nothing records where it was downloaded from.";
+        // 2. From the project's own backup, if it was made with its local libraries.
+        try {
+            for (File archive : backups) {
+                if (ProjectBackups.findLibrary(java.util.Collections.singletonList(archive), name) == null) continue;
+                int written = ProjectBackups.extractTree(archive, "local_libs/" + name, directory);
+                if (written > 0 && new File(directory, "classes.jar").isFile() && finish(directory, null)) {
+                    return "it was restored from this project's backup " + archive.getName() + ".";
+                }
+            }
+        } catch (RuntimeException e) {
+            LogUtil.e(TAG, "Couldn't restore " + name + " from a backup", e);
         }
-        String[] gav = MavenFetcher.parse(coordinate);
-        MavenFetcher.Result fetched = LibraryHeal.fetch(coordinate, root);
-        if (fetched.file == null) {
-            FAILED.put(name, System.currentTimeMillis());
-            return coordinate + " couldn't be downloaded ("
-                    + (fetched.networkFailed ? "no internet connection" : "not found in Google Maven, Maven Central or JitPack") + ").";
+        // 3. The same library again from its repository.
+        List<Candidate> candidates = candidates(name, directory);
+        if (candidates.isEmpty()) {
+            return "its folder has no .aar/.jar to restore it from, this project has no backup that holds it, and "
+                    + "neither its name nor a download record says which library it is.";
         }
-        boolean added = addMissingFiles(fetched.file, directory, root);
-        fetched.file.delete();
-        if (!added) return coordinate + " was downloaded, but it holds no classes.";
-        if (!new File(directory, SOURCE_FILE).isFile()) writeSource(directory, coordinate, fetched.url);
-        if (!finish(directory, gav[0])) return coordinate + " was downloaded, but couldn't be converted to dex.";
-        return coordinate + " was downloaded again; its classes.jar and whatever else was missing were put back.";
+        String failure = null;
+        for (Candidate candidate : candidates) {
+            String[] gav = MavenFetcher.parse(candidate.coordinate);
+            MavenFetcher.Result fetched = LibraryHeal.fetch(candidate.coordinate, root);
+            if (fetched.file == null) {
+                if (fetched.networkFailed) {
+                    FAILED.put(name, System.currentTimeMillis());
+                    return candidate.coordinate + " couldn't be downloaded (no internet connection).";
+                }
+                if (failure == null) {
+                    failure = candidate.coordinate + " couldn't be downloaded (not found in Google Maven, Maven Central or JitPack).";
+                }
+                continue;
+            }
+            // A library known by its folder name must hold the package it is known for.
+            if (candidate.mustContain != null && !holdsPackage(fetched.file, candidate.mustContain)) {
+                fetched.file.delete();
+                failure = candidate.coordinate + " was downloaded, but it isn't the library this name stands for (no "
+                        + candidate.mustContain.replace('/', '.') + " in it), so it wasn't used.";
+                continue;
+            }
+            boolean added = addMissingFiles(fetched.file, directory, root);
+            fetched.file.delete();
+            if (!added) {
+                failure = candidate.coordinate + " was downloaded, but it holds no classes.";
+                continue;
+            }
+            if (!new File(directory, SOURCE_FILE).isFile()) writeSource(directory, candidate.coordinate, fetched.url);
+            if (!finish(directory, gav[0])) return candidate.coordinate + " was downloaded, but couldn't be converted to dex.";
+            return candidate.coordinate + " was downloaded again; its classes.jar and whatever else was missing were put back.";
+        }
+        FAILED.put(name, System.currentTimeMillis());
+        return failure;
+    }
+
+    /** Whether an .aar/.jar (or the classes.jar inside an .aar) has classes under {@code packagePath} ("com/google/zxing"). */
+    private static boolean holdsPackage(File archive, String packagePath) {
+        String prefix = packagePath + "/";
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(archive)) {
+            java.util.zip.ZipEntry inner = zip.getEntry("classes.jar");
+            if (inner == null) {
+                java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+                while (entries.hasMoreElements()) {
+                    String entry = entries.nextElement().getName();
+                    if (entry.startsWith(prefix) && entry.endsWith(".class")) return true;
+                }
+                return false;
+            }
+            try (java.util.zip.ZipInputStream classes = new java.util.zip.ZipInputStream(zip.getInputStream(inner))) {
+                java.util.zip.ZipEntry entry;
+                while ((entry = classes.getNextEntry()) != null) {
+                    if (entry.getName().startsWith(prefix) && entry.getName().endsWith(".class")) return true;
+                }
+            }
+        } catch (Exception e) {
+            // Unreadable: not proven.
+        }
+        return false;
     }
 
     /**
@@ -218,27 +288,171 @@ public final class LibraryIntegrity {
         }
     }
 
+    /** A coordinate to try, and for a library known only by its name the package its jar must hold. */
+    static final class Candidate {
+        final String coordinate;
+        final String mustContain;
+
+        Candidate(String coordinate, String mustContain) {
+            this.coordinate = coordinate;
+            this.mustContain = mustContain;
+        }
+    }
+
+    private static final java.util.regex.Pattern SPELLED_OUT = java.util.regex.Pattern.compile(
+            "^([A-Za-z][\\w]*(?:\\.[\\w]+)+)-(.+?)-(v?\\d[\\w.+-]*)$");
+
     /**
-     * Where to download a library again: what was recorded when it was installed, or the
-     * coordinate of a well-known library with exactly this folder name ("artifact_V_version").
+     * Where to download a library again, most certain first:
+     * <ol>
+     *     <li>what was recorded when it was installed (source.json);</li>
+     *     <li>a folder name that spells the whole coordinate, "group-artifact-version" with a
+     *     dotted group ("com.google.zxing-core-3.4.0");</li>
+     *     <li>"artifact_V_version" or "artifact-vversion" ("core-v3.4.1") when a well-known
+     *     library has exactly that artifact and version; what is downloaded must then hold the
+     *     package the library is known for.</li>
+     * </ol>
      *
-     * @return "group:artifact:version", or null when that isn't known
+     * @return the coordinates to try in order; empty when the library can't be identified
      */
-    static String coordinate(String name, File directory) {
+    static List<Candidate> candidates(String name, File directory) {
+        List<Candidate> out = new ArrayList<>();
         Source source = readSource(directory);
-        if (source != null && MavenFetcher.parse(source.coordinate) != null) return source.coordinate;
+        if (source != null && validCoordinate(source.coordinate)) {
+            out.add(new Candidate(source.coordinate, null));
+            return out;
+        }
+        java.util.regex.Matcher spelled = SPELLED_OUT.matcher(name);
+        if (spelled.matches()) {
+            String coordinate = spelled.group(1) + ":" + spelled.group(2) + ":" + spelled.group(3);
+            // "socket.io-client-2.1.0" also has this shape, and its "group" is not one. What is
+            // downloaded must hold classes under the group's own package, or it isn't used.
+            String[] segments = spelled.group(1).split("\\.");
+            if (validCoordinate(coordinate) && segments.length >= 2) {
+                out.add(new Candidate(coordinate, segments[0] + "/" + segments[1]));
+            }
+            return out;
+        }
+        String artifact;
+        List<String> versions = new ArrayList<>();
         int split = name.lastIndexOf("_V_");
-        if (split <= 0 || split + 3 >= name.length()) return null;
-        String artifact = name.substring(0, split);
-        String version = name.substring(split + 3);
-        for (String known : LibraryAutoResolve.knownCoordinates()) {
-            String[] gav = MavenFetcher.parse(known);
-            if (gav != null && gav[1].equals(artifact) && gav[2].equals(version)) return known;
+        if (split > 0 && split + 3 < name.length()) {
+            artifact = name.substring(0, split);
+            versions.add(name.substring(split + 3));
+        } else {
+            // Sketchware Pro's own downloader: "<artifact>-v<version>".
+            split = name.lastIndexOf("-v");
+            if (split <= 0 || split + 2 >= name.length() || !Character.isDigit(name.charAt(split + 2))) return out;
+            artifact = name.substring(0, split);
+            versions.add(name.substring(split + 2));
+            versions.add(name.substring(split + 1)); // JitPack tags: "v3.1.0"
         }
-        for (String[] group : GROUPS) {
-            if (group[0].equals(artifact)) return group[1] + ":" + artifact + ":" + version;
+        for (String version : versions) {
+            for (String[] known : LibraryAutoResolve.knownLibraries()) {
+                String[] gav = MavenFetcher.parse(known[1]);
+                if (gav != null && gav[1].equals(artifact) && gav[2].equals(version)) {
+                    out.add(new Candidate(known[1], known[0].replace('.', '/')));
+                }
+            }
         }
-        return null;
+        for (String version : versions) {
+            for (String[] group : GROUPS) {
+                String coordinate = group[1] + ":" + artifact + ":" + version;
+                boolean listed = false;
+                for (Candidate candidate : out) if (candidate.coordinate.equals(coordinate)) listed = true;
+                if (group[0].equals(artifact) && !listed) out.add(new Candidate(coordinate, null));
+            }
+        }
+        return out;
+    }
+
+    private static final java.util.regex.Pattern COORDINATE_PART = java.util.regex.Pattern.compile("[A-Za-z0-9_][A-Za-z0-9_.+-]*");
+
+    /** "group:artifact:version" whose parts can't lead out of a repository path or a folder. */
+    static boolean validCoordinate(String coordinate) {
+        String[] gav = MavenFetcher.parse(coordinate);
+        if (gav == null) return false;
+        for (String part : gav) {
+            if (!COORDINATE_PART.matcher(part).matches() || part.contains("..")) return false;
+        }
+        return true;
+    }
+
+    /** This project's own backups, newest first; empty when its name and package can't be read. */
+    private static List<File> backups(String scId) {
+        try {
+            HashMap<String, Object> meta = a.a.a.lC.b(scId);
+            if (meta == null) return new ArrayList<>();
+            return ProjectBackups.archives(new File(mod.hey.studios.project.backup.BackupFactory.getBackupDir()),
+                    a.a.a.yB.c(meta, "my_sc_pkg_name"), a.a.a.yB.c(meta, "my_ws_name"));
+        } catch (Throwable t) {
+            LogUtil.e(TAG, "Couldn't list the project's backups", t);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Takes out of a build's library list every entry that names a classes.jar or classes.dex
+     * that isn't there. The project's own list is not changed: the library stays enabled, and
+     * the next build tries to restore it again.
+     *
+     * @param libraries the list one build works with (not the saved one)
+     * @return the names that were left out
+     */
+    public static List<String> usable(List<HashMap<String, Object>> libraries) {
+        return usable(null, libraries);
+    }
+
+    /** Entries a build left out, by project: {position in the project's list, entry}. */
+    private static final java.util.Map<String, List<Object[]>> LEFT_OUT = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * As {@link #usable(List)}, for the list a build compiles with. The entries taken out are
+     * remembered, so that code which saves the build's list ({@link LibraryHeal#run} when it
+     * enables another library) writes them back with {@link #withLeftOut}: being left out of a
+     * build never switches a library off in the project.
+     */
+    public static List<String> usable(String scId, List<HashMap<String, Object>> libraries) {
+        List<String> leftOut = new ArrayList<>();
+        List<Object[]> entries = new ArrayList<>();
+        if (libraries != null) {
+            int position = 0;
+            for (java.util.Iterator<HashMap<String, Object>> it = libraries.iterator(); it.hasNext(); position++) {
+                HashMap<String, Object> library = it.next();
+                Object jar = library.get("jarPath");
+                Object dex = library.get("dexPath");
+                boolean jarGone = jar instanceof String && !((String) jar).isEmpty() && !new File((String) jar).isFile();
+                boolean dexGone = dex instanceof String && !((String) dex).isEmpty() && !new File((String) dex).isFile();
+                if (!jarGone && !dexGone) continue;
+                it.remove();
+                leftOut.add(String.valueOf(library.get("name")));
+                entries.add(new Object[]{position, library});
+            }
+        }
+        if (scId != null) {
+            if (entries.isEmpty()) LEFT_OUT.remove(scId);
+            else LEFT_OUT.put(scId, entries);
+        }
+        return leftOut;
+    }
+
+    /** The build's list with the entries {@link #usable(String, List)} took out put back in their places. */
+    @SuppressWarnings("unchecked")
+    public static List<HashMap<String, Object>> withLeftOut(String scId, List<HashMap<String, Object>> libraries) {
+        List<Object[]> entries = scId == null ? null : LEFT_OUT.get(scId);
+        if (entries == null || entries.isEmpty()) return libraries;
+        List<HashMap<String, Object>> all = new ArrayList<>(libraries);
+        for (Object[] entry : entries) {
+            HashMap<String, Object> library = (HashMap<String, Object>) entry[1];
+            boolean present = false;
+            for (HashMap<String, Object> other : all) {
+                if (String.valueOf(other.get("name")).equals(String.valueOf(library.get("name")))) present = true;
+            }
+            if (present) continue;
+            int position = Math.min((Integer) entry[0], all.size());
+            all.add(position, library);
+        }
+        return all;
     }
 
     public static Source readSource(File directory) {

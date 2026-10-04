@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker of the view property panel: glass pill with a chevron at the end. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ob_pill_state" />
+    <item
+        android:width="18dp"
+        android:height="18dp"
+        android:drawable="@drawable/ob_ic_chevron_down"
+        android:end="10dp"
+        android:gravity="end|center_vertical" />
+</layer-list>

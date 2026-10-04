@@ -87,7 +87,8 @@ public final class SourceMaps {
                 if (maps == null) STAGED.put(scId, maps = new LinkedHashMap<>());
                 if (!extracted.code.equals(classic)) {
                     maps.remove(name);
-                    PROBLEMS.put(scId + "/" + name, "the marked generation differs from the normal one");
+                    PROBLEMS.put(scId + "/" + name, "generating it twice gave different code, first at line "
+                            + firstDifferentLine(extracted.code, classic));
                     return;
                 }
                 extracted.map.file = name;
@@ -107,6 +108,16 @@ public final class SourceMaps {
                 PROBLEMS.put(scId + "/" + name, String.valueOf(t));
             }
         }
+    }
+
+    private static int firstDifferentLine(String a, String b) {
+        int line = 1;
+        int n = Math.min(a.length(), b.length());
+        for (int i = 0; i < n; i++) {
+            if (a.charAt(i) != b.charAt(i)) return line;
+            if (a.charAt(i) == '\n') line++;
+        }
+        return line;
     }
 
     /** A \r that isn't part of \r\n, other than at the very end of the file (nothing follows it there). */

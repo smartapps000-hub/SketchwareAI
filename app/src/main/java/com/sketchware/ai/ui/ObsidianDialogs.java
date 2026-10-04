@@ -20,6 +20,7 @@ public final class ObsidianDialogs {
         try {
             if (dialog.getWindow() != null) {
                 ObsidianAdapter.adaptLive(dialog.getWindow().getDecorView());
+                ObsidianInputs.style(dialog.getWindow().getDecorView());
             }
             float density = dialog.getContext().getResources().getDisplayMetrics().density;
             styleButton(dialog.getButton(DialogInterface.BUTTON_NEUTRAL), false, density);
@@ -72,7 +73,10 @@ public final class ObsidianDialogs {
     public static void finish(android.app.Dialog dialog, View customView) {
         try {
             dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            if (customView != null) ObsidianAdapter.adaptLive(customView);
+            if (customView != null) {
+                ObsidianAdapter.adaptLive(customView);
+                ObsidianInputs.style(customView);
+            }
             android.widget.TextView left = dialog.findViewById(R.id.common_dialog_default_button);
             View no = dialog.findViewById(R.id.dialog_btn_no);
             View yes = dialog.findViewById(R.id.dialog_btn_yes);

@@ -166,6 +166,8 @@ public class aB extends Dialog {
             }
             // Classic content (dark text on white) is re-coloured for the dark glass sheet.
             com.sketchware.ai.ui.ObsidianAdapter.adaptLive(dialogCustomView);
+            // One input theme for every dialog: light text, readable labels, amber focus.
+            com.sketchware.ai.ui.ObsidianInputs.style(dialogCustomView);
             dialogCustomViewContainer.addView(dialogCustomView);
         } else {
             dialogCustomViewContainer.setVisibility(View.GONE);

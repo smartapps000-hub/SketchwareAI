@@ -191,7 +191,35 @@ public final class BuildMap {
             text.append('\n');
         }
         text.append("    total ").append(seconds(current.durationMs));
+        String environment = environment();
+        if (!environment.isEmpty()) text.append("\n    built with ").append(environment);
         return text.toString();
+    }
+
+    /** How long the build that just ended took, or 0. */
+    public static synchronized long lastDurationMs() {
+        return current == null ? 0 : current.durationMs;
+    }
+
+    /** "v1.8.2-abc (172)" */
+    public static String appVersion() {
+        try {
+            return com.sketchware.remod.BuildConfig.VERSION_NAME + " (" + com.sketchware.remod.BuildConfig.VERSION_CODE + ")";
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /** "Sketchware AI v1.8.2-abc (172) on Android 15 (API 35), arm64-v8a": which app and phone made the log. */
+    private static String environment() {
+        try {
+            String abi = android.os.Build.SUPPORTED_ABIS != null && android.os.Build.SUPPORTED_ABIS.length > 0
+                    ? android.os.Build.SUPPORTED_ABIS[0] : "?";
+            return "Sketchware AI " + appVersion() + " on Android " + android.os.Build.VERSION.RELEASE + " (API "
+                    + android.os.Build.VERSION.SDK_INT + "), " + abi;
+        } catch (Throwable t) {
+            return "";
+        }
     }
 
     private static String mark(String status) {

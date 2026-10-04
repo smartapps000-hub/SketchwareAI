@@ -42,3 +42,8 @@ Whether a generated APK runs on a given Android version depends on that project'
 |---|---|
 | (none by the developer of this fork) | no generated APK has been installed or started off-device |
 | user's phone (API not recorded) | project #644's APK installed and started (v1.8.0) |
+
+## v1.8.2 (4 Oct 2026)
+- Primary device baseline named by the owner: Android 15 (API 35). Results on it are reported by the owner; none are
+  recorded here yet for 1.8.2. Android 16 / 17: NOT TESTED. Engine checks in the sandbox ran on an API 31 ART runtime.
+- See `v1.8.2-verification.md`, `android15-audit.md`, `android15-device-test-plan.md`.

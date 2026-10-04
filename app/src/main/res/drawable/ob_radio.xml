@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact 20dp radio mark for option rows that must fit five choices on one line (Build
+     Settings): amber ring and dot when checked, light ring when not. Vectors, so the mark looks
+     the same with or without the tint com.sketchware.ai.ui.ObsidianInputs puts on it. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:drawable="@drawable/ob_radio_on" />
+    <item android:drawable="@drawable/ob_radio_off" />
+</selector>

@@ -80,6 +80,8 @@ public class Jx {
         projectDataManager = eCVar;
         buildConfig = jqVar;
         mll = new ManageLocalLibrary(eCVar.a);
+        // No import for the package of a library whose files aren't there (the build leaves it out).
+        com.sketchware.ai.project.LibraryIntegrity.usable(mll.list);
         settings = new ProjectSettings(eCVar.a);
         permissionManager = new PermissionManager(eCVar.a, projectFileBean.getJavaName());
     }

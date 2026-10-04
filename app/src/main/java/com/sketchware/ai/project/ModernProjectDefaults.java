@@ -10,9 +10,10 @@ import mod.hey.studios.project.ProjectSettings;
 /**
  * Settings written into every project created in Sketchware AI.
  * <p>
- * Projects created before (including ones imported from Sketchware Pro) have no stored value
- * and keep the legacy defaults (targetSdk 28, Dx, Java 1.7), so their builds do not change
- * behind the user's back. New projects start Play-ready:
+ * Projects created before (including ones imported from Sketchware Pro) keep what they stored.
+ * Where they stored nothing, the target SDK stays the legacy 28, and the dexer and Java level
+ * are D8 and Java 11 on Android 8.0+ (Dx and Java 1.7 below), see {@link #defaultDexer}.
+ * New projects start Play-ready:
  * <ul>
  *     <li>targetSdkVersion 37 (Android 17); avoids Play Protect's "built for an older version of
  *     Android" block.</li>
@@ -48,6 +49,7 @@ public final class ModernProjectDefaults {
 
     /** Writes the modern defaults for a project that was just created. Keeps existing values. */
     public static void applyToNewProject(String scId) {
+        BuildSettings.forgetMisplaced(scId);
         Map<String, String> project = new HashMap<>();
         project.put(ProjectSettings.SETTING_MINIMUM_SDK_VERSION, String.valueOf(NEW_PROJECT_MIN_SDK));
         project.put(ProjectSettings.SETTING_TARGET_SDK_VERSION, String.valueOf(NEW_PROJECT_TARGET_SDK));

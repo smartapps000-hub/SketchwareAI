@@ -52,11 +52,33 @@ public class SimpleHighlighter {
         for (SyntaxScheme scheme : syntaxList) {
             for (Matcher m = scheme.pattern.matcher(editable); m.find(); ) {
                 if (scheme == scheme.getPrimarySyntax()) {
-                    editable.setSpan(new ForegroundColorSpan(scheme.color), m.start(), m.end() - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    editable.setSpan(new SurfaceColorSpan(scheme.color), m.start(), m.end() - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 } else {
-                    editable.setSpan(new ForegroundColorSpan(scheme.color), m.start(), m.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    editable.setSpan(new SurfaceColorSpan(scheme.color), m.start(), m.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 }
             }
+        }
+    }
+
+    /**
+     * A syntax colour that follows the surface the field is on. The scheme's colours were made
+     * for white paper (#000000, #010088, ...); both fields that use this highlighter now sit on
+     * dark Obsidian surfaces. When the field's own text colour is light (so the ground is dark)
+     * the colour is lifted to a readable tint of the same hue; on a light field it is unchanged.
+     * Decided when the text is drawn, so it stays right if the field is re-coloured later.
+     */
+    private static final class SurfaceColorSpan extends ForegroundColorSpan {
+
+        SurfaceColorSpan(int color) {
+            super(color);
+        }
+
+        @Override
+        public void updateDrawState(android.text.TextPaint paint) {
+            int base = paint.getColor();
+            int color = getForegroundColor();
+            paint.setColor(com.sketchware.ai.ui.ObsidianInputs.isLight(base)
+                    ? com.sketchware.ai.ui.ObsidianInputs.onDark(color) : color);
         }
     }
 

@@ -51,7 +51,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/sora_bold"
                 android:maxLines="1"
-                android:text="Sketchware AI Diagnostic"
+                android:text="Build Doctor"
                 android:textSize="16sp" />
 
             <TextView
@@ -62,6 +62,20 @@
                 android:layout_marginTop="2dp"
                 android:textSize="11sp" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/ob_diag_history"
+            style="@style/Ob.Text.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_marginLeft="8dp"
+            android:background="@drawable/ob_pill16_state"
+            android:maxLines="1"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="History"
+            android:textSize="12.5sp" />
     </LinearLayout>
 
     <!-- The sheet doesn't clip its children (glows), so this frame keeps scrolled text inside. -->
@@ -94,14 +108,27 @@
                 android:padding="10dp">
 
                 <TextView
+                    android:id="@+id/ob_diag_first_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/manrope_extrabold"
                     android:includeFontPadding="false"
                     android:letterSpacing="0.03"
-                    android:text="FIRST ERROR"
+                    android:text="CURRENT PROBLEM"
                     android:textColor="@color/ob_accent"
                     android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/ob_diag_title"
+                    style="@style/Ob.Text.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/manrope_bold"
+                    android:lineSpacingMultiplier="1.12"
+                    android:textColor="@color/ob_text"
+                    android:textIsSelectable="true"
+                    android:textSize="13.5sp" />
 
                 <TextView
                     android:id="@+id/ob_diag_first_error"
@@ -114,11 +141,60 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
+            <!-- RESULT: fixed or not, and what building again would do. -->
+            <TextView
+                android:id="@+id/ob_diag_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/ob_dashed_box"
+                android:fontFamily="@font/manrope_medium"
+                android:lineSpacingMultiplier="1.12"
+                android:paddingLeft="10dp"
+                android:paddingTop="8dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="8dp"
+                android:textColor="@color/ob_text_3"
+                android:textSize="12sp" />
+
+            <!-- WHAT I FOUND: the failed step's own findings and known-pattern advice. -->
+            <TextView
+                android:id="@+id/ob_diag_found_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/manrope_extrabold"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.03"
+                android:text="WHAT I FOUND"
+                android:textColor="@color/ob_text_2"
+                android:textSize="10.5sp" />
+
+            <TextView
+                android:id="@+id/ob_diag_advice"
+                style="@style/Ob.Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:lineSpacingMultiplier="1.15"
+                android:textIsSelectable="true"
+                android:textSize="12.5sp" />
+
+            <!-- One card per resource that is not on the phone (ob_diagnostic_resource), filled in code. -->
+            <LinearLayout
+                android:id="@+id/ob_diag_resources"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
             <!-- One card per repair that can be stored in a block (ob_diagnostic_fix), filled in code. -->
             <LinearLayout
                 android:id="@+id/ob_diag_fixes"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical"
                 android:visibility="gone" />
 
@@ -127,32 +203,56 @@
                 android:id="@+id/ob_diag_problems"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical"
                 android:visibility="gone" />
 
+            <!-- WHAT CHANGED: one card per thing the build repaired by itself (ob_diagnostic_change). -->
             <TextView
-                android:id="@+id/ob_diag_advice"
+                android:id="@+id/ob_diag_changes_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/manrope_extrabold"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.03"
+                android:text="WHAT THIS BUILD CHANGED"
+                android:textColor="@color/ob_text_2"
+                android:textSize="10.5sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/ob_diag_changes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <!-- BUILD STEPS: the build map as a timeline. -->
+            <TextView
+                android:id="@+id/ob_diag_steps_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/manrope_extrabold"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.03"
+                android:text="BUILD STEPS"
+                android:textColor="@color/ob_text_2"
+                android:textSize="10.5sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ob_diag_steps"
                 style="@style/Ob.Text.Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:lineSpacingMultiplier="1.15"
-                android:textIsSelectable="true"
-                android:textSize="12.5sp" />
+                android:layout_marginTop="4dp"
+                android:lineSpacingMultiplier="1.25"
+                android:textSize="12sp"
+                android:visibility="gone" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/ob_dashed_box"
-                android:fontFamily="@font/manrope_regular"
-                android:paddingLeft="10dp"
-                android:paddingTop="8dp"
-                android:paddingRight="10dp"
-                android:paddingBottom="8dp"
-                android:text="Missing libraries, missing imports and unreachable code are repaired automatically when you build again."
-                android:textColor="@color/ob_text_2"
-                android:textSize="11.5sp" />
         </LinearLayout>
     </ScrollView>
     </FrameLayout>

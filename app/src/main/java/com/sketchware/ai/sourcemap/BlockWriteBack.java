@@ -64,6 +64,15 @@ public final class BlockWriteBack {
         public String message;
         /** The line inside the block's code that the build's message is about (from 1), or 0. */
         public int problemLine;
+        /**
+         * Set when the repair spans several blocks of one event (a "try {" block and its
+         * "} catch" block): all proposals with the same group are stored and taken back together.
+         */
+        public String group;
+        /** How many blocks the group has (1 when the proposal stands alone). */
+        public int groupSize = 1;
+        /** Open braces minus close braces the repair adds to this block alone; 0 unless grouped. */
+        public int braces;
 
         /** "MainActivity → MoreBlock Bt_Perm → block 2 (add source directly)" */
         public String where() {
@@ -87,6 +96,22 @@ public final class BlockWriteBack {
 
     private static final Pattern FIX_LINE = Pattern.compile("^([\\w$]+\\.java):(\\d+) ");
 
+    /** A block the build repaired that can't take the repair, and why. */
+    public static final class Skipped {
+        public String file;
+        public int startLine;
+        public int endLine;
+        public String reason;
+    }
+
+    /** What {@link #collect} found for one build. */
+    public static final class Collected {
+        public final List<Proposal> proposals = new ArrayList<>();
+        public final List<Skipped> skipped = new ArrayList<>();
+        /** Generated files the build repaired that have a proven source map. */
+        final List<String> mappedRepairedFiles = new ArrayList<>();
+    }
+
     /**
      * Called by a build that compiled after repairs: which blocks could store them.
      *
@@ -94,20 +119,71 @@ public final class BlockWriteBack {
      * @param fixes the repairs' messages ("MainActivity.java:152 unreachable code ...")
      */
     public static List<Proposal> collect(ErrorOrigins.Session session, eC data, List<String> fixes) {
-        List<Proposal> proposals = new ArrayList<>();
-        if (session == null || data == null) return proposals;
+        return collectAll(session, data, fixes).proposals;
+    }
+
+    /** As {@link #collect}, and for every repaired block that can't store its repair the reason. */
+    public static Collected collectAll(ErrorOrigins.Session session, eC data, List<String> fixes) {
+        Collected collected = new Collected();
+        if (session == null || data == null) return collected;
         for (String path : session.mappedFiles()) {
             try {
-                collectFile(session, data, fixes, path, proposals);
+                collectFile(session, data, fixes, path, collected);
             } catch (Exception e) {
                 // No proposal for this file.
             }
         }
-        return proposals;
+        return collected;
+    }
+
+    /**
+     * Why the repair a build message names isn't offered for storing, in words for the log; null
+     * when it is offered or the message names no line.
+     *
+     * @param scId for the reason a file has no source map
+     */
+    public static String whyNot(ErrorOrigins.Session session, Collected collected, String scId, String fixMessage) {
+        Matcher m = FIX_LINE.matcher(fixMessage);
+        if (!m.find()) return null;
+        String fileName = m.group(1);
+        int line = Integer.parseInt(m.group(2));
+        if (covers(collected.proposals, fixMessage)) return null;
+        // The message names the line the compiler complained about; the repair itself is usually
+        // in front of it (the statement that was wrapped). The closest repaired block before it says why.
+        Skipped nearest = null;
+        for (Skipped skipped : collected.skipped) {
+            if (!skipped.file.equals(fileName)) continue;
+            if (line >= skipped.startLine && line <= skipped.endLine) return skipped.reason;
+            if (skipped.endLine <= line && (nearest == null || skipped.endLine > nearest.endLine)) nearest = skipped;
+        }
+        if (nearest != null) return nearest.reason;
+        String path = null;
+        if (session != null) {
+            for (String mapped : session.mappedFiles()) {
+                if (new File(mapped).getName().equals(fileName)) path = mapped;
+            }
+        }
+        if (path == null) {
+            String problem = SourceMaps.problem(scId, fileName);
+            return problem == null ? "there is no proven source map for " + fileName + " (it is a custom Java file, or it was changed after it was generated)"
+                    : "the lines of " + fileName + " couldn't be matched to blocks for certain (" + problem + ")";
+        }
+        SourceMap.Origin origin = session.map(path).resolve(line);
+        if (origin == null || origin.block == null) {
+            return "line " + line + " is code Sketchware writes around your blocks (a listener, a component or the "
+                    + "activity's frame), not a block's own code";
+        }
+        return "the repaired lines are in a different block than the line the message names";
+    }
+
+    /** One changed block before it is decided whether it can stand alone. */
+    private static final class Draft {
+        Proposal proposal;
+        String eventKey;
     }
 
     private static void collectFile(ErrorOrigins.Session session, eC data, List<String> fixes, String path,
-                                    List<Proposal> proposals) throws Exception {
+                                    Collected collected) throws Exception {
         String original = session.original(path);
         SourceMap map = session.map(path);
         if (original == null || map == null) return;
@@ -115,15 +191,25 @@ public final class BlockWriteBack {
         if (healed.equals(original)) return;
         String[] was = original.split("\n", -1);
         String[] now = healed.split("\n", -1);
-        if (was.length != now.length) return;
+        if (was.length != now.length) {
+            skip(collected, new File(path).getName(), 1, Integer.MAX_VALUE - 1, "the repair added or removed lines in "
+                    + new File(path).getName() + ", so its lines can't be matched to blocks one for one");
+            return;
+        }
+        collected.mappedRepairedFiles.add(path);
 
         // Changed lines, grouped by the block they belong to.
         Map<String, List<Integer>> byBlock = new LinkedHashMap<>();
         Map<String, SourceMap.Origin> origins = new LinkedHashMap<>();
+        String fileName = new File(path).getName();
         for (int i = 0; i < was.length; i++) {
             if (was[i].equals(now[i])) continue;
             SourceMap.Origin origin = map.resolve(i + 1);
-            if (origin == null || origin.block == null) continue;
+            if (origin == null || origin.block == null) {
+                skip(collected, fileName, i + 1, i + 1, "line " + (i + 1) + " is code Sketchware writes around your "
+                        + "blocks (a listener, a component or the activity's frame), not a block's own code");
+                continue;
+            }
             String key = origin.block.event + ":" + origin.block.blockId;
             List<Integer> lines = byBlock.get(key);
             if (lines == null) {
@@ -133,24 +219,39 @@ public final class BlockWriteBack {
             lines.add(i + 1);
         }
 
-        String fileName = new File(path).getName();
+        List<Draft> drafts = new ArrayList<>();
         for (Map.Entry<String, List<Integer>> group : byBlock.entrySet()) {
             SourceMap.Origin origin = origins.get(group.getKey());
             SourceMap.Entry block = origin.block;
-            if (!"addSourceDirectly".equals(block.opCode)) continue;
+            String where = "block " + block.position + " of " + SourceMaps.describe(origin.event);
+            if (!"addSourceDirectly".equals(block.opCode)) {
+                skip(collected, fileName, block.start, block.end, "the repaired line comes from the block \""
+                        + block.opCode + "\" (" + where + "); its Java is written by Sketchware, and only the code of "
+                        + "an add-source-directly block can take a repair");
+                continue;
+            }
             BlockBean bean = find(data, fileName, origin.event, block.blockId);
-            if (bean == null || !"addSourceDirectly".equals(bean.opCode) || bean.parameters.isEmpty()) continue;
+            if (bean == null || !"addSourceDirectly".equals(bean.opCode) || bean.parameters.isEmpty()) {
+                skip(collected, fileName, block.start, block.end, where + " isn't in the open project any more");
+                continue;
+            }
             String code = bean.parameters.get(0);
-            if (code == null || code.isEmpty() || code.charAt(0) == '@') continue;
+            if (code == null || code.isEmpty() || code.charAt(0) == '@') {
+                skip(collected, fileName, block.start, block.end, where + " takes its code from another block's value, not from text");
+                continue;
+            }
             String[] lines = code.split("\n", -1);
             int count = block.end - block.start + 1;
-            if (lines.length != count) continue;
             // The block's generated lines must be its code's lines, one for one.
-            boolean sameLines = true;
+            boolean sameLines = lines.length == count;
             for (int i = 0; i < count && sameLines; i++) {
                 sameLines = essence(was[block.start - 1 + i]).equals(essence(lines[i]));
             }
-            if (!sameLines) continue;
+            if (!sameLines) {
+                skip(collected, fileName, block.start, block.end, "the code of " + where + " and the lines generated "
+                        + "from it don't match one for one (" + lines.length + " lines of code, " + count + " generated)");
+                continue;
+            }
 
             Proposal proposal = new Proposal();
             StringBuilder after = new StringBuilder(code.length() + 64);
@@ -177,8 +278,7 @@ public final class BlockWriteBack {
             }
             if (proposal.firstChangedLine == 0) continue;
             proposal.after = after.toString();
-            // A repair whose braces only balance together with another block's lines can't be stored alone.
-            if (braceBalance(proposal.after) != braceBalance(code)) continue;
+            proposal.braces = braceBalance(proposal.after) - braceBalance(code);
             proposal.before = code;
             proposal.file = fileName;
             proposal.path = path;
@@ -201,8 +301,72 @@ public final class BlockWriteBack {
                     }
                 }
             }
-            proposals.add(proposal);
+            Draft draft = new Draft();
+            draft.proposal = proposal;
+            draft.eventKey = String.valueOf(block.event);
+            drafts.add(draft);
         }
+
+        /*
+         * A repair that opens a brace in one block and closes it in another ("try {" in one
+         * add-source-directly block, "} catch ..." in a later one) can only be stored in all of
+         * those blocks together. That is possible when every repaired line of the event is in an
+         * add-source-directly block and the braces of all those blocks together balance.
+         */
+        Map<String, Integer> balance = new LinkedHashMap<>();
+        Map<String, Integer> members = new LinkedHashMap<>();
+        for (Draft draft : drafts) {
+            if (draft.proposal.braces == 0) continue;
+            Integer sum = balance.get(draft.eventKey);
+            balance.put(draft.eventKey, (sum == null ? 0 : sum) + draft.proposal.braces);
+            Integer n = members.get(draft.eventKey);
+            members.put(draft.eventKey, (n == null ? 0 : n) + 1);
+        }
+        for (Draft draft : drafts) {
+            Proposal proposal = draft.proposal;
+            if (proposal.braces == 0) {
+                collected.proposals.add(proposal);
+                continue;
+            }
+            boolean othersSkipped = false;
+            for (Skipped skipped : collected.skipped) {
+                if (!skipped.file.equals(fileName)) continue;
+                SourceMap.Origin origin = map.resolve(skipped.startLine);
+                if (origin != null && origin.block != null && draft.eventKey.equals(String.valueOf(origin.block.event))) othersSkipped = true;
+            }
+            if (balance.get(draft.eventKey) == 0 && !othersSkipped) {
+                proposal.group = fileName + ":" + draft.eventKey;
+                proposal.groupSize = members.get(draft.eventKey);
+                // The message names the first line that can't run: the one after the statement the blocks open and close.
+                proposal.message = messageFor(fixes, fileName, firstLine(drafts, draft.eventKey), lastLine(drafts, draft.eventKey) + 1);
+                collected.proposals.add(proposal);
+            } else {
+                skip(collected, fileName, proposal.startLine, proposal.endLine, "the repair opens or closes a brace in block "
+                        + proposal.position + " of " + proposal.where().replaceFirst(" → block \\d+.*$", "")
+                        + " that is matched by code outside add-source-directly blocks, so the block can't hold it alone");
+            }
+        }
+    }
+
+    private static int firstLine(List<Draft> drafts, String eventKey) {
+        int line = Integer.MAX_VALUE;
+        for (Draft draft : drafts) if (draft.eventKey.equals(eventKey)) line = Math.min(line, draft.proposal.startLine);
+        return line;
+    }
+
+    private static int lastLine(List<Draft> drafts, String eventKey) {
+        int line = 0;
+        for (Draft draft : drafts) if (draft.eventKey.equals(eventKey)) line = Math.max(line, draft.proposal.endLine);
+        return line;
+    }
+
+    private static void skip(Collected collected, String file, int start, int end, String reason) {
+        Skipped skipped = new Skipped();
+        skipped.file = file;
+        skipped.startLine = start;
+        skipped.endLine = end;
+        skipped.reason = reason;
+        collected.skipped.add(skipped);
     }
 
     private static String messageFor(List<String> fixes, String fileName, int start, int end) {
@@ -226,9 +390,93 @@ public final class BlockWriteBack {
         if (!m.find()) return false;
         int line = Integer.parseInt(m.group(2));
         for (Proposal proposal : proposals) {
-            if (proposal.file.equals(m.group(1)) && line >= proposal.startLine && line <= proposal.endLine) return true;
+            if (!proposal.file.equals(m.group(1))) continue;
+            if (line >= proposal.startLine && line <= proposal.endLine) return true;
+            if (proposal.group == null) continue;
+            // Between the blocks of a group: the statement the group's blocks open and close.
+            int first = Integer.MAX_VALUE, last = 0;
+            for (Proposal member : proposals) {
+                if (!proposal.group.equals(member.group)) continue;
+                first = Math.min(first, member.startLine);
+                last = Math.max(last, member.endLine);
+            }
+            // The message names the first unreachable line, which follows the wrapped statement.
+            if (line >= first && line <= last + 1) return true;
         }
         return false;
+    }
+
+    /** The proposals that are stored and taken back together with {@code proposal} (itself included). */
+    public static List<Proposal> groupOf(List<Proposal> all, Proposal proposal) {
+        List<Proposal> group = new ArrayList<>();
+        if (proposal.group == null || all == null) {
+            group.add(proposal);
+            return group;
+        }
+        for (Proposal member : all) if (proposal.group.equals(member.group)) group.add(member);
+        if (group.isEmpty()) group.add(proposal);
+        return group;
+    }
+
+    /** The state of a group: APPLIED or NOT_APPLIED only when every block agrees. */
+    public static int state(eC data, List<Proposal> group) {
+        int state = -1;
+        for (Proposal member : group) {
+            int own = state(data, member);
+            if (state == -1) state = own;
+            else if (state != own) return CHANGED;
+        }
+        return state == -1 ? CHANGED : state;
+    }
+
+    /**
+     * Stores a repair that spans several blocks: all of them or none.
+     *
+     * @return null when stored; otherwise why not, with every block left as it was
+     */
+    public static String apply(eC data, List<Proposal> group, Generator generator, File historyDirectory) {
+        if (group.size() == 1) return apply(data, group.get(0), generator, historyDirectory);
+        List<BlockBean> beans = new ArrayList<>();
+        for (Proposal member : group) {
+            BlockBean bean = find(data, member);
+            if (bean == null || bean.parameters.isEmpty()) return "A block of this repair isn't in the project any more.";
+            if (!member.before.equals(bean.parameters.get(0))) {
+                return "A block's code was edited since the build. Build again first.";
+            }
+            beans.add(bean);
+        }
+        for (int i = 0; i < group.size(); i++) beans.get(i).parameters.set(0, group.get(i).after);
+        String problem = null;
+        try {
+            for (Proposal member : group) {
+                problem = prove(member, generator);
+                if (problem != null) break;
+            }
+        } catch (Throwable t) {
+            problem = "Generating the code again failed: " + t;
+        }
+        if (problem != null) {
+            for (int i = 0; i < group.size(); i++) beans.get(i).parameters.set(0, group.get(i).before);
+            return problem;
+        }
+        for (Proposal member : group) note(historyDirectory, member);
+        return null;
+    }
+
+    /** Takes a multi-block repair back: all blocks or none. */
+    public static String undo(eC data, List<Proposal> group) {
+        if (group.size() == 1) return undo(data, group.get(0));
+        List<BlockBean> beans = new ArrayList<>();
+        for (Proposal member : group) {
+            BlockBean bean = find(data, member);
+            if (bean == null || bean.parameters.isEmpty()) return "A block of this repair isn't in the project any more.";
+            if (!member.after.equals(bean.parameters.get(0))) {
+                return "A block's code was edited after the fix was stored; it was left alone.";
+            }
+            beans.add(bean);
+        }
+        for (int i = 0; i < group.size(); i++) beans.get(i).parameters.set(0, group.get(i).before);
+        return null;
     }
 
     public static void save(File projectMyscDirectory, List<Proposal> proposals) {

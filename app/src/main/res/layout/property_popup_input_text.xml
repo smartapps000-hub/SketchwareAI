@@ -8,17 +8,32 @@
     android:gravity="center|start"
     android:orientation="vertical">
 
+    <!-- Shown only on the dark Obsidian dialog sheet (a.a.a.aB, AsdOrigin): light text and a
+         readable label are set here as well as by com.sketchware.ai.ui.ObsidianInputs. A long
+         value scrolls inside the field (6 lines at most), so the dialog's buttons stay on screen
+         with the keyboard open. -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/ti_input"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:textColorHint="@color/ob_text_2">
 
         <EditText
             android:id="@+id/ed_input"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:fadeScrollbars="false"
+            android:gravity="top|start"
             android:importantForAutofill="no"
             android:inputType="textMultiLine|textNoSuggestions"
+            android:maxLines="6"
+            android:paddingRight="12dp"
+            android:scrollbarSize="3dp"
+            android:scrollbarStyle="insideOverlay"
+            android:scrollbarThumbVertical="@drawable/ob_sheet_handle"
+            android:scrollbars="vertical"
+            android:textColor="@color/ob_text"
+            android:textColorHint="@color/ob_text_2"
             android:textSize="16sp"
             tools:ignore="LabelFor" />
     </com.google.android.material.textfield.TextInputLayout>

@@ -20,6 +20,13 @@ public class ObAlertBuilder extends AlertDialog.Builder {
         super(context, com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
     }
 
+    /** Custom content gets the shared input theme right away, before the first frame. */
+    @Override
+    public AlertDialog.Builder setView(android.view.View view) {
+        ObsidianInputs.style(view);
+        return super.setView(view);
+    }
+
     @Override
     public AlertDialog create() {
         AlertDialog dialog = super.create();

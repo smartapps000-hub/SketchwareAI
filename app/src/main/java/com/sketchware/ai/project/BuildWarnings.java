@@ -60,7 +60,8 @@ public final class BuildWarnings {
                         + "called from your code. The app still gets Android " + (target - 20) + "'s runtime rules. "
                         + "Set a newer android.jar in Build Settings to use newer APIs.");
             }
-            if (BuildSettings.SETTING_DEXER_DX.equals(dexer) && !BuildSettings.SETTING_JAVA_VERSION_1_7.equals(java)) {
+            if (android.os.Build.VERSION.SDK_INT < 26 && BuildSettings.SETTING_DEXER_DX.equals(dexer)
+                    && !BuildSettings.SETTING_JAVA_VERSION_1_7.equals(java)) {
                 add("Dx can't read Java " + java + " bytecode reliably; switch the dexer to D8 in Build Settings.");
             }
             if (target >= 37 && features != null) {

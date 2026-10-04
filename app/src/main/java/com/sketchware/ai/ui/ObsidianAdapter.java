@@ -7,7 +7,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -62,7 +61,10 @@ public final class ObsidianAdapter {
      */
     private static void adapt(View view, boolean onDark) {
         if (view == null || TAG_NATIVE.equals(view.getTag())) return;
-        onDark = resolveBackground(view, onDark);
+        onDark = resolveBackground(view, onDark, true);
+
+        // Text fields, their floating labels and check / radio / switch controls share one theme.
+        if (onDark) ObsidianInputs.apply(view);
 
         if (view instanceof TextView && onDark) {
             TextView text = (TextView) view;
@@ -74,18 +76,10 @@ public final class ObsidianAdapter {
                 }
             }
             ColorStateList hints = text.getHintTextColors();
-            if (hints != null && luminance(hints.getDefaultColor()) < 0.62) {
+            if (!(view instanceof EditText) && hints != null && luminance(hints.getDefaultColor()) < 0.62) {
                 text.setHintTextColor(HINT);
             }
             text.setLinkTextColor(0xFFFF9A4D);
-            if (view instanceof EditText) {
-                view.setBackgroundTintList(ColorStateList.valueOf(0x66FFFFFF));
-            }
-            if (view instanceof CompoundButton) {
-                ((CompoundButton) view).setButtonTintList(new ColorStateList(
-                        new int[][]{{android.R.attr.state_checked}, {}},
-                        new int[]{ACCENT, 0x99FFFFFF}));
-            }
         } else if (view instanceof ImageView && onDark) {
             ImageView image = (ImageView) view;
             ColorStateList tint = image.getImageTintList();
@@ -109,7 +103,11 @@ public final class ObsidianAdapter {
      * Clears flat light-grey/white backgrounds (the glass shows through) and returns whether
      * the view's content sits on a dark ground afterwards.
      */
-    private static boolean resolveBackground(View view, boolean onDark) {
+    private static boolean resolveBackground(View view, boolean onDark, boolean clear) {
+        // A text field's own line (inset + nine-patch) is not a surface. It used to be taken for
+        // "unknown light artwork", which left the theme's dark text in every classic field on
+        // the dark sheet.
+        if (view instanceof EditText && ObsidianInputs.isUnderline(view.getBackground())) return onDark;
         if (view instanceof androidx.cardview.widget.CardView) {
             // Cards that GlassScreens made dark carry dark content; other cards are left alone.
             ColorStateList card = ((androidx.cardview.widget.CardView) view).getCardBackgroundColor();
@@ -147,10 +145,18 @@ public final class ObsidianAdapter {
         if (Color.alpha(color) < 40) return onDark;
         if (isNeutral(color) && luminance(color) > 0.75) {
             if (background != view.getBackground()) return false; // light artwork we can't remove
-            view.setBackground(null);
+            if (clear) view.setBackground(null);
             return onDark;
         }
         return luminance(color) < 0.5;
+    }
+
+    /**
+     * Whether what {@code view} draws its content on is dark, given its parent's ground. Reads
+     * only: flat light backgrounds count as dark because {@link #adapt} clears them.
+     */
+    static boolean groundIsDark(View view, boolean onDark) {
+        return resolveBackground(view, onDark, false);
     }
 
     /** Our own selectors (press overlays, glass pill states) are dark-surface artwork. */

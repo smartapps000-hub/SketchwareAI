@@ -816,32 +816,64 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
                     }
 
                     publishProgress("Signing APK...");
-                    if (signWithTestkey) {
-                        ZipSigner signer = new ZipSigner();
-                        signer.setKeymode(ZipSigner.KEY_TESTKEY);
-                        signer.signZip(dp.yq.unsignedUnalignedApkPath, dp.yq.unalignedSignedApkPath);
-                    } else if (isResultJarSigningEnabled()) {
-                        Security.addProvider(new BouncyCastleProvider());
-                        CustomKeySigner.signZip(
-                                new ZipSigner(),
-                                wq.j(),
-                                signingKeystorePassword,
-                                signingAliasName,
-                                signingKeystorePassword,
-                                signingAlgorithm,
-                                dp.yq.unsignedUnalignedApkPath,
-                                dp.yq.unalignedSignedApkPath
-                        );
+                    String resultPath = getCorrectResultFilename(dp.yq.releaseApkPath);
+                    if (android.os.Build.VERSION.SDK_INT >= 26 && (signWithTestkey || isResultJarSigningEnabled())) {
+                        /*
+                         * Android 11+ refuses an APK that targets API 30+ and carries only the old JAR (v1)
+                         * signature. So the export is signed like a Run build: v2 and v3, plus v1 when
+                         * minSdk < 24. The signer aligns the uncompressed entries itself, and an align pass
+                         * after signing would break the v2 signature, so none runs here.
+                         */
+                        new File(resultPath).delete();
+                        try {
+                            if (signWithTestkey) {
+                                try {
+                                    new mod.alucard.tn.apksigner.ApkSigner().signWithTestKey(dp.yq.unsignedUnalignedApkPath, resultPath, null);
+                                } catch (NullPointerException e) {
+                                    // The signer reports its own failure through a callback this call doesn't pass.
+                                    throw new IllegalStateException("Signing the APK with the test key failed.", e);
+                                }
+                            } else {
+                                Security.addProvider(new BouncyCastleProvider());
+                                com.sketchware.ai.project.ReleaseSigner.sign(dp.yq.unsignedUnalignedApkPath, resultPath,
+                                        wq.j(), signingKeystorePassword, signingAliasName, signingKeystorePassword);
+                            }
+                            if (!new File(resultPath).isFile() || new File(resultPath).length() == 0) {
+                                throw new IllegalStateException("Signing the APK produced no file.");
+                            }
+                        } catch (Throwable t) {
+                            new File(resultPath).delete(); // no half-written APK is left as the result
+                            throw t;
+                        }
                     } else {
-                        FileUtil.copyFile(dp.yq.unsignedUnalignedApkPath, dp.yq.unalignedSignedApkPath);
-                    }
-                    if (canceled) {
-                        cancel(true);
-                        return;
-                    }
+                        if (signWithTestkey) {
+                            ZipSigner signer = new ZipSigner();
+                            signer.setKeymode(ZipSigner.KEY_TESTKEY);
+                            signer.signZip(dp.yq.unsignedUnalignedApkPath, dp.yq.unalignedSignedApkPath);
+                        } else if (isResultJarSigningEnabled()) {
+                            Security.addProvider(new BouncyCastleProvider());
+                            CustomKeySigner.signZip(
+                                    new ZipSigner(),
+                                    wq.j(),
+                                    signingKeystorePassword,
+                                    signingAliasName,
+                                    signingKeystorePassword,
+                                    signingAlgorithm,
+                                    dp.yq.unsignedUnalignedApkPath,
+                                    dp.yq.unalignedSignedApkPath
+                            );
+                        } else {
+                            FileUtil.copyFile(dp.yq.unsignedUnalignedApkPath, dp.yq.unalignedSignedApkPath);
+                        }
+                        if (canceled) {
+                            cancel(true);
+                            return;
+                        }
 
-                    publishProgress("Aligning APK...");
-                    dp.runZipalign(dp.yq.unalignedSignedApkPath, getCorrectResultFilename(dp.yq.releaseApkPath));
+                        publishProgress("Aligning APK...");
+                        dp.runZipalign(dp.yq.unalignedSignedApkPath, resultPath);
+                        com.sketchware.ai.project.ReleaseSigner.trimAfterZipEnd(new File(resultPath));
+                    }
                 }
             } catch (Throwable throwable) {
                 if (throwable instanceof LoadKeystoreException &&

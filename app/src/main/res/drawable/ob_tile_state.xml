@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Glass tile with its pressed (amber) state: property and event tiles of the view property panel. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android" android:enterFadeDuration="90" android:exitFadeDuration="220">
+    <item android:state_pressed="true" android:drawable="@drawable/ob_tile_on" />
+    <item android:drawable="@drawable/ob_tile" />
+</selector>

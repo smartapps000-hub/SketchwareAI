@@ -216,11 +216,11 @@
             <com.besome.sketch.editor.view.ViewProperty
                 android:id="@+id/view_property"
                 android:layout_width="match_parent"
-                android:layout_height="156dp"
-                android:background="@drawable/ob_safe_sheet"
+                android:layout_height="168dp"
+                android:background="@drawable/ob_glass_bottom_sheet"
                 android:forceDarkAllowed="false"
                 android:layout_alignParentBottom="true"
-                android:translationY="156dp" />
+                android:translationY="168dp" />
         </RelativeLayout>
 
         <com.besome.sketch.design.DesignDrawer

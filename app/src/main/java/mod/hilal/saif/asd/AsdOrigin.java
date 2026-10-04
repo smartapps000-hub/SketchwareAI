@@ -72,6 +72,11 @@ public class AsdOrigin extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         // Sketchware AI: the dark glass sheet of R.layout.dialog needs aB's clear window.
         com.sketchware.ai.ui.ObsidianDialogs.window(this);
+        // The sheet is laid out above the keyboard instead of being pushed half off the screen;
+        // the value field is capped at 6 lines and scrolls, so the three buttons stay visible.
+        if (getWindow() != null) {
+            getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
         setContentView(R.layout.dialog);
 
         space = new Space(getContext());

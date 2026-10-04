@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker of the view property panel: glass pill. Android 6.0+ adds the chevron
+     (drawable-v23); older versions cannot size a layer, so they get the plain pill. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true" android:drawable="@drawable/ob_pill_pressed" />
+    <item android:drawable="@drawable/ob_pill" />
+</selector>

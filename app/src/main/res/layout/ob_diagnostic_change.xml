@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One repair the build made by itself: permanent or temporary, and what it did. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    android:background="@drawable/ob_tile"
+    android:orientation="vertical"
+    android:paddingLeft="10dp"
+    android:paddingTop="8dp"
+    android:paddingRight="10dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/ob_change_kind"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/manrope_extrabold"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.03"
+        android:textColor="@color/ob_accent"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/ob_change_text"
+        style="@style/Ob.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:lineSpacingMultiplier="1.12"
+        android:textColor="@color/ob_text"
+        android:textIsSelectable="true"
+        android:textSize="12sp" />
+</LinearLayout>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Build history of the open project, newest first. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/ob_glass_bottom_sheet"
+    android:forceDarkAllowed="false"
+    android:orientation="vertical"
+    android:paddingLeft="14dp"
+    android:paddingTop="10dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="14dp">
+
+    <View
+        android:layout_width="44dp"
+        android:layout_height="5dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/ob_sheet_handle" />
+
+    <TextView
+        style="@style/Ob.Text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/sora_bold"
+        android:maxLines="1"
+        android:text="Build history"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/ob_history_subtitle"
+        style="@style/Ob.Text.Caption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="11sp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:fadingEdgeLength="14dp"
+        android:overScrollMode="ifContentScrolls"
+        android:requiresFadingEdge="vertical"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/ob_history_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <TextView
+        android:id="@+id/ob_history_close"
+        style="@style/Ob.Text.Button"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/ob_pill16_state"
+        android:maxLines="1"
+        android:stateListAnimator="@animator/sw_press"
+        android:text="Close"
+        android:textSize="14sp" />
+</LinearLayout>

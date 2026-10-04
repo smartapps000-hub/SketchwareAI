@@ -1056,6 +1056,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     com.sketchware.ai.buildmap.BuildMap.begin(sc_id, q.projectMyscPath);
                     com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.PREPARE);
                     FileUtil.deleteFile(q.projectMyscPath);
+                    try {
+                        // The editor's working copy on disk is what this build is made from (the same call
+                        // the editor makes when it goes to the background): the build's record can then say
+                        // later whether the project changed since.
+                        jC.a(sc_id).k();
+                    } catch (RuntimeException e) {
+                        LogUtil.e("DesignActivity$BuildAsyncTask", "Couldn't write the working copy", e);
+                    }
 
                     q.c(a);
                     q.a();
@@ -1177,8 +1185,12 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     int warningCount = com.sketchware.ai.project.BuildWarnings.count();
                     com.sketchware.ai.buildmap.BuildMap.task(com.sketchware.ai.buildmap.BuildMap.INSTALL);
                     com.sketchware.ai.buildmap.BuildMap.succeeded(warningCount);
+                    String report = warningCount > 0 ? com.sketchware.ai.project.BuildWarnings.report() + "\n\n"
+                            + com.sketchware.ai.buildmap.BuildMap.report() + "\n" : "";
+                    com.sketchware.ai.doctor.BuildHistory.record(new File(wq.b(sc_id)), projectFingerprint(),
+                            com.sketchware.ai.buildmap.BuildMap.appVersion(), report,
+                            com.sketchware.ai.buildmap.BuildMap.lastDurationMs());
                     if (warningCount > 0) {
-                        String report = com.sketchware.ai.project.BuildWarnings.report();
                         runOnUiThread(() -> indicateBuildWarnings(report, warningCount));
                     }
                     installBuiltApk();
@@ -1219,9 +1231,22 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                     failure = failure + com.sketchware.ai.project.BuildWarnings.failureAppendix();
                     com.sketchware.ai.buildmap.BuildMap.failed(failure);
                     failure = failure + "\n\n" + com.sketchware.ai.buildmap.BuildMap.report() + "\n";
+                    com.sketchware.ai.doctor.BuildHistory.record(new File(wq.b(sc_id)), projectFingerprint(),
+                            com.sketchware.ai.buildmap.BuildMap.appVersion(), failure,
+                            com.sketchware.ai.buildmap.BuildMap.lastDurationMs());
                     indicateCompileErrorOccurred(failure);
                 }
             }
+        }
+
+        /** The project's state at the end of this build (after any repair the build stored in it). */
+        private String projectFingerprint() {
+            try {
+                jC.a(sc_id).k();
+            } catch (RuntimeException ignored) {
+            }
+            return com.sketchware.ai.doctor.BuildHistory.fingerprint(
+                    com.sketchware.ai.project.ProjectImages.sketchwareRoot(), sc_id);
         }
 
         /**
