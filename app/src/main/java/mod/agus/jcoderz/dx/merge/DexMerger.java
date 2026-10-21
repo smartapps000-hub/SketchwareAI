@@ -1148,7 +1148,11 @@ public final class DexMerger {
                 // all of the bytes in a debug info section may be uleb/sleb. The additive constant
                 // is a fudge factor observed to be required when merging small
                 // DEX files (b/68483205).
-                debugInfo += contents.debugInfos.byteCount * 2 + 8;
+                // Sketchware AI: * 3, not * 2. A string/type index written in 1 byte (uleb128p1 < 128) takes
+                // 3 bytes once the merged dex has 16384+ strings, so * 2 is not an upper bound: merging a
+                // project's small DEX into classes.dex with the libraries overflowed here
+                // (BufferOverflowException in transformDebugInfoItem). Unused space is compacted afterwards.
+                debugInfo += contents.debugInfos.byteCount * 3 + 8;
             }
         }
 
