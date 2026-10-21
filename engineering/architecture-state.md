@@ -1,6 +1,6 @@
 # Architecture state
 
-Verified facts about this fork, kept so they don't have to be rediscovered. Last updated for v1.8.1.
+Verified facts about this fork, kept so they don't have to be rediscovered. Last updated for v1.8.3.
 
 ## Foundations (do not bypass)
 
@@ -37,6 +37,23 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
 - Sheets and dialogs are fully opaque (2-3% see-through showed the log's text behind them on OLED).
 - The owner's "four tiers" are the existing order of the compile step, not new machinery: pre-compile pass (syntax/dead code) -> library integrity and library rounds (dependencies) -> AutoHealLoop (several attempts, each verified by a real compile) -> rollback and origin cards. No strategy ids or repair memory yet (Phase 3/5).
 - Sign-in and telemetry: reviewed, not built. See `auth-telemetry-review.md`.
+
+## v1.8.3 additions
+
+- **Built-in libraries updated** (`assets/libs/libs.zip`, `dexs.zip`, `mod/jbk/build/BuiltInLibraries.java` in `overlay/`):
+  AndroidX to the newest versions that build against API 33 (appcompat 1.6.1, material 1.9.0, core 1.10.1, activity 1.7.2,
+  fragment 1.6.2, lifecycle 2.6.2, recyclerview 1.3.2, ...), Kotlin stdlib 1.8.22 (+ coroutines 1.7.3), Glide 4.16.0,
+  Gson 2.14.0, OkHttp 3.14.9, Okio 1.17.6, Lottie 3.7.2. Firebase / Play services / OneSignal / FAN / YouTube are unchanged.
+  Rules in `v1.8.3-verification.md`; tools in `tools/builtin-libs`.
+- `BuiltInLibraries` dependency lists only grow: every dependency an entry had in 1.8.2 is kept, the new POM ones are added
+  (code in a project may use a class that arrived transitively). An R package is listed only when the library's `res/` has a
+  real resource (`androidx.activity`, `androidx.customview.poolingcontainer` are new).
+- The extracted copy in `cacheDir/libs` is refreshed when the asset's **size** changes (`Dp.hasFileChanged`): a new libs.zip
+  must differ in size from the old one (it does: 24.9 MB vs the 1.8.2 size).
+- `Lx` (Android Studio export) build.gradle names the same versions.
+- **Android runtime harness kept in the repository** (`tools/art-harness`): installs an Android 12 ART into the workspace,
+  writes fixture projects with the IDE's own project classes and runs the DesignActivity Run-build steps (generate,
+  built-in libraries, AAPT2, Kotlin, ECJ + auto-fix, D8, merge, package, sign) with the classes and aapt2 of a built APK.
 
 ## Existing repair engine (v1.7.x)
 

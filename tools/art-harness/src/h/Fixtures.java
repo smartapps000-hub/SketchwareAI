@@ -1,0 +1,195 @@
+package h;
+
+import java.util.*;
+
+import static h.R.*;
+
+/**
+ * Fixture projects written with the IDE's own project classes, the way MyProjectSettingActivity creates a project
+ * and DesignActivity.ProjectSaver saves it: lC.a(sc_id, metadata), data folder emptied, ModernProjectDefaults,
+ * then jC managers filled and saved with kC.a(); hC.m(); eC.j(); kC.x(); iC.l().
+ *
+ * Specs:
+ *  libs  - AppCompat + every widget type of the palette that needs no Firebase/AdMob/Maps, toolbar + FAB + drawer,
+ *          RequestNetwork (OkHttp + Gson), Camera, FilePicker, TimerTask, Dialog, Notification, Glide (setImageUrl),
+ *          Gson (strToMap): every updated built-in library is compiled, linked and dexed.
+ *  held  - AppCompat + Firebase + AdMob + Google Maps, their components and widgets: the libraries that were NOT
+ *          updated must still build on top of the updated AndroidX.
+ *  plain - no AppCompat (framework Activity), a few framework widgets.
+ */
+public class Fixtures {
+    static final int LINEAR = 0;
+
+    /** What the palette's getBean() gives a new widget: image, text, and for the library widgets convert/inject/size. */
+    static void defaults(Object vb, int type) throws Exception {
+        set(get(vb, "image"), "resName", "default_image");
+        set(get(vb, "text"), "text", get(vb, "id"));
+        for (Object[] row : IconDefaults.ROWS) {
+            if ((Integer) row[0] != type) continue;
+            set(vb, "convert", row[1]);
+            set(vb, "inject", row[2]);
+            if ((Integer) row[3] != 0) set(get(vb, "layout"), "width", row[3]);
+            if ((Integer) row[4] != 0) set(get(vb, "layout"), "height", row[4]);
+        }
+    }
+
+    public static void create(String spec, String sc_id) throws Throwable {
+        Class<?> jC = c("a.a.a.jC"), wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
+        HashMap<String, Object> data = new HashMap<>();
+        data.put("sc_id", sc_id);
+        data.put("my_sc_pkg_name", "com.fixture." + spec);
+        data.put("my_ws_name", "Fixture_" + spec);
+        data.put("my_app_name", "Fixture " + spec);
+        data.put("my_sc_reg_dt", "20261021000000");
+        data.put("custom_icon", false);
+        data.put("sc_ver_code", "1");
+        data.put("sc_ver_name", "1.0");
+        data.put("sketchware_ver", 150);
+        data.put("color_accent", 0xFFF4511E);
+        data.put("color_primary", 0xFFF4511E);
+        data.put("color_primary_dark", 0xFFBF360C);
+        data.put("color_control_highlight", 0x20F4511E);
+        data.put("color_control_normal", 0xFF757575);
+        call(lC, "a", sc_id, data);
+        call(wq, "a", Main.CTX, sc_id);
+        call(neu("a.a.a.oB"), "b", call(wq, "b", sc_id));
+        call(c("com.sketchware.ai.project.ModernProjectDefaults"), "applyToNewProject", sc_id);
+        call(jC, "a");
+
+        Object files = call(jC, "b", sc_id);
+        Object libs = call(jC, "c", sc_id);
+        Object proj = call(jC, "a", sc_id);
+        Object res = call(jC, "d", sc_id);
+
+        @SuppressWarnings("unchecked") List<Object> activities = (List<Object>) call(files, "b");
+        Main.OUT.println("activities after creation: " + activities.size());
+        Object main = activities.get(0);
+        String javaName = (String) call(main, "getJavaName");
+        String xmlName = (String) call(main, "getXmlName");
+        Main.OUT.println("main: " + javaName + " / " + xmlName);
+
+        Object compat = call(libs, "c");
+        set(compat, "useYn", spec.equals("plain") ? "N" : "Y");
+        if (spec.equals("held")) {
+            Object firebase = call(libs, "d");
+            set(firebase, "useYn", "Y");
+            set(firebase, "data", "fixture-held-default-rtdb.firebaseio.com");
+            set(firebase, "reserved1", "1:123456789012:android:0123456789abcdef");
+            set(firebase, "reserved2", "AIzaSyFixtureFixtureFixtureFixture12345");
+            set(firebase, "reserved3", "fixture-held.appspot.com");
+            Object admob = call(libs, "b");
+            set(admob, "useYn", "Y");
+            Object maps = call(libs, "e");
+            set(maps, "useYn", "Y");
+            set(maps, "data", "AIzaSyFixtureMapsKeyFixtureFixture1234");
+        }
+        if (!spec.equals("plain")) {
+            // toolbar + FAB + drawer, as the activity options dialog sets them
+            int opts = (Integer) get(main, "options");
+            set(main, "options", opts | 1 | 8 | 4);
+            // the drawer's own layout file, as the activity options dialog adds it (fileType 2)
+            ((List<Object>) call(files, "c")).add(neu("com.besome.sketch.beans.ProjectFileBean", 2, "_drawer_main"));
+        }
+
+        boolean libsLike = spec.equals("libs") || spec.equals("min19");
+        List<int[]> widgets = new ArrayList<>();
+        if (libsLike) {
+            int[] types = {2, 12, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+                    30, 31, 32, 34, 35, 36, 37, 38, 39, 40, 41, 43, 44, 45, 46, 47, 48};
+            for (int t : types) widgets.add(new int[]{t});
+        } else if (spec.equals("held")) {
+            for (int t : new int[]{3, 4, 6, 17, 18, 42}) widgets.add(new int[]{t});
+        } else {
+            for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
+        }
+        // the root linear the widgets live in
+        Object root = neu("com.besome.sketch.beans.ViewBean", "linear1", LINEAR);
+        set(root, "parent", "root");
+        set(root, "parentType", LINEAR);
+        set(root, "index", 0);
+        call(proj, "a", xmlName, root); // eC.a(String xml, ViewBean) adds; eC.a(ProjectFileBean, ViewBean) removes
+        int index = 0;
+        for (int[] w : widgets) {
+            Object vb = neu("com.besome.sketch.beans.ViewBean", (String) call(wq, "b", w[0]) + "1", w[0]);
+            defaults(vb, w[0]);
+            set(vb, "parent", "linear1");
+            set(vb, "parentType", LINEAR);
+            set(vb, "index", index++);
+            call(proj, "a", xmlName, vb);
+        }
+
+        List<Object> comps = new ArrayList<>();
+        if (libsLike) {
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 17, "net"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 15, "cam"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 16, "picker"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 5, "timer"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 7, "dialog"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 26, "notify"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 2, "prefs"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 1, "intent"));
+        } else if (spec.equals("held")) {
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 6, "db", "users"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 12, "auth"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 14, "store", "files"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 13, "inter"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 22, "reward"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 28, "phone"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 30, "fcm"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 31, "google"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 29, "links"));
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 17, "net"));
+        }
+        @SuppressWarnings("unchecked") HashMap<String, ArrayList<Object>> compMap = (HashMap<String, ArrayList<Object>>) get(proj, "h");
+        compMap.computeIfAbsent(javaName, k -> new ArrayList<>()).addAll(comps);
+
+        String source = null;
+        if (spec.equals("kotlin")) {
+            // a Kotlin file in the Java/Kotlin manager folder, called from a block: kotlinc (1.7.10) against kotlin-stdlib 1.8.22
+            java.io.File dir = new java.io.File((String) call(neu("mod.agus.jcoderz.lib.FilePathUtil"), "getPathJava", sc_id));
+            dir.mkdirs();
+            java.nio.file.Files.write(new java.io.File(dir, "KtHelper.kt").toPath(), ("package com.fixture.kotlin\n\n"
+                    + "object KtHelper {\n"
+                    + "    fun greet(names: List<String>): String =\n"
+                    + "        names.filter { it.isNotBlank() }.joinToString(\", \") { it.uppercase() }\n"
+                    + "}\n").getBytes("UTF-8"));
+            source = "String greeting = com.fixture.kotlin.KtHelper.INSTANCE.greet(java.util.Arrays.asList(\"a\", \" \", \"b\"));\nandroid.util.Log.d(\"kt\", greeting);";
+        } else if (spec.equals("autofix")) {
+            // the #639 shape: a statement after a try/catch that leaves the method on every path (ECJ: Unreachable code)
+            source = "try {\n    android.util.Log.d(\"fixture\", \"try\");\n    return;\n} catch (Exception e) {\n    return;\n}\nandroid.util.Log.d(\"fixture\", \"after\");";
+        } else if (spec.equals("typo")) {
+            source = "String label = \"abc\";\nint n = label.lenght();";
+        }
+        if (source != null) {
+            ArrayList<Object> blocks = new ArrayList<>();
+            Object b = neu("com.besome.sketch.beans.BlockBean", "10", "add source directly %s.inputOnly", " ", "addSourceDirectly");
+            ((List<String>) get(b, "parameters")).add(source);
+            blocks.add(b);
+            call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
+        }
+        if (libsLike) {
+            ArrayList<Object> blocks = new ArrayList<>();
+            Object glide = neu("com.besome.sketch.beans.BlockBean", "10", "%m.imageview set image from url %s", " ", "setImageUrl");
+            ((List<String>) get(glide, "parameters")).addAll(Arrays.asList("imageview1", "https://example.com/a.png"));
+            set(glide, "nextBlock", 11);
+            Object toast = neu("com.besome.sketch.beans.BlockBean", "11", "Toast %s", " ", "doToast");
+            ((List<String>) get(toast, "parameters")).add("hello");
+            blocks.add(glide);
+            blocks.add(toast);
+            call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
+        }
+
+        call(res, "a");
+        call(files, "m");
+        call(proj, "j");
+        call(res, "x");
+        call(libs, "l");
+        if (spec.equals("min19")) {
+            // below 21: multidex + every DEX merged by the IDE's D8 (the debug path at 21+ adds them unmerged)
+            Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
+            call(ps, "putValue", "min_sdk", "19");
+            call(ps, "saveNow");
+        }
+        Main.OUT.println("CREATED " + spec + " as #" + sc_id + ": " + widgets.size() + " widgets, " + comps.size() + " components");
+    }
+}

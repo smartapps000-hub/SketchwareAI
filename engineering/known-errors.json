@@ -67,6 +67,22 @@
         "the user's phone (project #606)",
         "the AAPT2 resource step for the restored library"
       ]
+    },
+    {
+      "fingerprint": "D8 3.3.75 (bundled): NullPointerException while dexing androidx.concurrent:concurrent-futures >= 1.2.0 or com.google.errorprone:error_prone_annotations >= 2.48",
+      "rootCause": "Class files of these releases (newer javac output) crash the D8 the IDE ships. Seen while preparing the v1.8.3 built-in libraries, not in a user project.",
+      "repair": "none in the build: the built-in set keeps concurrent-futures 1.1.0 and leaves error_prone_annotations / jspecify out (annotation-only, not needed at run time). A local library that pulls these versions fails the same way in DEX; use an older version of that dependency.",
+      "verifiedOn": [
+        "JVM 17 with the D8 3.3.75 classes from the IDE (tools/builtin-libs/package.py)"
+      ]
+    },
+    {
+      "fingerprint": "ECJ: BadgeView cannot be resolved to a type (palette widget BadgeView)",
+      "rootCause": "Upstream 6.4.0-rc05 as shipped: the widget generates code for com.allenliu.badgeview.BadgeView, and no built-in library has that class (the user must add it as a local library).",
+      "repair": "none yet; the harness fixtures leave the widget out. Seen on the Android 12 ART harness, not reported from the phone.",
+      "verifiedOn": [
+        "Android 12 ART (API 31) x86_64 harness, while making fixture 901 (the widget is left out of the fixtures)"
+      ]
     }
   ]
 }

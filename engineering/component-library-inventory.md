@@ -1,6 +1,6 @@
 # Component and library modernization inventory
 
-Audited: commit `c82aba4` (v1.8.1). Date: 2026-10-04. Nothing here was run on a device.
+Audited: commit `c82aba4` (v1.8.1). Date: 2026-10-04. Section 0 added for v1.8.3 (2026-10-21). Nothing here was run on a device.
 
 ## Summary
 
@@ -36,6 +36,88 @@ Other URLs:
 - [bal] https://developer.android.com/guide/components/activities/background-starts
 
 Limits of table 1: a newer upstream version is not proof that the bundled one fails on Android 15. What each newer version needs (minSdk, compileSdk, Kotlin, other libraries) was not checked: UNKNOWN. Only the notes with a URL or a file reference are verified statements.
+
+## 0. v1.8.3 update of the built-in libraries (2026-10-21)
+
+Sections 1-4 below are the v1.8.1 audit and keep its numbers. In v1.8.3 the libraries the generated code and their
+dependencies use were moved to the newest version that passes the gates in `v1.8.3-verification.md` (minCompileSdk <= 33,
+minSdk <= 21, Kotlin metadata <= 1.8, class files <= 55, dexable by the bundled D8 3.3.75, same major for OkHttp/Okio/Glide/Lottie).
+Made with `tools/builtin-libs` (coords.py -> solve.py -> package.py -> genjava.py -> check_graph.py). Firebase, Play services,
+OneSignal, Audience Network, YouTube player and the small view libraries were **not** changed (see the verification file).
+`libs.zip`: 116 folders, `dexs.zip`: 115 dex files.
+
+| Constant | Maven | Before | v1.8.3 | Gates read from the artifact / reason |
+|---|---|---|---|---|
+| `ANDROIDX_ACTIVITY` | androidx.activity:activity | activity-1.3.0 | activity-1.7.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_ANNOTATION` | androidx.annotation:annotation | annotation-1.3.0 | annotation-1.9.0 | minCompileSdk 1, minSdk 1, Kotlin [1, 7, 0], class 52 |
+| `ANDROIDX_ANNOTATION_EXPERIMENTAL` | androidx.annotation:annotation-experimental | annotation-experimental-1.2.0 | annotation-experimental-1.3.1 | minCompileSdk 33, minSdk 14, Kotlin [1, 7, 1], class 52 |
+| `ANDROIDX_APPCOMPAT` | androidx.appcompat:appcompat | appcompat-1.4.0 | appcompat-1.6.1 | minCompileSdk 33, minSdk 14, Kotlin [1, 7, 1], class 52 |
+| `ANDROIDX_APPCOMPAT_RESOURCES` | androidx.appcompat:appcompat-resources | appcompat-resources-1.4.0 | appcompat-resources-1.6.1 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_CORE_COMMON` | androidx.arch.core:core-common | core-common-2.1.0 | core-common-2.2.0 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `ANDROIDX_CORE_RUNTIME` | androidx.arch.core:core-runtime | core-runtime-2.1.0 | core-runtime-2.2.0 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_ASYNCLAYOUTINFLATER` | androidx.asynclayoutinflater:asynclayoutinflater | asynclayoutinflater-1.0.0 | asynclayoutinflater-1.0.0 | same version |
+| `ANDROIDX_BROWSER` | androidx.browser:browser | browser-1.3.0 | browser-1.5.0 | minCompileSdk 33, minSdk 16, Kotlin None, class 52 |
+| `ANDROIDX_CARDVIEW` | androidx.cardview:cardview | cardview-1.0.0 | cardview-1.0.0 | same version |
+| `ANDROIDX_COLLECTION` | androidx.collection:collection | collection-1.2.0 | collection-1.4.5 | minCompileSdk 1, minSdk 1, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_CONCURRENT_FUTURES` | androidx.concurrent:concurrent-futures | concurrent-futures-1.1.0 | concurrent-futures-1.1.0 | kept: 1.2.0+ class files crash the IDE's D8 3.3.75 (NullPointerException in CallbackToFutureAdapter$SafeFuture$1); bundled 1.1.0 is what profileinstaller needs |
+| `ANDROIDX_CONSTRAINTLAYOUT` | androidx.constraintlayout:constraintlayout | constraintlayout-2.1.2 | constraintlayout-2.1.4 | minCompileSdk 1, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_CONSTRAINTLAYOUT_CORE` | androidx.constraintlayout:constraintlayout-core | constraintlayout-core-1.0.2 | constraintlayout-core-1.0.4 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `ANDROIDX_COORDINATORLAYOUT` | androidx.coordinatorlayout:coordinatorlayout | coordinatorlayout-1.1.0 | coordinatorlayout-1.2.0 | minCompileSdk 31, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_CORE` | androidx.core:core | core-1.7.0 | core-1.10.1 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_CORE_KTX` | androidx.core:core-ktx | core-ktx-1.5.0-beta01 | core-ktx-1.10.1 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_CURSORADAPTER` | androidx.cursoradapter:cursoradapter | cursoradapter-1.0.0 | cursoradapter-1.0.0 | same version |
+| `ANDROIDX_CUSTOMVIEW` | androidx.customview:customview | customview-1.1.0 | customview-1.1.0 | same version |
+| `ANDROIDX_CUSTOMVIEW_POOLINGCONTAINER` | androidx.customview:customview-poolingcontainer | (new) | customview-poolingcontainer-1.0.0 | minCompileSdk 32, minSdk 14, Kotlin [1, 6, 0], class 52 |
+| `ANDROIDX_DOCUMENTFILE` | androidx.documentfile:documentfile | documentfile-1.0.1 | documentfile-1.0.1 | same version |
+| `ANDROIDX_DRAWERLAYOUT` | androidx.drawerlayout:drawerlayout | drawerlayout-1.1.1 | drawerlayout-1.2.0 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_DYNAMIC_ANIMATION` | androidx.dynamicanimation:dynamicanimation | dynamic-animation-1.1.0-alpha03 | dynamic-animation-1.1.0-alpha03 | kept: bundled 1.1.0-alpha03 is newer than the usable stable 1.0.0 |
+| `ANDROIDX_EMOJI2` | androidx.emoji2:emoji2 | emoji2-1.0.1 | emoji2-1.3.0 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_EMOJI2_VIEWS_HELPER` | androidx.emoji2:emoji2-views-helper | emoji2-views-helper-1.0.1 | emoji2-views-helper-1.3.0 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_EXIFINTERFACE` | androidx.exifinterface:exifinterface | exifinterface-1.0.0 | exifinterface-1.3.7 | minCompileSdk 1, minSdk 14, Kotlin None, class 51 |
+| `ANDROIDX_FRAGMENT` | androidx.fragment:fragment | fragment-1.3.6 | fragment-1.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_INTERPOLATOR` | androidx.interpolator:interpolator | interpolator-1.0.0 | interpolator-1.0.0 | same version |
+| `ANDROIDX_LIFECYCLE_COMMON` | androidx.lifecycle:lifecycle-common | lifecycle-common-2.4.0 | lifecycle-common-2.6.2 | minCompileSdk 1, minSdk 1, Kotlin (1, 8, 0), class 52 |
+| `ANDROIDX_LIFECYCLE_LIVEDATA` | androidx.lifecycle:lifecycle-livedata | lifecycle-livedata-2.4.0 | lifecycle-livedata-2.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_LIVEDATA_CORE` | androidx.lifecycle:lifecycle-livedata-core | lifecycle-livedata-core-2.4.0 | lifecycle-livedata-core-2.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_PROCESS` | androidx.lifecycle:lifecycle-process | lifecycle-process-2.4.0 | lifecycle-process-2.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_RUNTIME` | androidx.lifecycle:lifecycle-runtime | lifecycle-runtime-2.4.0 | lifecycle-runtime-2.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_VIEWMODEL` | androidx.lifecycle:lifecycle-viewmodel | lifecycle-viewmodel-2.3.1 | lifecycle-viewmodel-2.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_VIEWMODEL_SAVEDSTATE` | androidx.lifecycle:lifecycle-viewmodel-savedstate | lifecycle-viewmodel-savedstate-2.3.1 | lifecycle-viewmodel-savedstate-2.6.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LOADER` | androidx.loader:loader | loader-1.1.0 | loader-1.1.0 | same version |
+| `ANDROIDX_LOCALBROADCASTMANAGER` | androidx.localbroadcastmanager:localbroadcastmanager | localbroadcastmanager-1.0.0 | localbroadcastmanager-1.1.0 | minCompileSdk 31, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_MEDIA` | androidx.media:media | media-1.2.1 | media-1.6.0 | minCompileSdk 31, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_PRINT` | androidx.print:print | print-1.0.0 | print-1.0.0 | same version |
+| `ANDROIDX_PROFILEINSTALLER` | androidx.profileinstaller:profileinstaller | (new) | profileinstaller-1.3.1 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_RECYCLERVIEW` | androidx.recyclerview:recyclerview | recyclerview-1.2.1 | recyclerview-1.3.2 | minCompileSdk 33, minSdk 14, Kotlin [1, 7, 1], class 52 |
+| `ANDROIDX_RESOURCEINSPECTION_ANNOTATION` | androidx.resourceinspection:resourceinspection-annotation | resourceinspection-annotation-1.0.0 | resourceinspection-annotation-1.0.1 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `ANDROIDX_SAVEDSTATE` | androidx.savedstate:savedstate | savedstate-1.1.0 | savedstate-1.2.1 | minCompileSdk 33, minSdk 14, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_SLIDINGPANELAYOUT` | androidx.slidingpanelayout:slidingpanelayout | slidingpanelayout-1.1.0 | slidingpanelayout-1.1.0 | kept: 1.2.0 adds androidx.window + Kotlin coroutines to every project that uses legacy-support-core-ui; nothing generated uses it |
+| `ANDROIDX_STARTUP_RUNTIME` | androidx.startup:startup-runtime | startup-runtime-1.1.0 | startup-runtime-1.1.1 | minCompileSdk 31, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_SWIPEREFRESHLAYOUT` | androidx.swiperefreshlayout:swiperefreshlayout | swiperefreshlayout-1.2.0-alpha01 | swiperefreshlayout-1.2.0-alpha01 | kept: bundled 1.2.0-alpha01 is newer than the usable stable 1.1.0 |
+| `ANDROIDX_TRACING` | androidx.tracing:tracing | tracing-1.0.0 | tracing-1.2.0 | minCompileSdk 33, minSdk 14, Kotlin None, class 52 |
+| `ANDROIDX_TRANSITION` | androidx.transition:transition | transition-1.4.1 | transition-1.4.1 | same version |
+| `ANDROIDX_VECTORDRAWABLE` | androidx.vectordrawable:vectordrawable | vectordrawable-1.1.0 | vectordrawable-1.1.0 | same version |
+| `ANDROIDX_VECTORDRAWABLE_ANIMATED` | androidx.vectordrawable:vectordrawable-animated | vectordrawable-animated-1.1.0 | vectordrawable-animated-1.1.0 | same version |
+| `ANDROIDX_VERSIONEDPARCELABLE` | androidx.versionedparcelable:versionedparcelable | versionedparcelable-1.1.1 | versionedparcelable-1.1.1 | same version |
+| `ANDROIDX_VIEWPAGER2` | androidx.viewpager2:viewpager2 | viewpager2-1.0.0 | viewpager2-1.0.0 | same version |
+| `ANDROIDX_VIEWPAGER` | androidx.viewpager:viewpager | viewpager-1.0.0 | viewpager-1.0.0 | same version |
+| `LOTTIE` | com.airbnb.android:lottie | Lottie-3.4.0 | Lottie-3.7.2 | minCompileSdk 1, minSdk 16, Kotlin None, class 51 |
+| `GLIDE_ANNOTATIONS` | com.github.bumptech.glide:annotations | annotations-4.11.0 | annotations-4.16.0 | minCompileSdk 1, minSdk 1, Kotlin None, class 51 |
+| `GLIDE_DISKLRUCACHE` | com.github.bumptech.glide:disklrucache | disklrucache-4.11.0 | disklrucache-4.16.0 | minCompileSdk 1, minSdk 14, Kotlin None, class 51 |
+| `GLIDE_GIFDECODER` | com.github.bumptech.glide:gifdecoder | gifdecoder-4.11.0 | gifdecoder-4.16.0 | minCompileSdk 1, minSdk 14, Kotlin None, class 52 |
+| `GLIDE` | com.github.bumptech.glide:glide | glide-4.11.0 | glide-4.16.0 | minCompileSdk 1, minSdk 14, Kotlin None, class 51 |
+| `MATERIAL` | com.google.android.material:material | material-1.6.1 | material-1.9.0 | minCompileSdk 1, minSdk 14, Kotlin None, class 52 |
+| `GOOGLE_AUTO_VALUE_ANNOTATIONS` | com.google.auto.value:auto-value-annotations | auto-value-annotations-1.6.5 | auto-value-annotations-1.11.1 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `GSON` | com.google.code.gson:gson | gson-2.8.7 | gson-2.14.0 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `ANDROIDX_LISTENABLEFUTURE` | com.google.guava:listenablefuture | listenablefuture-1.0.0 | listenablefuture-1.0.0 | kept: same artifact as bundled (1.0 = folder listenablefuture-1.0.0) |
+| `OKHTTP` | com.squareup.okhttp3:okhttp | okhttp-3.9.1 | okhttp-3.14.9 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `OKIO` | com.squareup.okio:okio | Okio-1.17.4 | Okio-1.17.6 | minCompileSdk 1, minSdk 1, Kotlin None, class 51 |
+| `CIRCLE_IMAGEVIEW` | de.hdodenhof:circleimageview | circle-imageview-v3.1.0 | circle-imageview-v3.1.0 | kept: same version as bundled (folder circle-imageview-v3.1.0) |
+| `KOTLIN_STDLIB` | org.jetbrains.kotlin:kotlin-stdlib | kotlin-stdlib-1.4.30-M1-release-152 | kotlin-stdlib-1.8.22 | minCompileSdk 1, minSdk 1, Kotlin [1, 8, 0], class 52 |
+| `KOTLINX_COROUTINES_ANDROID` | org.jetbrains.kotlinx:kotlinx-coroutines-android | (new) | kotlinx-coroutines-android-1.7.3 | minCompileSdk 1, minSdk 1, Kotlin [1, 8, 0], class 52 |
+| `KOTLINX_COROUTINES_CORE` | org.jetbrains.kotlinx:kotlinx-coroutines-core | (new) | kotlinx-coroutines-core-1.7.3 | minCompileSdk 1, minSdk 1, Kotlin [1, 8, 0], class 52 |
+| `JETBRAINS_ANNOTATIONS` | org.jetbrains:annotations | annotations-13.0 | annotations-24.1.0 | minCompileSdk 1, minSdk 1, Kotlin None, class 52 |
+| `KOTLIN_STDLIB_JDK7` | org.jetbrains.kotlin:kotlin-stdlib-jdk7 | kotlin-stdlib-jdk7-1.4.30-M1-release-152 | (removed) | empty since Kotlin 1.8; the constant now names kotlin-stdlib |
 
 ## 1. Built-in libraries
 

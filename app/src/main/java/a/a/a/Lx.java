@@ -58,9 +58,10 @@ public class Lx {
                 "dependencies {\r\n" +
                 "implementation fileTree(dir: 'libs', include: ['*.jar'])\r\n";
 
+        // Same versions as the built-in libraries the phone builds with (mod.jbk.build.BuiltInLibraries)
         if (metadata.g) {
-            content += "implementation 'androidx.appcompat:appcompat:1.2.0'\r\n" +
-                    "implementation 'com.google.android.material:material:1.4.0'\r\n";
+            content += "implementation 'androidx.appcompat:appcompat:1.6.1'\r\n" +
+                    "implementation 'com.google.android.material:material:1.9.0'\r\n";
         }
 
         if (metadata.isFirebaseAuthUsed) {
@@ -84,15 +85,15 @@ public class Lx {
         }
 
         if (metadata.isGlideUsed) {
-            content += "implementation 'com.github.bumptech.glide:glide:4.12.0'\r\n";
+            content += "implementation 'com.github.bumptech.glide:glide:4.16.0'\r\n";
         }
 
         if (metadata.isGsonUsed) {
-            content += "implementation 'com.google.code.gson:gson:2.8.7'\r\n";
+            content += "implementation 'com.google.code.gson:gson:2.14.0'\r\n";
         }
 
         if (metadata.isHttp3Used) {
-            content += "implementation 'com.squareup.okhttp3:okhttp:3.9.1'\r\n";
+            content += "implementation 'com.squareup.okhttp3:okhttp:3.14.9'\r\n";
         }
 
         if(metadata.isDynamicLinkUsed) {

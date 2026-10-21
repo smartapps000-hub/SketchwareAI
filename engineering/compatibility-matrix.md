@@ -21,7 +21,7 @@ Four different things, tracked separately. A row says "tested" only for what was
 | User's phone | every release is installed and used by the user | v1.8.0: project #644 built, installed and started; #623 failed in AAPT2 (damaged PNG); #606 failed in Java compile (library without classes.jar). Android version not recorded here |
 | Network from the Android runtime here | not possible: the sandbox kernel has no IPv6 and Android opens IPv6 sockets | downloads are run on JVM 17 with the same classes |
 
-Not run anywhere off-device: Activities (logic editor, compile log screen, source viewer), AAPT2, DEX merge, APK packaging/signing, installation.
+Not run anywhere off-device: Activities (logic editor, compile log screen, source viewer), installation. From v1.8.3 the Android 12 ART harness (`tools/art-harness`) also runs AAPT2 (the APK's x86_64 aapt2), Kotlin, DEX merge, APK packaging and signing of the Run build.
 
 "Tested on the Android 12 runtime" means only the rows above. It does not mean the IDE supports only Android 12, and it says nothing about Android 8-11 or 13+.
 
@@ -32,7 +32,7 @@ Not run anywhere off-device: Activities (logic editor, compile log screen, sourc
 | minSdk / targetSdk | per project: Project Configuration (defaults in `ModernProjectDefaults`) |
 | compile platform | bundled android.jar = Android 13 (API 33) unless a custom android.jar is set in Build Settings; APIs newer than 33 can't be called from project code |
 | Java level | ECJ 3.26 with -11, falling back to 1.8; D8/R8 3.3 |
-| Libraries | bundled AndroidX/Firebase/Play libraries are 2021-2022 releases; local libraries as installed |
+| Libraries | v1.8.3: AndroidX 2023-2024 releases (newest that build against API 33), Kotlin 1.8.22, Glide 4.16, Gson 2.14, OkHttp 3.14.9; Firebase/Play libraries still the 2021-2022 releases; local libraries as installed |
 
 Whether a generated APK runs on a given Android version depends on that project's minSdk/targetSdk, the APIs and libraries it uses, and platform behaviour changes. A successful compile on one runtime proves none of that.
 
@@ -47,3 +47,7 @@ Whether a generated APK runs on a given Android version depends on that project'
 - Primary device baseline named by the owner: Android 15 (API 35). Results on it are reported by the owner; none are
   recorded here yet for 1.8.2. Android 16 / 17: NOT TESTED. Engine checks in the sandbox ran on an API 31 ART runtime.
 - See `v1.8.2-verification.md`, `android15-audit.md`, `android15-device-test-plan.md`.
+
+## v1.8.3 (21 Oct 2026)
+- Full Run build of fixture projects 901-907 on the Android 12 (API 31) ART harness with the v1.8.3 APK; results in
+  `v1.8.3-verification.md`. No device run by the developer of this fork; Android 15 results come from the owner.
