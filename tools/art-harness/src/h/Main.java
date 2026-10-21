@@ -18,18 +18,25 @@ public class Main {
     static final java.io.PrintStream OUT = new java.io.PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out), true);
 
     public static void main(String[] args) throws Throwable {
-        set(c("com.besome.sketch.SketchApplication"), "mApplicationContext", CTX);
-        switch (args[0]) {
-            case "create":
-                Fixtures.create(args[1], args[2]);
-                break;
-            case "build":
-                FROM = args.length > 2 ? args[2] : null;
-                build(args[1]);
-                break;
-            default:
-                throw new IllegalArgumentException(args[0]);
+        // kotlinc leaves non-daemon threads behind: without System.exit the runtime never ends after a Kotlin build
+        try {
+            set(c("com.besome.sketch.SketchApplication"), "mApplicationContext", CTX);
+            switch (args[0]) {
+                case "create":
+                    Fixtures.create(args[1], args[2]);
+                    break;
+                case "build":
+                    FROM = args.length > 2 ? args[2] : null;
+                    build(args[1]);
+                    break;
+                default:
+                    throw new IllegalArgumentException(args[0]);
+            }
+        } catch (Throwable t) {
+            t.printStackTrace(OUT);
+            System.exit(1);
         }
+        System.exit(0);
     }
 
     static Object receiver() {

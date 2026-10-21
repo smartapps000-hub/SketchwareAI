@@ -963,8 +963,15 @@ public class Dp {
         ArrayList<File> dexes = new ArrayList<>();
 
         /* Add AndroidX MultiDex library if needed */
-        if (settings.getMinSdkVersion() < 21) {
+        boolean legacyMultiDex = settings.getMinSdkVersion() < 21;
+        if (legacyMultiDex) {
             dexes.add(BuiltInLibraries.getLibraryDexFile(BuiltInLibraries.ANDROIDX_MULTIDEX));
+            /* Android 4.x loads only classes.dex before MultiDex.install() runs, so the project's own classes
+             * (its Application) must be in classes.dex: merge them right after MultiDex, libraries fill the rest.
+             * Merged last, as before, they landed in classes3.dex once the libraries passed 64K methods. */
+            for (String file : FileUtil.listFiles(yq.binDirectoryPath + File.separator + "dex", "dex")) {
+                dexes.add(new File(file));
+            }
         }
 
         /* Add HTTP legacy files if wanted */
@@ -1016,8 +1023,10 @@ public class Dp {
             }
         }
 
-        for (String file : FileUtil.listFiles(yq.binDirectoryPath + File.separator + "dex", "dex")) {
-            dexes.add(new File(file));
+        if (!legacyMultiDex) {
+            for (String file : FileUtil.listFiles(yq.binDirectoryPath + File.separator + "dex", "dex")) {
+                dexes.add(new File(file));
+            }
         }
 
         LogUtil.d(TAG, "Will merge these " + dexes.size() + " DEX files to classes.dex: " + dexes);

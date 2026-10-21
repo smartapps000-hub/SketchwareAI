@@ -19,4 +19,6 @@ icons (`src/h/IconDefaults.java`, generated from `dev/aldi/sayuti/editor/view/pa
 Facts that cost time: ART aborts at start with `-Xmx` above ~1.5 GB; `/linkerconfig/com.android.art/ld.config.txt`
 must exist and every namespace must be `visible = true`; `/system/etc/public.libraries.txt` must not be empty
 (signing loads a native library); `SystemLogPrinter.start()` (Dp constructor) sends System.out/err to
-`/.sketchware/debug.txt`, so the harness prints to FileDescriptor.out; aapt2 runs fine from ART here.
+`/.sketchware/debug.txt`, so the harness prints to FileDescriptor.out; aapt2 runs fine from ART here; kotlinc leaves
+non-daemon threads, so `Main` ends with `System.exit`; `.sketchware/bak/<id>` is the IDE's working copy of a project and
+must be deleted with `data/<id>` before an id is reused (suite.sh does), or every view is added twice.
