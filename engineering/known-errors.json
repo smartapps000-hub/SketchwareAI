@@ -83,6 +83,22 @@
       "verifiedOn": [
         "Android 12 ART (API 31) x86_64 harness, while making fixture 901 (the widget is left out of the fixtures)"
       ]
+    },
+    {
+      "fingerprint": "Generated app with min SDK < 21 on Android 4.x: ClassNotFoundException for <package>.SketchApplication at start",
+      "rootCause": "Upstream merge order: MultiDex, then every library, then the project's own DEX last. Once the libraries pass 64K methods (v1.8.3 AppCompat projects do), the project's classes land in classes3.dex, and Android 4.x loads only classes.dex before MultiDex.install().",
+      "repair": "v1.8.3 Dp.getDexFilesReady: with min SDK < 21 the project's DEX files are merged right after MultiDex (fixture 907: classes.dex holds MultiDex, MultiDexApplication, SketchApplication, MainActivity). Min SDK 21+ unchanged.",
+      "verifiedOn": [
+        "Android 12 ART (API 31) x86_64 harness: build and class placement only. Not run on Android 4.x."
+      ]
+    },
+    {
+      "fingerprint": "DEX merge: java.nio.BufferOverflowException at DexMerger.transformDebugInfoItem",
+      "rootCause": "DexMerger reserved 2x the input's debug info; a 1-byte string/type index becomes 3 bytes when the merged DEX has 16384+ strings. Seen when the project's small DEX was merged into classes.dex with the libraries (min SDK < 21).",
+      "repair": "v1.8.3: 3x + 8 bytes reserved (an upper bound for index growth); the merger compacts unused space afterwards.",
+      "verifiedOn": [
+        "Android 12 ART (API 31) x86_64 harness, fixture 907"
+      ]
     }
   ]
 }

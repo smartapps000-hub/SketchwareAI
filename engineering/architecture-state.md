@@ -51,6 +51,8 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
 - The extracted copy in `cacheDir/libs` is refreshed when the asset's **size** changes (`Dp.hasFileChanged`): a new libs.zip
   must differ in size from the old one (it does: 24.9 MB vs the 1.8.2 size).
 - `Lx` (Android Studio export) build.gradle names the same versions.
+- DEX merge (min SDK < 21, or a non-debug build): with min SDK < 21 the project's own DEX is merged right after
+  MultiDex so its Application is in classes.dex; `DexMerger` reserves 3x the debug info (index growth 1 -> 3 bytes).
 - **Android runtime harness kept in the repository** (`tools/art-harness`): installs an Android 12 ART into the workspace,
   writes fixture projects with the IDE's own project classes and runs the DesignActivity Run-build steps (generate,
   built-in libraries, AAPT2, Kotlin, ECJ + auto-fix, D8, merge, package, sign) with the classes and aapt2 of a built APK.

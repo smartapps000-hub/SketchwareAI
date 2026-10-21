@@ -103,6 +103,7 @@
       "content": "KtHelper.kt in the project's Java/Kotlin folder, called from an add-source-directly block: kotlinc 1.7.10 against kotlin-stdlib 1.8.22, then ECJ against kotlinc's classes",
       "checks": [
         "full Run build: generate, built-in libraries, AAPT2 compile+link, Kotlin, ECJ (+auto-fix), D8, dex merge, package, sign",
+        "KtHelper.greet runs on ART from the built APK (returns 'A, B')",
         "results per release in v<version>-verification.md"
       ]
     },
@@ -112,6 +113,7 @@
       "content": "the #639 shape in an add-source-directly block: statement after a try/catch whose every path returns (ECJ: Unreachable code)",
       "checks": [
         "full Run build: generate, built-in libraries, AAPT2 compile+link, Kotlin, ECJ (+auto-fix), D8, dex merge, package, sign",
+        "build compiles with the unreachable-code repair; mysc/<id>/autofix.json proposes the change for block 1",
         "results per release in v<version>-verification.md"
       ]
     },
@@ -121,6 +123,7 @@
       "content": "label.lenght() in an add-source-directly block: must fail with the block's origin",
       "checks": [
         "full Run build: generate, built-in libraries, AAPT2 compile+link, Kotlin, ECJ (+auto-fix), D8, dex merge, package, sign",
+        "build fails; log names 'MainActivity -> onCreate -> block 1 (add source directly), line 2 of its code'",
         "results per release in v<version>-verification.md"
       ]
     },
@@ -130,6 +133,7 @@
       "content": "fixture 901 with min_sdk 19: multidex, every DEX merged by the IDE's D8",
       "checks": [
         "full Run build: generate, built-in libraries, AAPT2 compile+link, Kotlin, ECJ (+auto-fix), D8, dex merge, package, sign",
+        "classes.dex holds MultiDex, MultiDexApplication and the project's SketchApplication (dexdump)",
         "results per release in v<version>-verification.md"
       ]
     }
