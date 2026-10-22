@@ -7,8 +7,8 @@ import java.io.RandomAccessFile;
 /**
  * 16 KB page size check for the native libraries a build packages (v1.8.4).
  * <p>
- * Devices with 16 KB memory pages (Android 15+) only load a 64-bit {@code .so} whose LOAD segments are aligned to
- * 16 KB, and Google Play requires that from apps targeting Android 15+ since 1 Nov 2025. A library's alignment is
+ * Devices with 16 KB memory pages (Android 15+) need a 64-bit {@code .so} whose LOAD segments are aligned to 16 KB,
+ * and Google Play requires that from apps targeting Android 15+ (since 1 Nov 2025). A library's alignment is
  * fixed when it is linked, so the build can't repair it; it says which file needs a newer build of that library.
  * The check only reads ELF headers and never stops a build.
  */
@@ -36,9 +36,9 @@ public final class NativeAlignment {
                 }
                 if (alignment > 0 && alignment < REQUIRED) {
                     BuildWarnings.add(origin + ": " + abi + "/" + so.getName() + " is aligned to " + (alignment / 1024)
-                            + " KB pages, so it won't load on Android 15+ devices with 16 KB pages, and Google Play "
-                            + "rejects it for apps targeting Android 15+. Use a version of that library built with "
-                            + "16 KB alignment (NDK r28+, or -Wl,-z,max-page-size=16384).");
+                            + " KB pages. Devices with 16 KB pages (Android 15+) may not load it, and Google Play "
+                            + "requires 16 KB alignment for apps targeting Android 15+. Use a version of that library "
+                            + "built with 16 KB alignment (NDK r28+, or -Wl,-z,max-page-size=16384).");
                 }
             }
         }
