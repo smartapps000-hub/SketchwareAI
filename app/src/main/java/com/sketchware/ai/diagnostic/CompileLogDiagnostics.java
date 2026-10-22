@@ -40,7 +40,7 @@ public final class CompileLogDiagnostics {
                             + "Turn on AppCompat and Design (or the library that provides it), or remove it from Inject."),
             new Rule("attribute (android:\\w+|app:\\w+) .*not found",
                     "The attribute %s isn't known when linking. It's misspelled, needs a library that isn't enabled, "
-                            + "or is newer than the bundled android.jar (Android 13). Remove it from Inject or enable the library."),
+                            + "or is newer than the bundled android.jar (Android 14). Remove it from Inject or enable the library."),
             new Rule("unescaped apostrophe|apostrophe",
                     "A text contains an apostrophe ('). In strings it must be written as \\'."),
             new Rule("not well-formed|invalid token|mismatched tag|unbound prefix",
@@ -84,7 +84,7 @@ public final class CompileLogDiagnostics {
                     "Code in a static method uses something that belongs to the activity instance. Remove 'static' "
                             + "or pass the activity/context in."),
             new Rule("is not visible|has private access",
-                    "The code uses a private member of another class, or an API hidden in the bundled Android 13 android.jar."),
+                    "The code uses a private member of another class, or an API hidden in the bundled Android 14 android.jar."),
             new Rule("(\\w+) cannot be resolved to a type",
                     "Java doesn't know the type %s. Add its import (Custom Imports / ASD), enable the library that "
                             + "provides it, or fix the spelling."),

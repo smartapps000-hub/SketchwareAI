@@ -910,11 +910,14 @@ public class Dp {
             /* Add project's native libraries */
             File nativeLibrariesDirectory = new File(fpu.getPathNativelibs(yq.sc_id));
             if (nativeLibrariesDirectory.exists()) {
+                com.sketchware.ai.project.NativeAlignment.check(nativeLibrariesDirectory, "Native library of the project");
                 apkBuilder.addNativeLibraries(nativeLibrariesDirectory);
             }
 
             /* Add Local libraries' native libraries */
             for (String nativeLibraryDirectory : mll.getNativeLibs()) {
+                com.sketchware.ai.project.NativeAlignment.check(new File(nativeLibraryDirectory),
+                        "Native library of local library " + new File(nativeLibraryDirectory).getParentFile().getName());
                 apkBuilder.addNativeLibraries(new File(nativeLibraryDirectory));
             }
 

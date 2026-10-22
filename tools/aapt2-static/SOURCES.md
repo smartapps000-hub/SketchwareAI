@@ -36,7 +36,9 @@ include jni.h. Tests, fuzzers, benchmarks and Windows/Darwin-only files are not 
 ## Toolchain
 
 * Android NDK r28c (28.2.13676358): clang, `libc++_static`, and the bionic static
-  `libc.a`/`libm.a`. Target `android-24`, `-static`, `-Wl,-z,max-page-size=16384`,
+  `libc.a`/`libm.a`. All four ABIs (arm64-v8a, x86_64 since v1.0; armeabi-v7a, x86 since v1.8.4,
+  replacing upstream's older 32-bit binaries, which were 4 KB-aligned and can't compile `<macro>`
+  resources such as Material 1.11+). Target `android-24`, `-static`, `-Wl,-z,max-page-size=16384`,
   `-Wl,--gc-sections`, stripped with `llvm-strip --strip-all`.
 * The host protoc is built with the system clang (Ubuntu clang 18) and CMake/Ninja.
 

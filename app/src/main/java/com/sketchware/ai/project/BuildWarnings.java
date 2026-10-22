@@ -15,13 +15,14 @@ import mod.jbk.util.LogUtil;
  * "Built with N warnings" and saves them to the compile log (Show last compile error).
  * <p>
  * The checks at the start compare the project against what this toolchain really provides:
- * code is compiled against the bundled Android 13 (API 33) android.jar with ECJ 3.26 and
- * D8/R8 3.3, and the bundled Jetpack/Firebase/Play libraries are the 2021-2022 releases.
+ * code is compiled against the bundled Android 14 (API 34) android.jar with ECJ 3.26 and
+ * D8/R8 3.3; the bundled Jetpack libraries are the newest that build against it (v1.8.4), Firebase/Play the
+ * 2021-2022 releases.
  */
 public final class BuildWarnings {
 
     /** API level of assets/libs/android.jar.zip, the platform user code is compiled against. */
-    public static final int BUNDLED_ANDROID_JAR_API = 33;
+    public static final int BUNDLED_ANDROID_JAR_API = 34;
 
     private static final String TAG = "BuildWarnings";
     private static final List<String> warnings = new ArrayList<>();
@@ -56,7 +57,8 @@ public final class BuildWarnings {
 
             if (target > BUNDLED_ANDROID_JAR_API && customJar.trim().isEmpty()) {
                 note("Target API " + target + " (Android " + (target - 20) + "), but code is compiled against the bundled "
-                        + "Android 13 (API " + BUNDLED_ANDROID_JAR_API + ") android.jar: APIs added in Android 14+ can't be "
+                        + "Android " + (BUNDLED_ANDROID_JAR_API - 20) + " (API " + BUNDLED_ANDROID_JAR_API + ") android.jar: "
+                        + "APIs added in Android " + (BUNDLED_ANDROID_JAR_API - 19) + "+ can't be "
                         + "called from your code. The app still gets Android " + (target - 20) + "'s runtime rules. "
                         + "Set a newer android.jar in Build Settings to use newer APIs.");
             }
@@ -129,7 +131,7 @@ public final class BuildWarnings {
 
     /**
      * Text appended to a failed build's log: the warnings and notes collected before the failure
-     * (e.g. "compiled against API 33" explains a "cannot find symbol" for an Android 14+ API).
+     * (e.g. "compiled against API 34" explains a "cannot find symbol" for an Android 15+ API).
      * Empty when there is nothing to add.
      */
     public static synchronized String failureAppendix() {

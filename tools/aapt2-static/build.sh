@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build statically linked aapt2 executables for Android (arm64-v8a, x86_64)
+# Build statically linked aapt2 executables for Android (arm64-v8a, x86_64, armeabi-v7a, x86)
 # from AOSP sources.  Output: out/<abi>/libaapt2.so (an executable named lib*.so
 # so the Android package installer extracts it into nativeLibraryDir).
 #
@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 TAG="${AOSP_TAG:-android-14.0.0_r75}"
 NDK="${ANDROID_NDK:-/opt/android-sdk/ndk/28.2.13676358}"
-ABIS="${ABIS:-arm64-v8a x86_64}"
+ABIS="${ABIS:-arm64-v8a x86_64 armeabi-v7a x86}"
 API=24
 JOBS="${JOBS:-$(nproc)}"
 SRC="$ROOT/src"

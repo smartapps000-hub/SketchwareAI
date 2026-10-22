@@ -13,7 +13,7 @@ package com.sketchware.ai.project;
  *     <li>Edge-to-edge ON: the window draws under transparent bars (also on Android 11–14) and the
  *     layout's root view gets the bar insets added to its own padding.</li>
  * </ul>
- * Uses only framework APIs present in the bundled android.jar (API 33) and no lambdas, so it
+ * Uses only framework APIs present in the bundled android.jar (API 33; API 34 since v1.8.4) and no lambdas, so it
  * compiles with any Java version setting and without AndroidX.
  */
 public final class SystemBarsCode {
