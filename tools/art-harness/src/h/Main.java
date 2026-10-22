@@ -30,6 +30,7 @@ public class Main {
                     build(args[1]);
                     break;
                 case "aab":
+                    FROM = args.length > 2 ? args[2] : null;
                     exportAab(args[1]);
                     break;
                 default:

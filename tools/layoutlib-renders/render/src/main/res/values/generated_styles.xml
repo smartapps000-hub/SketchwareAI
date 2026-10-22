@@ -1,0 +1,33 @@
+<resources>
+	<style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="colorSecondary">@color/colorAccent</item>
+		<item name="colorControlHighlight">@color/colorControlHighlight</item>
+		<item name="colorControlNormal">@color/colorControlNormal</item>
+		<item name="android:statusBarColor">@color/colorPrimaryDark</item>
+		<item name="viewInflaterClass">androidx.appcompat.app.AppCompatViewInflater</item>
+		<item name="floatingActionButtonStyle">@style/AppTheme.Fab</item>
+	</style>
+	<style name="AppTheme.Fab" parent="Widget.Material3.FloatingActionButton.Primary">
+		<item name="backgroundTint">@color/colorAccent</item>
+		<item name="tint">#FFFFFF</item>
+	</style>
+	<style name="AppTheme.FullScreen" parent="AppTheme">
+		<item name="android:windowFullscreen">true</item>
+		<item name="android:windowContentOverlay">@null</item>
+	</style>
+	<style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.Material3.Dark.ActionBar" />
+	<style name="AppTheme.PopupOverlay" parent="ThemeOverlay.Material3.Light" />
+	<style name="AppThemeOld" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="colorControlHighlight">@color/colorControlHighlight</item>
+		<item name="colorControlNormal">@color/colorControlNormal</item>
+	</style>
+	<style name="AppThemeOld.AppBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+	<style name="AppThemeOld.PopupOverlay" parent="ThemeOverlay.MaterialComponents.Light" />
+</resources>

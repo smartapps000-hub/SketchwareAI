@@ -1,0 +1,59 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+	<com.google.android.material.appbar.AppBarLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:theme="@style/AppThemeOld.AppBarOverlay">
+		<androidx.appcompat.widget.Toolbar
+			android:id="@+id/_toolbar"
+			android:layout_width="match_parent"
+			android:layout_height="?attr/actionBarSize"
+			android:background="?attr/colorPrimary"
+			app:title="Fixture m3"
+			app:popupTheme="@style/AppThemeOld.PopupOverlay" />
+	</com.google.android.material.appbar.AppBarLayout>
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:padding="16dp"
+		android:orientation="vertical">
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Generated widgets (Sketchware AI v1.8.4)" android:textSize="12sp" android:textColor="#000000" />
+		<Button android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="button1" android:textSize="12sp" android:textColor="#000000" />
+		<EditText android:layout_width="match_parent" android:layout_height="wrap_content" android:text="edittext1" android:textSize="12sp" android:textColor="#000000" android:textColorHint="#607D8B" />
+		<CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="checkbox1" android:textSize="12sp" android:textColor="#000000" android:checked="true" />
+		<Switch android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="switch1" android:textSize="12sp" android:textColor="#000000" android:checked="true" />
+		<RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="radiobutton1" android:textSize="12sp" android:textColor="#000000" android:checked="true" />
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="MaterialButton, palette default" android:textSize="11sp" android:textColor="#757575" />
+		<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+			<com.google.android.material.button.MaterialButton
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="materialbutton1"
+				android:textSize="12sp"
+				android:textColor="#FFFFFF"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Button"
+				app:backgroundTint="@color/colorPrimary"
+				app:cornerRadius="8dp"
+				style="@style/Widget.MaterialComponents.Button" />
+
+		</LinearLayout>
+		<com.google.android.material.textfield.TextInputLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="8dp"
+			android:hint="TextInputLayout (MaterialComponents style)"
+			style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+			<com.google.android.material.textfield.TextInputEditText android:layout_width="match_parent" android:layout_height="wrap_content" android:text="తెలుగు టెక్స్ట్" />
+		</com.google.android.material.textfield.TextInputLayout>
+		<com.google.android.material.chip.Chip android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Chip" android:checked="true" style="@style/Widget.MaterialComponents.Chip.Filter" />
+		<com.google.android.material.floatingactionbutton.FloatingActionButton
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_margin="16dp"
+			android:layout_gravity="right"
+			android:src="@android:drawable/ic_input_add" />
+	</LinearLayout>
+</LinearLayout>
