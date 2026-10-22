@@ -45,15 +45,14 @@
 				android:text="materialbutton2"
 				android:textSize="12sp"
 				android:textColor="#FFFFFF"
-				app:backgroundTint="@color/colorPrimary"
-				style="@style/Widget.Material3.Button" />
+				app:backgroundTint="@color/colorPrimary" />
 		</LinearLayout>
 		<com.google.android.material.textfield.TextInputLayout
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
 			android:layout_marginTop="8dp"
 			android:hint="TextInputLayout (Material 3 style)"
-			style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+			style="?attr/textInputOutlinedStyle">
 			<com.google.android.material.textfield.TextInputEditText android:layout_width="match_parent" android:layout_height="wrap_content" android:text="తెలుగు టెక్స్ట్" />
 		</com.google.android.material.textfield.TextInputLayout>
 		<com.google.android.material.chip.Chip android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Chip" android:checked="true" style="@style/Widget.Material3.Chip.Filter" />

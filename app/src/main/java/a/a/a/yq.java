@@ -730,14 +730,28 @@ public class yq {
             }
         }
 
-        // SketchFonts.java when a generated activity uses a font block (see com.sketchware.ai.project.FontCode)
+        // SketchFonts.java when a generated activity or a custom Java file of the project uses it
+        // (see com.sketchware.ai.project.FontCode)
         if (!javaFiles.contains(new File(javaDir + com.sketchware.ai.project.FontCode.FILE_NAME))) {
+            boolean usesFonts = false;
             for (SrcCodeBean bean : srcCodeBeans) {
                 if (com.sketchware.ai.project.FontCode.uses(bean.source)) {
-                    srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.FontCode.FILE_NAME,
-                            com.sketchware.ai.project.FontCode.helperClass(packageName)));
+                    usesFonts = true;
                     break;
                 }
+            }
+            if (!usesFonts) {
+                for (File custom : javaFiles) {
+                    if (custom.isFile() && custom.getName().endsWith(".java")
+                            && com.sketchware.ai.project.FontCode.uses(FileUtil.readFile(custom.getAbsolutePath()))) {
+                        usesFonts = true;
+                        break;
+                    }
+                }
+            }
+            if (usesFonts) {
+                srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.FontCode.FILE_NAME,
+                        com.sketchware.ai.project.FontCode.helperClass(packageName)));
             }
         }
 

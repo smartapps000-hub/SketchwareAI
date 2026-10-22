@@ -33,8 +33,11 @@ public class IconTextInputLayout extends IconBase {
         viewBean.layout.paddingRight = 0;
         viewBean.layout.paddingBottom = 0;
         viewBean.convert = "com.google.android.material.textfield.TextInputLayout";
+        // Material 3 project: the theme's outlined style (Widget.Material3.TextInputLayout.OutlinedBox under the M3
+        // AppTheme). A theme attribute, not the M3 style itself: M3 styles need M3 theme colours (colorOutline ...) and
+        // fail to inflate if the project is switched back to the MaterialComponents theme later.
         viewBean.inject = com.sketchware.ai.editor.DesignTheme.material3()
-                ? "style=\"@style/Widget.Material3.TextInputLayout.OutlinedBox\""
+                ? "style=\"?attr/textInputOutlinedStyle\""
                 : "style=\"@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox\"";
         return viewBean;
     }

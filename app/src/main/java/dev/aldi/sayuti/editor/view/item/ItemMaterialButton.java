@@ -19,8 +19,9 @@ import a.a.a.wB;
 /**
  * Design-canvas stand-in for a MaterialButton. It is drawn the way the generated button looks: filled with the
  * background tint (the project's primary colour unless the widget has its own background colour), with the corner
- * radius of its style: a full pill for {@code Widget.Material3.Button} (Material 3 projects), the injected
- * {@code app:cornerRadius} or 4dp for {@code Widget.MaterialComponents.Button}.
+ * radius of its style: the injected {@code app:cornerRadius}, else a full pill for {@code Widget.Material3.Button}
+ * or for a button without an explicit style in a Material 3 project (the theme's button style), else 4dp
+ * ({@code Widget.MaterialComponents.Button}).
  */
 public class ItemMaterialButton extends AppCompatButton implements sy {
 
@@ -99,8 +100,9 @@ public class ItemMaterialButton extends AppCompatButton implements sy {
 
     private void applyLook() {
         String inject = viewBean == null || viewBean.inject == null ? "" : viewBean.inject;
+        // explicit style wins; without one the button gets the theme's materialButtonStyle
         boolean material3 = inject.contains("Widget.Material3.")
-                || (viewBean == null && com.sketchware.ai.editor.DesignTheme.material3());
+                || (!inject.contains("Widget.MaterialComponents.") && com.sketchware.ai.editor.DesignTheme.material3());
         float density = getResources().getDisplayMetrics().density;
         float radius;
         Matcher m = CORNER_RADIUS.matcher(inject);

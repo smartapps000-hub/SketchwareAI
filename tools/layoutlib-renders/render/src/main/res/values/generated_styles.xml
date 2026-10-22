@@ -28,6 +28,13 @@
 		<item name="colorControlHighlight">@color/colorControlHighlight</item>
 		<item name="colorControlNormal">@color/colorControlNormal</item>
 	</style>
+	<style name="AppThemeMdc" parent="Theme.MaterialComponents.Light.NoActionBar">
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="colorControlHighlight">@color/colorControlHighlight</item>
+		<item name="colorControlNormal">@color/colorControlNormal</item>
+	</style>
 	<style name="AppThemeOld.AppBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar" />
 	<style name="AppThemeOld.PopupOverlay" parent="ThemeOverlay.MaterialComponents.Light" />
 </resources>

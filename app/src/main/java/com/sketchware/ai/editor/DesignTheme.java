@@ -13,7 +13,7 @@ public final class DesignTheme {
 
     private static volatile String scId;
     private static volatile boolean material3;
-    private static volatile int colorPrimary = 0xff008dcd; // Sketchware's default primary colour
+    private static volatile int colorPrimary = 0xfff4511e; // R.color.color_primary, the generator's fallback (yq)
 
     private DesignTheme() {
     }
@@ -21,7 +21,7 @@ public final class DesignTheme {
     public static void load(String sc_id) {
         if (sc_id == null) return;
         boolean m3 = false;
-        int primary = 0xff008dcd;
+        int primary = fallbackPrimary();
         try {
             m3 = com.sketchware.ai.project.ModernProjectDefaults.material3(new ProjectSettings(sc_id));
         } catch (RuntimeException ignored) {
@@ -37,6 +37,16 @@ public final class DesignTheme {
         scId = sc_id;
         material3 = m3;
         colorPrimary = primary;
+    }
+
+    /** The colour yq writes when the project metadata has no color_primary. */
+    private static int fallbackPrimary() {
+        try {
+            return androidx.core.content.ContextCompat.getColor(com.besome.sketch.SketchApplication.getContext(),
+                    com.sketchware.remod.R.color.color_primary);
+        } catch (RuntimeException e) {
+            return 0xfff4511e;
+        }
     }
 
     /** The project the editor shows uses the Material 3 AppTheme. */

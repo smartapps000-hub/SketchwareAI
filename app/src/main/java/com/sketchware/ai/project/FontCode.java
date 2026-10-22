@@ -24,10 +24,14 @@ public final class FontCode {
     public static final String CLASS_NAME = "SketchFonts";
     public static final String FILE_NAME = CLASS_NAME + ".java";
 
-    /** {@code <receiver>.setTypeface(Typeface.createFromAsset(<assets>,"fonts/<file>"), <style>);} as Fx writes it. */
+    /**
+     * {@code <receiver>.setTypeface(Typeface.createFromAsset(<assets>,"fonts/<file>"), <style>);} as Fx writes it.
+     * The receiver is a whole name chain (not the tail of {@code (cast) x).view} or {@code a[i].view}: those lines are
+     * left as they are), and a match never crosses a line end, so every line keeps its number.
+     */
     private static final Pattern SET_TYPEFACE = Pattern.compile(
-            "([A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*)\\.setTypeface\\(Typeface\\.createFromAsset\\("
-                    + "((?:getContext\\(\\)\\.)?getAssets\\(\\)),\\s*\"(fonts/[^\"]+)\"\\),\\s*([^;()]+)\\);");
+            "(?<![\\w$.)\\]])([A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*)\\.setTypeface\\(Typeface\\.createFromAsset\\("
+                    + "((?:getContext\\(\\)\\.)?getAssets\\(\\)),[ \\t]*\"(fonts/[^\"\\r\\n]+)\"\\),[ \\t]*([^;()\\r\\n]+)\\);");
 
     private FontCode() {
     }

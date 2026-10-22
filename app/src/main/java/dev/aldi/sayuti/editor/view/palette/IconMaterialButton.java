@@ -39,8 +39,10 @@ public class IconMaterialButton extends IconBase {
         viewBean.text.text = getName();
         viewBean.convert = "com.google.android.material.button.MaterialButton";
         if (com.sketchware.ai.editor.DesignTheme.material3()) {
-            // Material 3 project: the M3 filled button (full-pill shape, M3 type) in the project's primary colour
-            viewBean.inject = "app:backgroundTint=\"@color/colorPrimary\"\nstyle=\"@style/Widget.Material3.Button\"";
+            // Material 3 project: the theme's button style (Widget.Material3.Button under the M3 AppTheme: full-pill
+            // shape, M3 type) in the project's primary colour. No explicit M3 style: it would fail to inflate if the
+            // project is switched back to the MaterialComponents theme later.
+            viewBean.inject = "app:backgroundTint=\"@color/colorPrimary\"";
         } else {
             viewBean.inject = "android:textAppearance=\"@style/TextAppearance.MaterialComponents.Button\"\napp:backgroundTint=\"@color/colorPrimary\"\napp:cornerRadius=\"8dp\"\nstyle=\"@style/Widget.MaterialComponents.Button\"";
         }
