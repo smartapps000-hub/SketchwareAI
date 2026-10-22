@@ -1,0 +1,15 @@
+<resources>
+	<!-- fixture 908's generated AppTheme, v1.8.5 final (Theme.Material3.Light, AppCompatViewInflater) -->
+	<style name="AppTheme85" parent="Theme.Material3.Light.NoActionBar">
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+		<item name="colorOnPrimary">#FFFFFF</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="colorSecondary">@color/colorAccent</item>
+		<item name="colorControlHighlight">@color/colorControlHighlight</item>
+		<item name="colorControlNormal">@color/colorControlNormal</item>
+		<item name="android:statusBarColor">@color/colorPrimaryDark</item>
+		<item name="viewInflaterClass">androidx.appcompat.app.AppCompatViewInflater</item>
+	</style>
+</resources>

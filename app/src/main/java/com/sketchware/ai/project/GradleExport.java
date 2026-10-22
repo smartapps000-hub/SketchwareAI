@@ -144,6 +144,15 @@ public final class GradleExport {
             if (!uses(metadata, library[0]) || library[2].isEmpty()) continue;
             lines.addAll(java.util.Arrays.asList(library[2].split("\\|")));
         }
+        // components Lx's list never had (the export didn't compile with them): the built-in versions
+        mod.agus.jcoderz.handle.component.ConstVarComponent x = metadata.x;
+        if (x.isFCMUsed) {
+            lines.add("com.google.firebase:firebase-messaging:19.0.0");
+            lines.add("com.google.firebase:firebase-iid:19.0.0"); // the generated code calls FirebaseInstanceId
+        }
+        if (x.isFBGoogleUsed) lines.add("com.google.android.gms:play-services-auth:19.0.0");
+        if (x.isOneSignalUsed) lines.add("com.onesignal:OneSignal:3.14.0");
+        if (x.isFBAdsUsed) lines.add("com.facebook.android:audience-network-sdk:5.9.0");
         StringBuilder out = new StringBuilder();
         for (String line : lines) out.append("implementation '").append(line).append("'\r\n");
         return out.toString();
@@ -163,6 +172,9 @@ public final class GradleExport {
         if (!libs.isDirectory() && !libs.mkdirs()) throw new IOException("Can't create " + libs);
         java.util.Map<String, java.util.zip.ZipOutputStream> outputs = new java.util.HashMap<>();
         java.util.Set<String> withManifest = new java.util.HashSet<>();
+        java.util.Set<String> withSymbols = new java.util.HashSet<>();
+        // res/ files of each library, for an R.txt when the built-in copy has none
+        java.util.Map<String, java.util.Map<String, byte[]>> resources = new java.util.HashMap<>();
         try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(
                 com.besome.sketch.SketchApplication.getContext().getAssets().open("libs/libs.zip"))) {
             byte[] buffer = new byte[16384];
@@ -180,10 +192,31 @@ public final class GradleExport {
                     outputs.put(library, out);
                 }
                 if (path.equals("AndroidManifest.xml")) withManifest.add(library);
+                if (path.equals("R.txt")) withSymbols.add(library);
+                java.io.ByteArrayOutputStream content = path.startsWith("res/") ? new java.io.ByteArrayOutputStream() : null;
                 out.putNextEntry(new java.util.zip.ZipEntry(path));
                 int n;
-                while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+                while ((n = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, n);
+                    if (content != null) content.write(buffer, 0, n);
+                }
                 out.closeEntry();
+                if (content != null) {
+                    java.util.Map<String, byte[]> files = resources.get(library);
+                    if (files == null) resources.put(library, files = new java.util.TreeMap<>());
+                    files.put(path.substring("res/".length()), content.toByteArray());
+                }
+            }
+            for (java.util.Map.Entry<String, java.util.zip.ZipOutputStream> output : outputs.entrySet()) {
+                if (withSymbols.contains(output.getKey())) continue;
+                // Without R.txt, AGP generates no R classes for the library and its code fails at run time
+                // (NoClassDefFoundError: <package>.R$styleable): the names are listed here, AGP takes the values from
+                // the app's resource table.
+                java.util.Map<String, byte[]> files = resources.get(output.getKey());
+                output.getValue().putNextEntry(new java.util.zip.ZipEntry("R.txt"));
+                output.getValue().write(textSymbols(files == null ? new java.util.TreeMap<String, byte[]>() : files)
+                        .getBytes(StandardCharsets.UTF_8));
+                output.getValue().closeEntry();
             }
             for (java.util.Map.Entry<String, java.util.zip.ZipOutputStream> output : outputs.entrySet()) {
                 if (!withManifest.contains(output.getKey())) {
@@ -200,6 +233,119 @@ public final class GradleExport {
                 } catch (IOException ignored) {
                 }
             }
+        }
+    }
+
+    private static final java.util.regex.Pattern NEW_ID = java.util.regex.Pattern.compile("@\\+id/([A-Za-z0-9_.]+)");
+
+    /**
+     * The resource names of a library's res/ folder in aapt2's R.txt format (values 0: an app's R classes for its
+     * libraries take the names from the library's R.txt and the values from the app's own table).
+     *
+     * @param files paths below res/ ("values/attrs.xml", "drawable-v21/a.xml") and their content
+     */
+    static String textSymbols(java.util.Map<String, byte[]> files) {
+        java.util.Set<String> symbols = new java.util.TreeSet<>();
+        java.util.Map<String, java.util.List<String>> styleables = new java.util.TreeMap<>();
+        for (java.util.Map.Entry<String, byte[]> file : files.entrySet()) {
+            String path = file.getKey();
+            int slash = path.indexOf('/');
+            if (slash <= 0) continue;
+            String folder = path.substring(0, slash);
+            String type = folder.contains("-") ? folder.substring(0, folder.indexOf('-')) : folder;
+            String fileName = path.substring(slash + 1);
+            String text = new String(file.getValue(), StandardCharsets.UTF_8);
+            if (fileName.endsWith(".xml")) {
+                java.util.regex.Matcher id = NEW_ID.matcher(text);
+                while (id.find()) symbols.add("id " + id.group(1).replace('.', '_'));
+            }
+            if (!type.equals("values")) {
+                String name = fileName.contains(".") ? fileName.substring(0, fileName.indexOf('.')) : fileName;
+                symbols.add(type + " " + name);
+                continue;
+            }
+            try {
+                javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+                org.w3c.dom.Element root = factory.newDocumentBuilder()
+                        .parse(new java.io.ByteArrayInputStream(file.getValue())).getDocumentElement();
+                for (org.w3c.dom.Node node = root.getFirstChild(); node != null; node = node.getNextSibling()) {
+                    if (!(node instanceof org.w3c.dom.Element)) continue;
+                    org.w3c.dom.Element element = (org.w3c.dom.Element) node;
+                    String tag = element.getTagName();
+                    String name = element.getAttribute("name").replace('.', '_');
+                    if (name.isEmpty() || name.startsWith("android:")) continue;
+                    switch (tag) {
+                        case "declare-styleable": {
+                            java.util.List<String> attrs = new java.util.ArrayList<>();
+                            for (org.w3c.dom.Node child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+                                if (!(child instanceof org.w3c.dom.Element) || !((org.w3c.dom.Element) child).getTagName().equals("attr")) continue;
+                                org.w3c.dom.Element attr = (org.w3c.dom.Element) child;
+                                String attrName = attr.getAttribute("name");
+                                if (attrName.isEmpty()) continue;
+                                attrs.add(attrName.replace(':', '_'));
+                                // an attr with a format or values is defined here; without, it names one defined elsewhere
+                                if (!attrName.contains(":") && (!attr.getAttribute("format").isEmpty() || attr.hasChildNodes())) {
+                                    symbols.add("attr " + attrName);
+                                }
+                                enumIds(attr, symbols);
+                            }
+                            // aapt2's order: by attribute id, i.e. android: attributes first, then by name
+                            java.util.Collections.sort(attrs, new java.util.Comparator<String>() {
+                                @Override
+                                public int compare(String one, String two) {
+                                    boolean androidOne = one.startsWith("android_"), androidTwo = two.startsWith("android_");
+                                    if (androidOne != androidTwo) return androidOne ? -1 : 1;
+                                    return one.compareTo(two);
+                                }
+                            });
+                            styleables.put(name, attrs);
+                            break;
+                        }
+                        case "item":
+                            if (!element.getAttribute("type").isEmpty()) symbols.add(element.getAttribute("type") + " " + name);
+                            break;
+                        case "string-array":
+                        case "integer-array":
+                        case "array":
+                            symbols.add("array " + name);
+                            break;
+                        case "eat-comment":
+                        case "public":
+                        case "skip":
+                            break;
+                        case "attr":
+                            symbols.add("attr " + name);
+                            enumIds(element, symbols);
+                            break;
+                        default: // color, dimen, string, style, integer, bool, plurals, fraction, drawable, id
+                            symbols.add(tag + " " + name);
+                    }
+                }
+            } catch (Exception e) {
+                // an unreadable values file: its names are left out (AGP then has no R field for them)
+            }
+        }
+        StringBuilder out = new StringBuilder();
+        for (String symbol : symbols) out.append("int ").append(symbol).append(" 0x0\n");
+        for (java.util.Map.Entry<String, java.util.List<String>> styleable : styleables.entrySet()) {
+            out.append("int[] styleable ").append(styleable.getKey()).append(" {");
+            for (int i = 0; i < styleable.getValue().size(); i++) out.append(i == 0 ? " " : ", ").append("0x0");
+            out.append(" }\n");
+            for (int i = 0; i < styleable.getValue().size(); i++) {
+                out.append("int styleable ").append(styleable.getKey()).append('_').append(styleable.getValue().get(i))
+                        .append(' ').append(i).append('\n');
+            }
+        }
+        return out.toString();
+    }
+
+    /** aapt2 makes an id resource of every enum/flag value name of an attr. */
+    private static void enumIds(org.w3c.dom.Element attr, java.util.Set<String> symbols) {
+        for (org.w3c.dom.Node child = attr.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (!(child instanceof org.w3c.dom.Element)) continue;
+            String tag = ((org.w3c.dom.Element) child).getTagName();
+            String name = ((org.w3c.dom.Element) child).getAttribute("name");
+            if ((tag.equals("enum") || tag.equals("flag")) && !name.isEmpty()) symbols.add("id " + name);
         }
     }
 

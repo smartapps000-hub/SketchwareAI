@@ -11,14 +11,19 @@ D8, packaged and signed by its own code. Only the Activity screens are not run.
 3. Inputs for two fixtures (once per workspace): `make-test-fonts.py out/fonts` (909; OFL fonts from npm @fontsource,
    modified copies for tests only, never shipped) and `make-native-fixture.sh out/native-fixture` (910; NDK clang).
 4. `suite.sh <IDE apk> <tag> libs:901 held:902 plain:903 kotlin:904 autofix:905 typo:906 min19:907 m3:908
-   telugu:909 jni:910` (a spec name ends up in a package name: never a Java keyword)
+   telugu:909 jni:910 desugar:911 m3code:912` (a spec name ends up in a package name: never a Java keyword)
    or one fixture: `run.sh <IDE apk> <root> create libs 901` then `run.sh <IDE apk> <root> build 901 [resume step]`.
    `run.sh <IDE apk> <root> aab <id> [resume step]` runs the export screen's Export AAB (export build, DEX merge,
-   AppBundleCompiler, bundletool 1.11.3, ZipSigner with the test key) into `<root>/signed_aab/`; it deletes
-   `mysc/<id>`, so copy the debug APK first.
+   AppBundleCompiler, bundletool (1.18.3 since v1.8.5), BundleSigner with the test key since v1.8.5) into
+   `<root>/signed_aab/`; it deletes `mysc/<id>`, so copy the debug APK first. `run.sh <IDE apk> <root> export <id>` runs
+   "Export to Android Studio" (the Gradle project lands in `mysc/<id>`).
 5. `art.sh out/stubs.zip:out/harness.zip:out/android-dex.zip h.LoadAll <built app apk> <app package>` loads and
    links every class of a built app (ART verifier, stubs of the bundled android.jar, API 34 since v1.8.4).
-   `art.sh out/stubs.zip:out/harness.zip:out/android-dex.zip:<904 apk> h.CallKt` runs fixture 904's Kotlin code.
+   `art.sh out/stubs.zip:out/harness.zip:out/android-dex.zip:<904 apk> h.CallKt` runs fixture 904's Kotlin code,
+   `...:<911 apk> h.CallDesugar` fixture 911's desugared Java 8+ API calls.
+   `ART_OPTS="-Xmx1536m -Dh.root=<root>" art.sh out/stubs.zip:out/harness.zip:<IDE apk>:out/android-dex.zip h.L8Race
+   <min sdk> <keep rules file> <android.jar> race|one` runs CoreLibDesugaring.libraryDex (L8) from two threads at once
+   (or once, e.g. with a small -Xmx); `<root>/cache/libs/desugar/` needs the three files of assets/libs/desugar.zip.
 
 Fixtures (`src/h/Fixtures.java`): see `engineering/test-fixtures.json`. Widget defaults come from the palette
 icons (`src/h/IconDefaults.java`, generated from `dev/aldi/sayuti/editor/view/palette/Icon*.getBean`).

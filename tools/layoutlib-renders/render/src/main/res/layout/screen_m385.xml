@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widgets exactly as v1.8.5 generates them for fixture 908 (main.xml), in a padded column on the window background. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="?android:attr/colorBackground"
+	android:padding="16dp"
+	android:orientation="vertical">
+	<TextView
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginBottom="8dp"
+		android:text="Generated widgets (Sketchware AI v1.8.5, fixture 908)"
+		android:textSize="12sp"
+		android:textColor="?attr/colorOnSurface" />
+	<pz.render.SketchButton
+		android:id="@+id/button1"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="button1"
+		android:textSize="12sp"
+		android:textColor="?attr/colorOnPrimary" />
+	<!-- the same SketchButton and a plain MaterialButton, both given a rounded blue background from code -->
+	<LinearLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:orientation="horizontal">
+		<pz.render.SketchButton
+			android:id="@+id/button2"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="SketchButton + setBackground"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnPrimary" />
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/button3"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="8dp"
+			android:text="MaterialButton + setBackground"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnPrimary" />
+	</LinearLayout>
+	<TextView
+		android:id="@+id/textview1"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="textview1"
+		android:textSize="12sp"
+		android:textColor="?attr/colorOnSurface" />
+	<com.google.android.material.textfield.TextInputLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+		<pz.render.SketchTextField
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:id="@+id/edittext1"
+			android:text="edittext1"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface"
+			android:textColorHint="?attr/colorOnSurfaceVariant" />
+	</com.google.android.material.textfield.TextInputLayout>
+	<!-- the same generated field, empty, with the hint from the property panel (android:hint), box wrap_content -->
+	<com.google.android.material.textfield.TextInputLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+		<pz.render.SketchTextField
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:id="@+id/edittext2"
+			android:hint="Your name"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface"
+			android:textColorHint="?attr/colorOnSurfaceVariant" />
+	</com.google.android.material.textfield.TextInputLayout>
+	<!-- empty, hint, box match_parent -->
+	<com.google.android.material.textfield.TextInputLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+		<pz.render.SketchTextField
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:id="@+id/edittext3"
+			android:hint="Email address"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface"
+			android:textColorHint="?attr/colorOnSurfaceVariant" />
+	</com.google.android.material.textfield.TextInputLayout>
+	<com.google.android.material.checkbox.MaterialCheckBox
+		android:id="@+id/checkbox1"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="checkbox1"
+		android:textSize="12sp"
+		android:textColor="?attr/colorOnSurface" />
+	<com.google.android.material.materialswitch.MaterialSwitch
+		android:id="@+id/switch1"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="switch1"
+		android:textSize="12sp"
+		android:textColor="?attr/colorOnSurface" />
+	<com.google.android.material.radiobutton.MaterialRadioButton
+		android:id="@+id/radiobutton1"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="radiobutton1"
+		android:textSize="12sp"
+		android:textColor="?attr/colorOnSurface" />
+</LinearLayout>
