@@ -20,7 +20,7 @@ import static h.R.*;
  *          Material 1.13 classes (DynamicColors, MaterialSwitch, Chip, MaterialAlertDialogBuilder).
  *  telugu- (v1.8.4) AppCompat, TextView/Button/EditText, two project fonts (a TrueType font and an OpenType/CFF font
  *          stored as name.ttf, as the font manager stores every font) set by font blocks: SketchFonts.
- *  native- (v1.8.4) AppCompat; the project's own native libraries (arm64-v8a 4 KB-aligned, x86_64 16 KB) and an enabled
+ *  jni   - (v1.8.4) AppCompat; the project's own native libraries (arm64-v8a 4 KB-aligned, x86_64 16 KB) and an enabled
  *          local library with classes.jar/classes.dex and jni/ libraries (arm64-v8a 16 KB, x86_64 4 KB), called from a
  *          block: NativeAlignment warnings, and the AAB must carry the local library's jni/ files too.
  *          Files from make-native-fixture.sh (system property h.nativefx).
@@ -115,7 +115,7 @@ public class Fixtures {
             for (int t : new int[]{3, 4, 6, 17, 18, 42}) widgets.add(new int[]{t});
         } else if (spec.equals("telugu")) {
             for (int t : new int[]{3, 4, 5}) widgets.add(new int[]{t}); // Button, TextView, EditText
-        } else if (spec.equals("native")) {
+        } else if (spec.equals("jni")) {
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else {
             for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
@@ -177,7 +177,7 @@ public class Fixtures {
             source = "try {\n    android.util.Log.d(\"fixture\", \"try\");\n    return;\n} catch (Exception e) {\n    return;\n}\nandroid.util.Log.d(\"fixture\", \"after\");";
         } else if (spec.equals("typo")) {
             source = "String label = \"abc\";\nint n = label.lenght();";
-        } else if (spec.equals("native")) {
+        } else if (spec.equals("jni")) {
             source = "android.util.Log.d(\"native\", com.fixture.nativelib.Native.hello());";
         } else if (spec.equals("m3")) {
             // Material 1.13 API that needs the android-34 compile platform and the Material 3 theme
@@ -233,7 +233,7 @@ public class Fixtures {
             blocks.add(text);
             call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
         }
-        if (spec.equals("native")) {
+        if (spec.equals("jni")) {
             java.io.File fx = new java.io.File(System.getProperty("h.nativefx"));
             java.io.File own = new java.io.File((String) call(neu("mod.agus.jcoderz.lib.FilePathUtil"), "getPathNativelibs", sc_id));
             copy(new java.io.File(fx, "arm64-v8a/lib4k.so"), new java.io.File(own, "arm64-v8a/libproj4k.so"));
