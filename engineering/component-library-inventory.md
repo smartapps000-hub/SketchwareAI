@@ -1,6 +1,6 @@
 # Component and library modernization inventory
 
-Audited: commit `c82aba4` (v1.8.1). Date: 2026-10-04. Section 0 added for v1.8.3 (2026-10-21). Nothing here was run on a device.
+Audited: commit `c82aba4` (v1.8.1). Date: 2026-10-04. Section 0 added for v1.8.3 (2026-10-21), section 0a for v1.8.4 (2026-10-22). Nothing here was run on a device.
 
 ## Summary
 
@@ -36,6 +36,62 @@ Other URLs:
 - [bal] https://developer.android.com/guide/components/activities/background-starts
 
 Limits of table 1: a newer upstream version is not proof that the bundled one fails on Android 15. What each newer version needs (minSdk, compileSdk, Kotlin, other libraries) was not checked: UNKNOWN. Only the notes with a URL or a file reference are verified statements.
+
+## 0a. v1.8.4 update of the built-in libraries (2026-10-22)
+
+Projects now compile against the bundled **android-34** android.jar, so the minCompileSdk gate is 34 (other gates as in v1.8.3:
+minSdk <= 21, Kotlin metadata <= 1.8, class files <= 55, same major for OkHttp/Okio/Glide/Lottie, every dependency inside the set).
+New in the packaging: `ClassFileSanitizer` removes the nameless `MethodParameters` entries that javac 21 writes (AndroidX built since
+2024), which crashed the bundled D8/R8 3.3.75; the jars in `libs.zip` are the fixed ones, so D8 on the phone reads them too.
+Result: 38 updated, 2 new, 4 kept on purpose, 27 unchanged. `libs.zip`: 118 folders, `dexs.zip`: 117 dex files.
+Licences (POM, read 2026-10-22): every updated/new library is Apache-2.0 (AndroidX, Material, graphics-shapes, atomicfu); no other licence family was added.
+
+| Constant | Maven | v1.8.3 | v1.8.4 | Gates read from the artifact / reason |
+|---|---|---|---|---|
+| `ANDROIDX_ACTIVITY` | androidx.activity:activity | activity-1.7.2 | activity-1.9.3 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_ANNOTATION_EXPERIMENTAL` | androidx.annotation:annotation-experimental | annotation-experimental-1.3.1 | annotation-experimental-1.4.1 | minCompileSdk 34, minSdk 19, Kotlin [1, 7, 0], class 52 |
+| `ANDROIDX_APPCOMPAT` | androidx.appcompat:appcompat | appcompat-1.6.1 | appcompat-1.7.1 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 166 of 400 classes changed |
+| `ANDROIDX_APPCOMPAT_RESOURCES` | androidx.appcompat:appcompat-resources | appcompat-resources-1.6.1 | appcompat-resources-1.7.1 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 2 of 35 classes changed |
+| `ANDROIDX_ASYNCLAYOUTINFLATER` | androidx.asynclayoutinflater:asynclayoutinflater | asynclayoutinflater-1.0.0 | asynclayoutinflater-1.1.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 1 of 7 classes changed |
+| `ANDROIDX_BROWSER` | androidx.browser:browser | browser-1.5.0 | browser-1.8.0 | minCompileSdk 34, minSdk 19, Kotlin None, class 52 |
+| `ANDROIDX_CONCURRENT_FUTURES` | androidx.concurrent:concurrent-futures | concurrent-futures-1.1.0 | concurrent-futures-1.3.0 | minCompileSdk 1, minSdk 1, Kotlin None, class 52; D8 fix: 2 of 19 classes changed |
+| `ANDROIDX_CONSTRAINTLAYOUT` | androidx.constraintlayout:constraintlayout | constraintlayout-2.1.4 | constraintlayout-2.2.2 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 32 of 163 classes changed |
+| `ANDROIDX_CONSTRAINTLAYOUT_CORE` | androidx.constraintlayout:constraintlayout-core | constraintlayout-core-1.0.4 | constraintlayout-core-1.1.2 | minCompileSdk 1, minSdk 1, Kotlin None, class 52; D8 fix: 51 of 247 classes changed |
+| `ANDROIDX_COORDINATORLAYOUT` | androidx.coordinatorlayout:coordinatorlayout | coordinatorlayout-1.2.0 | coordinatorlayout-1.3.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 6 of 14 classes changed |
+| `ANDROIDX_CORE` | androidx.core:core | core-1.10.1 | core-1.13.1 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_CORE_KTX` | androidx.core:core-ktx | core-ktx-1.10.1 | core-ktx-1.13.1 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_CUSTOMVIEW` | androidx.customview:customview | customview-1.1.0 | customview-1.2.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 6 of 17 classes changed |
+| `ANDROIDX_CUSTOMVIEW_POOLINGCONTAINER` | androidx.customview:customview-poolingcontainer | customview-poolingcontainer-1.0.0 | customview-poolingcontainer-1.1.0 | minCompileSdk 34, minSdk 21, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_DOCUMENTFILE` | androidx.documentfile:documentfile | documentfile-1.0.1 | documentfile-1.1.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52 |
+| `ANDROIDX_DYNAMIC_ANIMATION` | androidx.dynamicanimation:dynamicanimation | dynamic-animation-1.1.0-alpha03 | dynamic-animation-1.1.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 18 of 36 classes changed |
+| `ANDROIDX_EMOJI2` | androidx.emoji2:emoji2 | emoji2-1.3.0 | emoji2-1.5.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 6 of 110 classes changed |
+| `ANDROIDX_EMOJI2_VIEWS_HELPER` | androidx.emoji2:emoji2-views-helper | emoji2-views-helper-1.3.0 | emoji2-views-helper-1.5.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52 |
+| `ANDROIDX_EXIFINTERFACE` | androidx.exifinterface:exifinterface | exifinterface-1.3.7 | exifinterface-1.4.2 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 1 of 12 classes changed |
+| `ANDROIDX_FRAGMENT` | androidx.fragment:fragment | fragment-1.6.2 | fragment-1.8.9 | minCompileSdk 34, minSdk 21, Kotlin [1, 8, 0], class 52; D8 fix: 49 of 152 classes changed |
+| `ANDROIDX_GRAPHICS_SHAPES` | androidx.graphics:graphics-shapes | (new) | graphics-shapes-1.0.1 | minCompileSdk 34, minSdk 21, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_COMMON` | androidx.lifecycle:lifecycle-common | lifecycle-common-2.6.2 | lifecycle-common-2.8.7 | minCompileSdk 1, minSdk 1, Kotlin (1, 8, 0), class 52 |
+| `ANDROIDX_LIFECYCLE_LIVEDATA` | androidx.lifecycle:lifecycle-livedata | lifecycle-livedata-2.6.2 | lifecycle-livedata-2.8.7 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_LIVEDATA_CORE` | androidx.lifecycle:lifecycle-livedata-core | lifecycle-livedata-core-2.6.2 | lifecycle-livedata-core-2.8.7 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52; D8 fix: 4 of 9 classes changed |
+| `ANDROIDX_LIFECYCLE_PROCESS` | androidx.lifecycle:lifecycle-process | lifecycle-process-2.6.2 | lifecycle-process-2.8.7 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_RUNTIME` | androidx.lifecycle:lifecycle-runtime | lifecycle-runtime-2.6.2 | lifecycle-runtime-2.8.7 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_VIEWMODEL` | androidx.lifecycle:lifecycle-viewmodel | lifecycle-viewmodel-2.6.2 | lifecycle-viewmodel-2.8.7 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_LIFECYCLE_VIEWMODEL_SAVEDSTATE` | androidx.lifecycle:lifecycle-viewmodel-savedstate | lifecycle-viewmodel-savedstate-2.6.2 | lifecycle-viewmodel-savedstate-2.8.7 | minCompileSdk 34, minSdk 19, Kotlin [1, 8, 0], class 52 |
+| `ANDROIDX_MEDIA` | androidx.media:media | media-1.6.0 | media-1.7.1 | minCompileSdk 34, minSdk 19, Kotlin None, class 52 |
+| `ANDROIDX_PRINT` | androidx.print:print | print-1.0.0 | print-1.1.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 5 of 9 classes changed |
+| `ANDROIDX_PROFILEINSTALLER` | androidx.profileinstaller:profileinstaller | profileinstaller-1.3.1 | profileinstaller-1.4.1 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 3 of 26 classes changed |
+| `ANDROIDX_SLIDINGPANELAYOUT` | androidx.slidingpanelayout:slidingpanelayout | slidingpanelayout-1.1.0 | slidingpanelayout-1.1.0 | kept: 1.2.0 adds androidx.window + Kotlin coroutines to every project that uses legacy-support-core-ui; nothing generated uses it |
+| `ANDROIDX_STARTUP_RUNTIME` | androidx.startup:startup-runtime | startup-runtime-1.1.1 | startup-runtime-1.2.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52 |
+| `ANDROIDX_SWIPEREFRESHLAYOUT` | androidx.swiperefreshlayout:swiperefreshlayout | swiperefreshlayout-1.2.0-alpha01 | swiperefreshlayout-1.2.0-alpha01 | kept: bundled 1.2.0-alpha01 is newer than the usable stable 1.1.0 |
+| `ANDROIDX_TRANSITION` | androidx.transition:transition | transition-1.4.1 | transition-1.5.1 | minCompileSdk 34, minSdk 19, Kotlin None, class 52 |
+| `ANDROIDX_VECTORDRAWABLE` | androidx.vectordrawable:vectordrawable | vectordrawable-1.1.0 | vectordrawable-1.2.0 | minCompileSdk 34, minSdk 19, Kotlin None, class 52; D8 fix: 1 of 12 classes changed |
+| `ANDROIDX_VECTORDRAWABLE_ANIMATED` | androidx.vectordrawable:vectordrawable-animated | vectordrawable-animated-1.1.0 | vectordrawable-animated-1.2.0 | minCompileSdk 34, minSdk 19, Kotlin None, class 52; D8 fix: 5 of 14 classes changed |
+| `ANDROIDX_VERSIONEDPARCELABLE` | androidx.versionedparcelable:versionedparcelable | versionedparcelable-1.1.1 | versionedparcelable-1.2.1 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 3 of 16 classes changed |
+| `ANDROIDX_VIEWPAGER2` | androidx.viewpager2:viewpager2 | viewpager2-1.0.0 | viewpager2-1.1.0 | minCompileSdk 34, minSdk 19, Kotlin None, class 52; D8 fix: 24 of 50 classes changed |
+| `ANDROIDX_VIEWPAGER` | androidx.viewpager:viewpager | viewpager-1.0.0 | viewpager-1.1.0 | minCompileSdk 34, minSdk 21, Kotlin None, class 52; D8 fix: 10 of 24 classes changed |
+| `MATERIAL` | com.google.android.material:material | material-1.9.0 | material-1.13.0 | minCompileSdk 1, minSdk 21, Kotlin None, class 52; D8 fix: 352 of 1070 classes changed |
+| `ANDROIDX_LISTENABLEFUTURE` | com.google.guava:listenablefuture | listenablefuture-1.0.0 | listenablefuture-1.0.0 | kept: same artifact as bundled (1.0 = folder listenablefuture-1.0.0) |
+| `CIRCLE_IMAGEVIEW` | de.hdodenhof:circleimageview | circle-imageview-v3.1.0 | circle-imageview-v3.1.0 | kept: same version as bundled (folder circle-imageview-v3.1.0) |
+| `KOTLINX_ATOMICFU` | org.jetbrains.kotlinx:atomicfu | (new) | atomicfu-0.21.0 | minCompileSdk 1, minSdk 1, Kotlin [1, 4, 3], class 52 |
 
 ## 0. v1.8.3 update of the built-in libraries (2026-10-21)
 

@@ -8,7 +8,7 @@ Four different things, tracked separately. A row says "tested" only for what was
 |---|---|
 | minSdk | 26 (flavor minApi26, the one that is shipped); a minApi21 flavor compiles but isn't shipped |
 | targetSdk | 34 |
-| compileSdk | 30 (newer APIs are called by reflection) |
+| compileSdk | 30 (newer APIs are called by reflection); the IDE's own build is unchanged in v1.8.4 (AGP 7.3.1) |
 
 ## 2. Where the IDE's build engine has been run
 
@@ -30,9 +30,10 @@ Not run anywhere off-device: Activities (logic editor, compile log screen, sourc
 | Item | Where it comes from |
 |---|---|
 | minSdk / targetSdk | per project: Project Configuration (defaults in `ModernProjectDefaults`) |
-| compile platform | bundled android.jar = Android 13 (API 33) unless a custom android.jar is set in Build Settings; APIs newer than 33 can't be called from project code |
+| compile platform | bundled android.jar = Android 14 (API 34) since v1.8.4 (API 33 before) unless a custom android.jar is set in Build Settings; APIs newer than 34 can't be called from project code |
 | Java level | ECJ 3.26 with -11, falling back to 1.8; D8/R8 3.3 |
-| Libraries | v1.8.3: AndroidX 2023-2024 releases (newest that build against API 33), Kotlin 1.8.22, Glide 4.16, Gson 2.14, OkHttp 3.14.9; Firebase/Play libraries still the 2021-2022 releases; local libraries as installed |
+| Libraries | v1.8.4: Material 1.13.0, AppCompat 1.7.1, AndroidX releases that build against API 34 (core 1.13.1, fragment 1.8.9, lifecycle 2.8.7 ...), Kotlin 1.8.22, Glide 4.16, Gson 2.14, OkHttp 3.14.9; Firebase/Play libraries still the 2021-2022 releases; local libraries as installed |
+| Theme | v1.8.4: new projects Material 3 AppTheme (Theme.Material3.Light.NoActionBar); older projects keep MaterialComponents (Bridge) |
 
 Whether a generated APK runs on a given Android version depends on that project's minSdk/targetSdk, the APIs and libraries it uses, and platform behaviour changes. A successful compile on one runtime proves none of that.
 
@@ -51,3 +52,10 @@ Whether a generated APK runs on a given Android version depends on that project'
 ## v1.8.3 (21 Oct 2026)
 - Full Run build of fixture projects 901-907 on the Android 12 (API 31) ART harness with the v1.8.3 APK; results in
   `v1.8.3-verification.md`. No device run by the developer of this fork; Android 15 results come from the owner.
+
+## v1.8.4 (22 Oct 2026)
+- Projects compile against android-34; aapt2 2.19 for all four ABIs, 16 KB-aligned. Full Run build of fixtures 901-910 and
+  Export AAB of 908/909/910 on the Android 12 (API 31) ART harness with the final APK; layoutlib (Android 14 text and view
+  code on the JVM) renders of the Material 3 theme and of Telugu text with six fonts. Results in `v1.8.4-verification.md`.
+- No device run by the developer of this fork. Android 15 / 16 KB-page devices: NOT TESTED. Play upload of an AAB: NOT TESTED
+  (the AAB's JAR signature uses SHA-1 digests, see the verification file).

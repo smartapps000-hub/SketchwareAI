@@ -1,6 +1,6 @@
 # Architecture state
 
-Verified facts about this fork, kept so they don't have to be rediscovered. Last updated for v1.8.3.
+Verified facts about this fork, kept so they don't have to be rediscovered. Last updated for v1.8.4.
 
 ## Foundations (do not bypass)
 
@@ -56,6 +56,54 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
 - **Android runtime harness kept in the repository** (`tools/art-harness`): installs an Android 12 ART into the workspace,
   writes fixture projects with the IDE's own project classes and runs the DesignActivity Run-build steps (generate,
   built-in libraries, AAPT2, Kotlin, ECJ + auto-fix, D8, merge, package, sign) with the classes and aapt2 of a built APK.
+
+## v1.8.4 additions
+
+- **Compile platform android-34**: `assets/libs/android.jar.zip` holds the Android 14 (API 34) platform android.jar (class files
+  52, like 33). User code, AAPT2 links and D8 desugaring use it unless Build Settings names a custom android.jar. Its size differs
+  from the API 33 archive, so `Dp.maybeExtractAndroidJar` extracts it again once. `BuildWarnings.BUNDLED_ANDROID_JAR_API = 34`.
+- **aapt2 2.19 (android-14.0.0_r75) for all four ABIs, 16 KB LOAD alignment**: armeabi-v7a and x86 are now built by
+  `tools/aapt2-static` like the 64-bit ones (upstream's 32-bit binaries: 4 KB, and can't compile `<macro>` resources, i.e.
+  Material 1.11+). The same tag links android-35 resource tables too (checked with a values-v35 attribute).
+  `tools/aapt2-static/compare-abis.sh`: all four ABIs give the same resource table (`aapt2 dump resources`) and R.java.
+- **ClassFileSanitizer** (`com.sketchware.ai.project`): javac 21 writes `MethodParameters` entries with name_index 0 for
+  mandated parameters; D8/R8 3.3.75 throws `NullPointerException ... String.length()` on them (root cause of the old
+  concurrent-futures >= 1.2 / error_prone >= 2.48 crash). The sanitizer removes only those attributes (other bytes copied as they
+  are). Run on the built-in jars when they are packaged (`tools/builtin-libs/package.py`), and on a library's classes.jar before
+  D8 in `LibraryHeal.dex` and `LibraryDownloader._jar2dex`. Not run on local libraries imported before v1.8.4 (D8 reads them
+  as library input in `DexCompiler`).
+- **Built-in libraries for compileSdk 34**: Material 1.13.0, AppCompat 1.7.1, core 1.13.1, activity 1.9.3, fragment 1.8.9,
+  lifecycle 2.8.7, constraintlayout 2.2.2 ... (component-library-inventory.md section 0a). Kotlin stays 1.8.22 (kotlinc 1.7.10
+  reads metadata up to 1.8; lifecycle/core/activity at these versions use 1.8 metadata).
+- **Material 3 AppTheme** (`ModernProjectDefaults.SETTING_MATERIAL3` = `material3_theme`): new projects "true"; a project
+  without the key keeps the MaterialComponents (Bridge) theme. `yq` writes `Theme.Material3.Light.NoActionBar` with the
+  project colours in colorPrimary/colorPrimaryVariant/colorSecondary(=accent)/status bar, `viewInflaterClass` =
+  `androidx.appcompat.app.AppCompatViewInflater` (plain `<Button>`/`<CheckBox>`... stay AppCompat widgets, as designed),
+  FAB style in the accent colour. Toggle in Project Configuration (row `ob_cfg_row_m3`). Design editor: `editor.DesignTheme`
+  (loaded in `DesignActivity.onCreate` and after Project Configuration is saved). In M3 projects the palette gives a new
+  TextInputLayout `style="?attr/textInputOutlinedStyle"` and a new MaterialButton no style (the theme's button style), never
+  an explicit `Widget.Material3.*` style: those need M3 theme attributes and fail to inflate (InflateException) if the project
+  is switched back to MaterialComponents. `ItemMaterialButton` draws the fill and corner radius: injected cornerRadius, else a
+  pill for Widget.Material3 or for no explicit style in an M3 project, else 4dp.
+  Container colours (primaryContainer, secondaryContainer ...) stay Material 3 baseline.
+- **Fonts (`project.FontCode`)**: `Jx.formattedCode` rewrites `X.setTypeface(Typeface.createFromAsset(<assets>,"fonts/N.ttf"), S);`
+  to `SketchFonts.apply(X, <assets>, "fonts/N.ttf", S);` (same line; X must be a whole name chain, so `(cast) x).view` and
+  `a[i].view` lines stay as written, and a match never crosses a line end). `yq` adds `<package>.SketchFonts` when a generated
+  activity or a custom Java file of the project calls it (a custom SketchFonts.java in the Java manager wins). The helper caches Typefaces, falls back to
+  Typeface.DEFAULT with a log line instead of crashing on a missing asset (also tries the lower-case path the font copy uses),
+  reads the font's cmap to build a probe of characters the font itself maps (Latin letters + Telugu worst-case clusters when it
+  maps KA + virama), measures the probe's shaped ink with `Paint.getTextBounds` (Minikin/HarfBuzz) and raises the line-spacing
+  multiplier and top/bottom padding only where the ink exceeds the font metrics (remembered per view, so applying twice
+  doesn't add twice); API 35+: `setUseBoundsForWidth` + `setShiftDrawingOffsetForStartOverhang` by reflection.
+  The font manager still stores every font as `<name>.ttf`; Android reads TTF and OTF/CFF by content.
+- **AAB export** (minApi26 `AppBundleCompiler`, overlay): local libraries' `jni/` native libraries are added (the APK build
+  always did; AABs missed them), duplicate entries and library jar signature files are skipped. Signing of the .aab is
+  unchanged (kellinwood ZipSigner, as upstream).
+- **NativeAlignment**: build warning for a 64-bit `.so` (project or local library) whose LOAD alignment is below 16 KB.
+- **DEX merge with the bigger libraries**: for min SDK < 21 the project's own D8 output is now several files (the R classes of
+  the libraries pass 64K fields; the activities and the Application land in the last one). `project.DexOrder.codeFirst` merges
+  the files that hold code right after MultiDex. `DexMerger.WriterSizes` reserves 3x the debug info written per code item
+  (D8 shares identical debug_info_items; the merger writes one per use) instead of 3x the section, which overflowed (fixture 907).
 
 ## Existing repair engine (v1.7.x)
 

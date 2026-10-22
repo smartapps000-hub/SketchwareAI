@@ -75,7 +75,25 @@
       "purpose": "Evidence of on-device failures.",
       "lastAnalysis": "v1.7.1 failure (MainActivity.java:6379 Unreachable code) could not be reproduced off-device; cause still unknown. No device log for v1.7.2 or later received yet.",
       "available": true
+    },
+    {
+      "id": "fonts-fontsource",
+      "file": "npm @fontsource/{ramabhadra,tenali-ramakrishna,noto-sans-telugu,mandali,...} 5.3.0 (Telugu subsets, woff2)",
+      "purpose": "OFL-1.1 Telugu fonts used only to make test fonts (tools/art-harness/make-test-fonts.py); nothing is shipped or committed",
+      "available": true
+    },
+    {
+      "id": "bundletool-1.17.2",
+      "file": "com.android.tools.build:bundletool:1.17.2 (Google Maven) on JVM 17",
+      "purpose": "current bundletool to validate AABs made by the embedded 1.11.3 (Play builds APKs with its own, newer bundletool)",
+      "available": true
+    },
+    {
+      "id": "android-platforms",
+      "file": "SDK platforms android-34 (rev 3) and android-35 (rev 2) via sdkmanager",
+      "purpose": "android-34 android.jar is the bundled compile platform since v1.8.4 (sha256 6cea1df3...); android-35 only to check that aapt2 2.19 links Android 15 resource tables",
+      "available": true
     }
   ],
-  "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip as one file (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."
+  "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."
 }

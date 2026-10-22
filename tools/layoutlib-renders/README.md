@@ -11,6 +11,10 @@ It is not a device and not ART. Used for:
   `out/android-shaping.tsv` is compared glyph by glyph with HarfBuzz (`compare_shaping.py`, needs `pip install uharfbuzz`).
 - `M3ThemeTest` / `OldThemeTest`: generated widgets under the v1.8.4 Material 3 AppTheme and the MaterialComponents (Bridge)
   AppTheme of older projects (`res/values/generated_styles.xml` is fixture 908's generated styles.xml plus the old theme).
+- `SwitchM3Test` / `SwitchMdcTest` / `SwitchBridgeTest` (ThemeSwitchTest.kt): the palette's MaterialButton + TextInputLayout of a
+  Material 3 project (`palette_m3_c` = explicit Widget.Material3 styles of the first v1.8.4 build, `palette_m3_d` = theme
+  styles) inflated in one session per AppTheme; writes `out/theme_switch_<theme>.txt` and `out/switch_*.png`. A failed
+  inflation shows as a MockView plus an InflateException in the test report (Paparazzi then fails the run; read the report).
 
 Setup: `echo sdk.dir=/opt/android-sdk > local.properties`; fonts: `python3 ../art-harness/make-test-fonts.py
 render/src/main/assets/fonts`; helper: the generated `SketchFonts.java` (FontCode.helperClass("pz.render")) into

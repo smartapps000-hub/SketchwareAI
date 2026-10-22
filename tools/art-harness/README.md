@@ -8,10 +8,17 @@ D8, packaged and signed by its own code. Only the Activity screens are not run.
 1. `setup-art.sh <work dir>` (once per workspace; downloads the Android 12 x86_64 system image).
 2. `mk.sh` builds `out/stubs.zip` (the framework stand-ins in `stubs/`), `out/harness.zip` (`src/h`) and
    `out/android-dex.zip` (the IDE's bundled android.jar, dexed; its other classes throw `Stub!`).
-3. `suite.sh <IDE apk> <tag> libs:901 held:902 plain:903 kotlin:904 autofix:905 typo:906 min19:907`
+3. Inputs for two fixtures (once per workspace): `make-test-fonts.py out/fonts` (909; OFL fonts from npm @fontsource,
+   modified copies for tests only, never shipped) and `make-native-fixture.sh out/native-fixture` (910; NDK clang).
+4. `suite.sh <IDE apk> <tag> libs:901 held:902 plain:903 kotlin:904 autofix:905 typo:906 min19:907 m3:908
+   telugu:909 jni:910` (a spec name ends up in a package name: never a Java keyword)
    or one fixture: `run.sh <IDE apk> <root> create libs 901` then `run.sh <IDE apk> <root> build 901 [resume step]`.
-4. `art.sh out/stubs.zip:out/harness.zip:out/android-dex.zip h.LoadAll <built app apk> <app package>` loads and
-   links every class of a built app (ART verifier, API 33 stubs).
+   `run.sh <IDE apk> <root> aab <id> [resume step]` runs the export screen's Export AAB (export build, DEX merge,
+   AppBundleCompiler, bundletool 1.11.3, ZipSigner with the test key) into `<root>/signed_aab/`; it deletes
+   `mysc/<id>`, so copy the debug APK first.
+5. `art.sh out/stubs.zip:out/harness.zip:out/android-dex.zip h.LoadAll <built app apk> <app package>` loads and
+   links every class of a built app (ART verifier, stubs of the bundled android.jar, API 34 since v1.8.4).
+   `art.sh out/stubs.zip:out/harness.zip:out/android-dex.zip:<904 apk> h.CallKt` runs fixture 904's Kotlin code.
 
 Fixtures (`src/h/Fixtures.java`): see `engineering/test-fixtures.json`. Widget defaults come from the palette
 icons (`src/h/IconDefaults.java`, generated from `dev/aldi/sayuti/editor/view/palette/Icon*.getBean`).

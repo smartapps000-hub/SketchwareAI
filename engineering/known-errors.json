@@ -69,11 +69,12 @@
       ]
     },
     {
-      "fingerprint": "D8 3.3.75 (bundled): NullPointerException while dexing androidx.concurrent:concurrent-futures >= 1.2.0 or com.google.errorprone:error_prone_annotations >= 2.48",
-      "rootCause": "Class files of these releases (newer javac output) crash the D8 the IDE ships. Seen while preparing the v1.8.3 built-in libraries, not in a user project.",
-      "repair": "none in the build: the built-in set keeps concurrent-futures 1.1.0 and leaves error_prone_annotations / jspecify out (annotation-only, not needed at run time). A local library that pulls these versions fails the same way in DEX; use an older version of that dependency.",
+      "fingerprint": "D8/R8 3.3.75 (bundled): NullPointerException \"Cannot invoke String.length()\" while reading a library class (concurrent-futures >= 1.2.0, error_prone_annotations >= 2.48, and since 2024 most AndroidX: appcompat 1.7, fragment 1.8, material 1.10+ ...)",
+      "rootCause": "javac 21 writes a MethodParameters attribute whose entries have no name (name_index 0, mandated outer-instance parameters of inner/anonymous class constructors). JVMS allows it; D8 3.3.75 creates a string from the null name. Found in v1.8.4 (javap -v ActionBarDrawerToggle$1 of appcompat 1.7.1: \"<no name> final mandated\").",
+      "repair": "v1.8.4 ClassFileSanitizer: removes exactly those MethodParameters attributes (nothing else in the class file changes). Applied to the built-in jars when packaged (libs.zip carries the fixed jars, dexs.zip is dexed from them), and to a library classes.jar before D8 in LibraryHeal.dex (download/restore) and LibraryDownloader._jar2dex (Local Library Manager). concurrent-futures is now 1.3.0. Local libraries imported before v1.8.4 are not rewritten.",
       "verifiedOn": [
-        "JVM 17 with the D8 3.3.75 classes from the IDE (tools/builtin-libs/package.py)"
+        "JVM 17 with the D8 3.3.75 classes from the IDE: concurrent-futures 1.3.0, error_prone_annotations 2.50.0, appcompat 1.7.1, material 1.13.0, fragment 1.8.9, profileinstaller 1.4.1, vectordrawable 1.2.0 crash before and dex after (20 of the v1.8.4 libraries needed it)",
+        "Android 12 ART (API 31) x86_64 harness: full Run builds with the fixed v1.8.4 built-in libraries (see v1.8.4-verification.md)"
       ]
     },
     {
@@ -87,17 +88,69 @@
     {
       "fingerprint": "Generated app with min SDK < 21 on Android 4.x: ClassNotFoundException for <package>.SketchApplication at start",
       "rootCause": "Upstream merge order: MultiDex, then every library, then the project's own DEX last. Once the libraries pass 64K methods (v1.8.3 AppCompat projects do), the project's classes land in classes3.dex, and Android 4.x loads only classes.dex before MultiDex.install().",
-      "repair": "v1.8.3 Dp.getDexFilesReady: with min SDK < 21 the project's DEX files are merged right after MultiDex (fixture 907: classes.dex holds MultiDex, MultiDexApplication, SketchApplication, MainActivity). Min SDK 21+ unchanged.",
+      "repair": "v1.8.3 Dp.getDexFilesReady: with min SDK < 21 the project's DEX files are merged right after MultiDex (fixture 907: classes.dex holds MultiDex, MultiDexApplication, SketchApplication, MainActivity). Min SDK 21+ unchanged. v1.8.4: the project's own DEX output is now several files (R classes of the libraries pass 64K fields) and the activities and Application were in the last one; DexOrder merges the files that hold code first, R-only files after.",
       "verifiedOn": [
-        "Android 12 ART (API 31) x86_64 harness: build and class placement only. Not run on Android 4.x."
+        "Android 12 ART (API 31) x86_64 harness: build and class placement only (fixture 907, dexdump of the built APK). Not run on Android 4.x.",
+        "JVM 17 replay of Dp.dexLibraries: classes.dex holds MultiDex, MultiDexApplication, SketchApplication, MainActivity"
       ]
     },
     {
       "fingerprint": "DEX merge: java.nio.BufferOverflowException at DexMerger.transformDebugInfoItem",
-      "rootCause": "DexMerger reserved 2x the input's debug info; a 1-byte string/type index becomes 3 bytes when the merged DEX has 16384+ strings. Seen when the project's small DEX was merged into classes.dex with the libraries (min SDK < 21).",
-      "repair": "v1.8.3: 3x + 8 bytes reserved (an upper bound for index growth); the merger compacts unused space afterwards.",
+      "rootCause": "DexMerger reserved 2x the input's debug info; a 1-byte string/type index becomes 3 bytes when the merged DEX has 16384+ strings. Seen when the project's small DEX was merged into classes.dex with the libraries (min SDK < 21). v1.8.4: 3x the section was still not enough with the v1.8.4 libraries (fixture 907): D8 shares identical debug_info_items between methods, the merger writes one per code item.",
+      "repair": "v1.8.3: 3x + 8 bytes of the debug info section. v1.8.4: 3x the bytes written per code item (shared items counted per use) + 8, an upper bound while the merged dex has fewer than 2^21 strings.",
       "verifiedOn": [
-        "Android 12 ART (API 31) x86_64 harness, fixture 907"
+        "Android 12 ART (API 31) x86_64 harness, fixture 907 (v1.8.3 and v1.8.4)",
+        "JVM 17 replay of Dp.dexLibraries (copied verbatim) on fixture 907's inputs: the v1.8.3 merger overflows, the v1.8.4 merger merges"
+      ]
+    },
+    {
+      "fingerprint": "AAPT2 on armeabi-v7a / x86 phones: \"error: unknown resource type 'macro'\" compiling Material 1.11+ resources",
+      "rootCause": "The 32-bit libaapt2.so files came from upstream: an older aapt2 build (prints only '2.19-'), 4 KB-aligned, without support for <macro> resources (added to aapt2 in Android 12).",
+      "repair": "v1.8.4: armeabi-v7a and x86 aapt2 built from android-14.0.0_r75 by tools/aapt2-static like the 64-bit ones (16 KB LOAD alignment).",
+      "verifiedOn": [
+        "x86 (native) and armeabi-v7a (qemu-arm-static) on the Linux workspace: old binaries fail on material 1.13.0 res; new ones compile and link the whole v1.8.4 library set against android-34 with the same resource table as arm64-v8a (qemu-aarch64) and x86_64"
+      ],
+      "notVerifiedOn": [
+        "a 32-bit phone"
+      ]
+    },
+    {
+      "fingerprint": "AAPT2 link: \"resource android:color/system_on_tertiary_container_dark not found\" (material values-v34) when a project links Material 1.11+ against the API 33 android.jar",
+      "rootCause": "Material 1.11+ ships Material 3 dynamic-colour resources for Android 14 that name android:color/system_* entries added in API 34.",
+      "repair": "v1.8.4: the bundled android.jar is API 34. A custom android.jar older than 34 in Build Settings still fails this way with the built-in Material.",
+      "verifiedOn": [
+        "shipped x86_64 aapt2 on the Linux workspace: the v1.8.4 library resources fail against android-33 and link against android-34",
+        "Android 12 ART harness: fixtures 908/909 resource step"
+      ]
+    },
+    {
+      "fingerprint": "Generated app: Telugu vowel signs / ottulu cut at the top or bottom of a TextView, or touching the next line, with a custom font",
+      "rootCause": "The font's ascent/descent (hhea/OS2) are smaller than the shaped ink of stacked clusters; TextView reserves only the font metrics (plus the head bbox for the first/last line when includeFontPadding is on).",
+      "repair": "v1.8.4 SketchFonts.apply (font blocks): measures the font's own shaped ink for worst-case Telugu clusters and raises the line-spacing multiplier and top/bottom padding by what is missing; fonts whose ink fits change nothing.",
+      "verifiedOn": [
+        "layoutlib (Paparazzi 1.3.5, Android 14 text stack: Minikin + HarfBuzz + FreeType), test fonts from tools/art-harness/make-test-fonts.py: tight-metric Ramabhadra 12 px line overlap and 21-22 px cut at the bottom before, 0 after; Ramabhadra, Mandali, Noto Sans Telugu (OTF), Tenali Ramakrishna (OTF): no change in height where nothing was cut"
+      ],
+      "notVerifiedOn": [
+        "a phone; Android 15+ glyph-bounds settings (layoutlib is Android 14)"
+      ]
+    },
+    {
+      "fingerprint": "Export AAB: app crashes with UnsatisfiedLinkError / missing .so for a local library that has native libraries (APK export works)",
+      "rootCause": "AppBundleCompiler packaged only the project's own native-libs folder, not the jni/ folders of enabled local libraries that Dp.buildApk adds.",
+      "repair": "v1.8.4: AppBundleCompiler adds the jni/ folders of enabled local libraries after the project's own native libraries (a second file with the same lib/<abi>/<name> path is skipped), and checks their 16 KB alignment.",
+      "verifiedOn": [
+        "Android 12 ART harness: fixture 910 (jni) Export AAB, see v1.8.4-verification.md"
+      ]
+    },
+    {
+      "fingerprint": "Export AAB: Play Console may refuse the bundle as unsigned (\"The Android App Bundle was not signed\"); jarsigner (JDK 17): \"treated as unsigned, because it is signed with a weak algorithm\"",
+      "rootCause": "The export screen signs the .aab with kellinwood ZipSigner / CustomKeySigner (upstream code), which always writes SHA1-Digest entries in MANIFEST.MF and CERT.SF, also with an own keystore and \"SHA256withRSA\". SHA-1 JAR signatures are disabled in current JDKs; a public report (B4X forum) shows Play rejecting an AAB with SHA-1 digests and accepting it with SHA-256.",
+      "repair": "none in v1.8.4: the owner asked to keep the signing pipeline untouched in this release. Needs his decision (AAB-only JAR signing with SHA-256 digests, e.g. apksig's V1 signer; APK export and ReleaseSigner unchanged).",
+      "verifiedOn": [
+        "Android 12 ART harness: Export AAB of fixtures 908/909/910 with the test key; jarsigner -verify on JVM 17 shows SHA1 digests / SHA1withRSA"
+      ],
+      "notVerifiedOn": [
+        "an upload to Play Console"
       ]
     }
   ]
