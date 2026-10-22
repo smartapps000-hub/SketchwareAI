@@ -33,7 +33,9 @@ public class IconTextInputLayout extends IconBase {
         viewBean.layout.paddingRight = 0;
         viewBean.layout.paddingBottom = 0;
         viewBean.convert = "com.google.android.material.textfield.TextInputLayout";
-        viewBean.inject = "style=\"@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox\"";
+        viewBean.inject = com.sketchware.ai.editor.DesignTheme.material3()
+                ? "style=\"@style/Widget.Material3.TextInputLayout.OutlinedBox\""
+                : "style=\"@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox\"";
         return viewBean;
     }
 }
