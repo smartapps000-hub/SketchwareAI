@@ -164,6 +164,40 @@ public class Jx {
 
     /** The activity's Java code, formatted, before command blocks are applied. */
     public String formattedCode() {
+        // v1.8.5: setHint on an EditText shown as an outlined Material 3 field sets the field's label (M3Widgets)
+        return com.sketchware.ai.project.M3Widgets.routeHints(formattedCodeWithWidgets(), wrappedTextFields());
+    }
+
+    /** Names of the EditTexts this class reaches that the layouts show as outlined Material 3 fields. */
+    private java.util.Set<String> wrappedTextFields() {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        if (!com.sketchware.ai.project.M3Widgets.enabled(buildConfig)) return ids;
+        addWrapped(ids, projectFileBean.getXmlName(), "");
+        if (projectFileBean.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_DRAWER)) {
+            addWrapped(ids, projectFileBean.getDrawerXmlName(), "_drawer_");
+        }
+        for (ViewBean viewBean : projectDataManager.f(projectFileBean.getXmlName())) {
+            if (viewBean.customView == null || viewBean.customView.isEmpty()) continue;
+            addWrapped(ids, ProjectFileBean.getXmlName(viewBean.customView), "");
+        }
+        return ids;
+    }
+
+    private void addWrapped(java.util.Set<String> ids, String xmlName, String prefix) {
+        if (xmlName == null || xmlName.isEmpty()) return;
+        boolean material3 = com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, xmlName);
+        if (!material3) return;
+        ArrayList<ViewBean> views = projectDataManager.d(xmlName);
+        if (views == null) return;
+        for (ViewBean view : views) {
+            if (com.sketchware.ai.project.M3Widgets.wrapsEditText(view,
+                    com.sketchware.ai.project.M3Widgets.parentOf(view, views), true)) {
+                ids.add(prefix + view.id);
+            }
+        }
+    }
+
+    private String formattedCodeWithWidgets() {
         boolean isDialogFragment = projectFileBean.fileName.contains("_dialog_fragment");
         boolean isBottomDialogFragment = projectFileBean.fileName.contains("_bottomdialog_fragment");
         boolean isFragment = projectFileBean.fileName.contains("_fragment");
@@ -605,6 +639,11 @@ public class Jx {
     }
 
     private String getDrawerViewDeclarationAndAddImports(ViewBean viewBean) {
+        if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean,
+                com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, projectFileBean.getDrawerXmlName()))) {
+            addImport(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
+            return Lx.a("MaterialSwitch", "_drawer_" + viewBean.id, Lx.AccessModifier.PRIVATE);
+        }
         String viewType = viewBean.convert.replaceAll("\\w*\\..*\\.", "");
         if (viewType.equals("")) {
             viewType = viewBean.getClassInfo().a();
@@ -623,6 +662,12 @@ public class Jx {
     }
 
     private String getViewDeclarationAndAddImports(ViewBean viewBean) {
+        if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean,
+                com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, projectFileBean.getXmlName()))) {
+            // v1.8.5: <Switch> is generated as MaterialSwitch in Material 3 projects (not a subclass of Switch)
+            addImport(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
+            return Lx.a("MaterialSwitch", viewBean.id, Lx.AccessModifier.PRIVATE);
+        }
         String viewType = viewBean.convert.replaceAll("\\w*\\..*\\.", "");
         if (viewType.equals("")) {
             viewType = viewBean.getClassInfo().a();
@@ -811,12 +856,18 @@ public class Jx {
             String adapterLogic = new Fx(projectFileBean.getActivityName(), buildConfig, eventName, com.sketchware.ai.sourcemap.SourceMapMarkers.wrap(
                     projectDataManager.a(projectFileBean.getJavaName(), eventName), "adapter", viewBean.id, "onBindCustomView")).a();
             String adapterCode;
-            if (viewBean.type == ViewBeans.VIEW_TYPE_LAYOUT_VIEWPAGER) {
-                adapterCode = Lx.pagerAdapter(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
-            } else if (viewBean.type == ViewBeans.VIEW_TYPE_WIDGET_RECYCLERVIEW) {
-                adapterCode = Lx.recyclerViewAdapter(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
-            } else {
-                adapterCode = Lx.getListAdapterCode(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
+            // v1.8.5: the item layout's Material 3 widget types (MaterialSwitch) in Lx's adapter code
+            com.sketchware.ai.project.M3Widgets.enter(com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, xmlName));
+            try {
+                if (viewBean.type == ViewBeans.VIEW_TYPE_LAYOUT_VIEWPAGER) {
+                    adapterCode = Lx.pagerAdapter(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
+                } else if (viewBean.type == ViewBeans.VIEW_TYPE_WIDGET_RECYCLERVIEW) {
+                    adapterCode = Lx.recyclerViewAdapter(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
+                } else {
+                    adapterCode = Lx.getListAdapterCode(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);
+                }
+            } finally {
+                com.sketchware.ai.project.M3Widgets.exit();
             }
             adapterClasses.add(adapterCode);
         }

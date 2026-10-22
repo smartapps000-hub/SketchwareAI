@@ -127,6 +127,12 @@ public class jq {
     public boolean g = false;
 
     /**
+     * v1.8.5: the generated layouts and Java use Material 3 widgets (MaterialSwitch, outlined text fields, theme text
+     * colours). Set by yq with {@link com.sketchware.ai.project.M3Widgets#decide}.
+     */
+    public boolean m3Widgets = false;
+
+    /**
      * If the built-in library Firebase is enabled.
      */
     public boolean isFirebaseEnabled = false;

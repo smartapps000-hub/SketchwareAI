@@ -32,6 +32,9 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
     private static final int REQUEST_CODE_APPCOMPAT_ACTIVITY = 231;
     private static final int REQUEST_CODE_FIREBASE_ACTIVITY = 230;
     private static final int REQUEST_CODE_GOOGLE_MAPS_ACTIVITY = 241;
+    /** v1.8.5: tag of the Material 3 row (not a ProjectLibraryBean type) */
+    private static final int TAG_MATERIAL3 = -3;
+    private qu material3ItemView;
 
     private String sc_id;
     private LinearLayout libraryItemLayout;
@@ -151,6 +154,7 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
 
                 case REQUEST_CODE_APPCOMPAT_ACTIVITY:
                     initializeLibrary(data.getParcelableExtra("compat"));
+                    bindMaterial3Item();
                     break;
 
                 case REQUEST_CODE_ADMOB_ACTIVITY:
@@ -196,6 +200,10 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
 
                 case ProjectLibraryBean.PROJECT_LIB_TYPE_GOOGLE_MAP:
                     toGoogleMapActivity(googleMapLibraryBean);
+                    break;
+
+                case TAG_MATERIAL3:
+                    toggleMaterial3();
                     break;
             }
         }
@@ -267,6 +275,63 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
         addLibraryItem(firebaseLibraryBean);
         addLibraryItem(admobLibraryBean);
         addLibraryItem(googleMapLibraryBean);
+
+        material3ItemView = new qu(this);
+        material3ItemView.a(R.layout.manage_library_common_item);
+        material3ItemView.setTag(TAG_MATERIAL3);
+        material3ItemView.setOnClickListener(this);
+        libraryItemLayout.addView(material3ItemView);
+        bindMaterial3Item();
+    }
+
+    /** v1.8.5: the project's Material 3 theme (ModernProjectDefaults.SETTING_MATERIAL3), shown like a library. */
+    private boolean isMaterial3() {
+        return com.sketchware.ai.project.ModernProjectDefaults.material3(new mod.hey.studios.project.ProjectSettings(sc_id));
+    }
+
+    private void bindMaterial3Item() {
+        if (material3ItemView == null) return;
+        boolean compat = compatLibraryBean != null && "Y".equals(compatLibraryBean.useYn);
+        boolean on = compat && isMaterial3();
+        material3ItemView.l.setImageResource(R.drawable.ob_ic_material3);
+        material3ItemView.m.setText("Material 3");
+        material3ItemView.n.setText(compat
+                ? "Material You theme (light and dark): buttons, text fields, switches, checkboxes in Material 3"
+                : "Material You theme and widgets. Needs AppCompat and Design");
+        material3ItemView.o.setText(on ? "ON" : "OFF");
+        material3ItemView.o.setSelected(on);
+    }
+
+    private void setMaterial3(boolean on) {
+        mod.hey.studios.project.ProjectSettings settings = new mod.hey.studios.project.ProjectSettings(sc_id);
+        settings.putValue(com.sketchware.ai.project.ModernProjectDefaults.SETTING_MATERIAL3, on ? "true" : "false");
+        settings.saveNow();
+        com.sketchware.ai.editor.DesignTheme.load(sc_id);
+        bindMaterial3Item();
+    }
+
+    private void toggleMaterial3() {
+        boolean compat = compatLibraryBean != null && "Y".equals(compatLibraryBean.useYn);
+        boolean on = compat && isMaterial3();
+        if (on) {
+            setMaterial3(false);
+        } else if (compat) {
+            setMaterial3(true);
+        } else {
+            // Material 3 is a Material Components theme: it needs the AppCompat and Design libraries
+            aB dialog = new aB(this);
+            dialog.a(R.drawable.ob_ic_material3);
+            dialog.b("Material 3");
+            dialog.a("Material 3 needs AppCompat and Design. Turn on both?");
+            dialog.b("Turn on", v -> {
+                compatLibraryBean.useYn = "Y";
+                initializeLibrary(compatLibraryBean);
+                setMaterial3(true);
+                dialog.dismiss();
+            });
+            dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
+            dialog.show();
+        }
     }
 
     @Override
@@ -313,6 +378,8 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
         @Override
         public void a() {
             activity.get().h();
+            // the saved AppCompat / Material 3 state decides how the design canvas draws widgets (v1.8.5)
+            com.sketchware.ai.editor.DesignTheme.load(activity.get().sc_id);
             Intent intent = new Intent();
             intent.putExtra("sc_id", activity.get().sc_id);
             intent.putExtra("firebase", activity.get().firebaseLibraryBean);

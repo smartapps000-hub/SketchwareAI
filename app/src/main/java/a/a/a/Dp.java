@@ -1125,6 +1125,16 @@ public class Dp {
             /* Extract testkey.zip to testkey/ */
             new KB().a(testkeyArchivePath, testkeyDirectoryPath);
         }
+        /* v1.8.5: desugar_jdk_libs 2.1.5 (+ nio configuration) for core library desugaring of the project's code */
+        String desugarArchivePath = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "desugar.zip").getAbsolutePath();
+        String desugarDirectoryPath = com.sketchware.ai.project.CoreLibDesugaring.directory().getAbsolutePath();
+        if (hasFileChanged(baseAssetsPath + "desugar.zip", desugarArchivePath)
+                || !com.sketchware.ai.project.CoreLibDesugaring.available()) {
+            progressReceiver.onProgress("Extracting desugar_jdk_libs...");
+            fileUtil.b(desugarDirectoryPath);
+            fileUtil.f(desugarDirectoryPath);
+            new KB().a(desugarArchivePath, desugarDirectoryPath);
+        }
         if (yq.N.g) {
             builtInLibraryManager.a(BuiltInLibraries.ANDROIDX_APPCOMPAT);
             builtInLibraryManager.a(BuiltInLibraries.ANDROIDX_COORDINATORLAYOUT);

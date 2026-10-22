@@ -372,7 +372,11 @@ public class AddSoundActivity extends BaseDialogActivity implements View.OnClick
         } catch (IllegalArgumentException e) {
             Glide.with(this).load(R.drawable.default_album_art_200dp).centerCrop().into(albumCover);
         }
-        mediaMetadataRetriever.release();
+        try {
+            // declared "throws IOException" since API 33 (compileSdk 34 from v1.8.5)
+            mediaMetadataRetriever.release();
+        } catch (java.io.IOException ignored) {
+        }
     }
 
     private boolean isSoundValid(WB wb) {

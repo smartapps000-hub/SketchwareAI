@@ -68,6 +68,27 @@ public class Nx {
         e.add(new AttributeBuilder(value));
     }
 
+    /** The named attributes as {namespace, name, value} (raw injected strings are not included). */
+    public java.util.List<String[]> attributes() {
+        java.util.List<String[]> out = new ArrayList<>();
+        for (AttributeBuilder attribute : e) {
+            if (attribute.attr != null && !attribute.attr.isEmpty()) {
+                out.add(new String[]{attribute.namespace == null ? "" : attribute.namespace, attribute.attr, attribute.value});
+            }
+        }
+        return out;
+    }
+
+    /** Removes every named attribute namespace:name. */
+    public void removeAttribute(String namespace, String name) {
+        java.util.Iterator<AttributeBuilder> iterator = e.iterator();
+        while (iterator.hasNext()) {
+            AttributeBuilder attribute = iterator.next();
+            String ns = attribute.namespace == null ? "" : attribute.namespace;
+            if (name.equals(attribute.attr) && ns.equals(namespace)) iterator.remove();
+        }
+    }
+
     public String toCode() {
         StringBuilder resultCode = new StringBuilder();
         resultCode.append(addZeroIndent());

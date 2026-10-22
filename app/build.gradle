@@ -4,8 +4,7 @@ plugins {
 }
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion "30.0.3"
+    compileSdk 34
 
     def gitCommitHash = "git rev-parse HEAD".execute().text.trim()
 
@@ -23,8 +22,8 @@ android {
         namespace "com.sketchware.remod"
         //noinspection ExpiredTargetSdkVersion since we don't target getting Sketchware Pro on Google Play.
         targetSdkVersion 34
-        versionCode 174
-        versionName "v1.8.4-" + getCommitHash()
+        versionCode 175
+        versionName "v1.8.5-" + getCommitHash()
 
         buildConfigField("String", "GIT_HASH", "\"${gitCommitHash}\"")
 
@@ -78,10 +77,17 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+        // kotlin-stdlib 1.7.10 at run time (see gradle.properties)
+        languageVersion = "1.7"
+        apiVersion = "1.7"
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     androidResources {
-        additionalParameters "--stable-ids", "public-stable-ids.txt"
+        additionalParameters "--stable-ids", "${rootDir}/public-stable-ids.txt"
     }
 
     signingConfigs {
@@ -111,12 +117,12 @@ dependencies {
     implementation "de.hdodenhof:circleimageview:3.1.0"
     implementation "com.github.angads25:filepicker:1.1.1"
 
-    minApi26Implementation "com.android.tools.build:bundletool:1.11.3"
+    minApi26Implementation "com.android.tools.build:bundletool:1.18.3"
     //noinspection GradleDependency copied from above dependency for not just runtime access
-    minApi26Implementation "com.google.protobuf:protobuf-java:3.19.2"
+    minApi26Implementation "com.google.protobuf:protobuf-java:3.22.3"
     //noinspection GradleDependency
     implementation "com.android.tools:sdklib:25.3.0", { exclude group: "com.intellij", module: "annotations" }
-    implementation "com.android.tools:r8:3.3.75"
+    implementation "com.android.tools:r8:8.11.18"
 
     implementation "com.google.code.gson:gson:2.9.0"
     implementation "com.madgag:scpkix-jdk15on:1.47.0.2"
@@ -140,5 +146,5 @@ dependencies {
 
     implementation "com.github.topjohnwu.libsu:core:5.0.2"
 
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs_nio:2.1.5"
 }

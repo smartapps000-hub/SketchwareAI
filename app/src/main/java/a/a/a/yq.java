@@ -310,11 +310,14 @@ public class yq {
     public void h() {
         fileUtil.b(projectMyscPath + File.separator + "app" + File.separator + "build.gradle",
                 Lx.getBuildGradleString(
-                        Math.max(28, com.sketchware.ai.project.ModernProjectDefaults.targetSdk(projectSettings)),
+                        com.sketchware.ai.project.GradleExport.compileSdk(),
                         projectSettings.getMinSdkVersion(),
                         com.sketchware.ai.project.ModernProjectDefaults.targetSdk(projectSettings), N));
         fileUtil.b(projectMyscPath + File.separator + "settings.gradle", Lx.a());
-        fileUtil.b(projectMyscPath + File.separator + "build.gradle", Lx.c("3.4.2", "4.3.3"));
+        fileUtil.b(projectMyscPath + File.separator + "build.gradle",
+                com.sketchware.ai.project.GradleExport.topLevelBuildGradle(
+                        com.sketchware.ai.project.GradleExport.ANDROID_GRADLE_PLUGIN));
+        com.sketchware.ai.project.GradleExport.writeProjectFiles(new File(projectMyscPath));
     }
 
     /**
@@ -618,6 +621,8 @@ public class yq {
             }
             N.b();
         }
+        // v1.8.5: Material 3 widget rewrites for this generation (M3Widgets), after AppCompat is known
+        N.m3Widgets = com.sketchware.ai.project.M3Widgets.decide(N, projectFileManager);
     }
 
     /**
@@ -782,6 +787,19 @@ public class yq {
             }
         }
 
+        // v1.8.5: the outlined text fields of Material 3 layouts (M3Widgets) need <package>.SketchTextField
+        if (!javaFiles.contains(new File(javaDir + com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS + ".java"))) {
+            String fieldTag = "." + com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS;
+            for (SrcCodeBean bean : srcCodeBeans) {
+                if (bean.srcFileName != null && bean.srcFileName.endsWith(".xml") && bean.source != null
+                        && bean.source.contains(fieldTag)) {
+                    srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS + ".java",
+                            com.sketchware.ai.project.M3Widgets.textFieldClass(packageName)));
+                    break;
+                }
+            }
+        }
+
         Ix ix = new Ix(N, projectFileManager.b());
         ix.setYq(this);
 
@@ -841,20 +859,22 @@ public class yq {
             boolean material3 = com.sketchware.ai.project.ModernProjectDefaults.material3(projectSettings);
             Mx stylesFileBuilder = new Mx();
             if (material3) {
-                // Material 3 (Material 1.11+, built against android-34). The project's colours fill the M3 roles the
-                // generated screens use; <Button>, <TextView> etc. keep the AppCompat inflater so they look the way
-                // they are designed, while Material components (MaterialButton, TextInputLayout, Chip, cards,
-                // navigation, dialogs, FAB) inflate as Material 3.
-                stylesFileBuilder.c("AppTheme", "Theme.Material3.Light.NoActionBar");
+                // Material 3 (Material 1.13, built against android-34), DayNight like Android Studio's new-project
+                // theme. The project's colours fill the M3 roles the generated screens use. v1.8.5: the Material
+                // inflater turns <Button>, <CheckBox>, <RadioButton>, <TextView> into their Material 3 versions;
+                // <Switch> and <EditText> are generated as MaterialSwitch / outlined text fields (M3Widgets), and the
+                // editor's default text colours follow the theme so dark mode stays readable.
+                stylesFileBuilder.c("AppTheme", "Theme.Material3.DayNight.NoActionBar");
                 stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
                 stylesFileBuilder.a("AppTheme", "colorPrimaryDark", "@color/colorPrimaryDark");
                 stylesFileBuilder.a("AppTheme", "colorPrimaryVariant", "@color/colorPrimaryDark");
+                stylesFileBuilder.a("AppTheme", "colorOnPrimary", "#FFFFFF");
                 stylesFileBuilder.a("AppTheme", "colorAccent", "@color/colorAccent");
                 stylesFileBuilder.a("AppTheme", "colorSecondary", "@color/colorAccent");
                 stylesFileBuilder.a("AppTheme", "colorControlHighlight", "@color/colorControlHighlight");
                 stylesFileBuilder.a("AppTheme", "colorControlNormal", "@color/colorControlNormal");
                 stylesFileBuilder.a("AppTheme", "android:statusBarColor", "@color/colorPrimaryDark");
-                stylesFileBuilder.a("AppTheme", "viewInflaterClass", "androidx.appcompat.app.AppCompatViewInflater");
+                stylesFileBuilder.a("AppTheme", "viewInflaterClass", "com.google.android.material.theme.MaterialComponentsViewInflater");
                 stylesFileBuilder.a("AppTheme", "floatingActionButtonStyle", "@style/AppTheme.Fab");
                 stylesFileBuilder.c("AppTheme.Fab", "Widget.Material3.FloatingActionButton.Primary");
                 stylesFileBuilder.a("AppTheme.Fab", "backgroundTint", "@color/colorAccent");
@@ -871,7 +891,7 @@ public class yq {
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowFullscreen", "true");
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowContentOverlay", "@null");
             stylesFileBuilder.c("AppTheme.AppBarOverlay", material3 ? "ThemeOverlay.Material3.Dark.ActionBar" : "ThemeOverlay.MaterialComponents.Dark.ActionBar");
-            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? "ThemeOverlay.Material3.Light" : "ThemeOverlay.MaterialComponents.Light");
+            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? "ThemeOverlay.AppCompat.DayNight" : "ThemeOverlay.MaterialComponents.Light");
             srcCodeBeans.add(new SrcCodeBean("styles.xml",
                     CommandBlock.applyCommands("styles.xml", stylesFileBuilder.toCode())));
         } else {

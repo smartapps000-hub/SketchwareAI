@@ -170,6 +170,11 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
 
             /* Start generating project files */
             project_metadata.b(hCVar, eCVar, iCVar, true);
+            // AGP 8 reads the package from build.gradle's namespace (GradleExport)
+            com.sketchware.ai.project.GradleExport.stripPackageAttribute(new File(project_metadata.androidManifestPath));
+            // widget libraries with no Maven artifact go to app/libs as .aar files
+            com.sketchware.ai.project.GradleExport.writeWidgetLibraries(new File(project_metadata.projectMyscPath, "app"),
+                    project_metadata.N);
             if (yB.a(lC.b(sc_id), "custom_icon")) {
                 project_metadata.a(wq.e() + File.separator + sc_id + File.separator + "icon.png");
             }
@@ -788,22 +793,15 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
                     String outputPath = signedAppBundleDirectoryPath + File.separator +
                             Uri.fromFile(new File(createdBundlePath)).getLastPathSegment();
 
+                    /* v1.8.5: JAR signature with SHA-256 digests (BundleSigner); ZipSigner's SHA-1 signature is
+                     * treated as unsigned by JDK 17+ jarsigner and refused by Play Console. The chosen signature
+                     * algorithm no longer matters for bundles: the digest is always SHA-256. */
                     if (signWithTestkey) {
-                        ZipSigner signer = new ZipSigner();
-                        signer.setKeymode(ZipSigner.KEY_TESTKEY);
-                        signer.signZip(createdBundlePath, outputPath);
+                        com.sketchware.ai.project.BundleSigner.signWithTestKey(createdBundlePath, outputPath);
                     } else if (isResultJarSigningEnabled()) {
                         Security.addProvider(new BouncyCastleProvider());
-                        CustomKeySigner.signZip(
-                                new ZipSigner(),
-                                signingKeystorePath,
-                                signingKeystorePassword,
-                                signingAliasName,
-                                signingAliasPassword,
-                                signingAlgorithm,
-                                createdBundlePath,
-                                outputPath
-                        );
+                        com.sketchware.ai.project.BundleSigner.signWithKeyStore(createdBundlePath, outputPath,
+                                signingKeystorePath, signingKeystorePassword, signingAliasName, signingAliasPassword);
                     } else {
                         FileUtil.copyFile(createdBundlePath, getCorrectResultFilename(outputPath));
                     }

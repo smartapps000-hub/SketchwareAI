@@ -38,11 +38,38 @@ public class Ox {
     private ArrayList<ViewBean> views;
     private Nx rootLayout = null;
     private Nx collapsingToolbarLayout = null;
+    /** v1.8.5: AppCompat project with the Material 3 theme: MaterialSwitch, outlined text fields, theme text colours. */
+    private final boolean material3;
 
     public Ox(jq jq, ProjectFileBean projectFileBean) {
         buildConfig = jq;
         projectFile = projectFileBean;
         aci = new AppCompatInjection(jq, projectFileBean);
+        material3 = com.sketchware.ai.project.M3Widgets.enabledFor(jq, projectFileBean.getXmlName());
+    }
+
+    /**
+     * Whether a widget's text sits on the theme's background: neither it nor a parent has a background the user
+     * chose (drawer layouts are shown on the drawer's fixed #EEEEEE panel).
+     */
+    private boolean onThemeBackground(ViewBean viewBean) {
+        if (projectFile.fileType == ProjectFileBean.PROJECT_FILE_TYPE_DRAWER) return false;
+        ViewBean bean = viewBean;
+        int depth = 0;
+        while (bean != null && depth++ < 64) {
+            if (com.sketchware.ai.project.M3Widgets.hasOpaqueBackground(bean)) return false;
+            String parent = bean.parent;
+            if (parent == null || parent.isEmpty() || parent.equals("root")) return true;
+            ViewBean next = null;
+            for (ViewBean candidate : views) {
+                if (parent.equals(candidate.id)) {
+                    next = candidate;
+                    break;
+                }
+            }
+            bean = next;
+        }
+        return true;
     }
 
     private static String x(String str) {
@@ -240,6 +267,9 @@ public class Ox {
 
         Nx widgetTag = convert.equals("") ? new Nx(viewBean.getClassInfo().a()) :
                 new Nx(convert.replaceAll(" ", ""));
+        if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean, material3)) {
+            widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
+        }
         if (convert.equals("include")) {
             if (!toNotAdd.contains("layout")) {
                 widgetTag.a("", "layout", "@layout/" + viewBean.id);
@@ -374,6 +404,9 @@ public class Ox {
         }
         if (widgetTag.c().equals("CollapsingToolbarLayout")) {
             collapsingToolbarLayout = widgetTag;
+        } else if (com.sketchware.ai.project.M3Widgets.wrapsEditText(viewBean,
+                com.sketchware.ai.project.M3Widgets.parentOf(viewBean, views), material3)) {
+            nx.a(com.sketchware.ai.project.M3Widgets.wrapEditText(widgetTag, buildConfig.packageName));
         } else {
             nx.a(widgetTag);
         }
@@ -636,7 +669,19 @@ public class Ox {
         }
         if (viewBean.text.textColor != 0) {
             if (!hasAttr("textColor", viewBean) && !toNotAdd.contains("android:textColor")) {
-                nx.a("android", "textColor", String.format("#%06X", viewBean.text.textColor & 0xffffff));
+                String color = String.format("#%06X", viewBean.text.textColor & 0xffffff);
+                if (material3 && viewBean.text.textColor == com.sketchware.ai.project.M3Widgets.DEFAULT_TEXT_COLOR) {
+                    // DayNight: the editor's default black follows the theme (dark by day, light at night). A plain
+                    // <Button> inflates as a filled MaterialButton: its label sits on the primary colour.
+                    // A Button with a transparent background or an injected (text/outlined) style shows its label
+                    // on the theme background like a TextView.
+                    if (com.sketchware.ai.project.M3Widgets.filledButton(viewBean)) {
+                        color = "?attr/colorOnPrimary";
+                    } else if (onThemeBackground(viewBean)) {
+                        color = "?attr/colorOnSurface";
+                    }
+                }
+                nx.a("android", "textColor", color);
             }
         }
         switch (viewBean.type) {
@@ -653,7 +698,12 @@ public class Ox {
                 }
                 if (viewBean.text.hintColor != 0) {
                     if (!hasAttr("textColorHint", viewBean) && !toNotAdd.contains("android:textColorHint")) {
-                        nx.a("android", "textColorHint", String.format("#%06X", viewBean.text.hintColor & 0xffffff));
+                        String hintColor = String.format("#%06X", viewBean.text.hintColor & 0xffffff);
+                        if (material3 && viewBean.text.hintColor == com.sketchware.ai.project.M3Widgets.DEFAULT_HINT_COLOR
+                                && onThemeBackground(viewBean)) {
+                            hintColor = "?attr/colorOnSurfaceVariant";
+                        }
+                        nx.a("android", "textColorHint", hintColor);
                     }
                 }
                 if (viewBean.text.singleLine != 0 && !toNotAdd.contains("android:singleLine")) {

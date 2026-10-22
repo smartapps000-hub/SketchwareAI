@@ -15,6 +15,8 @@ dependencies {
     implementation project(path: ':jaxp:internal')
 
 
+    // the stdlib the embedded compiler 1.7.10 was built for (gradle.properties: kotlin.stdlib.default.dependency=false)
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.7.10'
     runtimeOnly ('org.jetbrains.kotlin:kotlin-reflect:1.7.10')
 
     api 'org.jetbrains.intellij.deps:trove4j:1.0.20200330'
@@ -28,4 +30,12 @@ dependencies {
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "1.8"
+        languageVersion = "1.7"
+        apiVersion = "1.7"
+    }
 }

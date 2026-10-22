@@ -847,6 +847,8 @@ public class mq {
             case "RewardedVideoAd":
                 importList.add("com.google.android.gms.ads.AdError");
                 importList.add("com.google.android.gms.ads.MobileAds");
+                // the component always declares an OnUserEarnedRewardListener field (Lx), used or not
+                importList.add("com.google.android.gms.ads.OnUserEarnedRewardListener");
                 importList.add("com.google.android.gms.ads.rewarded.RewardItem");
                 importList.add("com.google.android.gms.ads.rewarded.RewardedAd");
                 importList.add("com.google.android.gms.ads.rewarded.RewardedAdLoadCallback");

@@ -29,6 +29,8 @@ public class ItemRadioButton extends RadioButton implements sy {
         this.e = new Paint(1);
         this.e.setColor(-1785080368);
         setDrawingCacheEnabled(true);
+        originalTint = getButtonTintList();
+        applyLook();
     }
 
     @Override
@@ -39,7 +41,20 @@ public class ItemRadioButton extends RadioButton implements sy {
     @Override
     public void setBean(ViewBean viewBean) {
         this.b = viewBean;
+        applyLook();
     }
+
+    /** v1.8.5: in a Material 3 project the theme inflates a MaterialRadioButton (primary when checked). */
+    private void applyLook() {
+        boolean material = com.sketchware.ai.editor.M3Canvas.active() && (b == null || com.sketchware.ai.project.M3Widgets.plain(b));
+        if (material) {
+            setButtonTintList(com.sketchware.ai.editor.M3Canvas.compoundTint(com.sketchware.ai.editor.DesignTheme.colorPrimary()));
+        } else if (originalTint != null) {
+            setButtonTintList(originalTint);
+        }
+    }
+
+    private android.content.res.ColorStateList originalTint;
 
     @Override
     public boolean getFixed() {

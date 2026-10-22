@@ -19,19 +19,21 @@ public class Lx {
      * @return Content of a <code>settings.gradle</code> file, with indentation
      */
     public static String a() {
-        return "include ':app'\r\n";
+        return com.sketchware.ai.project.GradleExport.settingsGradle();
     }
 
     /**
      * @return Content of a <code>build.gradle</code> file for the module ':app', with indentation
      */
     public static String getBuildGradleString(int compileSdkVersion, int minSdkVersion, int targetSdkVersion, jq metadata) {
+        // Android Gradle plugin 8.12 DSL (GradleExport): namespace instead of the manifest's package attribute
         String content = "plugins {\r\n" +
                 "id 'com.android.application'\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "android {\r\n" +
-                "compileSdkVersion " + compileSdkVersion + "\r\n" +
+                "namespace '" + metadata.packageName + "'\r\n" +
+                "compileSdk " + compileSdkVersion + "\r\n" +
                 "\r\n";
         if (new BuildSettings(metadata.sc_id)
                 .getValue(BuildSettings.SETTING_NO_HTTP_LEGACY, BuildSettings.SETTING_GENERIC_VALUE_FALSE)
@@ -41,8 +43,8 @@ public class Lx {
         }
         content += "defaultConfig {\r\n" +
                 "applicationId \"" + metadata.packageName + "\"\r\n" +
-                "minSdkVersion " + minSdkVersion + "\r\n" +
-                "targetSdkVersion " + targetSdkVersion + "\r\n" +
+                "minSdk " + minSdkVersion + "\r\n" +
+                "targetSdk " + targetSdkVersion + "\r\n" +
                 "versionCode " + metadata.versionCode + "\r\n" +
                 "versionName \"" + metadata.versionName + "\"\r\n" +
                 "}\r\n" +
@@ -53,10 +55,14 @@ public class Lx {
                 "proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\r\n" +
                 "}\r\n" +
                 "}\r\n" +
+                "\r\n" +
+                com.sketchware.ai.project.GradleExport.compileOptions(metadata.sc_id, minSdkVersion) +
                 "}\r\n" +
                 "\r\n" +
                 "dependencies {\r\n" +
-                "implementation fileTree(dir: 'libs', include: ['*.jar'])\r\n";
+                "implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])\r\n" +
+                com.sketchware.ai.project.GradleExport.desugaringDependency(minSdkVersion) +
+                com.sketchware.ai.project.GradleExport.extraDependencies(metadata);
 
         // Same versions as the built-in libraries the phone builds with (mod.jbk.build.BuiltInLibraries)
         if (metadata.g) {
@@ -161,6 +167,9 @@ public class Lx {
             type = bean.convert;
         } else {
             type = bean.getClassInfo().a();
+        }
+        if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(bean, com.sketchware.ai.project.M3Widgets.active())) {
+            type = com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH;
         }
 
         return "final " + type + " " + bean.id + " = _view.findViewById(R.id." + bean.id + ");";
@@ -1668,36 +1677,6 @@ public class Lx {
                 "}\r\n" +
                 "}\r\n" +
                 "}\r\n" +
-                "}\r\n";
-    }
-
-    /**
-     * @return A generated top-level <code>build.gradle</code> file, with indentation
-     */
-    public static String c(String androidGradlePluginVersion, String googleMobileServicesVersion) {
-        return "// Top-level build file where you can add configuration options common to all sub-projects/modules.\r\n" +
-                "buildscript {\r\n" +
-                "    repositories {\r\n" +
-                "        google()\r\n" +
-                "        jcenter()\r\n" +
-                "    }\r\n" +
-                "    dependencies {\r\n" +
-                "        classpath 'com.android.tools.build:gradle:" + androidGradlePluginVersion + "'\r\n" +
-                "        classpath 'com.google.gms:google-services:" + googleMobileServicesVersion + "'\r\n" +
-                "        // NOTE: Do not place your application dependencies here; they belong\r\n" +
-                "        // in the individual module build.gradle files\r\n" +
-                "    }\r\n" +
-                "}\r\n" +
-                "\r\n" +
-                "allprojects {\r\n" +
-                "    repositories {\r\n" +
-                "        google()\r\n" +
-                "        jcenter()\r\n" +
-                "    }\r\n" +
-                "}\r\n" +
-                "\r\n" +
-                "task clean(type: Delete) {\r\n" +
-                "    delete rootProject.buildDir\r\n" +
                 "}\r\n";
     }
 

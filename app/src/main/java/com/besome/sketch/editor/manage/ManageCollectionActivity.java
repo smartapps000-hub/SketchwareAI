@@ -212,7 +212,11 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
             target.setBackgroundResource(R.drawable.bg_outline_album);
         }
 
-        metadataRetriever.release();
+        try {
+            // declared "throws IOException" since API 33 (compileSdk 34 from v1.8.5)
+            metadataRetriever.release();
+        } catch (java.io.IOException ignored) {
+        }
     }
 
     private void stopMusicPlayback(ArrayList<ProjectResourceBean> sounds) {
