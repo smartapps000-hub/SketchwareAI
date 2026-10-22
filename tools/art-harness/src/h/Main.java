@@ -29,6 +29,9 @@ public class Main {
                     FROM = args.length > 2 ? args[2] : null;
                     build(args[1]);
                     break;
+                case "aab":
+                    exportAab(args[1]);
+                    break;
                 default:
                     throw new IllegalArgumentException(args[0]);
             }
@@ -147,6 +150,71 @@ public class Main {
         OUT.println("WARNINGS " + call(warnings, "count"));
         OUT.println(call(warnings, "report"));
         OUT.println("APK " + get(q[0], "finalToInstallApkPath"));
+    }
+
+    /**
+     * ExportProjectActivity.BuildingAsyncTask.b() with "Export AAB" and the test key, minus the Activity: an export
+     * build (no source map, DEX files merged), AppBundleCompiler (module zip, bundletool 1.11.3 BuildBundleCommand),
+     * then the AAB signed with kellinwood's ZipSigner exactly as the export screen does. Writes <root>/signed_aab/<name>.aab.
+     */
+    static void exportAab(String sc_id) throws Throwable {
+        Class<?> wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
+        Object rcv = receiver();
+        Object[] q = new Object[1];
+        Object[] dp = new Object[1];
+        Object[] m = new Object[4];
+        step("yq", () -> q[0] = neu("a.a.a.yq", CTX, call(wq, "d", sc_id), call(lC, "b", sc_id)));
+        step("prepare", () -> {
+            call(c("mod.agus.jcoderz.lib.FileUtil"), "deleteFile", get(q[0], "projectMyscPath"));
+            m[0] = neu("a.a.a.hC", sc_id);
+            m[1] = neu("a.a.a.kC", sc_id);
+            m[2] = neu("a.a.a.eC", sc_id);
+            m[3] = neu("a.a.a.iC", sc_id);
+            call(m[0], "i");
+            call(m[1], "s");
+            call(m[2], "g");
+            call(m[2], "e");
+            call(m[3], "i");
+            call(q[0], "c", CTX);
+            call(q[0], "a", CTX, call(wq, "e", "600"));
+            call(q[0], "a");
+            String res = (String) get(q[0], "resDirectoryPath");
+            call(m[1], "b", res + File.separator + "drawable-xhdpi");
+            call(m[1], "c", res + File.separator + "raw");
+            call(m[1], "a", get(q[0], "assetsPath") + File.separator + "fonts");
+        });
+        step("generate", () -> call(q[0], "b", m[0], m[2], m[3], true));
+        step("Dp", () -> {
+            dp[0] = neu("a.a.a.Dp", rcv, CTX, q[0]);
+            call(dp[0], "setBuildAppBundle", true);
+        });
+        step("aapt2", () -> call(dp[0], "maybeExtractAapt2"));
+        step("built-in libraries", () -> call(dp[0], "getBuiltInLibrariesReady"));
+        step("resources", () -> call(dp[0], "compileResources"));
+        step("kotlin", () -> call(c("mod.hey.studios.compiler.kotlin.KotlinCompilerBridge"), "compileKotlinCodeIfPossible", rcv, dp[0]));
+        step("java", () -> call(dp[0], "compileJavaCode"));
+        step("stringfog", () -> call(neu("mod.hey.studios.project.stringfog.StringfogHandler", sc_id), "start", rcv, dp[0]));
+        step("proguard", () -> call(neu("mod.hey.studios.project.proguard.ProguardHandler", sc_id), "start", rcv, dp[0]));
+        step("dex", () -> call(dp[0], "createDexFilesFromClasses"));
+        step("dex merge", () -> call(dp[0], "getDexFilesReady"));
+        Object[] compiler = new Object[1];
+        step("module", () -> {
+            compiler[0] = neu("mod.jbk.build.compiler.bundle.AppBundleCompiler", dp[0]);
+            call(compiler[0], "createModuleMainArchive");
+        });
+        step("bundletool", () -> call(compiler[0], "buildBundle"));
+        String created = ((File) call(c("mod.jbk.build.compiler.bundle.AppBundleCompiler"), "getDefaultAppBundleOutputFile", q[0])).getAbsolutePath();
+        File outDir = new File(System.getProperty("h.root"), "signed_aab");
+        outDir.mkdirs();
+        String signed = new File(outDir, new File(created).getName()).getAbsolutePath();
+        step("sign", () -> {
+            Object signer = neu("kellinwood.security.zipsigner.ZipSigner");
+            call(signer, "setKeymode", get(c("kellinwood.security.zipsigner.ZipSigner"), "KEY_TESTKEY"));
+            call(signer, "signZip", created, signed);
+        });
+        OUT.println("WARNINGS " + call(c("com.sketchware.ai.project.BuildWarnings"), "count"));
+        OUT.println(call(c("com.sketchware.ai.project.BuildWarnings"), "report"));
+        OUT.println("AAB " + signed);
     }
 
     /** The functional interface LibraryIntegrity.restore takes for progress text. */

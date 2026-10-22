@@ -16,6 +16,11 @@ import static h.R.*;
  *  held  - AppCompat + Firebase + AdMob + Google Maps, their components and widgets: the libraries that were NOT
  *          updated must still build on top of the updated AndroidX.
  *  plain - no AppCompat (framework Activity), a few framework widgets.
+ *  m3    - (v1.8.4) the libs widgets with the Material 3 AppTheme (the new-project default) and a block that uses
+ *          Material 1.13 classes (DynamicColors, MaterialSwitch, Chip, MaterialAlertDialogBuilder).
+ *  telugu- (v1.8.4) AppCompat, TextView/Button/EditText, two project fonts (a TrueType font and an OpenType/CFF font
+ *          stored as name.ttf, as the font manager stores every font) set by font blocks: SketchFonts.
+ * held keeps the MaterialComponents (Bridge) theme of projects made before v1.8.4.
  */
 public class Fixtures {
     static final int LINEAR = 0;
@@ -91,7 +96,7 @@ public class Fixtures {
             ((List<Object>) call(files, "c")).add(neu("com.besome.sketch.beans.ProjectFileBean", 2, "_drawer_main"));
         }
 
-        boolean libsLike = spec.equals("libs") || spec.equals("min19");
+        boolean libsLike = spec.equals("libs") || spec.equals("min19") || spec.equals("m3");
         List<int[]> widgets = new ArrayList<>();
         if (libsLike) {
             int[] types = {2, 12, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
@@ -99,6 +104,8 @@ public class Fixtures {
             for (int t : types) widgets.add(new int[]{t});
         } else if (spec.equals("held")) {
             for (int t : new int[]{3, 4, 6, 17, 18, 42}) widgets.add(new int[]{t});
+        } else if (spec.equals("telugu")) {
+            for (int t : new int[]{3, 4, 5}) widgets.add(new int[]{t}); // Button, TextView, EditText
         } else {
             for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
         }
@@ -159,6 +166,14 @@ public class Fixtures {
             source = "try {\n    android.util.Log.d(\"fixture\", \"try\");\n    return;\n} catch (Exception e) {\n    return;\n}\nandroid.util.Log.d(\"fixture\", \"after\");";
         } else if (spec.equals("typo")) {
             source = "String label = \"abc\";\nint n = label.lenght();";
+        } else if (spec.equals("m3")) {
+            // Material 1.13 API that needs the android-34 compile platform and the Material 3 theme
+            source = "com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);\n"
+                    + "com.google.android.material.materialswitch.MaterialSwitch m3switch = new com.google.android.material.materialswitch.MaterialSwitch(this);\n"
+                    + "com.google.android.material.chip.Chip m3chip = new com.google.android.material.chip.Chip(this);\n"
+                    + "m3chip.setText(\"Material 3\");\n"
+                    + "new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(\"M3\").create();\n"
+                    + "android.util.Log.d(\"m3\", String.valueOf(m3switch.isChecked()) + m3chip.getText());";
         }
         if (source != null) {
             ArrayList<Object> blocks = new ArrayList<>();
@@ -177,6 +192,39 @@ public class Fixtures {
             blocks.add(glide);
             blocks.add(toast);
             call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
+        }
+
+        if (spec.equals("telugu")) {
+            // fonts as the font manager stores them: <resources/fonts/<sc_id>>/<name>.ttf whatever the format
+            String fontsDir = (String) get(res, "g");
+            new java.io.File(fontsDir).mkdirs();
+            String src = System.getProperty("h.fonts"); // tools/art-harness/make-test-fonts.py output
+            java.nio.file.Files.copy(new java.io.File(src, "ramabhadra_tight.ttf").toPath(), new java.io.File(fontsDir, "ramabhadra.ttf").toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.nio.file.Files.copy(new java.io.File(src, "tenali.otf").toPath(), new java.io.File(fontsDir, "tenali.ttf").toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            @SuppressWarnings("unchecked") List<Object> fonts = (List<Object>) get(res, "d");
+            fonts.add(neu("com.besome.sketch.beans.ProjectResourceBean", 1, "ramabhadra", "ramabhadra.ttf"));
+            fonts.add(neu("com.besome.sketch.beans.ProjectResourceBean", 1, "tenali", "tenali.ttf"));
+            ArrayList<Object> blocks = new ArrayList<>();
+            Object tf1 = neu("com.besome.sketch.beans.BlockBean", "10", "%m.textview setTypeface %m.font %m.typeface", " ", "setTypeface");
+            ((List<String>) get(tf1, "parameters")).addAll(Arrays.asList("textview1", "ramabhadra", "normal"));
+            set(tf1, "nextBlock", 11);
+            Object tf2 = neu("com.besome.sketch.beans.BlockBean", "11", "%m.textview setTypeface %m.font %m.typeface", " ", "setTypeface");
+            ((List<String>) get(tf2, "parameters")).addAll(Arrays.asList("button1", "tenali", "bold"));
+            set(tf2, "nextBlock", 12);
+            Object text = neu("com.besome.sketch.beans.BlockBean", "12", "%m.textview setText %s", " ", "setText");
+            ((List<String>) get(text, "parameters")).addAll(Arrays.asList("textview1", "\u0c05\u0c28\u0c41 \u0c2b\u0c3e\u0c02\u0c1f\u0c4d\u0c38\u0c4d"));
+            blocks.add(tf1);
+            blocks.add(tf2);
+            blocks.add(text);
+            call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
+        }
+        if (spec.equals("held")) {
+            // a project made before v1.8.4: no stored Material 3 choice, the MaterialComponents (Bridge) theme
+            Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
+            call(ps, "putValue", "material3_theme", "false");
+            call(ps, "saveNow");
         }
 
         call(res, "a");
