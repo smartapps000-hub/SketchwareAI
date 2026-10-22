@@ -190,7 +190,7 @@ public class Jx {
         ArrayList<ViewBean> views = projectDataManager.d(xmlName);
         if (views == null) return;
         for (ViewBean view : views) {
-            if (com.sketchware.ai.project.M3Widgets.wrapsEditText(view,
+            if (com.sketchware.ai.project.M3Widgets.wrapsEditText(buildConfig, view,
                     com.sketchware.ai.project.M3Widgets.parentOf(view, views), true)) {
                 ids.add(prefix + view.id);
             }
@@ -640,7 +640,7 @@ public class Jx {
 
     private String getDrawerViewDeclarationAndAddImports(ViewBean viewBean) {
         if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean,
-                com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, projectFileBean.getDrawerXmlName()))) {
+                com.sketchware.ai.project.M3Widgets.switchesFor(buildConfig, projectFileBean.getDrawerXmlName()))) {
             addImport(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
             return Lx.a("MaterialSwitch", "_drawer_" + viewBean.id, Lx.AccessModifier.PRIVATE);
         }
@@ -663,7 +663,7 @@ public class Jx {
 
     private String getViewDeclarationAndAddImports(ViewBean viewBean) {
         if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean,
-                com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, projectFileBean.getXmlName()))) {
+                com.sketchware.ai.project.M3Widgets.switchesFor(buildConfig, projectFileBean.getXmlName()))) {
             // v1.8.5: <Switch> is generated as MaterialSwitch in Material 3 projects (not a subclass of Switch)
             addImport(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
             return Lx.a("MaterialSwitch", viewBean.id, Lx.AccessModifier.PRIVATE);
@@ -857,7 +857,7 @@ public class Jx {
                     projectDataManager.a(projectFileBean.getJavaName(), eventName), "adapter", viewBean.id, "onBindCustomView")).a();
             String adapterCode;
             // v1.8.5: the item layout's Material 3 widget types (MaterialSwitch) in Lx's adapter code
-            com.sketchware.ai.project.M3Widgets.enter(com.sketchware.ai.project.M3Widgets.enabledFor(buildConfig, xmlName));
+            com.sketchware.ai.project.M3Widgets.enter(com.sketchware.ai.project.M3Widgets.switchesFor(buildConfig, xmlName));
             try {
                 if (viewBean.type == ViewBeans.VIEW_TYPE_LAYOUT_VIEWPAGER) {
                     adapterCode = Lx.pagerAdapter(viewBean.id, viewBean.customView, projectDataManager.d(xmlName), adapterLogic);

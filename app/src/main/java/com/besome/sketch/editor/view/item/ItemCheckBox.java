@@ -90,7 +90,8 @@ public class ItemCheckBox extends AppCompatCheckBox implements sy {
     private boolean tinted;
 
     private void applyLook() {
-        boolean material = M3Canvas.active() && (b == null || com.sketchware.ai.project.M3Widgets.plain(b));
+        // same rule as the generator (M3Widgets.materialCompound): MaterialCheckBox for a plain CheckBox
+        boolean material = M3Canvas.widgets() && (b == null || com.sketchware.ai.project.M3Widgets.materialCompound(b, true) != null);
         if (material) {
             setButtonTintList(M3Canvas.compoundTint(DesignTheme.colorPrimary()));
             tinted = true;

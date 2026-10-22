@@ -1461,3 +1461,51 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+================================================================
+
+Sketchware AI (com.sketchware.ai) is a fork of Sketchware Pro v6.4.0-rc05.
+It adds or updates the components below. Full list: CREDITS.md in the source.
+
+* Sketchware Pro (the Sketchware Pro team and contributors)
+
+	https://github.com/Sketchware-Pro/Sketchware-Pro
+	Source-available, not open source (see its LICENSE). Its kotlinc module, taken from
+	CodeAssist (https://github.com/tyron12233/CodeAssist), and the minApi26 flavour
+	(this APK) are GPL-3.0.
+
+* aapt2 (Android Open Source Project, android-16.0.0_r4) and the libraries linked into it
+
+	Apache-2.0; protobuf BSD-3-Clause; abseil-cpp Apache-2.0; expat MIT; libpng libpng license;
+	zlib zlib license; fmtlib MIT; Android NDK runtime. Full texts: licenses/aapt2-NOTICE.txt
+
+* R8 / D8 8.11.18
+
+	https://r8.googlesource.com/r8
+	BSD-3-Clause
+
+* desugar_jdk_libs 2.1.5
+
+	https://github.com/google/desugar_jdk_libs
+	GNU General Public License, version 2, with the Classpath Exception
+
+* bundletool 1.18.3, apksig 8.12.0
+
+	Apache-2.0 License
+
+* Eclipse Java compiler 3.26.0
+
+	Eclipse Public License 2.0
+
+* Kotlin compiler 1.7.10 (JetBrains)
+
+	Apache-2.0 License
+
+* sora-editor 0.17.2
+
+	GNU Lesser General Public License 2.1
+
+* Sora, Manrope, JetBrains Mono fonts
+
+	SIL Open Font License 1.1. Full text: licenses/fonts-OFL.txt

@@ -132,6 +132,12 @@ public class jq {
      */
     public boolean m3Widgets = false;
 
+    /** v1.8.5: the project's code allows MaterialSwitch (M3Widgets.scanCode). */
+    public boolean m3Switches = false;
+
+    /** v1.8.5: ids of EditTexts, CheckBoxes, RadioButtons the project's code moves or restyles (M3Widgets.scanCode). */
+    public java.util.Set<String> m3KeepPlain = new java.util.HashSet<>();
+
     /**
      * If the built-in library Firebase is enabled.
      */

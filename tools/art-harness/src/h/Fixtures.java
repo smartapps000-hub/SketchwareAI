@@ -161,6 +161,9 @@ public class Fixtures {
             for (int t : new int[]{3, 4, 5}) widgets.add(new int[]{t}); // Button, TextView, EditText
         } else if (spec.equals("jni")) {
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
+        } else if (spec.equals("m3code")) {
+            // Button, TextView, EditText x2, CheckBox, Switch, RadioButton (v1.8.5 code scan, M3Widgets.scanCode)
+            for (int[] t : new int[][]{{3}, {4}, {5}, {5, 2}, {11}, {13}, {19}}) widgets.add(t);
         } else {
             for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
         }
@@ -172,8 +175,8 @@ public class Fixtures {
         call(proj, "a", xmlName, root); // eC.a(String xml, ViewBean) adds; eC.a(ProjectFileBean, ViewBean) removes
         int index = 0;
         for (int[] w : widgets) {
-            Object vb = neu("com.besome.sketch.beans.ViewBean", (String) call(wq, "b", w[0]) + "1", w[0]);
-            defaults(vb, w[0], spec.equals("m3") || spec.equals("desugar"));
+            Object vb = neu("com.besome.sketch.beans.ViewBean", (String) call(wq, "b", w[0]) + (w.length > 1 ? w[1] : 1), w[0]);
+            defaults(vb, w[0], spec.equals("m3") || spec.equals("desugar") || spec.equals("m3code"));
             set(vb, "parent", "linear1");
             set(vb, "parentType", LINEAR);
             set(vb, "index", index++);
@@ -229,6 +232,17 @@ public class Fixtures {
             java.nio.file.Files.write(new java.io.File(dir, "DesugarHelper.java").toPath(), DESUGAR_HELPER.getBytes("UTF-8"));
             source = "try {\n    android.util.Log.d(\"desugar\", com.fixture.desugar.DesugarHelper.run());\n"
                     + "} catch (Exception e) {\n    android.util.Log.e(\"desugar\", \"failed\", e);\n}";
+        } else if (spec.equals("m3code")) {
+            // code written for the framework widgets: switch1 typed Switch, edittext1's LinearLayout params,
+            // checkbox1's own button drawable stay framework widgets; edittext2 (outlined) gets a string-resource hint;
+            // button1 (SketchButton) gets a background from code
+            source = "android.widget.Switch typed = switch1;\n"
+                    + "typed.setChecked(true);\n"
+                    + "((android.widget.LinearLayout.LayoutParams) edittext1.getLayoutParams()).topMargin = 8;\n"
+                    + "checkbox1.setButtonDrawable(android.R.drawable.checkbox_off_background);\n"
+                    + "edittext2.setHint(android.R.string.ok);\n"
+                    + "edittext2.setHint(\"Your name\");\n"
+                    + "button1.setBackgroundResource(android.R.drawable.btn_default);";
         } else if (spec.equals("m3")) {
             // Material 1.13 API that needs the android-34 compile platform and the Material 3 theme
             source = "com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);\n"

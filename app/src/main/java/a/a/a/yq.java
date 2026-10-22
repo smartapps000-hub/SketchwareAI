@@ -623,6 +623,7 @@ public class yq {
         }
         // v1.8.5: Material 3 widget rewrites for this generation (M3Widgets), after AppCompat is known
         N.m3Widgets = com.sketchware.ai.project.M3Widgets.decide(N, projectFileManager);
+        com.sketchware.ai.project.M3Widgets.scanCode(N, projectDataManager);
     }
 
     /**
@@ -787,18 +788,11 @@ public class yq {
             }
         }
 
-        // v1.8.5: the outlined text fields of Material 3 layouts (M3Widgets) need <package>.SketchTextField
-        if (!javaFiles.contains(new File(javaDir + com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS + ".java"))) {
-            String fieldTag = "." + com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS;
-            for (SrcCodeBean bean : srcCodeBeans) {
-                if (bean.srcFileName != null && bean.srcFileName.endsWith(".xml") && bean.source != null
-                        && bean.source.contains(fieldTag)) {
-                    srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS + ".java",
-                            com.sketchware.ai.project.M3Widgets.textFieldClass(packageName)));
-                    break;
-                }
-            }
-        }
+        // v1.8.5: Material 3 layouts (M3Widgets) use <package>.SketchTextField and <package>.SketchButton
+        addHelperClass(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CLASS,
+                com.sketchware.ai.project.M3Widgets.textFieldClass(packageName));
+        addHelperClass(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.M3Widgets.BUTTON_CLASS,
+                com.sketchware.ai.project.M3Widgets.buttonClass(packageName));
 
         Ix ix = new Ix(N, projectFileManager.b());
         ix.setYq(this);
@@ -859,12 +853,12 @@ public class yq {
             boolean material3 = com.sketchware.ai.project.ModernProjectDefaults.material3(projectSettings);
             Mx stylesFileBuilder = new Mx();
             if (material3) {
-                // Material 3 (Material 1.13, built against android-34), DayNight like Android Studio's new-project
-                // theme. The project's colours fill the M3 roles the generated screens use. v1.8.5: the Material
-                // inflater turns <Button>, <CheckBox>, <RadioButton>, <TextView> into their Material 3 versions;
-                // <Switch> and <EditText> are generated as MaterialSwitch / outlined text fields (M3Widgets), and the
-                // editor's default text colours follow the theme so dark mode stays readable.
-                stylesFileBuilder.c("AppTheme", "Theme.Material3.DayNight.NoActionBar");
+                // Material 3 (Material 1.13, built against android-34), light: colours the user picks, icons and
+                // setTextColor blocks are chosen for a light background, so a DayNight theme would hide them at night.
+                // The project's colours fill the M3 roles the generated screens use. The AppCompat inflater keeps
+                // every widget the class it is written as; Material 3 projects get their Material widgets as tags
+                // written by M3Widgets (SketchButton, MaterialCheckBox, MaterialSwitch, outlined text fields).
+                stylesFileBuilder.c("AppTheme", "Theme.Material3.Light.NoActionBar");
                 stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
                 stylesFileBuilder.a("AppTheme", "colorPrimaryDark", "@color/colorPrimaryDark");
                 stylesFileBuilder.a("AppTheme", "colorPrimaryVariant", "@color/colorPrimaryDark");
@@ -874,7 +868,7 @@ public class yq {
                 stylesFileBuilder.a("AppTheme", "colorControlHighlight", "@color/colorControlHighlight");
                 stylesFileBuilder.a("AppTheme", "colorControlNormal", "@color/colorControlNormal");
                 stylesFileBuilder.a("AppTheme", "android:statusBarColor", "@color/colorPrimaryDark");
-                stylesFileBuilder.a("AppTheme", "viewInflaterClass", "com.google.android.material.theme.MaterialComponentsViewInflater");
+                stylesFileBuilder.a("AppTheme", "viewInflaterClass", "androidx.appcompat.app.AppCompatViewInflater");
                 stylesFileBuilder.a("AppTheme", "floatingActionButtonStyle", "@style/AppTheme.Fab");
                 stylesFileBuilder.c("AppTheme.Fab", "Widget.Material3.FloatingActionButton.Primary");
                 stylesFileBuilder.a("AppTheme.Fab", "backgroundTint", "@color/colorAccent");
@@ -891,7 +885,7 @@ public class yq {
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowFullscreen", "true");
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowContentOverlay", "@null");
             stylesFileBuilder.c("AppTheme.AppBarOverlay", material3 ? "ThemeOverlay.Material3.Dark.ActionBar" : "ThemeOverlay.MaterialComponents.Dark.ActionBar");
-            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? "ThemeOverlay.AppCompat.DayNight" : "ThemeOverlay.MaterialComponents.Light");
+            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? "ThemeOverlay.Material3.Light" : "ThemeOverlay.MaterialComponents.Light");
             srcCodeBeans.add(new SrcCodeBean("styles.xml",
                     CommandBlock.applyCommands("styles.xml", stylesFileBuilder.toCode())));
         } else {
@@ -942,6 +936,23 @@ public class yq {
      *
      * @return The file's code or an empty String if not found
      */
+    /**
+     * v1.8.5: adds a generated helper class (M3Widgets) when a layout of this generation uses its tag and the user has
+     * no Java file of that name.
+     */
+    private static void addHelperClass(List<SrcCodeBean> srcCodeBeans, List<File> javaFiles, String javaDir,
+                                       String className, String source) {
+        if (javaFiles.contains(new File(javaDir + className + ".java"))) return;
+        String tag = "." + className;
+        for (SrcCodeBean bean : srcCodeBeans) {
+            if (bean.srcFileName != null && bean.srcFileName.endsWith(".xml") && bean.source != null
+                    && bean.source.contains(tag)) {
+                srcCodeBeans.add(new SrcCodeBean(className + ".java", source));
+                return;
+            }
+        }
+    }
+
     public String getFileSrc(String filename, hC projectFileManager, eC projectDataManager, iC projectLibraryManager) {
         a(projectLibraryManager, projectFileManager, projectDataManager, false);
         CommandBlock.x();

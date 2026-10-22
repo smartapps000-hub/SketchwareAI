@@ -106,7 +106,7 @@ public class ItemButton extends AppCompatButton implements sy {
 
     /** Same rule as the generator (M3Widgets.filledButton): plain Button, no background, no injected style. */
     private boolean materialButton() {
-        return M3Canvas.active() && (c == null || com.sketchware.ai.project.M3Widgets.filledButton(c));
+        return M3Canvas.widgets() && (c == null || com.sketchware.ai.project.M3Widgets.filledButton(c));
     }
 
     private void applyLook() {

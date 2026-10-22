@@ -55,6 +55,14 @@ public final class CoreLibDesugaring {
                 && new File(d, CONFIGURATION_JSON).length() == CONFIGURATION_JSON_SIZE;
     }
 
+    /**
+     * After a failure: deletes the extracted copy of assets/libs/desugar.zip, so the next build extracts the files again
+     * ({@code Dp.getBuiltInLibrariesReady} compares the copy's size with the asset).
+     */
+    public static void reset() {
+        new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "desugar.zip").delete();
+    }
+
     /** The desugared library configuration (JSON) D8 and L8 take. */
     public static String configuration() throws IOException {
         return new String(readAll(new File(directory(), CONFIGURATION_JSON)), StandardCharsets.UTF_8);
@@ -82,28 +90,31 @@ public final class CoreLibDesugaring {
         deleteRecursively(output);
         if (!output.mkdirs()) throw new IOException("Can't create " + output);
         List<String> rules = new ArrayList<>(Arrays.asList(keepRules.split("\n")));
-        L8.run(L8Command.builder()
-                .addDesugaredLibraryConfiguration(configuration())
-                .addProgramFiles(new File(directory(), LIBRARY_JAR).toPath(), new File(directory(), CONFIGURATION_JAR).toPath())
-                .addLibraryFiles(androidJar.toPath())
-                .setMinApiLevel(minApiLevel)
-                .setMode(CompilationMode.RELEASE)
-                .addProguardConfiguration(rules, Origin.unknown())
-                .setOutput(output.toPath(), OutputMode.DexIndexed)
-                .build());
-        File[] dexes = output.listFiles((dir, name) -> name.endsWith(".dex"));
-        if (dexes == null || dexes.length != 1) {
-            deleteRecursively(output);
-            throw new IOException("L8 wrote " + (dexes == null ? 0 : dexes.length) + " DEX files for the desugared library, expected 1");
-        }
         File temporary = new File(cacheDirectory, run + ".dex.tmp");
-        temporary.delete();
-        if (!dexes[0].renameTo(temporary) || !(temporary.renameTo(cached) || (cached.isFile() && temporary.delete()))) {
+        try {
+            L8.run(L8Command.builder()
+                    .addDesugaredLibraryConfiguration(configuration())
+                    .addProgramFiles(new File(directory(), LIBRARY_JAR).toPath(), new File(directory(), CONFIGURATION_JAR).toPath())
+                    .addLibraryFiles(androidJar.toPath())
+                    .setMinApiLevel(minApiLevel)
+                    .setMode(CompilationMode.RELEASE)
+                    .addProguardConfiguration(rules, Origin.unknown())
+                    .setOutput(output.toPath(), OutputMode.DexIndexed)
+                    .build());
+            File[] dexes = output.listFiles((dir, name) -> name.endsWith(".dex"));
+            if (dexes == null || dexes.length != 1) {
+                throw new IOException("L8 wrote " + (dexes == null ? 0 : dexes.length) + " DEX files for the desugared library, expected 1");
+            }
+            temporary.delete();
+            if (!dexes[0].renameTo(temporary) || !(temporary.renameTo(cached) || (cached.isFile() && temporary.delete()))) {
+                throw new IOException("Can't store the desugared library DEX in " + cacheDirectory);
+            }
+            return cached;
+        } finally {
+            // also when L8 fails: no per-run folder or file is left in the cache
             deleteRecursively(output);
-            throw new IOException("Can't store the desugared library DEX in " + cacheDirectory);
+            temporary.delete();
         }
-        deleteRecursively(output);
-        return cached;
     }
 
     private static String sha1(String text) throws Exception {

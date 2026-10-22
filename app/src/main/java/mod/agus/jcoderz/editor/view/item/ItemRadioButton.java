@@ -44,17 +44,23 @@ public class ItemRadioButton extends RadioButton implements sy {
         applyLook();
     }
 
-    /** v1.8.5: in a Material 3 project the theme inflates a MaterialRadioButton (primary when checked). */
+    /** v1.8.5: in a Material 3 project the generator writes a MaterialRadioButton (primary when checked). */
     private void applyLook() {
-        boolean material = com.sketchware.ai.editor.M3Canvas.active() && (b == null || com.sketchware.ai.project.M3Widgets.plain(b));
+        // same rule as the generator (M3Widgets.materialCompound)
+        boolean material = com.sketchware.ai.editor.M3Canvas.widgets()
+                && (b == null || com.sketchware.ai.project.M3Widgets.materialCompound(b, true) != null);
         if (material) {
             setButtonTintList(com.sketchware.ai.editor.M3Canvas.compoundTint(com.sketchware.ai.editor.DesignTheme.colorPrimary()));
-        } else if (originalTint != null) {
+            tinted = true;
+        } else if (tinted) {
+            // only undo our own tint: setButtonTintList (even with null) replaces the tint AppCompat gave the button
             setButtonTintList(originalTint);
+            tinted = false;
         }
     }
 
     private android.content.res.ColorStateList originalTint;
+    private boolean tinted;
 
     @Override
     public boolean getFixed() {

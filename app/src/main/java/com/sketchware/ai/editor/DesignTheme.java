@@ -27,10 +27,28 @@ public final class DesignTheme {
         int primary = fallbackPrimary();
         try {
             m3 = com.sketchware.ai.project.ModernProjectDefaults.material3(new ProjectSettings(sc_id));
-            // like the generator (M3Widgets): the Material 3 theme needs the AppCompat and Design libraries
-            com.besome.sketch.beans.ProjectLibraryBean compat = a.a.a.jC.c(sc_id).c();
-            m3 = m3 && compat != null && "Y".equals(compat.useYn);
-            m3Widgets = m3 && com.sketchware.ai.project.M3Widgets.decide(sc_id, true, a.a.a.jC.b(sc_id));
+            if (m3) {
+                // like the generator (M3Widgets): the Material 3 theme needs the AppCompat and Design libraries.
+                // Read with own instances, never jC's: jC caches the project for the editor (preferring the backup),
+                // and DesignActivity.loadProject would then get that copy instead of the one the user chose.
+                a.a.a.iC libraries = new a.a.a.iC(sc_id);
+                if (libraries.g()) {
+                    libraries.h();
+                } else {
+                    libraries.i();
+                }
+                com.besome.sketch.beans.ProjectLibraryBean compat = libraries.c();
+                m3 = compat != null && "Y".equals(compat.useYn);
+            }
+            if (m3) {
+                a.a.a.hC files = new a.a.a.hC(sc_id);
+                if (files.g()) {
+                    files.h();
+                } else {
+                    files.i();
+                }
+                m3Widgets = com.sketchware.ai.project.M3Widgets.decide(sc_id, true, files);
+            }
         } catch (RuntimeException ignored) {
             // unreadable settings: the MaterialComponents look, as before
         }

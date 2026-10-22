@@ -33,6 +33,10 @@ public class ItemEditText extends AppCompatEditText implements sy {
     public Drawable h;
 
     private int backgroundColor = 0xffffff;
+    /** The outlined look is applied (background removed, minimum height, inner padding). */
+    private boolean outlinedLook;
+    private int originalMinHeight;
+    private int originalMinLines;
     private final Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF box = new RectF();
@@ -50,6 +54,8 @@ public class ItemEditText extends AppCompatEditText implements sy {
         setDrawingCacheEnabled(true);
         setFocusable(false);
         h = getBackground();
+        originalMinHeight = getMinHeight(); // -1 when the minimum is set in lines
+        originalMinLines = getMinLines();
         outline.setStyle(Paint.Style.STROKE);
         outline.setStrokeWidth(M3Canvas.dp(context, 1));
         outline.setColor(M3Canvas.OUTLINE);
@@ -65,7 +71,7 @@ public class ItemEditText extends AppCompatEditText implements sy {
     @Override
     public void setBean(ViewBean viewBean) {
         c = viewBean;
-        applyLook();
+        refreshLook();
     }
 
     @Override
@@ -146,13 +152,23 @@ public class ItemEditText extends AppCompatEditText implements sy {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        applyLook(); // the parent (converted or not) is known now
+        refreshLook(); // the parent (converted or not) is known now
     }
 
+    /** As upstream's class: no colour (0xffffff) = the EditText's own background. */
     @Override
     public void setBackgroundColor(int color) {
         backgroundColor = color;
-        applyLook();
+        if (outlined()) {
+            refreshLook();
+        } else {
+            if (outlinedLook) leaveOutlined();
+            if (color == 0xffffff) {
+                super.setBackground(h);
+            } else {
+                super.setBackgroundColor(color);
+            }
+        }
     }
 
     /**
@@ -162,7 +178,7 @@ public class ItemEditText extends AppCompatEditText implements sy {
     @Override
     public void setVisibility(int visibility) {
         super.setVisibility(visibility);
-        applyHintColor();
+        if (outlinedLook) applyHintColor();
     }
 
     @Override
@@ -186,25 +202,51 @@ public class ItemEditText extends AppCompatEditText implements sy {
         super.setPadding(left, top, right, bottom);
     }
 
-    private void applyLook() {
+    /**
+     * Applies the outlined look when the field is outlined, and takes it back when it no longer is. A field that is
+     * not and was not outlined is left alone: its background (colour or image) is whatever ViewPane set, as with
+     * upstream's class.
+     */
+    private void refreshLook() {
         if (outlined()) {
-            super.setBackground(null);
-            setMinHeight(Math.round(M3Canvas.dp(getContext(), 56)));
-        } else if (backgroundColor == 0xffffff) {
-            super.setBackground(h);
-        } else {
-            super.setBackgroundColor(backgroundColor);
+            if (!outlinedLook) {
+                outlinedLook = true;
+                super.setBackground(null);
+                setMinHeight(Math.round(M3Canvas.dp(getContext(), 56)));
+            }
+            applyPadding();
+            applyHintColor();
+            invalidate();
+        } else if (outlinedLook) {
+            leaveOutlined();
+            if (backgroundColor == 0xffffff) {
+                super.setBackground(h);
+            } else {
+                super.setBackgroundColor(backgroundColor);
+            }
+            applyPadding();
+            invalidate();
         }
-        applyPadding();
-        applyHintColor();
-        invalidate();
+    }
+
+    /** Back to the plain EditText look (ViewPane sets the bean's background image again on its next update). */
+    private void leaveOutlined() {
+        outlinedLook = false;
+        if (originalMinHeight >= 0) {
+            setMinHeight(originalMinHeight);
+        } else {
+            setMinLines(originalMinLines);
+        }
+        if (c != null && c.text != null && c.text.hintColor != 0) super.setHintTextColor(c.text.hintColor);
     }
 
     private void applyHintColor() {
         if (c == null || c.text == null) return;
         int color = c.text.hintColor;
-        if (outlined() && color == M3Canvas.DEFAULT_HINT_COLOR) {
+        if (color == M3Canvas.DEFAULT_HINT_COLOR) {
             color = M3Canvas.ON_SURFACE_VARIANT; // the generator writes ?attr/colorOnSurfaceVariant for it
+        } else if (color == 0) {
+            return;
         }
         super.setHintTextColor(color);
     }

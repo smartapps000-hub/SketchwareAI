@@ -267,8 +267,13 @@ public class Ox {
 
         Nx widgetTag = convert.equals("") ? new Nx(viewBean.getClassInfo().a()) :
                 new Nx(convert.replaceAll(" ", ""));
-        if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean, material3)) {
+        if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean, material3 && buildConfig.m3Switches)) {
             widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
+        } else if (material3 && com.sketchware.ai.project.M3Widgets.filledButton(viewBean)) {
+            // the filled Material 3 button; a background set from code stays as set (SketchButton)
+            widgetTag = new Nx(buildConfig.packageName + "." + com.sketchware.ai.project.M3Widgets.BUTTON_CLASS);
+        } else if (com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3) != null) {
+            widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3));
         }
         if (convert.equals("include")) {
             if (!toNotAdd.contains("layout")) {
@@ -404,7 +409,7 @@ public class Ox {
         }
         if (widgetTag.c().equals("CollapsingToolbarLayout")) {
             collapsingToolbarLayout = widgetTag;
-        } else if (com.sketchware.ai.project.M3Widgets.wrapsEditText(viewBean,
+        } else if (com.sketchware.ai.project.M3Widgets.wrapsEditText(buildConfig, viewBean,
                 com.sketchware.ai.project.M3Widgets.parentOf(viewBean, views), material3)) {
             nx.a(com.sketchware.ai.project.M3Widgets.wrapEditText(widgetTag, buildConfig.packageName));
         } else {
@@ -671,10 +676,10 @@ public class Ox {
             if (!hasAttr("textColor", viewBean) && !toNotAdd.contains("android:textColor")) {
                 String color = String.format("#%06X", viewBean.text.textColor & 0xffffff);
                 if (material3 && viewBean.text.textColor == com.sketchware.ai.project.M3Widgets.DEFAULT_TEXT_COLOR) {
-                    // DayNight: the editor's default black follows the theme (dark by day, light at night). A plain
-                    // <Button> inflates as a filled MaterialButton: its label sits on the primary colour.
-                    // A Button with a transparent background or an injected (text/outlined) style shows its label
-                    // on the theme background like a TextView.
+                    // The editor's default black follows the theme (on-surface). A plain <Button> without a background
+                    // is generated as a filled SketchButton: its label sits on the primary colour. A Button with a
+                    // transparent background or an injected (text/outlined) style shows its label on the theme
+                    // background like a TextView.
                     if (com.sketchware.ai.project.M3Widgets.filledButton(viewBean)) {
                         color = "?attr/colorOnPrimary";
                     } else if (onThemeBackground(viewBean)) {

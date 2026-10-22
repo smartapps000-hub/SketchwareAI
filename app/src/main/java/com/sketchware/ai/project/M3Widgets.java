@@ -20,30 +20,37 @@ import mod.hey.studios.project.ProjectSettings;
 
 /**
  * Material 3 widgets in generated code (v1.8.5). Applies to projects with AppCompat and the Material 3 theme
- * ({@link ModernProjectDefaults#SETTING_MATERIAL3}); nothing changes for other projects.
+ * ({@link ModernProjectDefaults#SETTING_MATERIAL3}); nothing changes for other projects. The theme keeps the AppCompat
+ * inflater (as v1.8.4), so only the tags written here change class:
  * <ul>
- * <li>{@code <Button>}, {@code <CheckBox>}, {@code <RadioButton>}, {@code <TextView>} need no rewrite: the theme's
- * MaterialComponentsViewInflater inflates them as MaterialButton, MaterialCheckBox, MaterialRadioButton,
- * MaterialTextView (subclasses, so the generated Java types stay valid).</li>
+ * <li>A plain {@code <Button>} without a background of its own becomes {@code <package>.SketchButton}, a filled
+ * MaterialButton that shows a background set from code as set (MaterialButton would tint it with its own colour).</li>
+ * <li>{@code <CheckBox>} / {@code <RadioButton>} become MaterialCheckBox / MaterialRadioButton (subclasses, so the
+ * generated Java types stay valid), unless the user gave them an own button drawable or style.</li>
  * <li>{@code <Switch>} has no Material subclass (MaterialSwitch extends SwitchCompat, not android.widget.Switch), so
  * the layout gets {@code MaterialSwitch} and the generated Java declares it as MaterialSwitch.</li>
  * <li>{@code <EditText>} is wrapped in an outlined TextInputLayout; the field itself is {@code <package>.SketchTextField}
  * (a TextInputEditText, so {@code EditText} fields stay valid) whose show/hide also shows/hides the outlined box.</li>
  * <li>Text that has the editor's default colour (black, hint #607D8B) and sits on the theme's background follows the
  * theme ({@code ?attr/colorOnSurface}, {@code ?attr/colorOnSurfaceVariant}, {@code ?attr/colorOnPrimary} on a
- * filled button), so it stays readable in dark mode (DayNight theme). Text on a background the user chose keeps its
- * colour.</li>
+ * filled button). Text on a background the user chose keeps its colour.</li>
  * </ul>
  * The widget rewrites are left out for the whole project when the user replaced an activity's Java file or
  * styles.xml (their code or theme was written for the framework widgets), and per layout when the user replaced that
- * layout file. "Plain" means what the palette gives: the palette sets {@code convert} to the widget's own class name
- * ("Button", "EditText", "Switch"), so that counts as not converted.
+ * layout file. The project's own code is read first ({@link #scanCode}): Switches stay framework Switches when any code
+ * uses the type {@code Switch} or sets a thumb/track; an EditText, CheckBox or RadioButton stays plain when code moves
+ * it between parents, reads or replaces its layout params, or sets its button drawable. "Plain" means what the
+ * palette gives: the palette sets {@code convert} to the widget's own class name ("Button", "EditText", "Switch"), so
+ * that counts as not converted.
  */
 public final class M3Widgets {
 
     public static final String MATERIAL_SWITCH = "com.google.android.material.materialswitch.MaterialSwitch";
     public static final String TEXT_INPUT_LAYOUT = "com.google.android.material.textfield.TextInputLayout";
     public static final String TEXT_FIELD_CLASS = "SketchTextField";
+    public static final String BUTTON_CLASS = "SketchButton";
+    public static final String MATERIAL_CHECKBOX = "com.google.android.material.checkbox.MaterialCheckBox";
+    public static final String MATERIAL_RADIO_BUTTON = "com.google.android.material.radiobutton.MaterialRadioButton";
     public static final String OUTLINED_BOX_STYLE = "@style/Widget.Material3.TextInputLayout.OutlinedBox";
 
     /** Sketchware's default text colours (TextBean). */
@@ -67,6 +74,118 @@ public final class M3Widgets {
      */
     public static boolean decide(jq buildConfig, hC projectFiles) {
         return buildConfig != null && decide(buildConfig.sc_id, buildConfig.g, projectFiles);
+    }
+
+    /**
+     * Reads the project's own code (blocks with their parameters, add-source-directly code, custom variables, more
+     * blocks) and records in the build config what must stay a framework widget (see the class comment).
+     */
+    public static void scanCode(jq buildConfig, a.a.a.eC projectData) {
+        buildConfig.m3Switches = false;
+        buildConfig.m3KeepPlain = new HashSet<>();
+        if (!buildConfig.m3Widgets) return;
+        String code;
+        try {
+            code = projectCode(projectData);
+        } catch (RuntimeException e) {
+            buildConfig.m3Widgets = false; // unreadable project data: generate as before
+            return;
+        }
+        buildConfig.m3Switches = !SWITCH_CODE.matcher(code).find();
+        if (projectData == null || projectData.c == null) return;
+        for (ArrayList<ViewBean> views : projectData.c.values()) {
+            if (views == null) continue;
+            for (ViewBean view : views) {
+                if (view == null || view.id == null || view.id.isEmpty()) continue;
+                if (view.type != ViewBean.VIEW_TYPE_WIDGET_EDITTEXT && view.type != ViewBean.VIEW_TYPE_WIDGET_CHECKBOX
+                        && view.type != ViewBeans.VIEW_TYPE_WIDGET_RADIOBUTTON) continue;
+                if (movesOrStyles(code, view.id)) buildConfig.m3KeepPlain.add(view.id);
+            }
+        }
+    }
+
+    /** The type Switch used by name, or a thumb/track set or read (MaterialSwitch would tint the user's drawables). */
+    private static final Pattern SWITCH_CODE = Pattern.compile("(?<![\\w$])Switch(?![\\w$])|[sg]et(Thumb|Track)");
+
+    private static boolean movesOrStyles(String code, String id) {
+        String name = "(?<![\\w$.])(_drawer_)?" + Pattern.quote(id) + "(?![\\w$])"; // drawer views are _drawer_<id>
+        return Pattern.compile(name + "\\s*\\.\\s*(getLayoutParams|setLayoutParams|getParent|setButtonDrawable|setButtonTint\\w*|setButtonIcon\\w*)\\s*\\("
+                + "|(addView|addViewInLayout|removeView|removeViewInLayout|indexOfChild|bringChildToFront|attachViewToParent|detachViewFromParent)\\s*\\([^;\\n]*" + name)
+                .matcher(code).find();
+    }
+
+    /** All code-like text of the project: each block as opCode(parameters), custom variables, more-block specs. */
+    private static String projectCode(a.a.a.eC projectData) {
+        StringBuilder out = new StringBuilder();
+        if (projectData == null) return "";
+        if (projectData.d != null) {
+            for (java.util.HashMap<String, ArrayList<com.besome.sketch.beans.BlockBean>> events : projectData.d.values()) {
+                if (events == null) continue;
+                for (ArrayList<com.besome.sketch.beans.BlockBean> blocks : events.values()) {
+                    if (blocks == null) continue;
+                    for (com.besome.sketch.beans.BlockBean block : blocks) {
+                        if (block == null) continue;
+                        out.append(block.opCode).append('(');
+                        if (block.parameters != null) {
+                            for (int i = 0; i < block.parameters.size(); i++) {
+                                if (i > 0) out.append(", ");
+                                out.append(block.parameters.get(i));
+                            }
+                        }
+                        out.append(")\n");
+                    }
+                }
+            }
+        }
+        appendPairs(out, projectData.e);
+        appendPairs(out, projectData.f);
+        appendPairs(out, projectData.g);
+        return out.toString();
+    }
+
+    private static void appendPairs(StringBuilder out, java.util.HashMap<String, ? extends ArrayList<? extends android.util.Pair<?, ?>>> map) {
+        if (map == null) return;
+        for (ArrayList<? extends android.util.Pair<?, ?>> pairs : map.values()) {
+            if (pairs == null) continue;
+            for (android.util.Pair<?, ?> pair : pairs) {
+                if (pair == null) continue;
+                out.append(pair.first).append(' ').append(pair.second).append('\n');
+            }
+        }
+    }
+
+    /** Whether the project's code allows MaterialSwitch (see {@link #scanCode}); false when rewrites are off. */
+    public static boolean switchesFor(jq buildConfig, String xmlName) {
+        return enabledFor(buildConfig, xmlName) && buildConfig.m3Switches;
+    }
+
+    /** The project's code moves, re-lays out or restyles this view (see {@link #scanCode}): it stays plain. */
+    public static boolean keepsPlain(jq buildConfig, ViewBean bean) {
+        return buildConfig == null || buildConfig.m3KeepPlain == null || bean.id == null
+                || buildConfig.m3KeepPlain.contains(bean.id);
+    }
+
+    /** {@link #wrapsEditText(ViewBean, ViewBean, boolean)} for a generation, with what the project's code does. */
+    public static boolean wrapsEditText(jq buildConfig, ViewBean bean, ViewBean parent, boolean material3) {
+        return wrapsEditText(bean, parent, material3) && !keepsPlain(buildConfig, bean);
+    }
+
+    /**
+     * A plain CheckBox / RadioButton without an own button drawable or style becomes MaterialCheckBox /
+     * MaterialRadioButton; null when it stays as written.
+     */
+    public static String materialCompound(ViewBean bean, boolean material3) {
+        if (!material3 || !plain(bean)) return null;
+        String inject = inject(bean);
+        if (inject.contains("button") || inject.contains("style")) return null;
+        if (bean.type == ViewBean.VIEW_TYPE_WIDGET_CHECKBOX) return MATERIAL_CHECKBOX;
+        if (bean.type == ViewBeans.VIEW_TYPE_WIDGET_RADIOBUTTON) return MATERIAL_RADIO_BUTTON;
+        return null;
+    }
+
+    /** {@link #materialCompound(ViewBean, boolean)} for a generation, with what the project's code does. */
+    public static String materialCompound(jq buildConfig, ViewBean bean, boolean material3) {
+        return keepsPlain(buildConfig, bean) ? null : materialCompound(bean, material3);
     }
 
     /** {@link #decide(jq, hC)} from the project's id and whether AppCompat is on (the design editor). */
@@ -161,7 +280,8 @@ public final class M3Widgets {
         if (parent != null && !plain(parent)) return false;
         if (hasOwnBackground(bean)) return false;
         String inject = inject(bean);
-        return !inject.contains("style") && !inject.contains("background") && !inject.contains("layout_");
+        return !inject.contains("style") && !inject.contains("background") && !inject.contains("layout_")
+                && !inject.contains("visibility");
     }
 
     /** The bean of a view's parent in a layout's view list, or null (root). */
@@ -193,8 +313,8 @@ public final class M3Widgets {
     }
 
     /**
-     * A plain Button the theme turns into a filled MaterialButton (its label sits on the primary colour): no
-     * background of its own and no injected style.
+     * A plain Button generated as {@code <package>.SketchButton}, a filled MaterialButton (its label sits on the
+     * primary colour): no background of its own and no injected style.
      */
     public static boolean filledButton(ViewBean bean) {
         return bean.type == ViewBean.VIEW_TYPE_WIDGET_BUTTON && plain(bean) && !hasOwnBackground(bean)
@@ -248,12 +368,55 @@ public final class M3Widgets {
         return result;
     }
 
+    /** Source of {@code <package>.SketchButton}. */
+    public static String buttonClass(String packageName) {
+        return "package " + packageName + ";\n"
+                + "\n"
+                + "import android.content.Context;\n"
+                + "import android.graphics.drawable.Drawable;\n"
+                + "import android.util.AttributeSet;\n"
+                + "\n"
+                + "import com.google.android.material.button.MaterialButton;\n"
+                + "\n"
+                + "/**\n"
+                + " * Written by Sketchware AI for this Material 3 project: a Button of the design editor, shown as a filled\n"
+                + " * Material 3 button. A background set from code (a colour drawable, an image, a GradientDrawable with rounded\n"
+                + " * corners) is shown as set, as on a plain Button; MaterialButton alone would tint it with the button colour.\n"
+                + " */\n"
+                + "public class SketchButton extends MaterialButton {\n"
+                + "\n"
+                + "    public SketchButton(Context context) {\n"
+                + "        super(context);\n"
+                + "    }\n"
+                + "\n"
+                + "    public SketchButton(Context context, AttributeSet attrs) {\n"
+                + "        super(context, attrs);\n"
+                + "    }\n"
+                + "\n"
+                + "    public SketchButton(Context context, AttributeSet attrs, int defStyleAttr) {\n"
+                + "        super(context, attrs, defStyleAttr);\n"
+                + "    }\n"
+                + "\n"
+                + "    @Override\n"
+                + "    @SuppressWarnings(\"deprecation\")\n"
+                + "    public void setBackgroundDrawable(Drawable background) {\n"
+                + "        Drawable before = getBackground();\n"
+                + "        super.setBackgroundDrawable(background);\n"
+                + "        if (before != null && background != before) {\n"
+                + "            setSupportBackgroundTintList(null);\n"
+                + "        }\n"
+                + "    }\n"
+                + "}\n";
+    }
+
     /** Source of {@code <package>.SketchTextField}. */
     public static String textFieldClass(String packageName) {
         return "package " + packageName + ";\n"
                 + "\n"
                 + "import android.content.Context;\n"
+                + "import android.text.TextPaint;\n"
                 + "import android.util.AttributeSet;\n"
+                + "import android.util.TypedValue;\n"
                 + "import android.view.View;\n"
                 + "import android.view.ViewParent;\n"
                 + "import android.widget.TextView;\n"
@@ -288,14 +451,54 @@ public final class M3Widgets {
                 + "        }\n"
                 + "    }\n"
                 + "\n"
+                + "    /**\n"
+                + "     * Like a plain EditText, a field whose width is wrap_content is at least as wide as its hint: the box shows the\n"
+                + "     * hint, and the label once there is text, within the field's width.\n"
+                + "     */\n"
+                + "    @Override\n"
+                + "    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {\n"
+                + "        super.onMeasure(widthMeasureSpec, heightMeasureSpec);\n"
+                + "        int mode = MeasureSpec.getMode(widthMeasureSpec);\n"
+                + "        if (mode == MeasureSpec.EXACTLY) {\n"
+                + "            return;\n"
+                + "        }\n"
+                + "        TextInputLayout box = box(this);\n"
+                + "        if (box == null || !box.isHintEnabled() || box.getEditText() != this) {\n"
+                + "            return;\n"
+                + "        }\n"
+                + "        CharSequence hint = box.getHint();\n"
+                + "        if (hint == null || hint.length() == 0) {\n"
+                + "            return;\n"
+                + "        }\n"
+                + "        measurePaint.set(getPaint());\n"
+                + "        float label = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12, getResources().getDisplayMetrics());\n"
+                + "        measurePaint.setTextSize(Math.max(getTextSize(), label));\n"
+                + "        int wanted = (int) Math.ceil(measurePaint.measureText(hint, 0, hint.length())) + 1\n"
+                + "                + getCompoundPaddingLeft() + getCompoundPaddingRight();\n"
+                + "        if (mode == MeasureSpec.AT_MOST) {\n"
+                + "            wanted = Math.min(wanted, MeasureSpec.getSize(widthMeasureSpec));\n"
+                + "        }\n"
+                + "        if (wanted > getMeasuredWidth()) {\n"
+                + "            setMeasuredDimension(wanted, getMeasuredHeight());\n"
+                + "        }\n"
+                + "    }\n"
+                + "\n"
+                + "    private final TextPaint measurePaint = new TextPaint();\n"
+                + "\n"
                 + "    /** setHint for a field that may sit in an outlined box: the box shows the hint as its label. */\n"
                 + "    public static void hint(TextView field, CharSequence hint) {\n"
                 + "        TextInputLayout box = box(field);\n"
                 + "        if (box != null && box.isHintEnabled() && box.getEditText() == field) {\n"
                 + "            box.setHint(hint);\n"
+                + "            field.requestLayout();\n"
                 + "        } else {\n"
                 + "            field.setHint(hint);\n"
                 + "        }\n"
+                + "    }\n"
+                + "\n"
+                + "    /** setHint(R.string...) for a field that may sit in an outlined box. */\n"
+                + "    public static void hint(TextView field, int hint) {\n"
+                + "        hint(field, field.getContext().getText(hint));\n"
                 + "    }\n"
                 + "\n"
                 + "    private static TextInputLayout box(View view) {\n"
