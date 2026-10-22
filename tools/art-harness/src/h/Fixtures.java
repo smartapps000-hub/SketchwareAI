@@ -24,13 +24,17 @@ import static h.R.*;
  *          local library with classes.jar/classes.dex and jni/ libraries (arm64-v8a 16 KB, x86_64 4 KB), called from a
  *          block: NativeAlignment warnings, and the AAB must carry the local library's jni/ files too.
  *          Files from make-native-fixture.sh (system property h.nativefx).
+ *  desugar- (v1.8.5) AppCompat, min SDK 24 (Android 7.0), a Java file of the Java manager (DesugarHelper) that uses
+ *          Java 8-16 library APIs Android 7.0 doesn't have (java.time, java.nio.file, Map.of, Stream.toList,
+ *          String.repeat/strip, InputStream.transferTo), called from a block: D8 must rewrite them to the desugared
+ *          library (j$.*) and the build must add its DEX (L8). CallDesugar runs DesugarHelper.run() from the APK.
  * held keeps the MaterialComponents (Bridge) theme of projects made before v1.8.4.
  */
 public class Fixtures {
     static final int LINEAR = 0;
 
     /** What the palette's getBean() gives a new widget: image, text, and for the library widgets convert/inject/size. */
-    static void defaults(Object vb, int type) throws Exception {
+    static void defaults(Object vb, int type, boolean material3) throws Exception {
         set(get(vb, "image"), "resName", "default_image");
         set(get(vb, "text"), "text", get(vb, "id"));
         for (Object[] row : IconDefaults.ROWS) {
@@ -40,7 +44,47 @@ public class Fixtures {
             if ((Integer) row[3] != 0) set(get(vb, "layout"), "width", row[3]);
             if ((Integer) row[4] != 0) set(get(vb, "layout"), "height", row[4]);
         }
+        // In a Material 3 project the palette (DesignTheme.material3()) gives these two widgets theme styles
+        // (IconMaterialButton / IconTextInputLayout since v1.8.4).
+        if (material3 && type == 41) set(vb, "inject", IconDefaults.M3_MATERIALBUTTON);
+        if (material3 && type == 38) set(vb, "inject", IconDefaults.M3_TEXTINPUTLAYOUT);
     }
+
+    /** Expected result of DesugarHelper.run(): 2026-11-01|120|2|X,Y,Z|Y|abab|q|y|3 */
+    static final String DESUGAR_HELPER = "package com.fixture.desugar;\n"
+            + "\n"
+            + "import java.io.ByteArrayInputStream;\n"
+            + "import java.io.ByteArrayOutputStream;\n"
+            + "import java.nio.file.Path;\n"
+            + "import java.nio.file.Paths;\n"
+            + "import java.time.Duration;\n"
+            + "import java.time.LocalDate;\n"
+            + "import java.time.format.DateTimeFormatter;\n"
+            + "import java.util.List;\n"
+            + "import java.util.Map;\n"
+            + "import java.util.Optional;\n"
+            + "import java.util.stream.Collectors;\n"
+            + "import java.util.stream.Stream;\n"
+            + "\n"
+            + "/** Java 8-16 library APIs newer than Android 7.0 (API 24): the build desugars them. */\n"
+            + "public class DesugarHelper {\n"
+            + "    public static String run() throws Exception {\n"
+            + "        LocalDate date = LocalDate.of(2026, 10, 22).plusDays(10); // java.time: API 26\n"
+            + "        String day = date.format(DateTimeFormatter.ISO_LOCAL_DATE);\n"
+            + "        long seconds = Duration.ofMinutes(2).getSeconds(); // API 26\n"
+            + "        Map<String, Integer> map = Map.of(\"a\", 1, \"b\", 2); // Java 9: API 30\n"
+            + "        List<String> upper = Stream.of(\"x\", \"y\", \"z\").map(String::toUpperCase).toList(); // Java 16: API 34\n"
+            + "        Optional<String> first = upper.stream().filter(s -> s.startsWith(\"Y\")).findFirst();\n"
+            + "        String joined = upper.stream().collect(Collectors.joining(\",\"));\n"
+            + "        String repeated = \"ab\".repeat(2); // Java 11: API 33\n"
+            + "        String stripped = \"  q \".strip(); // Java 11: API 33\n"
+            + "        Path path = Paths.get(\"/data\", \"y\"); // java.nio.file: API 26\n"
+            + "        ByteArrayOutputStream out = new ByteArrayOutputStream();\n"
+            + "        long copied = new ByteArrayInputStream(new byte[]{1, 2, 3}).transferTo(out); // Java 9: API 33\n"
+            + "        return day + \"|\" + seconds + \"|\" + map.get(\"b\") + \"|\" + joined + \"|\" + first.orElse(\"-\")\n"
+            + "                + \"|\" + repeated + \"|\" + stripped + \"|\" + path.getFileName() + \"|\" + copied;\n"
+            + "    }\n"
+            + "}\n";
 
     static void copy(java.io.File from, java.io.File to) throws java.io.IOException {
         to.getParentFile().mkdirs();
@@ -129,7 +173,7 @@ public class Fixtures {
         int index = 0;
         for (int[] w : widgets) {
             Object vb = neu("com.besome.sketch.beans.ViewBean", (String) call(wq, "b", w[0]) + "1", w[0]);
-            defaults(vb, w[0]);
+            defaults(vb, w[0], spec.equals("m3") || spec.equals("desugar"));
             set(vb, "parent", "linear1");
             set(vb, "parentType", LINEAR);
             set(vb, "index", index++);
@@ -179,6 +223,12 @@ public class Fixtures {
             source = "String label = \"abc\";\nint n = label.lenght();";
         } else if (spec.equals("jni")) {
             source = "android.util.Log.d(\"native\", com.fixture.nativelib.Native.hello());";
+        } else if (spec.equals("desugar")) {
+            java.io.File dir = new java.io.File((String) call(neu("mod.agus.jcoderz.lib.FilePathUtil"), "getPathJava", sc_id));
+            dir.mkdirs();
+            java.nio.file.Files.write(new java.io.File(dir, "DesugarHelper.java").toPath(), DESUGAR_HELPER.getBytes("UTF-8"));
+            source = "try {\n    android.util.Log.d(\"desugar\", com.fixture.desugar.DesugarHelper.run());\n"
+                    + "} catch (Exception e) {\n    android.util.Log.e(\"desugar\", \"failed\", e);\n}";
         } else if (spec.equals("m3")) {
             // Material 1.13 API that needs the android-34 compile platform and the Material 3 theme
             source = "com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);\n"
@@ -204,6 +254,13 @@ public class Fixtures {
             ((List<String>) get(toast, "parameters")).add("hello");
             blocks.add(glide);
             blocks.add(toast);
+            if (spec.equals("m3")) {
+                // v1.8.5: setHint on an EditText shown as an outlined field goes to the field's label (SketchTextField.hint)
+                set(toast, "nextBlock", 12);
+                Object hint = neu("com.besome.sketch.beans.BlockBean", "12", "%m.edittext setHint %s", " ", "setHint");
+                ((List<String>) get(hint, "parameters")).addAll(Arrays.asList("edittext1", "Your name"));
+                blocks.add(hint);
+            }
             call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
         }
 
@@ -263,6 +320,11 @@ public class Fixtures {
         call(proj, "j");
         call(res, "x");
         call(libs, "l");
+        if (spec.equals("desugar")) {
+            Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
+            call(ps, "putValue", "min_sdk", "24");
+            call(ps, "saveNow");
+        }
         if (spec.equals("min19")) {
             // below 21: multidex + every DEX merged by the IDE's D8 (the debug path at 21+ adds them unmerged)
             Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);

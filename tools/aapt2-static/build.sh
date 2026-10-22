@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-TAG="${AOSP_TAG:-android-14.0.0_r75}"
+TAG="${AOSP_TAG:-android-16.0.0_r4}"
 NDK="${ANDROID_NDK:-/opt/android-sdk/ndk/28.2.13676358}"
 ABIS="${ABIS:-arm64-v8a x86_64 armeabi-v7a x86}"
 API=24
@@ -67,6 +67,7 @@ fetch platform/external/expat       ""                           external/expat
 fetch platform/external/libpng      ""                           external/libpng
 fetch platform/external/zlib        ""                           external/zlib
 fetch platform/external/fmtlib      ""                           external/fmtlib
+fetch platform/external/abseil-cpp  ""                           external/abseil-cpp
 rm -rf "$SRC/external/expat/testdata"   # 128 MB of test data, unused
 
 # ---------------------------------------------------------------------------
@@ -84,7 +85,9 @@ if [[ ! -x "$PROTOC" ]]; then
   cmake -G Ninja -S "$SRC/external/protobuf" -B "$BUILD/host-protoc" \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_CXX_FLAGS="-I$SRC/external/protobuf/android" \
-    -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_WITH_ZLIB=OFF -Dprotobuf_BUILD_SHARED_LIBS=OFF
+    -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_WITH_ZLIB=OFF -Dprotobuf_BUILD_SHARED_LIBS=OFF \
+    -Dprotobuf_ABSL_PROVIDER=module -DABSL_ROOT_DIR="$SRC/external/abseil-cpp" -DABSL_PROPAGATE_CXX_STD=ON \
+    -DCMAKE_CXX_STANDARD=17 -Dprotobuf_BUILD_LIBUPB=OFF
   ninja -C "$BUILD/host-protoc" -j "$JOBS" protoc
 fi
 "$PROTOC" --version
@@ -122,7 +125,8 @@ log "Writing $OUT/NOTICE"
     "system/libziparchive, build/soong/cc/libbuildversion (header) - Apache-2.0" \
     "================================================================================" \
     "Copyright (C) The Android Open Source Project. Licensed under the Apache License, Version 2.0 (full text in the frameworks/base section above)."
-  section "external/protobuf (v21.12) - BSD-3-Clause" "$SRC/external/protobuf/LICENSE"
+  section "external/protobuf (v25.8) - BSD-3-Clause" "$SRC/external/protobuf/LICENSE"
+  section "external/abseil-cpp (20250512.1) - Apache-2.0" "$SRC/external/abseil-cpp/LICENSE"
   section "external/expat - MIT" "$SRC/external/expat/expat/COPYING"
   section "external/libpng - libpng license" "$SRC/external/libpng/LICENSE"
   section "external/zlib (Chromium zlib) - zlib license" "$SRC/external/zlib/LICENSE"

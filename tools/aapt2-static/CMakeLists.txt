@@ -9,7 +9,7 @@ endif()
 if(NOT DEFINED HOST_PROTOC)
   message(FATAL_ERROR "HOST_PROTOC not set")
 endif()
-set(AAPT2_BUILD_NUMBER "android-14.0.0_r75" CACHE STRING "string reported by 'aapt2 version'")
+set(AAPT2_BUILD_NUMBER "android-16.0.0_r4" CACHE STRING "string reported by 'aapt2 version'")
 
 set(S ${AOSP_SRC})
 set(FWB ${S}/frameworks/base)
@@ -102,7 +102,7 @@ set_target_properties(log PROPERTIES CXX_STANDARD 17)
 # ---------------------------------------------------------------- libbase
 set(B ${S}/system/libbase)
 add_library(base STATIC
-  ${B}/abi_compatibility.cpp ${B}/chrono_utils.cpp ${B}/cmsg.cpp ${B}/file.cpp ${B}/hex.cpp
+  ${B}/chrono_utils.cpp ${B}/cmsg.cpp ${B}/file.cpp ${B}/hex.cpp
   ${B}/logging.cpp ${B}/mapped_file.cpp ${B}/parsebool.cpp ${B}/parsenetaddress.cpp
   ${B}/posix_strerror_r.cpp ${B}/process.cpp ${B}/properties.cpp ${B}/stringprintf.cpp
   ${B}/strings.cpp ${B}/threads.cpp ${B}/errors_unix.cpp)
@@ -150,37 +150,27 @@ target_include_directories(incfs_utils PUBLIC ${INC_INCFSUTIL} PRIVATE ${INC_LIB
 target_link_libraries(incfs_utils PUBLIC base utils)
 set_target_properties(incfs_utils PROPERTIES CXX_STANDARD 20)
 
-# ---------------------------------------------------------------- libprotobuf-cpp-full
-set(PB ${S}/external/protobuf/src/google/protobuf)
-set(PB_SRCS
-  any_lite.cc arena.cc arenastring.cc arenaz_sampler.cc extension_set.cc generated_enum_util.cc
-  generated_message_tctable_lite.cc generated_message_util.cc implicit_weak_message.cc
-  inlined_string_field.cc io/coded_stream.cc io/io_win32.cc io/strtod.cc io/zero_copy_stream.cc
-  io/zero_copy_stream_impl.cc io/zero_copy_stream_impl_lite.cc map.cc message_lite.cc
-  parse_context.cc repeated_field.cc repeated_ptr_field.cc stubs/bytestream.cc stubs/common.cc
-  stubs/int128.cc stubs/status.cc stubs/statusor.cc stubs/stringpiece.cc stubs/stringprintf.cc
-  stubs/structurally_valid.cc stubs/strutil.cc stubs/time.cc wire_format_lite.cc
-  any.cc any.pb.cc api.pb.cc compiler/importer.cc compiler/parser.cc descriptor.cc descriptor.pb.cc
-  descriptor_database.cc duration.pb.cc dynamic_message.cc empty.pb.cc extension_set_heavy.cc
-  field_mask.pb.cc generated_message_bases.cc generated_message_reflection.cc
-  generated_message_tctable_full.cc io/gzip_stream.cc io/printer.cc io/tokenizer.cc map_field.cc
-  message.cc reflection_ops.cc service.cc source_context.pb.cc struct.pb.cc stubs/substitute.cc
-  text_format.cc timestamp.pb.cc type.pb.cc unknown_field_set.cc util/delimited_message_util.cc
-  util/field_comparator.cc util/field_mask_util.cc util/internal/datapiece.cc
-  util/internal/default_value_objectwriter.cc util/internal/error_listener.cc
-  util/internal/field_mask_utility.cc util/internal/json_escaping.cc util/internal/json_objectwriter.cc
-  util/internal/json_stream_parser.cc util/internal/object_writer.cc util/internal/proto_writer.cc
-  util/internal/protostream_objectsource.cc util/internal/protostream_objectwriter.cc
-  util/internal/type_info.cc util/internal/utility.cc util/json_util.cc util/message_differencer.cc
-  util/time_util.cc util/type_resolver_util.cc wire_format.cc wrappers.pb.cc)
-list(TRANSFORM PB_SRCS PREPEND ${PB}/)
-add_library(protobuf STATIC ${PB_SRCS})
-target_include_directories(protobuf PUBLIC ${INC_PROTOBUF} PRIVATE ${S}/external/protobuf/android)
-target_compile_definitions(protobuf PRIVATE HAVE_ZLIB=1 HAVE_PTHREAD)
-target_compile_options(protobuf PRIVATE -Wno-sign-compare -Wno-unused-parameter -Wno-deprecated-declarations
-  -Wno-enum-constexpr-conversion -Wno-invalid-offsetof)
-target_link_libraries(protobuf PUBLIC log z)
-set_target_properties(protobuf PROPERTIES CXX_STANDARD 17)
+# ---------------------------------------------------------------- abseil + libprotobuf (protobuf 25.x, android-16)
+# protobuf 22+ depends on abseil-cpp; both come from the same AOSP tag and are built with their own CMake files.
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
+set(ABSL_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(ABSL_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(protobuf_ABSL_PROVIDER "module" CACHE STRING "" FORCE)
+set(ABSL_ROOT_DIR ${S}/external/abseil-cpp CACHE PATH "" FORCE)
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_CONFORMANCE OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_LIBPROTOC OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_LIBUPB OFF CACHE BOOL "" FORCE)
+set(protobuf_INSTALL OFF CACHE BOOL "" FORCE)
+set(protobuf_WITH_ZLIB OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(protobuf_DISABLE_RTTI OFF CACHE BOOL "" FORCE)
+set(CMAKE_CXX_STANDARD 17)
+add_subdirectory(${S}/external/protobuf ${CMAKE_CURRENT_BINARY_DIR}/protobuf EXCLUDE_FROM_ALL)
+set(CMAKE_CXX_STANDARD)
+add_library(protobuf ALIAS libprotobuf)
 
 # ---------------------------------------------------------------- libandroidfw (host flavour)
 set(AFW ${FWB}/libs/androidfw)
@@ -189,10 +179,10 @@ set(AFW_SRCS ApkAssets.cpp ApkParsing.cpp Asset.cpp AssetDir.cpp AssetManager.cp
   ConfigDescription.cpp FileStream.cpp Idmap.cpp LoadedArsc.cpp Locale.cpp LocaleData.cpp misc.cpp
   NinePatch.cpp ObbFile.cpp PosixUtils.cpp Png.cpp PngChunkFilter.cpp PngCrunch.cpp ResourceTimer.cpp
   ResourceTypes.cpp ResourceUtils.cpp StreamingZipInflater.cpp StringPool.cpp TypeWrappers.cpp
-  Util.cpp ZipFileRO.cpp ZipUtils.cpp PathUtils.cpp)
+  Util.cpp ZipFileRO.cpp ZipUtils.cpp PathUtils.cpp LocaleDataLookup.cpp)
 list(TRANSFORM AFW_SRCS PREPEND ${AFW}/)
 add_library(androidfw STATIC ${AFW_SRCS})
-target_include_directories(androidfw PUBLIC ${INC_ANDROIDFW} ${INC_INCFSUTIL} ${COMMON_INCS} ${INC_ZIP} ${INC_PNG} ${INC_ZLIB})
+target_include_directories(androidfw PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/stub-include ${INC_ANDROIDFW} ${INC_INCFSUTIL} ${COMMON_INCS} ${INC_ZIP} ${INC_PNG} ${INC_ZLIB})
 target_compile_definitions(androidfw PRIVATE STATIC_ANDROIDFW_FOR_TOOLS)
 target_compile_options(androidfw PRIVATE -Wno-unused-parameter)
 target_link_libraries(androidfw PUBLIC incfs_utils ziparchive utils cutils base log png z)
@@ -228,7 +218,7 @@ set(AAPT2_SRCS
   format/binary/ResEntryWriter.cpp format/binary/TableFlattener.cpp format/binary/XmlFlattener.cpp
   format/proto/ProtoDeserialize.cpp format/proto/ProtoSerialize.cpp io/File.cpp io/FileSystem.cpp
   io/StringStream.cpp io/Util.cpp io/ZipArchive.cpp link/AutoVersioner.cpp
-  link/FeatureFlagsFilter.cpp link/ManifestFixer.cpp link/NoDefaultResourceRemover.cpp
+  link/FeatureFlagsFilter.cpp link/FlaggedXmlVersioner.cpp link/FlagNotEnabledResourceRemover.cpp link/ManifestFixer.cpp link/NoDefaultResourceRemover.cpp
   link/PrivateAttributeMover.cpp link/ReferenceLinker.cpp link/ResourceExcluder.cpp
   link/TableMerger.cpp link/XmlCompatVersioner.cpp link/XmlNamespaceRemover.cpp
   link/XmlReferenceLinker.cpp optimize/MultiApkGenerator.cpp optimize/ResourceDeduper.cpp
@@ -250,4 +240,6 @@ target_compile_options(aapt2 PRIVATE -Wall -Wno-unused-parameter -Wno-missing-fi
 set_target_properties(aapt2 PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS ON)
 target_link_libraries(aapt2 PRIVATE androidfw protobuf expat buildversion incfs_utils ziparchive
   utils cutils base fmt log png z)
+# abseil's log sink links "-llog" on Android: with -static that must resolve to our static liblog.a (built above)
+target_link_directories(aapt2 PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_options(aapt2 PRIVATE -static -Wl,--gc-sections -Wl,-z,max-page-size=16384)

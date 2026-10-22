@@ -9,6 +9,8 @@ import static h.R.*;
  * Runs Sketchware AI's own Run-build path on the Android runtime, with the classes of the shipped APK.
  * main create <spec> <sc_id> : writes a project with the IDE's own project classes (lC/hC/iC/eC/kC)
  * main build <sc_id>         : DesignActivity.BuildAsyncTask.b() step by step (minus the Activity)
+ * main aab <sc_id>           : the export screen's "Export AAB" with the test key
+ * main export <sc_id>        : the export screen's "Export to Android Studio" (the Gradle project), unzipped
  * System properties: h.apk (the IDE APK: assets), h.root (app dirs), h.native (dir with libaapt2.so).
  */
 public class Main {
@@ -32,6 +34,9 @@ public class Main {
                 case "aab":
                     FROM = args.length > 2 ? args[2] : null;
                     exportAab(args[1]);
+                    break;
+                case "export":
+                    exportSource(args[1]);
                     break;
                 default:
                     throw new IllegalArgumentException(args[0]);
@@ -155,8 +160,9 @@ public class Main {
 
     /**
      * ExportProjectActivity.BuildingAsyncTask.b() with "Export AAB" and the test key, minus the Activity: an export
-     * build (no source map, DEX files merged), AppBundleCompiler (module zip, bundletool 1.11.3 BuildBundleCommand),
-     * then the AAB signed with kellinwood's ZipSigner exactly as the export screen does. Writes <root>/signed_aab/<name>.aab.
+     * build (no source map, DEX files merged), AppBundleCompiler (module zip, bundletool 1.18.3 BuildBundleCommand with
+     * 16 KB page alignment for native libraries), then the AAB signed exactly as the export screen does since v1.8.5:
+     * BundleSigner (apksig, JAR signature with SHA-256 digests). Writes <root>/signed_aab/<name>.aab.
      */
     static void exportAab(String sc_id) throws Throwable {
         Class<?> wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
@@ -208,14 +214,80 @@ public class Main {
         File outDir = new File(System.getProperty("h.root"), "signed_aab");
         outDir.mkdirs();
         String signed = new File(outDir, new File(created).getName()).getAbsolutePath();
-        step("sign", () -> {
-            Object signer = neu("kellinwood.security.zipsigner.ZipSigner");
-            call(signer, "setKeymode", get(c("kellinwood.security.zipsigner.ZipSigner"), "KEY_TESTKEY"));
-            call(signer, "signZip", created, signed);
-        });
+        step("sign", () -> call(c("com.sketchware.ai.project.BundleSigner"), "signWithTestKey", created, signed));
         OUT.println("WARNINGS " + call(c("com.sketchware.ai.project.BuildWarnings"), "count"));
         OUT.println(call(c("com.sketchware.ai.project.BuildWarnings"), "report"));
         OUT.println("AAB " + signed);
+    }
+
+    /**
+     * ExportProjectActivity.exportSrc() minus the Activity and the zip: the project generated as an exported project
+     * (AGP 8.12 Gradle files from v1.8.5, manifest without its package attribute), the user's own Java/resources/assets/
+     * native libraries copied in. The files the zip leaves out (DebugActivity.java, SketchApplication.java unless the
+     * user wrote one) are deleted. Prints the folder.
+     */
+    static void exportSource(String sc_id) throws Throwable {
+        Class<?> wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
+        Object[] q = new Object[1];
+        Object[] m = new Object[4];
+        step("yq", () -> q[0] = neu("a.a.a.yq", CTX, call(wq, "d", sc_id), call(lC, "b", sc_id)));
+        String mysc = (String) get(q[0], "projectMyscPath");
+        step("export", () -> {
+            call(c("mod.agus.jcoderz.lib.FileUtil"), "deleteFile", mysc);
+            m[0] = neu("a.a.a.hC", sc_id);
+            m[1] = neu("a.a.a.kC", sc_id);
+            m[2] = neu("a.a.a.eC", sc_id);
+            m[3] = neu("a.a.a.iC", sc_id);
+            call(m[0], "i");
+            call(m[1], "s");
+            call(m[2], "g");
+            call(m[2], "e");
+            call(m[3], "i");
+            call(q[0], "a", CTX, call(wq, "e", "600"));
+            call(q[0], "b", m[0], m[2], m[3], true);
+            call(c("com.sketchware.ai.project.GradleExport"), "stripPackageAttribute", new File((String) get(q[0], "androidManifestPath")));
+            call(c("com.sketchware.ai.project.GradleExport"), "writeWidgetLibraries", new File(mysc, "app"), get(q[0], "N"));
+            call(q[0], "a");
+            String res = (String) get(q[0], "resDirectoryPath");
+            call(m[1], "b", res + File.separator + "drawable-xhdpi");
+            call(m[1], "c", res + File.separator + "raw");
+            call(m[1], "a", get(q[0], "assetsPath") + File.separator + "fonts");
+            call(q[0], "f");
+            Object util = neu("mod.agus.jcoderz.lib.FilePathUtil");
+            Class<?> fu = c("mod.agus.jcoderz.lib.FileUtil");
+            File java = new File((String) call(util, "getPathJava", sc_id));
+            File resources = new File((String) call(util, "getPathResource", sc_id));
+            File assets = new File((String) call(util, "getPathAssets", sc_id));
+            File natives = new File((String) call(util, "getPathNativelibs", sc_id));
+            if (java.exists()) copyTree(java, new File(get(q[0], "javaFilesPath") + File.separator + get(q[0], "packageNameAsFolders")));
+            if (resources.exists()) copyTree(resources, new File((String) get(q[0], "resDirectoryPath")));
+            if (assets.exists()) copyTree(assets, new File((String) get(q[0], "assetsPath")));
+            if (natives.exists()) copyTree(natives, new File((String) get(q[0], "generatedFilesPath"), "jniLibs"));
+            boolean ownApplication = new File(java, "SketchApplication.java").exists();
+            deleteNamed(new File(mysc), "DebugActivity.java");
+            if (!ownApplication) deleteNamed(new File(mysc), "SketchApplication.java");
+        });
+        OUT.println("EXPORTED " + mysc);
+    }
+
+    static void copyTree(File from, File to) throws java.io.IOException {
+        if (from.isDirectory()) {
+            to.mkdirs();
+            File[] children = from.listFiles();
+            if (children != null) for (File child : children) copyTree(child, new File(to, child.getName()));
+        } else {
+            to.getParentFile().mkdirs();
+            java.nio.file.Files.copy(from.toPath(), to.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    static void deleteNamed(File dir, String name) {
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (child.isDirectory()) deleteNamed(child, name);
+            else if (child.getName().equals(name)) child.delete();
+        }
     }
 
     /** The functional interface LibraryIntegrity.restore takes for progress text. */

@@ -1,8 +1,16 @@
 package h;
 
-/** Generated from the IDE's palette icons (dev/aldi/sayuti/editor/view/palette/Icon*.getBean): type, convert, inject, width, height. */
+/** From the IDE's palette icons (Icon*.getBean): type, convert, inject, width, height. */
 final class IconDefaults {
     static final Object[][] ROWS = {
+        // com/besome/sketch/editor/view/palette/Icon*.getBean (upstream's own palette): convert = the widget's class
+        // name. v1.8.5 fixtures mirror it (earlier fixtures left convert empty for these, unlike a real project).
+        {0, "LinearLayout", "", 0, 0}, {2, "HorizontalScrollView", "", 0, 0}, {3, "Button", "", 0, 0},
+        {4, "TextView", "", 0, 0}, {5, "EditText", "", 0, 0}, {6, "ImageView", "", 0, 0}, {7, "WebView", "", 0, 0},
+        {8, "ProgressBar", "", 0, 0}, {9, "ListView", "", 0, 0}, {10, "Spinner", "", 0, 0}, {11, "CheckBox", "", 0, 0},
+        {12, "ScrollView", "", 0, 0}, {13, "Switch", "", 0, 0}, {14, "SeekBar", "", 0, 0},
+        {15, "CalendarView", "", 0, 0}, {17, "com.google.android.gms.ads.AdView", "", 0, 0},
+        {18, "com.google.android.gms.maps.MapView", "", 0, 0},
         {33, "com.allenliu.badgeview.BadgeView", "", -2, -2}, // IconBadgeView.java
         {32, "com.google.android.material.bottomnavigation.BottomNavigationView", "", -1, 0}, // IconBottomNavigationView.java
         {36, "androidx.cardview.widget.CardView", "app:cardElevation=\"4dp\"\napp:cardCornerRadius=\"12dp\"", -1, 0}, // IconCardView.java
@@ -23,4 +31,8 @@ final class IconDefaults {
         {35, "com.sayuti.lib.WaveSideBar", "app:sidebar_text_alignment=\"center\"\napp:sidebar_position=\"right\"\napp:sidebar_max_offset=\"80dp\"", -2, -1}, // IconWaveSideBar.java
         {45, "com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView", "app:autoPlay=\"false\"\napp:useWebUi=\"false\"\napp:showYouTubeButton=\"true\"\napp:showFullScreenButton=\"true\"\napp:showVideoCurrentTime=\"true\"\napp:showVideoDuration=\"true\"\napp:showSeekBar=\"true\"\napp:handleNetworkEvents=\"false\"\napp:enableAutomaticInitialization=\"true\"", -1, -2}, // IconYoutubePlayer.java
     };
+    /** IconMaterialButton.getBean() in a Material 3 project (v1.8.4: no explicit style, the theme's button). */
+    static final String M3_MATERIALBUTTON = "app:backgroundTint=\"@color/colorPrimary\"";
+    /** IconTextInputLayout.getBean() in a Material 3 project (v1.8.4: the theme's outlined style). */
+    static final String M3_TEXTINPUTLAYOUT = "style=\"?attr/textInputOutlinedStyle\"";
 }
