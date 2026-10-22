@@ -53,6 +53,9 @@ public class ProjectSettingsDialog {
         CheckBox useNewMaterialComponentsAppTheme = bindToggle(content.findViewById(R.id.ob_cfg_row_material),
                 ProjectSettings.SETTING_ENABLE_BRIDGELESS_THEMES,
                 "MaterialComponents AppTheme", "Buttons become MaterialButton");
+        CheckBox material3AppTheme = bindToggle(content.findViewById(R.id.ob_cfg_row_m3),
+                com.sketchware.ai.project.ModernProjectDefaults.SETTING_MATERIAL3,
+                "Material 3 theme", "AppCompat projects · Material components and dialogs in Material 3");
 
         CheckBox autoHeal = bindToggle(content.findViewById(R.id.ob_cfg_row_heal),
                 com.sketchware.ai.project.ModernProjectDefaults.SETTING_AUTO_HEAL,
@@ -115,12 +118,15 @@ public class ProjectSettingsDialog {
                 removeOldMethods,
                 edgeToEdge,
                 autoHeal,
-                useNewMaterialComponentsAppTheme
+                useNewMaterialComponentsAppTheme,
+                material3AppTheme
         };
 
         dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {
             settings.setValues(preferences);
+            // the design editor draws Material 3 widgets for Material 3 projects
+            com.sketchware.ai.editor.DesignTheme.load(settings.sc_id);
             dialog.dismiss();
         });
         dialog.show();

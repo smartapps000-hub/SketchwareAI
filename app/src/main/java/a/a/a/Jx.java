@@ -586,6 +586,8 @@ public class Jx {
         if (buildConfig.g) {
             code = code.replaceAll("getFragmentManager", "getSupportFragmentManager");
         }
+        // Font blocks: fonts loaded once, room for Telugu (and other) ink; same line, so line numbers don't move.
+        code = com.sketchware.ai.project.FontCode.rewrite(code);
 
         return Lx.j(code, false);
     }

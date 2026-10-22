@@ -730,6 +730,17 @@ public class yq {
             }
         }
 
+        // SketchFonts.java when a generated activity uses a font block (see com.sketchware.ai.project.FontCode)
+        if (!javaFiles.contains(new File(javaDir + com.sketchware.ai.project.FontCode.FILE_NAME))) {
+            for (SrcCodeBean bean : srcCodeBeans) {
+                if (com.sketchware.ai.project.FontCode.uses(bean.source)) {
+                    srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.FontCode.FILE_NAME,
+                            com.sketchware.ai.project.FontCode.helperClass(packageName)));
+                    break;
+                }
+            }
+        }
+
         // Generate layouts unless a custom version of it exists already
         // at /Internal storage/.sketchware/data/<sc_id>/files/resource/layout/
         {
@@ -813,18 +824,40 @@ public class yq {
             srcCodeBeans.add(new SrcCodeBean("colors.xml",
                     CommandBlock.applyCommands("colors.xml", colorsFileBuilder.toCode())));
 
+            boolean material3 = com.sketchware.ai.project.ModernProjectDefaults.material3(projectSettings);
             Mx stylesFileBuilder = new Mx();
-            stylesFileBuilder.c("AppTheme", "Theme.MaterialComponents.Light.NoActionBar" + (useNewMaterialComponentsTheme ? "" : ".Bridge"));
-            stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
-            stylesFileBuilder.a("AppTheme", "colorPrimaryDark", "@color/colorPrimaryDark");
-            stylesFileBuilder.a("AppTheme", "colorAccent", "@color/colorAccent");
-            stylesFileBuilder.a("AppTheme", "colorControlHighlight", "@color/colorControlHighlight");
-            stylesFileBuilder.a("AppTheme", "colorControlNormal", "@color/colorControlNormal");
+            if (material3) {
+                // Material 3 (Material 1.11+, built against android-34). The project's colours fill the M3 roles the
+                // generated screens use; <Button>, <TextView> etc. keep the AppCompat inflater so they look the way
+                // they are designed, while Material components (MaterialButton, TextInputLayout, Chip, cards,
+                // navigation, dialogs, FAB) inflate as Material 3.
+                stylesFileBuilder.c("AppTheme", "Theme.Material3.Light.NoActionBar");
+                stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
+                stylesFileBuilder.a("AppTheme", "colorPrimaryDark", "@color/colorPrimaryDark");
+                stylesFileBuilder.a("AppTheme", "colorPrimaryVariant", "@color/colorPrimaryDark");
+                stylesFileBuilder.a("AppTheme", "colorAccent", "@color/colorAccent");
+                stylesFileBuilder.a("AppTheme", "colorSecondary", "@color/colorAccent");
+                stylesFileBuilder.a("AppTheme", "colorControlHighlight", "@color/colorControlHighlight");
+                stylesFileBuilder.a("AppTheme", "colorControlNormal", "@color/colorControlNormal");
+                stylesFileBuilder.a("AppTheme", "android:statusBarColor", "@color/colorPrimaryDark");
+                stylesFileBuilder.a("AppTheme", "viewInflaterClass", "androidx.appcompat.app.AppCompatViewInflater");
+                stylesFileBuilder.a("AppTheme", "floatingActionButtonStyle", "@style/AppTheme.Fab");
+                stylesFileBuilder.c("AppTheme.Fab", "Widget.Material3.FloatingActionButton.Primary");
+                stylesFileBuilder.a("AppTheme.Fab", "backgroundTint", "@color/colorAccent");
+                stylesFileBuilder.a("AppTheme.Fab", "tint", "#FFFFFF");
+            } else {
+                stylesFileBuilder.c("AppTheme", "Theme.MaterialComponents.Light.NoActionBar" + (useNewMaterialComponentsTheme ? "" : ".Bridge"));
+                stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
+                stylesFileBuilder.a("AppTheme", "colorPrimaryDark", "@color/colorPrimaryDark");
+                stylesFileBuilder.a("AppTheme", "colorAccent", "@color/colorAccent");
+                stylesFileBuilder.a("AppTheme", "colorControlHighlight", "@color/colorControlHighlight");
+                stylesFileBuilder.a("AppTheme", "colorControlNormal", "@color/colorControlNormal");
+            }
             stylesFileBuilder.c("AppTheme.FullScreen", "AppTheme");
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowFullscreen", "true");
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowContentOverlay", "@null");
-            stylesFileBuilder.c("AppTheme.AppBarOverlay", "ThemeOverlay.MaterialComponents.Dark.ActionBar");
-            stylesFileBuilder.c("AppTheme.PopupOverlay", "ThemeOverlay.MaterialComponents.Light");
+            stylesFileBuilder.c("AppTheme.AppBarOverlay", material3 ? "ThemeOverlay.Material3.Dark.ActionBar" : "ThemeOverlay.MaterialComponents.Dark.ActionBar");
+            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? "ThemeOverlay.Material3.Light" : "ThemeOverlay.MaterialComponents.Light");
             srcCodeBeans.add(new SrcCodeBean("styles.xml",
                     CommandBlock.applyCommands("styles.xml", stylesFileBuilder.toCode())));
         } else {

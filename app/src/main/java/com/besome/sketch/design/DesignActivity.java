@@ -477,6 +477,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         } else {
             sc_id = savedInstanceState.getString("sc_id");
         }
+        com.sketchware.ai.editor.DesignTheme.load(sc_id);
 
         r = new DB(getApplicationContext(), "P1");
         t = new DB(getApplicationContext(), "P12");

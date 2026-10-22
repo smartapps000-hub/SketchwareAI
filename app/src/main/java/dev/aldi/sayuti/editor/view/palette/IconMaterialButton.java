@@ -38,7 +38,12 @@ public class IconMaterialButton extends IconBase {
         viewBean.text.textColor = Color.WHITE;
         viewBean.text.text = getName();
         viewBean.convert = "com.google.android.material.button.MaterialButton";
-        viewBean.inject = "android:textAppearance=\"@style/TextAppearance.MaterialComponents.Button\"\napp:backgroundTint=\"@color/colorPrimary\"\napp:cornerRadius=\"8dp\"\nstyle=\"@style/Widget.MaterialComponents.Button\"";
+        if (com.sketchware.ai.editor.DesignTheme.material3()) {
+            // Material 3 project: the M3 filled button (full-pill shape, M3 type) in the project's primary colour
+            viewBean.inject = "app:backgroundTint=\"@color/colorPrimary\"\nstyle=\"@style/Widget.Material3.Button\"";
+        } else {
+            viewBean.inject = "android:textAppearance=\"@style/TextAppearance.MaterialComponents.Button\"\napp:backgroundTint=\"@color/colorPrimary\"\napp:cornerRadius=\"8dp\"\nstyle=\"@style/Widget.MaterialComponents.Button\"";
+        }
         return viewBean;
     }
 }

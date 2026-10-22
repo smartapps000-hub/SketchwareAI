@@ -34,6 +34,17 @@ public final class ModernProjectDefaults {
     public static final String SETTING_EDGE_TO_EDGE = "edge_to_edge";
     /** Auto-heal builds (see {@link AutoHeal}); on unless the project turns it off. */
     public static final String SETTING_AUTO_HEAL = "auto_heal";
+    /**
+     * Project setting: "true" makes AppTheme a Material 3 theme (Theme.Material3.Light.NoActionBar, Material 1.11+).
+     * New projects start with it on; projects that never stored it (older and imported ones) keep the
+     * MaterialComponents theme they were built with.
+     */
+    public static final String SETTING_MATERIAL3 = "material3_theme";
+
+    public static boolean material3(ProjectSettings settings) {
+        return ProjectSettings.SETTING_GENERIC_VALUE_TRUE.equals(
+                settings.getValue(SETTING_MATERIAL3, ProjectSettings.SETTING_GENERIC_VALUE_FALSE));
+    }
 
     public static boolean autoHealEnabled(String sc_id) {
         try {
@@ -54,6 +65,7 @@ public final class ModernProjectDefaults {
         project.put(ProjectSettings.SETTING_MINIMUM_SDK_VERSION, String.valueOf(NEW_PROJECT_MIN_SDK));
         project.put(ProjectSettings.SETTING_TARGET_SDK_VERSION, String.valueOf(NEW_PROJECT_TARGET_SDK));
         project.put(SETTING_EDGE_TO_EDGE, ProjectSettings.SETTING_GENERIC_VALUE_FALSE);
+        project.put(SETTING_MATERIAL3, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
         putIfAbsent(new ProjectSettings(scId), project);
 
         // D8 runs on Android 8.0+ only (the minApi21 build can run on older phones).
