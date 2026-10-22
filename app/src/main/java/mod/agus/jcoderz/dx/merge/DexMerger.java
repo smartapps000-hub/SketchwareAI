@@ -1089,8 +1089,85 @@ public final class DexMerger {
         public WriterSizes(Dex[] dexes) {
             for (int i = 0; i < dexes.length; i++) {
                 plus(dexes[i].getTableOfContents(), false);
+                debugInfo += debugInfoReserve(dexes[i]);
             }
             fourByteAlign();
+        }
+
+        /**
+         * Sketchware AI v1.8.4: room for the debug info the merger writes for one input dex. It writes a code item's
+         * debug_info_item once per code item that uses it, and D8 shares identical items between methods, so the
+         * section's byte count is not the amount written. Every written byte can grow to 3 (a string/type index
+         * written in 1 byte needs 3 once the merged dex has 16384+ strings), plus a fudge of 8 per dex.
+         * v1.8.3 reserved 3x the section: a min SDK 19 build with the v1.8.4 libraries still overflowed
+         * (BufferOverflowException in transformDebugInfoItem).
+         */
+        private static int debugInfoReserve(Dex dex) {
+            TableOfContents contents = dex.getTableOfContents();
+            long written = 0;
+            try {
+                java.util.HashMap<Integer, Integer> sizes = new java.util.HashMap<>();
+                for (ClassDef classDef : dex.classDefs()) {
+                    if (classDef.getClassDataOffset() == 0) continue;
+                    for (ClassData.Method method : dex.readClassData(classDef).allMethods()) {
+                        if (method.getCodeOffset() == 0) continue;
+                        int offset = dex.readCode(method).getDebugInfoOffset();
+                        if (offset == 0) continue;
+                        Integer size = sizes.get(offset);
+                        if (size == null) {
+                            size = debugInfoItemSize(dex, offset);
+                            sizes.put(offset, size);
+                        }
+                        written += size;
+                    }
+                }
+            } catch (RuntimeException e) {
+                // unreadable input: the merge itself reports it; reserve as much as the section allows
+                written = contents.debugInfos.byteCount;
+            }
+            long reserve = Math.max(written, contents.debugInfos.byteCount) * 3 + 8;
+            // plus() already added byteCount * 3 + 8 for this dex
+            long extra = reserve - ((long) contents.debugInfos.byteCount * 3 + 8);
+            return (int) Math.min(Integer.MAX_VALUE / 4, Math.max(0, extra));
+        }
+
+        private static int debugInfoItemSize(Dex dex, int offset) {
+            Dex.Section in = dex.open(offset);
+            int start = in.getPosition();
+            in.readUleb128(); // line_start
+            int parameters = in.readUleb128();
+            for (int p = 0; p < parameters; p++) in.readUleb128p1();
+            while (true) {
+                int opcode = in.readByte() & 0xff;
+                if (opcode == DBG_END_SEQUENCE) break;
+                switch (opcode) {
+                    case DBG_ADVANCE_PC:
+                    case DBG_END_LOCAL:
+                    case DBG_RESTART_LOCAL:
+                        in.readUleb128();
+                        break;
+                    case DBG_ADVANCE_LINE:
+                        in.readSleb128();
+                        break;
+                    case DBG_START_LOCAL:
+                        in.readUleb128();
+                        in.readUleb128p1();
+                        in.readUleb128p1();
+                        break;
+                    case DBG_START_LOCAL_EXTENDED:
+                        in.readUleb128();
+                        in.readUleb128p1();
+                        in.readUleb128p1();
+                        in.readUleb128p1();
+                        break;
+                    case DBG_SET_FILE:
+                        in.readUleb128p1();
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return in.getPosition() - start;
         }
 
         public WriterSizes(DexMerger dexMerger) {

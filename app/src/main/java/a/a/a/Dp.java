@@ -971,10 +971,11 @@ public class Dp {
             dexes.add(BuiltInLibraries.getLibraryDexFile(BuiltInLibraries.ANDROIDX_MULTIDEX));
             /* Android 4.x loads only classes.dex before MultiDex.install() runs, so the project's own classes
              * (its Application) must be in classes.dex: merge them right after MultiDex, libraries fill the rest.
-             * Merged last, as before, they landed in classes3.dex once the libraries passed 64K methods. */
-            for (String file : FileUtil.listFiles(yq.binDirectoryPath + File.separator + "dex", "dex")) {
-                dexes.add(new File(file));
-            }
+             * Merged last, as before, they landed in classes3.dex once the libraries passed 64K methods.
+             * v1.8.4: the project's own DEX output is several files (R classes of the libraries pass 64K fields);
+             * the files that hold code go first, R-only files after them. */
+            dexes.addAll(com.sketchware.ai.project.DexOrder.codeFirst(
+                    FileUtil.listFiles(yq.binDirectoryPath + File.separator + "dex", "dex")));
         }
 
         /* Add HTTP legacy files if wanted */
