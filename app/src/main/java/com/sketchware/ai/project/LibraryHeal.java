@@ -233,6 +233,9 @@ public final class LibraryHeal {
         arguments.add("--output");
         arguments.add(classesJar.getParentFile().getAbsolutePath());
         arguments.add(classesJar.getAbsolutePath());
+        // Libraries built with javac 21 (AndroidX since 2024) carry nameless MethodParameters entries that stop
+        // D8 3.3.75 with a NullPointerException (see ClassFileSanitizer); classes.jar here is extracted by the IDE.
+        ClassFileSanitizer.sanitizeJar(classesJar);
         // Not D8.main(): that calls System.exit() on failure.
         D8.run(D8Command.parse(arguments.toArray(new String[0]), Origin.root()).build());
     }

@@ -1,7 +1,8 @@
 """Pick, for each built-in library, the newest stable version the bundled toolchain can use.
 
 Gates per version (all read from the published artifact, nothing assumed):
-  minCompileSdk <= 33   (aar-metadata.properties; the bundled android.jar is API 33)
+  minCompileSdk <= 34   (aar-metadata.properties; the bundled android.jar is API 34 since v1.8.4, 33 before;
+                         env MAX_COMPILE_SDK overrides)
   minSdk        <= 21   (library AndroidManifest; new projects use min 21)
   Kotlin metadata <= 1.8 (.kotlin_module header; the bundled kotlinc 1.7.10 reads up to 1.8)
   class files   <= 55   (Java 11; ECJ 3.26 + D8 3.3.75)
@@ -13,7 +14,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from coords import C, GM, MC
 
 CACHE, OUT = sys.argv[1], sys.argv[2]
-MAX_COMPILE, MAX_MINSDK, MAX_KOTLIN, MAX_CLASS = 33, 21, (1, 8), 55
+MAX_COMPILE, MAX_MINSDK, MAX_KOTLIN, MAX_CLASS = int(os.environ.get("MAX_COMPILE_SDK", "34")), 21, (1, 8), 55
 STABLE = re.compile(r"^\d+(\.\d+)*$")
 
 def fetch(url):

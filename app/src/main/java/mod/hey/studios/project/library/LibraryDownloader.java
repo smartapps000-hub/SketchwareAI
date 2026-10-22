@@ -339,6 +339,9 @@ public class LibraryDownloader {
             // Input
             cm.add(_path);
 
+            // Libraries built with javac 21 (AndroidX since 2024) carry nameless MethodParameters entries that
+            // stop this D8 with a NullPointerException; the jar is the one just extracted from the download.
+            com.sketchware.ai.project.ClassFileSanitizer.sanitizeJar(new File(_path));
             D8.main(cm.toArray(new String[0]));
         } else {
             // 6.3.0 fix2

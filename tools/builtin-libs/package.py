@@ -21,22 +21,21 @@ chosen = json.load(open(os.path.join(WORK, "solve.json")))["chosen"]
 
 # --- decisions on top of the solver -------------------------------------------------------------------------
 PIN = {  # same version as the library group / parent that ships with it
-    "androidx.lifecycle:lifecycle-common": "2.6.2",            # lifecycle artifacts move together
-    "androidx.constraintlayout:constraintlayout-core": "1.0.4",  # what constraintlayout 2.1.4 is built with
+    "androidx.lifecycle:lifecycle-common": "2.8.7",            # lifecycle artifacts move together
+    "androidx.constraintlayout:constraintlayout-core": "1.1.2",  # what constraintlayout 2.2.2 is built with
 }
 KEEP_BUNDLED = {  # bundled build is newer than the newest usable stable, or the update would drag Kotlin+coroutines
-    "androidx.dynamicanimation:dynamicanimation": "bundled 1.1.0-alpha03 is newer than the usable stable 1.0.0",
     "androidx.swiperefreshlayout:swiperefreshlayout": "bundled 1.2.0-alpha01 is newer than the usable stable 1.1.0",
-    "androidx.concurrent:concurrent-futures": "1.2.0+ class files crash the IDE's D8 3.3.75 (NullPointerException in CallbackToFutureAdapter$SafeFuture$1); bundled 1.1.0 is what profileinstaller needs",
     "de.hdodenhof:circleimageview": "same version as bundled (folder circle-imageview-v3.1.0)",
     "com.google.guava:listenablefuture": "same artifact as bundled (1.0 = folder listenablefuture-1.0.0)",
     "androidx.slidingpanelayout:slidingpanelayout": "1.2.0 adds androidx.window + Kotlin coroutines to every project that "
                                                      "uses legacy-support-core-ui; nothing generated uses it",
 }
 DROP = {  # empty jars since Kotlin 1.8 (merged into kotlin-stdlib); annotation-only jars nothing needs at run time
-    "com.google.errorprone:error_prone_annotations",  # 2.48+ class files crash D8 3.3.75; only @CanIgnoreReturnValue etc.
+    "com.google.errorprone:error_prone_annotations",  # annotation-only (@CanIgnoreReturnValue etc.), nothing needs it at run time
     "org.jspecify:jspecify",
     "org.jetbrains.kotlin:kotlin-stdlib-common", "org.jetbrains.kotlin:kotlin-stdlib-jdk7", "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+    "androidx.lifecycle:lifecycle-livedata-core-ktx",  # empty since lifecycle 2.8 (its classes moved into lifecycle-livedata-core)
 }
 for k, v in PIN.items():
     g, a = k.split(":")
@@ -54,12 +53,15 @@ NEW_CONST = {
     "androidx.customview:customview-poolingcontainer": "ANDROIDX_CUSTOMVIEW_POOLINGCONTAINER",
     "com.google.errorprone:error_prone_annotations": "GOOGLE_ERROR_PRONE_ANNOTATIONS",
     "org.jspecify:jspecify": "JSPECIFY",
+    "androidx.graphics:graphics-shapes": "ANDROIDX_GRAPHICS_SHAPES",    # v1.8.4: Material 1.13 (shape morphing)
+    "org.jetbrains.kotlinx:atomicfu": "KOTLINX_ATOMICFU",                # v1.8.4: lifecycle-common 2.8 lists it
 }
 CONST.update(NEW_CONST)
-FOLDER_PREFIX = {"com.squareup.okio:okio": "Okio", "com.airbnb.android:lottie": "Lottie"}
+FOLDER_PREFIX = {"com.squareup.okio:okio": "Okio", "com.airbnb.android:lottie": "Lottie",
+                 "androidx.dynamicanimation:dynamicanimation": "dynamic-animation"}  # upstream folder names
 
 # old BuiltInLibraries constants -> folder names
-src = open(os.path.join(WORK, "BuiltInLibraries.orig.java")).read()  # upstream 6.4.0-rc05 names
+src = open(os.path.join(WORK, "BuiltInLibraries.orig.java")).read()  # names of the release being updated (v1.8.3 for v1.8.4)
 OLD = dict(re.findall(r'public static String (\w+) = "([^"]+)";', src))
 
 # KMP: "<artifact>-jvm" / "-android" dependencies mean the root artifact the set bundles
@@ -179,6 +181,20 @@ for k in sorted(final):
     entry["mergedJars"] = entry_merged if f["kind"] == "aar" else []
     plan.append(entry)
     report.append((const, k, old or "(new)", name, f"minCompileSdk {f['minCompileSdk']}, minSdk {f['minSdk']}, Kotlin {f['kotlin']}, class {f['maxClass']}"))
+
+# --- v1.8.4: remove nameless MethodParameters attributes (javac 21 output) that crash D8/R8 3.3.75 ------------------
+# Same class as the IDE runs on user libraries (com.sketchware.ai.project.ClassFileSanitizer), compiled from the repo.
+san_cls = os.path.join(OUT, "sanitizer")
+shutil.rmtree(san_cls, ignore_errors=True)
+env0 = dict(os.environ); env0.pop("JAVA_TOOL_OPTIONS", None)
+subprocess.run([os.path.join(os.path.dirname(JAVA), "javac"), "--release", "11", "-d", san_cls,
+                os.path.join(REPO, "app/src/main/java/com/sketchware/ai/project/ClassFileSanitizer.java")], check=True, env=env0)
+for e in plan:
+    if e["action"] in ("update", "new"):
+        j = os.path.join(stage, "libs", e["name"], "classes.jar")
+        r = subprocess.run([JAVA, "-cp", san_cls, "com.sketchware.ai.project.ClassFileSanitizer", j],
+                           capture_output=True, text=True, env=env0, check=True)
+        e["sanitized"] = r.stdout.strip().split(": ", 1)[1]
 
 # --- dex the new/updated libraries with the D8 the IDE ships (3.3.75), min API 21, intermediate --------------------
 android_jar = os.path.join(OUT, "android.jar")

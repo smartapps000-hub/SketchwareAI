@@ -60,8 +60,8 @@ public class Lx {
 
         // Same versions as the built-in libraries the phone builds with (mod.jbk.build.BuiltInLibraries)
         if (metadata.g) {
-            content += "implementation 'androidx.appcompat:appcompat:1.6.1'\r\n" +
-                    "implementation 'com.google.android.material:material:1.9.0'\r\n";
+            content += "implementation 'androidx.appcompat:appcompat:1.7.1'\r\n" +
+                    "implementation 'com.google.android.material:material:1.13.0'\r\n";
         }
 
         if (metadata.isFirebaseAuthUsed) {
