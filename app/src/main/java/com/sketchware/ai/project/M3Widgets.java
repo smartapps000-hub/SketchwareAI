@@ -52,6 +52,14 @@ public final class M3Widgets {
     public static final String MATERIAL_CHECKBOX = "com.google.android.material.checkbox.MaterialCheckBox";
     public static final String MATERIAL_RADIO_BUTTON = "com.google.android.material.radiobutton.MaterialRadioButton";
     public static final String OUTLINED_BOX_STYLE = "@style/Widget.Material3.TextInputLayout.OutlinedBox";
+    /** v1.8.6: the generated outlined field style (yq, styles.xml): OutlinedBox with {@link #TEXT_FIELD_CORNER} corners. */
+    public static final String TEXT_FIELD_STYLE_NAME = "AppTheme.TextField";
+    public static final String TEXT_FIELD_STYLE = "@style/" + TEXT_FIELD_STYLE_NAME;
+    public static final String TEXT_FIELD_CORNER = "8dp";
+    /** v1.8.6: the Material 3 colour roles (M3Palette): values/m3_colors.xml, and the dark ones in values-night. */
+    public static final String M3_COLORS_FILE = "m3_colors.xml";
+    /** Source-list name of values-night/m3_colors.xml (yq writes it there). */
+    public static final String M3_COLORS_NIGHT_FILE = "m3_colors-night.xml";
 
     /** Sketchware's default text colours (TextBean). */
     public static final int DEFAULT_TEXT_COLOR = 0xff000000;
@@ -97,6 +105,12 @@ public final class M3Widgets {
             if (views == null) continue;
             for (ViewBean view : views) {
                 if (view == null || view.id == null || view.id.isEmpty()) continue;
+                if (view.type == ViewBean.VIEW_TYPE_WIDGET_BUTTON) {
+                    // v1.8.6: a Button with a background colour becomes a tinted SketchButton; code that reads its
+                    // background (a ColorDrawable on a plain Button) keeps it plain
+                    if (readsBackground(code, view.id)) buildConfig.m3KeepPlain.add(view.id);
+                    continue;
+                }
                 if (view.type != ViewBean.VIEW_TYPE_WIDGET_EDITTEXT && view.type != ViewBean.VIEW_TYPE_WIDGET_CHECKBOX
                         && view.type != ViewBeans.VIEW_TYPE_WIDGET_RADIOBUTTON) continue;
                 if (movesOrStyles(code, view.id)) buildConfig.m3KeepPlain.add(view.id);
@@ -106,6 +120,11 @@ public final class M3Widgets {
 
     /** The type Switch used by name, or a thumb/track set or read (MaterialSwitch would tint the user's drawables). */
     private static final Pattern SWITCH_CODE = Pattern.compile("(?<![\\w$])Switch(?![\\w$])|[sg]et(Thumb|Track)");
+
+    private static boolean readsBackground(String code, String id) {
+        String name = "(?<![\\w$.])(_drawer_)?" + Pattern.quote(id) + "(?![\\w$])";
+        return Pattern.compile(name + "\\s*\\.\\s*getBackground\\s*\\(").matcher(code).find();
+    }
 
     private static boolean movesOrStyles(String code, String id) {
         String name = "(?<![\\w$.])(_drawer_)?" + Pattern.quote(id) + "(?![\\w$])"; // drawer views are _drawer_<id>
@@ -188,6 +207,16 @@ public final class M3Widgets {
         return keepsPlain(buildConfig, bean) ? null : materialCompound(bean, material3);
     }
 
+    /** The user replaced styles.xml with own XML (files/resource/values): the generated AppTheme isn't used. */
+    public static boolean stylesReplaced(String sc_id) {
+        try {
+            mod.agus.jcoderz.lib.FilePathUtil paths = new mod.agus.jcoderz.lib.FilePathUtil();
+            return new File(paths.getPathResource(sc_id), "values" + File.separator + "styles.xml").exists();
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
     /** {@link #decide(jq, hC)} from the project's id and whether AppCompat is on (the design editor). */
     public static boolean decide(String sc_id, boolean appCompat, hC projectFiles) {
         if (!appCompat || sc_id == null || sc_id.isEmpty()) {
@@ -196,8 +225,7 @@ public final class M3Widgets {
         try {
             if (!ModernProjectDefaults.material3(new ProjectSettings(sc_id))) return false;
             mod.agus.jcoderz.lib.FilePathUtil paths = new mod.agus.jcoderz.lib.FilePathUtil();
-            File values = new File(paths.getPathResource(sc_id), "values" + File.separator + "styles.xml");
-            if (values.exists()) return false;
+            if (stylesReplaced(sc_id)) return false;
             if (projectFiles != null) {
                 File java = new File(paths.getPathJava(sc_id));
                 for (ProjectFileBean activity : projectFiles.b()) {
@@ -322,6 +350,35 @@ public final class M3Widgets {
     }
 
     /**
+     * v1.8.6: a plain Button whose only own background is an opaque colour (the Background colour property): generated
+     * as a SketchButton filled with that colour ({@code app:backgroundTint}), so it keeps the Material 3 pill shape
+     * instead of becoming a flat rectangle. An image, a transparent or translucent colour, or an injected background,
+     * tint or style keep the plain Button.
+     */
+    public static boolean tintedButton(ViewBean bean) {
+        if (bean.type != ViewBean.VIEW_TYPE_WIDGET_BUTTON || !plain(bean)) return false;
+        String resource = bean.layout.backgroundResource;
+        String inject = inject(bean);
+        int color = bean.layout.backgroundColor;
+        return color != NO_BACKGROUND && (color >>> 24) == 0xff
+                && (resource == null || resource.isEmpty() || "NONE".equalsIgnoreCase(resource))
+                && !inject.contains("background") && !inject.contains("style");
+    }
+
+    /** {@link #tintedButton(ViewBean)} for a generation: not when the project's code reads the button's background. */
+    public static boolean tintedButton(jq buildConfig, ViewBean bean) {
+        return tintedButton(bean) && !keepsPlain(buildConfig, bean);
+    }
+
+    /**
+     * The label colour for a tinted button whose text has the editor's default colour: white when readable on the fill
+     * (contrast 3:1 or more), otherwise near-black.
+     */
+    public static int onColor(int fill) {
+        return M3Palette.contrast(0xffffffff, fill | 0xff000000) >= 3.0 ? 0xffffffff : 0xff1d1b20;
+    }
+
+    /**
      * Wraps an EditText tag in an outlined TextInputLayout: layout attributes (size, margins, weight, gravity),
      * alpha and transforms move to the box, visibility is set on both, the field fills the box.
      */
@@ -344,7 +401,7 @@ public final class M3Widgets {
             if (attribute[1].equals("layout_height") && !attribute[2].equals("wrap_content")) height = "match_parent";
         }
         if (visibility != null) box.a("android", "visibility", visibility);
-        box.a("", "style", OUTLINED_BOX_STYLE);
+        box.a("", "style", TEXT_FIELD_STYLE);
         edit.a(0, "android", "layout_height", height);
         edit.a(0, "android", "layout_width", "match_parent");
         edit.a = packageName + "." + TEXT_FIELD_CLASS;
@@ -414,8 +471,12 @@ public final class M3Widgets {
         return "package " + packageName + ";\n"
                 + "\n"
                 + "import android.content.Context;\n"
+                + "import android.content.res.Configuration;\n"
+                + "import android.graphics.Typeface;\n"
+                + "import android.os.Build;\n"
                 + "import android.text.TextPaint;\n"
                 + "import android.util.AttributeSet;\n"
+                + "import android.util.DisplayMetrics;\n"
                 + "import android.util.TypedValue;\n"
                 + "import android.view.View;\n"
                 + "import android.view.ViewParent;\n"
@@ -470,10 +531,28 @@ public final class M3Widgets {
                 + "        if (hint == null || hint.length() == 0) {\n"
                 + "            return;\n"
                 + "        }\n"
+                + "        // the label is drawn in the box's collapsed text appearance (Material 3 bodySmall: 12sp, letter spacing\n"
+                + "        // 0.4sp) and typeface, made heavier by the phone's bold-text setting: measure the widest of field and label\n"
+                + "        DisplayMetrics metrics = getResources().getDisplayMetrics();\n"
                 + "        measurePaint.set(getPaint());\n"
-                + "        float label = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12, getResources().getDisplayMetrics());\n"
+                + "        float label = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12, metrics);\n"
                 + "        measurePaint.setTextSize(Math.max(getTextSize(), label));\n"
-                + "        int wanted = (int) Math.ceil(measurePaint.measureText(hint, 0, hint.length())) + 1\n"
+                + "        if (Build.VERSION.SDK_INT >= 21) {\n"
+                + "            measurePaint.setLetterSpacing(Math.max(getLetterSpacing(), 0.4f / 12f));\n"
+                + "        }\n"
+                + "        Typeface face = box.getTypeface() != null ? box.getTypeface() : getTypeface();\n"
+                + "        if (Build.VERSION.SDK_INT >= 31 && face != null) {\n"
+                + "            int adjustment = getResources().getConfiguration().fontWeightAdjustment;\n"
+                + "            if (adjustment > 0 && adjustment != Configuration.FONT_WEIGHT_ADJUSTMENT_UNDEFINED) {\n"
+                + "                face = Typeface.create(face, Math.min(1000, face.getWeight() + adjustment), face.isItalic());\n"
+                + "            }\n"
+                + "        }\n"
+                + "        if (face != null) {\n"
+                + "            measurePaint.setTypeface(face);\n"
+                + "        }\n"
+                + "        float width = Math.max(measurePaint.measureText(hint, 0, hint.length()),\n"
+                + "                getPaint().measureText(hint, 0, hint.length()));\n"
+                + "        int wanted = (int) Math.ceil(width) + Math.round(2 * metrics.density)\n"
                 + "                + getCompoundPaddingLeft() + getCompoundPaddingRight();\n"
                 + "        if (mode == MeasureSpec.AT_MOST) {\n"
                 + "            wanted = Math.min(wanted, MeasureSpec.getSize(widthMeasureSpec));\n"

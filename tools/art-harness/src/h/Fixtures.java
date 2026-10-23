@@ -164,6 +164,9 @@ public class Fixtures {
         } else if (spec.equals("m3code")) {
             // Button, TextView, EditText x2, CheckBox, Switch, RadioButton (v1.8.5 code scan, M3Widgets.scanCode)
             for (int[] t : new int[][]{{3}, {4}, {5}, {5, 2}, {11}, {13}, {19}}) widgets.add(t);
+        } else if (spec.equals("m3dark")) {
+            // v1.8.6: Button x4 (default, blue, yellow, pink read from code), TextView, EditText, CheckBox, Switch
+            for (int[] t : new int[][]{{3}, {3, 2}, {3, 3}, {3, 4}, {4}, {5}, {11}, {13}}) widgets.add(t);
         } else {
             for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
         }
@@ -176,7 +179,20 @@ public class Fixtures {
         int index = 0;
         for (int[] w : widgets) {
             Object vb = neu("com.besome.sketch.beans.ViewBean", (String) call(wq, "b", w[0]) + (w.length > 1 ? w[1] : 1), w[0]);
-            defaults(vb, w[0], spec.equals("m3") || spec.equals("desugar") || spec.equals("m3code"));
+            defaults(vb, w[0], spec.equals("m3") || spec.equals("desugar") || spec.equals("m3code") || spec.equals("m3dark"));
+            if (spec.equals("m3dark")) {
+                Object layout = get(vb, "layout");
+                String id = (String) get(vb, "id");
+                // the background colour property: opaque colours -> tinted SketchButton (M3Widgets.tintedButton)
+                if (id.equals("button2")) set(layout, "backgroundColor", 0xFF2196F3);
+                if (id.equals("button3")) set(layout, "backgroundColor", 0xFFFFEB3B);
+                if (id.equals("button4")) set(layout, "backgroundColor", 0xFFE91E63);
+                if (id.equals("edittext1")) {
+                    // the owner's project #659 field: 8dp padding, a hint wider than the text, 12sp
+                    set(get(vb, "text"), "hint", "Telugu language title create");
+                    for (String side : new String[]{"paddingLeft", "paddingTop", "paddingRight", "paddingBottom"}) set(layout, side, 8);
+                }
+            }
             set(vb, "parent", "linear1");
             set(vb, "parentType", LINEAR);
             set(vb, "index", index++);
@@ -243,6 +259,13 @@ public class Fixtures {
                     + "edittext2.setHint(android.R.string.ok);\n"
                     + "edittext2.setHint(\"Your name\");\n"
                     + "button1.setBackgroundResource(android.R.drawable.btn_default);";
+        } else if (spec.equals("m3dark")) {
+            // button4's background read as a ColorDrawable: it must stay a plain Button (M3Widgets.scanCode)
+            source = "android.graphics.drawable.Drawable bg4 = button4.getBackground();\n"
+                    + "if (bg4 instanceof android.graphics.drawable.ColorDrawable) {\n"
+                    + "    android.util.Log.d(\"m3dark\", \"button4 \" + ((android.graphics.drawable.ColorDrawable) bg4).getColor());\n"
+                    + "}\n"
+                    + "button2.setBackgroundColor(0xFF3F51B5);";
         } else if (spec.equals("m3")) {
             // Material 1.13 API that needs the android-34 compile platform and the Material 3 theme
             source = "com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);\n"
@@ -321,6 +344,18 @@ public class Fixtures {
             ArrayList<HashMap<String, Object>> list = new ArrayList<>();
             list.add(entry);
             call(c("com.sketchware.ai.project.LibraryHeal"), "save", sc_id, list);
+        }
+        if (spec.equals("m3dark")) {
+            // v1.8.6: dynamic colour on (Library Manager); the dark theme is the new-project default
+            Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
+            call(ps, "putValue", "m3_dynamic_color", "true");
+            call(ps, "saveNow");
+        }
+        if (spec.equals("m3code")) {
+            // v1.8.6: a Material 3 project of v1.8.4/v1.8.5 never stored the dark theme setting: it stays light
+            Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
+            call(ps, "putValue", "m3_dark_theme", "");
+            call(ps, "saveNow");
         }
         if (spec.equals("held")) {
             // a project made before v1.8.4: no stored Material 3 choice, the MaterialComponents (Bridge) theme

@@ -1,0 +1,52 @@
+<resources>
+	<!-- fixture 913's generated AppTheme (v1.8.6): Theme.Material3.DayNight with the palette of #F4511E (M3Palette) -->
+	<style name="AppTheme86" parent="Theme.Material3.DayNight.NoActionBar">
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="colorSecondary">@color/colorAccent</item>
+		<item name="colorOnPrimary">@color/sketch_m3_on_primary</item>
+		<item name="colorPrimaryContainer">@color/sketch_m3_primary_container</item>
+		<item name="colorOnPrimaryContainer">@color/sketch_m3_on_primary_container</item>
+		<item name="colorPrimaryInverse">@color/sketch_m3_primary_inverse</item>
+		<item name="colorOnSecondary">@color/sketch_m3_on_secondary</item>
+		<item name="colorSecondaryContainer">@color/sketch_m3_secondary_container</item>
+		<item name="colorOnSecondaryContainer">@color/sketch_m3_on_secondary_container</item>
+		<item name="colorTertiary">@color/sketch_m3_tertiary</item>
+		<item name="colorOnTertiary">@color/sketch_m3_on_tertiary</item>
+		<item name="colorTertiaryContainer">@color/sketch_m3_tertiary_container</item>
+		<item name="colorOnTertiaryContainer">@color/sketch_m3_on_tertiary_container</item>
+		<item name="colorError">@color/sketch_m3_error</item>
+		<item name="colorOnError">@color/sketch_m3_on_error</item>
+		<item name="colorErrorContainer">@color/sketch_m3_error_container</item>
+		<item name="colorOnErrorContainer">@color/sketch_m3_on_error_container</item>
+		<item name="android:colorBackground">@color/sketch_m3_background</item>
+		<item name="colorOnBackground">@color/sketch_m3_on_background</item>
+		<item name="colorSurface">@color/sketch_m3_surface</item>
+		<item name="colorOnSurface">@color/sketch_m3_on_surface</item>
+		<item name="colorSurfaceVariant">@color/sketch_m3_surface_variant</item>
+		<item name="colorOnSurfaceVariant">@color/sketch_m3_on_surface_variant</item>
+		<item name="colorSurfaceInverse">@color/sketch_m3_surface_inverse</item>
+		<item name="colorOnSurfaceInverse">@color/sketch_m3_on_surface_inverse</item>
+		<item name="colorSurfaceBright">@color/sketch_m3_surface_bright</item>
+		<item name="colorSurfaceDim">@color/sketch_m3_surface_dim</item>
+		<item name="colorSurfaceContainerLowest">@color/sketch_m3_surface_container_lowest</item>
+		<item name="colorSurfaceContainerLow">@color/sketch_m3_surface_container_low</item>
+		<item name="colorSurfaceContainer">@color/sketch_m3_surface_container</item>
+		<item name="colorSurfaceContainerHigh">@color/sketch_m3_surface_container_high</item>
+		<item name="colorSurfaceContainerHighest">@color/sketch_m3_surface_container_highest</item>
+		<item name="colorOutline">@color/sketch_m3_outline</item>
+		<item name="colorOutlineVariant">@color/sketch_m3_outline_variant</item>
+		<item name="colorControlHighlight">@color/colorControlHighlight</item>
+		<item name="colorControlNormal">@color/colorControlNormal</item>
+		<item name="android:statusBarColor">@color/colorPrimaryDark</item>
+		<item name="viewInflaterClass">androidx.appcompat.app.AppCompatViewInflater</item>
+	</style>
+	<style name="AppTheme86.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+		<item name="boxCornerRadiusTopStart">8dp</item>
+		<item name="boxCornerRadiusTopEnd">8dp</item>
+		<item name="boxCornerRadiusBottomStart">8dp</item>
+		<item name="boxCornerRadiusBottomEnd">8dp</item>
+	</style>
+</resources>

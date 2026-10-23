@@ -34,7 +34,12 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
     private static final int REQUEST_CODE_GOOGLE_MAPS_ACTIVITY = 241;
     /** v1.8.5: tag of the Material 3 row (not a ProjectLibraryBean type) */
     private static final int TAG_MATERIAL3 = -3;
+    private static final int TAG_M3_DARK = -4;
+    private static final int TAG_M3_DYNAMIC = -5;
     private qu material3ItemView;
+    /** v1.8.6: Material 3 options, shown while Material 3 is on. */
+    private qu darkThemeItemView;
+    private qu dynamicColorItemView;
 
     private String sc_id;
     private LinearLayout libraryItemLayout;
@@ -205,6 +210,14 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
                 case TAG_MATERIAL3:
                     toggleMaterial3();
                     break;
+
+                case TAG_M3_DARK:
+                    toggleSetting(com.sketchware.ai.project.ModernProjectDefaults.SETTING_M3_DARK_THEME);
+                    break;
+
+                case TAG_M3_DYNAMIC:
+                    toggleSetting(com.sketchware.ai.project.ModernProjectDefaults.SETTING_M3_DYNAMIC_COLOR);
+                    break;
             }
         }
     }
@@ -281,7 +294,18 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
         material3ItemView.setTag(TAG_MATERIAL3);
         material3ItemView.setOnClickListener(this);
         libraryItemLayout.addView(material3ItemView);
+        darkThemeItemView = optionItem(TAG_M3_DARK);
+        dynamicColorItemView = optionItem(TAG_M3_DYNAMIC);
         bindMaterial3Item();
+    }
+
+    private qu optionItem(int tag) {
+        qu item = new qu(this);
+        item.a(R.layout.manage_library_common_item);
+        item.setTag(tag);
+        item.setOnClickListener(this);
+        libraryItemLayout.addView(item);
+        return item;
     }
 
     /** v1.8.5: the project's Material 3 theme (ModernProjectDefaults.SETTING_MATERIAL3), shown like a library. */
@@ -296,10 +320,39 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
         material3ItemView.l.setImageResource(R.drawable.ob_ic_material3);
         material3ItemView.m.setText("Material 3");
         material3ItemView.n.setText(compat
-                ? "Material You theme (light and dark): buttons, text fields, switches, checkboxes in Material 3"
-                : "Material You theme and widgets. Needs AppCompat and Design");
+                ? "Material 3 theme and widgets: filled buttons, outlined text fields, switches, checkboxes. Colours made from the project colours"
+                : "Material 3 theme and widgets. Needs AppCompat and Design");
         material3ItemView.o.setText(on ? "ON" : "OFF");
         material3ItemView.o.setSelected(on);
+
+        mod.hey.studios.project.ProjectSettings settings = new mod.hey.studios.project.ProjectSettings(sc_id);
+        boolean dark = com.sketchware.ai.project.ModernProjectDefaults.m3DarkTheme(settings);
+        boolean dynamic = com.sketchware.ai.project.ModernProjectDefaults.m3DynamicColor(settings);
+        bindOption(darkThemeItemView, on, R.drawable.ob_ic_dark_theme, "Dark theme", dark
+                ? "The app follows the phone's dark mode with Material 3 dark colours. Colours you picked yourself stay as they are"
+                : "The app always stays light, also when the phone uses dark mode", dark);
+        bindOption(dynamicColorItemView, on, R.drawable.ob_ic_dynamic_color, "Dynamic colour", dynamic
+                ? "Android 12 and newer: colours from the phone's wallpaper replace the project colours"
+                : "Off: the app uses the project colours. On: Android 12 and newer use the wallpaper's colours", dynamic);
+    }
+
+    private static void bindOption(qu item, boolean shown, int icon, String title, String description, boolean on) {
+        if (item == null) return;
+        item.setVisibility(shown ? View.VISIBLE : View.GONE);
+        item.l.setImageResource(icon);
+        item.m.setText(title);
+        item.n.setText(description);
+        item.o.setText(on ? "ON" : "OFF");
+        item.o.setSelected(on);
+    }
+
+    /** Flips a true/false Material 3 project setting (ModernProjectDefaults) and shows the new state. */
+    private void toggleSetting(String key) {
+        mod.hey.studios.project.ProjectSettings settings = new mod.hey.studios.project.ProjectSettings(sc_id);
+        boolean on = "true".equals(settings.getValue(key, "false"));
+        settings.putValue(key, on ? "false" : "true");
+        settings.saveNow();
+        bindMaterial3Item();
     }
 
     private void setMaterial3(boolean on) {

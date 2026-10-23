@@ -35,11 +35,34 @@ public final class ModernProjectDefaults {
     /** Auto-heal builds (see {@link AutoHeal}); on unless the project turns it off. */
     public static final String SETTING_AUTO_HEAL = "auto_heal";
     /**
-     * Project setting: "true" makes AppTheme a Material 3 theme (Theme.Material3.Light.NoActionBar, Material 1.11+).
+     * Project setting: "true" makes AppTheme a Material 3 theme (Theme.Material3.Light.NoActionBar, or DayNight with
+     * {@link #SETTING_M3_DARK_THEME}).
      * New projects start with it on; projects that never stored it (older and imported ones) keep the
      * MaterialComponents theme they were built with.
      */
     public static final String SETTING_MATERIAL3 = "material3_theme";
+
+    /**
+     * v1.8.6: "true" makes the Material 3 AppTheme a DayNight theme (light and dark colour roles, values-night): the app
+     * follows the phone's dark mode. New projects start with it on; Material 3 projects of v1.8.4/v1.8.5 never stored it
+     * and stay light.
+     */
+    public static final String SETTING_M3_DARK_THEME = "m3_dark_theme";
+    /**
+     * v1.8.6: "true" applies dynamic colour (DynamicColors) in every generated activity: on Android 12+ the theme's
+     * colour roles come from the phone's wallpaper instead of the project colours. Off unless the user turns it on.
+     */
+    public static final String SETTING_M3_DYNAMIC_COLOR = "m3_dynamic_color";
+
+    public static boolean m3DarkTheme(ProjectSettings settings) {
+        return ProjectSettings.SETTING_GENERIC_VALUE_TRUE.equals(
+                settings.getValue(SETTING_M3_DARK_THEME, ProjectSettings.SETTING_GENERIC_VALUE_FALSE));
+    }
+
+    public static boolean m3DynamicColor(ProjectSettings settings) {
+        return ProjectSettings.SETTING_GENERIC_VALUE_TRUE.equals(
+                settings.getValue(SETTING_M3_DYNAMIC_COLOR, ProjectSettings.SETTING_GENERIC_VALUE_FALSE));
+    }
 
     public static boolean material3(ProjectSettings settings) {
         return ProjectSettings.SETTING_GENERIC_VALUE_TRUE.equals(
@@ -66,6 +89,8 @@ public final class ModernProjectDefaults {
         project.put(ProjectSettings.SETTING_TARGET_SDK_VERSION, String.valueOf(NEW_PROJECT_TARGET_SDK));
         project.put(SETTING_EDGE_TO_EDGE, ProjectSettings.SETTING_GENERIC_VALUE_FALSE);
         project.put(SETTING_MATERIAL3, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
+        project.put(SETTING_M3_DARK_THEME, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
+        project.put(SETTING_M3_DYNAMIC_COLOR, ProjectSettings.SETTING_GENERIC_VALUE_FALSE);
         putIfAbsent(new ProjectSettings(scId), project);
 
         // D8 runs on Android 8.0+ only (the minApi21 build can run on older phones).

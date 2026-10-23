@@ -376,6 +376,10 @@ public class Jx {
         } else {
             sb.append("@Override").append(EOL);
             sb.append("protected void onCreate(Bundle _savedInstanceState) {").append(EOL);
+            if (buildConfig.m3DynamicColor) {
+                // v1.8.6: Android 12+ wallpaper colours over the Material 3 theme (Library Manager: Dynamic colour)
+                sb.append("com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);").append(EOL);
+            }
             sb.append("super.onCreate(_savedInstanceState);").append(EOL);
             sb.append("setContentView(R.layout.").append(projectFileBean.fileName).append(");").append(EOL);
             if (com.sketchware.ai.project.ModernProjectDefaults.needsSystemBarsCode(settings)) {

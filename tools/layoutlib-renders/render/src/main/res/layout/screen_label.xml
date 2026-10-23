@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The owner's project #659 field as generated: wrap_content outlined field, textSize 12sp (the editor's default),
+     a hint wider than the typed text. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="?android:attr/colorBackground"
+	android:padding="8dp"
+	android:orientation="vertical">
+	<com.google.android.material.textfield.TextInputLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+		<pz.render.SketchTextField
+			android:id="@+id/edittext1"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:hint="Telugu language title create"
+			android:text="మీరు ఏలా ఉన్నారు అన్న"
+			android:textSize="12sp"
+			android:padding="8dp"
+			android:textColor="?attr/colorOnSurface"
+			android:textColorHint="?attr/colorOnSurfaceVariant" />
+	</com.google.android.material.textfield.TextInputLayout>
+	<com.google.android.material.textfield.TextInputLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="8dp"
+		style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+		<pz.render.SketchTextField
+			android:id="@+id/edittext2"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:hint="Telugu language title create"
+			android:text="abc"
+			android:textSize="12sp"
+			android:padding="8dp"
+			android:textColor="?attr/colorOnSurface"
+			android:textColorHint="?attr/colorOnSurfaceVariant" />
+	</com.google.android.material.textfield.TextInputLayout>
+</LinearLayout>

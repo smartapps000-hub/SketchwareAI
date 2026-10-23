@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widgets as v1.8.6 generates them for fixture 913 (main.xml), under the toolbar colour of the project. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="?android:attr/colorBackground"
+	android:orientation="vertical">
+	<TextView
+		android:layout_width="match_parent"
+		android:layout_height="56dp"
+		android:background="?attr/colorPrimary"
+		android:gravity="center_vertical"
+		android:paddingStart="16dp"
+		android:text="Fixture m3dark (toolbar: colorPrimary)"
+		android:textColor="#FFFFFF"
+		android:textSize="18sp" />
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:padding="16dp"
+		android:orientation="vertical">
+		<LinearLayout
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:orientation="horizontal">
+			<pz.render.SketchButton
+				android:id="@+id/button1"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="button1"
+				android:textSize="12sp"
+				android:textColor="?attr/colorOnPrimary" />
+			<pz.render.SketchButton
+				android:id="@+id/button2"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				app:backgroundTint="#2196F3"
+				android:text="button2"
+				android:textSize="12sp"
+				android:textColor="#FFFFFF" />
+			<pz.render.SketchButton
+				android:id="@+id/button3"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				app:backgroundTint="#FFEB3B"
+				android:text="button3"
+				android:textSize="12sp"
+				android:textColor="#1D1B20" />
+			<Button
+				android:id="@+id/button4"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				android:background="#E91E63"
+				android:text="button4"
+				android:textSize="12sp"
+				android:textColor="#000000" />
+		</LinearLayout>
+		<TextView
+			android:id="@+id/textview1"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="textview1: ఏమండీ ఆయన అన్నారు"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface" />
+		<com.google.android.material.textfield.TextInputLayout
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			style="@style/AppTheme86.TextField">
+			<pz.render.SketchTextField
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:id="@+id/edittext1"
+				android:padding="8dp"
+				android:text="మీరు ఏలా ఉన్నారు అన్న"
+				android:textSize="12sp"
+				android:textColor="?attr/colorOnSurface"
+				android:hint="Telugu language title create"
+				android:textColorHint="?attr/colorOnSurfaceVariant" />
+		</com.google.android.material.textfield.TextInputLayout>
+		<com.google.android.material.textfield.TextInputLayout
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="8dp"
+			style="@style/AppTheme86.TextField">
+			<pz.render.SketchTextField
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:id="@+id/edittext2"
+				android:padding="8dp"
+				android:textSize="12sp"
+				android:textColor="?attr/colorOnSurface"
+				android:hint="Telugu language title create"
+				android:textColorHint="?attr/colorOnSurfaceVariant" />
+		</com.google.android.material.textfield.TextInputLayout>
+		<com.google.android.material.checkbox.MaterialCheckBox
+			android:id="@+id/checkbox1"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="checkbox1"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface" />
+		<com.google.android.material.materialswitch.MaterialSwitch
+			android:id="@+id/switch1"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="switch1"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface" />
+		<com.google.android.material.radiobutton.MaterialRadioButton
+			android:id="@+id/radiobutton1"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="radiobutton1"
+			android:textSize="12sp"
+			android:textColor="?attr/colorOnSurface" />
+	</LinearLayout>
+</LinearLayout>

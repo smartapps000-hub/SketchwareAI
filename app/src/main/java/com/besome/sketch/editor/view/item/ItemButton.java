@@ -109,9 +109,19 @@ public class ItemButton extends AppCompatButton implements sy {
         return M3Canvas.widgets() && (c == null || com.sketchware.ai.project.M3Widgets.filledButton(c));
     }
 
+    /**
+     * v1.8.6, same rule as the generator (M3Widgets.tintedButton): a plain Button whose own background is an opaque
+     * colour is a SketchButton filled with that colour, so the pill stays.
+     */
+    private boolean tintedButton() {
+        return M3Canvas.widgets() && c != null && com.sketchware.ai.project.M3Widgets.tintedButton(c)
+                && backgroundColor == c.layout.backgroundColor;
+    }
+
     private void applyLook() {
-        if (materialButton() && backgroundColor == 0xffffff) {
-            super.setBackground(M3Canvas.filledButton(getContext(), DesignTheme.colorPrimary()));
+        boolean tinted = tintedButton();
+        if ((materialButton() && backgroundColor == 0xffffff) || tinted) {
+            super.setBackground(M3Canvas.filledButton(getContext(), tinted ? backgroundColor : DesignTheme.colorPrimary()));
             setMinHeight(Math.round(M3Canvas.dp(getContext(), 48)));
             setMinimumHeight(Math.round(M3Canvas.dp(getContext(), 48)));
             setAllCaps(false);
@@ -129,7 +139,9 @@ public class ItemButton extends AppCompatButton implements sy {
         if (textColor == null) return;
         int color = textColor;
         if (materialButton() && M3Canvas.widgets() && backgroundColor == 0xffffff && color == M3Canvas.DEFAULT_TEXT_COLOR) {
-            color = M3Canvas.ON_PRIMARY; // the generator writes ?attr/colorOnPrimary for it
+            color = M3Canvas.onPrimary(); // the generator writes ?attr/colorOnPrimary for it
+        } else if (tintedButton() && color == M3Canvas.DEFAULT_TEXT_COLOR) {
+            color = com.sketchware.ai.project.M3Widgets.onColor(backgroundColor); // as the generator writes it
         }
         super.setTextColor(color);
     }

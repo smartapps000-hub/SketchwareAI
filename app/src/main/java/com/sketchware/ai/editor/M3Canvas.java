@@ -11,10 +11,11 @@ import android.graphics.drawable.StateListDrawable;
 
 /**
  * How the design canvas draws widgets of a Material 3 project (v1.8.5), so the editor shows what the generated app
- * shows under Theme.Material3.DayNight (light): the values are Material Components 1.13's own (Widget.Material3.Button:
- * 4dp insets, 24dp side padding, full corners, labelLarge not all caps; outlined text field: 1dp outline, 4dp corners;
- * MaterialSwitch: 52x32dp track, 16dp / 24dp thumb) and the M3 baseline light colours for the roles the project
- * doesn't set. The project's own primary colour (DesignTheme) fills buttons, checked switches and checkboxes.
+ * shows in light mode: the sizes are Material Components 1.13's own (Widget.Material3.Button: 4dp insets, 24dp side
+ * padding, full corners, labelLarge not all caps; outlined text field: 1dp outline, 8dp corners as generated since
+ * v1.8.6; MaterialSwitch: 52x32dp track, 16dp / 24dp thumb). v1.8.6: the colours are the project's light colour roles
+ * (DesignTheme, M3Palette, the same values the generator writes); the constants are the M3 baseline fallbacks. The
+ * project's own primary colour fills buttons, checked switches and checkboxes.
  * Only the canvas uses this; nothing here reaches the generated app.
  */
 public final class M3Canvas {
@@ -47,6 +48,35 @@ public final class M3Canvas {
         return DesignTheme.widgets();
     }
 
+    /** v1.8.6: corner radius of the generated outlined text field (M3Widgets.TEXT_FIELD_CORNER). */
+    public static final float TEXT_FIELD_CORNER_DP = 8;
+
+    /** The open project's role (DesignTheme, from its colours as the generator writes them), else the M3 baseline. */
+    public static int onSurface() {
+        return DesignTheme.role("sketch_m3_on_surface", ON_SURFACE);
+    }
+
+    public static int onSurfaceVariant() {
+        return DesignTheme.role("sketch_m3_on_surface_variant", ON_SURFACE_VARIANT);
+    }
+
+    public static int outline() {
+        return DesignTheme.role("sketch_m3_outline", OUTLINE);
+    }
+
+    public static int surfaceContainerHighest() {
+        return DesignTheme.role("sketch_m3_surface_container_highest", SURFACE_CONTAINER_HIGHEST);
+    }
+
+    public static int onPrimary() {
+        return DesignTheme.role("sketch_m3_on_primary", ON_PRIMARY);
+    }
+
+    /** The window background of the generated app (android:colorBackground), light. */
+    public static int background(int fallback) {
+        return DesignTheme.role("sketch_m3_background", fallback);
+    }
+
     public static float dp(Context context, float value) {
         return value * context.getResources().getDisplayMetrics().density;
     }
@@ -67,14 +97,14 @@ public final class M3Canvas {
 
     /** MaterialCheckBox / MaterialRadioButton: primary when checked, on-surface-variant otherwise. */
     public static ColorStateList compoundTint(int primary) {
-        return new ColorStateList(new int[][]{{android.R.attr.state_checked}, {}}, new int[]{primary, ON_SURFACE_VARIANT});
+        return new ColorStateList(new int[][]{{android.R.attr.state_checked}, {}}, new int[]{primary, onSurfaceVariant()});
     }
 
     /** MaterialSwitch thumb: 24dp on-primary circle when checked, 16dp outline circle otherwise (in a 26x32dp cell). */
     public static Drawable switchThumb(Context context) {
         StateListDrawable thumb = new StateListDrawable();
-        thumb.addState(new int[]{android.R.attr.state_checked}, circle(context, ON_PRIMARY, 24));
-        thumb.addState(new int[]{}, circle(context, OUTLINE, 16));
+        thumb.addState(new int[]{android.R.attr.state_checked}, circle(context, onPrimary(), 24));
+        thumb.addState(new int[]{}, circle(context, outline(), 16));
         return thumb;
     }
 
@@ -82,7 +112,7 @@ public final class M3Canvas {
     public static Drawable switchTrack(Context context, int primary) {
         StateListDrawable track = new StateListDrawable();
         track.addState(new int[]{android.R.attr.state_checked}, pill(context, primary, 0, 0));
-        track.addState(new int[]{}, pill(context, SURFACE_CONTAINER_HIGHEST, OUTLINE, 2));
+        track.addState(new int[]{}, pill(context, surfaceContainerHighest(), outline(), 2));
         return track;
     }
 

@@ -217,6 +217,11 @@ public class Ox {
                         if (!toNotAdd.contains("app:contentScrim")) {
                             nx.a("app", "contentScrim", String.format("#%06X", color));
                         }
+                    } else if (material3 && com.sketchware.ai.project.M3Widgets.tintedButton(buildConfig, viewBean)) {
+                        // v1.8.6: SketchButton filled with the colour: the pill shape stays (a background would replace it)
+                        if (!toNotAdd.contains("app:backgroundTint")) {
+                            nx.a("app", "backgroundTint", String.format("#%06X", color));
+                        }
                     } else {
                         if (!hasAttr("background", viewBean) && !toNotAdd.contains("android:background")) {
                             nx.a("android", "background", String.format("#%06X", color));
@@ -269,8 +274,10 @@ public class Ox {
                 new Nx(convert.replaceAll(" ", ""));
         if (com.sketchware.ai.project.M3Widgets.isMaterialSwitch(viewBean, material3 && buildConfig.m3Switches)) {
             widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.MATERIAL_SWITCH);
-        } else if (material3 && com.sketchware.ai.project.M3Widgets.filledButton(viewBean)) {
-            // the filled Material 3 button; a background set from code stays as set (SketchButton)
+        } else if (material3 && (com.sketchware.ai.project.M3Widgets.filledButton(viewBean)
+                || com.sketchware.ai.project.M3Widgets.tintedButton(buildConfig, viewBean))) {
+            // the filled Material 3 button (v1.8.6 also in the user's background colour, as its backgroundTint);
+            // a background set from code stays as set (SketchButton)
             widgetTag = new Nx(buildConfig.packageName + "." + com.sketchware.ai.project.M3Widgets.BUTTON_CLASS);
         } else if (com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3) != null) {
             widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3));
@@ -682,6 +689,9 @@ public class Ox {
                     // background like a TextView.
                     if (com.sketchware.ai.project.M3Widgets.filledButton(viewBean)) {
                         color = "?attr/colorOnPrimary";
+                    } else if (com.sketchware.ai.project.M3Widgets.tintedButton(buildConfig, viewBean)) {
+                        // v1.8.6: readable on the button's own fill colour
+                        color = String.format("#%06X", com.sketchware.ai.project.M3Widgets.onColor(viewBean.layout.backgroundColor) & 0xffffff);
                     } else if (onThemeBackground(viewBean)) {
                         color = "?attr/colorOnSurface";
                     }

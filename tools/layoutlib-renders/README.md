@@ -23,6 +23,18 @@ It is not a device and not ART. Used for:
   checked (checked before the first layout, drawables jumped to their end state: layoutlib runs no animations). Also a
   rounded GradientDrawable set from code on a SketchButton and on a plain MaterialButton. Writes `out/m385_*.png` and
   `out/m385_<light|night>.txt` (the inflated classes).
+- v1.8.6: `M386LightTest` / `M386NightTest` (M386Test.kt): fixture 913's widgets (`screen_m386`) under its generated
+  DayNight AppTheme (`m386_styles.xml`) with the colour roles M3Palette computes from #F4511E (`values/m386_colors.xml`,
+  `values-night/m386_colors.xml`; written by running M3Palette on the JVM), light and night, unchecked and checked:
+  SketchButtons filled with their own colours (backgroundTint), the outlined field with 8dp corners. Writes
+  `out/m386_*.png`.
+- v1.8.6: `LabelScale10Test` / `LabelScale13Test` / `LabelBoldTextTest` (LabelTest.kt): the owner's project #659 field
+  (`screen_label`: wrap_content, 12sp, 8dp padding, long hint) at font scale 1.0 and 1.3 and with
+  `Configuration.fontWeightAdjustment` 300 (bold text); writes `out/label_*.png` and the collapsed label's width against
+  the space TextInputLayout gives it (read from its CollapsingTextHelper by reflection).
+- v1.8.6: `DialogClipTest` (DialogClipTest.kt): the Build Settings sheet layout (`dialog_cfg_before|after`: the IDE's
+  `project_config_layout` with plain shapes for the glass drawables) at font scale 1.3 in a sheet shorter than its options.
+  Writes `out/dialog_before.png` (options drawn under the buttons) and `out/dialog_after.png`.
 
 Setup: `echo sdk.dir=/opt/android-sdk > local.properties`; fonts: `python3 ../art-harness/make-test-fonts.py
 render/src/main/assets/fonts`; helpers: the generated `SketchFonts.java` (FontCode.helperClass("pz.render")), `SketchTextField.java` and

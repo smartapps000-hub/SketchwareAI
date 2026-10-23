@@ -19,7 +19,7 @@ import a.a.a.wB;
 /**
  * Design-canvas stand-in for an {@code <EditText>}. Same fields and behaviour as upstream's precompiled class (it
  * replaces it; ViewPane creates it by name). v1.8.5: in a Material 3 project the generator wraps a plain EditText in
- * an outlined TextInputLayout (M3Widgets), so the canvas draws the outlined field: 1dp outline with 4dp corners, the
+ * an outlined TextInputLayout (M3Widgets), so the canvas draws the outlined field: 1dp outline with 8dp corners (v1.8.6), the
  * hint as the floating label in the outline's top edge when there is text, 16dp inner padding unless the widget
  * has its own, the editor's default hint colour as on-surface-variant.
  */
@@ -112,11 +112,14 @@ public class ItemEditText extends AppCompatEditText implements sy {
             canvas.drawRect(new Rect(0, 0, getMeasuredWidth(), getMeasuredHeight()), f);
         }
         if (outlined()) {
+            // v1.8.6: the project's colour roles (DesignTheme), as in the generated app
+            outline.setColor(M3Canvas.outline());
+            label.setColor(M3Canvas.onSurfaceVariant());
             float half = outline.getStrokeWidth() / 2;
             float top = labelOffset();
             box.set(getScrollX() + half, getScrollY() + top + half,
                     getScrollX() + getWidth() - half, getScrollY() + getHeight() - half);
-            float radius = M3Canvas.dp(getContext(), 4);
+            float radius = M3Canvas.dp(getContext(), M3Canvas.TEXT_FIELD_CORNER_DP);
             if (showsLabel()) {
                 String text = getHint().toString();
                 float x = box.left + M3Canvas.dp(getContext(), 12);
@@ -244,7 +247,7 @@ public class ItemEditText extends AppCompatEditText implements sy {
         if (c == null || c.text == null) return;
         int color = c.text.hintColor;
         if (color == M3Canvas.DEFAULT_HINT_COLOR) {
-            color = M3Canvas.ON_SURFACE_VARIANT; // the generator writes ?attr/colorOnSurfaceVariant for it
+            color = M3Canvas.onSurfaceVariant(); // the generator writes ?attr/colorOnSurfaceVariant for it
         } else if (color == 0) {
             return;
         }

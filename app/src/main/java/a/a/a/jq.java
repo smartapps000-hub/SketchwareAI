@@ -132,6 +132,13 @@ public class jq {
      */
     public boolean m3Widgets = false;
 
+    /**
+     * v1.8.6: every generated activity calls DynamicColors.applyToActivityIfAvailable (Android 12+ wallpaper colours).
+     * Set by yq: AppCompat, the Material 3 theme with ModernProjectDefaults.SETTING_M3_DYNAMIC_COLOR, the generated
+     * styles.xml.
+     */
+    public boolean m3DynamicColor = false;
+
     /** v1.8.5: the project's code allows MaterialSwitch (M3Widgets.scanCode). */
     public boolean m3Switches = false;
 

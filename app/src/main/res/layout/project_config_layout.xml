@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Build Settings content (BuildSettingsDialog) on the Obsidian glass dialog window:
-     icon tile + title, scrolling options, Cancel pill and Save solar CTA (no orange footer bar). -->
+     icon tile + title, scrolling options, Cancel pill and Save solar CTA (no orange footer bar).
+     v1.8.6: the root clips its children. The ScrollView has no padding, so nothing else clips it: with
+     clipChildren="false" the options drew past the ScrollView, under the Cancel / Save row, whenever they had to
+     scroll (large font sizes, small screens). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipChildren="false"
+    android:clipChildren="true"
     android:clipToPadding="false"
     android:forceDarkAllowed="false"
     android:orientation="vertical"

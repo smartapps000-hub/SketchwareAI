@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- project_config_layout.xml (Build Settings) as shipped (before the v1.8.6 fix): root clipChildren=false; the ob_* drawables
+     replaced by plain shapes of the same alpha (the pill is 10% white glass over the sheet). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF1C1C21"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:orientation="vertical"
+    android:paddingLeft="12dp"
+    android:paddingTop="6dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="6dp">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Build Settings"
+        android:textColor="#FFF5F5F7" android:textSize="18sp" android:textStyle="bold" />
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:fadingEdgeLength="12dp"
+        android:requiresFadingEdge="vertical"
+        android:scrollbars="none">
+        <LinearLayout android:id="@+id/cfg_content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+    </ScrollView>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="44dp" android:layout_marginRight="10dp" android:layout_weight="1"
+            android:background="#1AFFFFFF" android:gravity="center" android:text="Cancel" android:textColor="#FFF5F5F7" android:textSize="15sp" android:textStyle="bold" />
+        <TextView android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1"
+            android:background="#FFF4511E" android:gravity="center" android:text="Save" android:textColor="#FFFFFFFF" android:textSize="15sp" android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

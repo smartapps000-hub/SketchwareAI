@@ -1509,3 +1509,8 @@ It adds or updates the components below. Full list: CREDITS.md in the source.
 * Sora, Manrope, JetBrains Mono fonts
 
 	SIL Open Font License 1.1. Full text: licenses/fonts-OFL.txt
+
+* Material Color Utilities (from Material Components 1.13.0)
+
+	https://github.com/material-components/material-components-android
+	Apache-2.0 License

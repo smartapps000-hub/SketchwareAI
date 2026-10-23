@@ -147,9 +147,11 @@ public class yq {
     public final String proGuardUsagePath;
 
     /**
-     * Current project's ProjectSettings object
+     * Current project's ProjectSettings object. v1.8.6: read again at the start of every generation
+     * ({@link #a(iC, hC, eC, boolean)}): DesignActivity keeps one yq for all Run builds, and the Library Manager's
+     * Material 3 / Dark theme / Dynamic colour switches write the settings file while the editor is open.
      */
-    public final ProjectSettings projectSettings;
+    public ProjectSettings projectSettings;
 
     /**
      * Example content: /storage/emulated/0/.sketchware/mysc/605/app/src/main/AndroidManifest.xml
@@ -422,8 +424,13 @@ public class yq {
             fileUtil.b(javaFilesPath + File.separator + packageNameAsFolders + File.separator + fileName, fileContent);
         } else if (fileName.equals("AndroidManifest.xml")) {
             fileUtil.b(androidManifestPath, fileContent);
-        } else if (fileName.equals("colors.xml") || fileName.equals("styles.xml") || fileName.equals("strings.xml")) {
+        } else if (fileName.equals("colors.xml") || fileName.equals("styles.xml") || fileName.equals("strings.xml")
+                || fileName.equals(com.sketchware.ai.project.M3Widgets.M3_COLORS_FILE)) {
             fileUtil.b(resDirectoryPath + File.separator + "values" + File.separator + fileName, fileContent);
+        } else if (fileName.equals(com.sketchware.ai.project.M3Widgets.M3_COLORS_NIGHT_FILE)) {
+            // v1.8.6: the dark colour roles (M3Palette), values-night/m3_colors.xml
+            fileUtil.b(resDirectoryPath + File.separator + "values-night" + File.separator
+                    + com.sketchware.ai.project.M3Widgets.M3_COLORS_FILE, fileContent);
         } else if (fileName.equals("provider_paths.xml")) {
             fileUtil.b(resDirectoryPath + File.separator + "xml" + File.separator + fileName, fileContent);
         } else {
@@ -432,6 +439,7 @@ public class yq {
     }
 
     public void a(iC projectLibraryManager, hC projectFileManager, eC projectDataManager, boolean exportingProject) {
+        projectSettings = new ProjectSettings(sc_id);
         ProjectLibraryBean adMob = projectLibraryManager.b();
         ProjectLibraryBean appCompat = projectLibraryManager.c();
         ProjectLibraryBean firebase = projectLibraryManager.d();
@@ -624,6 +632,10 @@ public class yq {
         // v1.8.5: Material 3 widget rewrites for this generation (M3Widgets), after AppCompat is known
         N.m3Widgets = com.sketchware.ai.project.M3Widgets.decide(N, projectFileManager);
         com.sketchware.ai.project.M3Widgets.scanCode(N, projectDataManager);
+        // v1.8.6: dynamic colour (Library Manager), only with the generated Material 3 AppTheme
+        N.m3DynamicColor = N.g && com.sketchware.ai.project.ModernProjectDefaults.material3(projectSettings)
+                && com.sketchware.ai.project.ModernProjectDefaults.m3DynamicColor(projectSettings)
+                && !com.sketchware.ai.project.M3Widgets.stylesReplaced(sc_id);
     }
 
     /**
@@ -851,20 +863,29 @@ public class yq {
                     CommandBlock.applyCommands("colors.xml", colorsFileBuilder.toCode())));
 
             boolean material3 = com.sketchware.ai.project.ModernProjectDefaults.material3(projectSettings);
+            boolean m3Dark = material3 && com.sketchware.ai.project.ModernProjectDefaults.m3DarkTheme(projectSettings);
             Mx stylesFileBuilder = new Mx();
             if (material3) {
-                // Material 3 (Material 1.13, built against android-34), light: colours the user picks, icons and
-                // setTextColor blocks are chosen for a light background, so a DayNight theme would hide them at night.
-                // The project's colours fill the M3 roles the generated screens use. The AppCompat inflater keeps
-                // every widget the class it is written as; Material 3 projects get their Material widgets as tags
-                // written by M3Widgets (SketchButton, MaterialCheckBox, MaterialSwitch, outlined text fields).
-                stylesFileBuilder.c("AppTheme", "Theme.Material3.Light.NoActionBar");
+                // Material 3 (Material 1.13, built against android-34). v1.8.6: the colour roles come from the project's
+                // primary colour (M3Palette, Material Color Utilities): values/m3_colors.xml, and with the dark theme
+                // setting (new projects) values-night/m3_colors.xml under a DayNight parent. The user's own colours
+                // stay exact (primary, accent, status bar). Projects without the dark setting stay light: their
+                // colours, icons and setTextColor blocks were chosen for a light background. The AppCompat inflater
+                // keeps every widget the class it is written as; Material widgets are tags written by M3Widgets.
+                com.sketchware.ai.project.M3Palette palette = com.sketchware.ai.project.M3Palette.of(colorPrimary, colorAccent);
+                srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.M3Widgets.M3_COLORS_FILE, palette.colorsXml(false)));
+                if (m3Dark) {
+                    srcCodeBeans.add(new SrcCodeBean(com.sketchware.ai.project.M3Widgets.M3_COLORS_NIGHT_FILE, palette.colorsXml(true)));
+                }
+                stylesFileBuilder.c("AppTheme", m3Dark ? "Theme.Material3.DayNight.NoActionBar" : "Theme.Material3.Light.NoActionBar");
                 stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
                 stylesFileBuilder.a("AppTheme", "colorPrimaryDark", "@color/colorPrimaryDark");
                 stylesFileBuilder.a("AppTheme", "colorPrimaryVariant", "@color/colorPrimaryDark");
-                stylesFileBuilder.a("AppTheme", "colorOnPrimary", "#FFFFFF");
                 stylesFileBuilder.a("AppTheme", "colorAccent", "@color/colorAccent");
                 stylesFileBuilder.a("AppTheme", "colorSecondary", "@color/colorAccent");
+                for (String[] role : com.sketchware.ai.project.M3Palette.ROLES) {
+                    stylesFileBuilder.a("AppTheme", role[0], "@color/" + role[1]);
+                }
                 stylesFileBuilder.a("AppTheme", "colorControlHighlight", "@color/colorControlHighlight");
                 stylesFileBuilder.a("AppTheme", "colorControlNormal", "@color/colorControlNormal");
                 stylesFileBuilder.a("AppTheme", "android:statusBarColor", "@color/colorPrimaryDark");
@@ -872,7 +893,14 @@ public class yq {
                 stylesFileBuilder.a("AppTheme", "floatingActionButtonStyle", "@style/AppTheme.Fab");
                 stylesFileBuilder.c("AppTheme.Fab", "Widget.Material3.FloatingActionButton.Primary");
                 stylesFileBuilder.a("AppTheme.Fab", "backgroundTint", "@color/colorAccent");
-                stylesFileBuilder.a("AppTheme.Fab", "tint", "#FFFFFF");
+                stylesFileBuilder.a("AppTheme.Fab", "tint", "@color/sketch_m3_on_secondary");
+                // the outlined text field M3Widgets wraps plain EditTexts in: 8dp corners
+                stylesFileBuilder.c(com.sketchware.ai.project.M3Widgets.TEXT_FIELD_STYLE_NAME, "Widget.Material3.TextInputLayout.OutlinedBox");
+                for (String corner : new String[]{"boxCornerRadiusTopStart", "boxCornerRadiusTopEnd",
+                        "boxCornerRadiusBottomStart", "boxCornerRadiusBottomEnd"}) {
+                    stylesFileBuilder.a(com.sketchware.ai.project.M3Widgets.TEXT_FIELD_STYLE_NAME, corner,
+                            com.sketchware.ai.project.M3Widgets.TEXT_FIELD_CORNER);
+                }
             } else {
                 stylesFileBuilder.c("AppTheme", "Theme.MaterialComponents.Light.NoActionBar" + (useNewMaterialComponentsTheme ? "" : ".Bridge"));
                 stylesFileBuilder.a("AppTheme", "colorPrimary", "@color/colorPrimary");
@@ -885,7 +913,8 @@ public class yq {
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowFullscreen", "true");
             stylesFileBuilder.a("AppTheme.FullScreen", "android:windowContentOverlay", "@null");
             stylesFileBuilder.c("AppTheme.AppBarOverlay", material3 ? "ThemeOverlay.Material3.Dark.ActionBar" : "ThemeOverlay.MaterialComponents.Dark.ActionBar");
-            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? "ThemeOverlay.Material3.Light" : "ThemeOverlay.MaterialComponents.Light");
+            stylesFileBuilder.c("AppTheme.PopupOverlay", material3 ? (m3Dark ? "ThemeOverlay.Material3" : "ThemeOverlay.Material3.Light")
+                    : "ThemeOverlay.MaterialComponents.Light");
             srcCodeBeans.add(new SrcCodeBean("styles.xml",
                     CommandBlock.applyCommands("styles.xml", stylesFileBuilder.toCode())));
         } else {

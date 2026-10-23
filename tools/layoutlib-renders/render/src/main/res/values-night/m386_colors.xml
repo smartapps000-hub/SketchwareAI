@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- Material 3 dark colour roles from the project's primary colour (Sketchware AI, M3Palette) -->
+	<color name="sketch_m3_on_primary">#FFFFFF</color>
+	<color name="sketch_m3_primary_container">#FE5825</color>
+	<color name="sketch_m3_on_primary_container">#470D00</color>
+	<color name="sketch_m3_primary_inverse">#B02E00</color>
+	<color name="sketch_m3_on_secondary">#FFFFFF</color>
+	<color name="sketch_m3_secondary_container">#812D14</color>
+	<color name="sketch_m3_on_secondary_container">#FFA085</color>
+	<color name="sketch_m3_tertiary">#EDC147</color>
+	<color name="sketch_m3_on_tertiary">#3E2E00</color>
+	<color name="sketch_m3_tertiary_container">#CFA62D</color>
+	<color name="sketch_m3_on_tertiary_container">#503D00</color>
+	<color name="sketch_m3_error">#FFB4AB</color>
+	<color name="sketch_m3_on_error">#690005</color>
+	<color name="sketch_m3_error_container">#93000A</color>
+	<color name="sketch_m3_on_error_container">#FFDAD6</color>
+	<color name="sketch_m3_background">#1E100C</color>
+	<color name="sketch_m3_on_background">#FADCD5</color>
+	<color name="sketch_m3_surface">#1E100C</color>
+	<color name="sketch_m3_on_surface">#FADCD5</color>
+	<color name="sketch_m3_surface_variant">#5B4039</color>
+	<color name="sketch_m3_on_surface_variant">#E4BEB4</color>
+	<color name="sketch_m3_surface_inverse">#FADCD5</color>
+	<color name="sketch_m3_on_surface_inverse">#3E2C27</color>
+	<color name="sketch_m3_surface_bright">#473530</color>
+	<color name="sketch_m3_surface_dim">#1E100C</color>
+	<color name="sketch_m3_surface_container_lowest">#180B07</color>
+	<color name="sketch_m3_surface_container_low">#271814</color>
+	<color name="sketch_m3_surface_container">#2C1C17</color>
+	<color name="sketch_m3_surface_container_high">#372621</color>
+	<color name="sketch_m3_surface_container_highest">#43312C</color>
+	<color name="sketch_m3_outline">#AB8980</color>
+	<color name="sketch_m3_outline_variant">#5B4039</color>
+</resources>
