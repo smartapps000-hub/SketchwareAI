@@ -1,6 +1,6 @@
 # Credits and licences
 
-Sketchware AI v1.8.5. Who made what this fork is built from, and under which licence each part is distributed.
+Sketchware AI v1.8.6. Who made what this fork is built from, and under which licence each part is distributed.
 The column *Checked from* says where the licence was read; "not re-verified" means it is the component's published
 licence but this fork found no licence file in the copy it ships. This is a record of what the files say, not legal advice.
 
@@ -12,7 +12,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | Sketchware Pro v6.4.0-rc05 (the Sketchware Pro team and contributors) | Source-available, **not open source**; forks for personal use | [LICENSE](LICENSE) |
 | `kotlinc` module (and `build-logic`, not part of the 6.4.0-rc05 source zip), from [CodeAssist](https://github.com/tyron12233/CodeAssist) by tyron12233 | GPL-3.0 | [LICENSE](LICENSE) |
 | `minApi26` build flavour (the APK this fork ships), a derivative of the GPL-3.0 modules | GPL-3.0 | [LICENSE](LICENSE) |
-| This fork's own additions (`com.sketchware.ai.*`, `tools/`, `engineering/`), by AiTechApps | no separate licence grant yet | — |
+| This fork's own additions (`com.sketchware.ai.*`, `tools/`, `engineering/`, its changes to upstream files), by AiTechApps | GPL-3.0 (the author's choice, v1.8.6) | [COPYING](COPYING) |
 
 ## 2. Toolchain inside the IDE APK (runs on the phone)
 
@@ -52,6 +52,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | FilePicker (Angad Singh) | 1.1.1 | Apache-2.0 | Maven POM |
 | Spongy Castle / Bouncy Castle | 1.47.0.2 | Bouncy Castle licence (MIT-style) | not re-verified |
 | Android Jetpack (AndroidX), Material Components | various | Apache-2.0 | `assets/oss.txt` |
+| Material Color Utilities (the `com.google.android.material.color.utilities` classes of Material Components 1.13.0, `app/libs/material-color-utilities-1.13.0.jar`; the IDE computes generated apps' colour roles with it, v1.8.6) | 1.13.0 | Apache-2.0 | Maven POM (`com.google.android.material:material:1.13.0`) |
 | Glide, Lottie (upstream jars) | — | Glide: BSD / MIT / Apache-2.0 parts; Lottie: Apache-2.0 | not re-verified |
 | StringFog (megatronking), zipalign-java (iyxan23) (upstream jars) | — | — | not re-verified |
 | Scratch (block ideas, per Sketchware) | — | MIT | `assets/oss.txt` |
@@ -61,6 +62,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | Part | Licence | Checked from |
 |---|---|---|
 | Sora, Manrope, JetBrains Mono (`res/font`, the Obsidian UI) | SIL Open Font License 1.1 | `assets/licenses/fonts-OFL.txt` |
+| Material icons "palette", "dark_mode", "wallpaper" (`res/drawable/ob_ic_material3.xml`, `ob_ic_dark_theme.xml`, `ob_ic_dynamic_color.xml`) | Apache-2.0 | not re-verified |
 | Droid Sans Mono (`assets/fonts`, upstream) | Apache-2.0 | not re-verified |
 | `assets/libs/android.jar.zip`: Android SDK platform android-34 rev 3 `android.jar` (compile-only; upstream bundles one the same way) | Android Software Development Kit License Agreement | not re-verified |
 | Test fonts used by `tools/` (fixture 909, layoutlib) | OFL-1.1; created by `make-test-fonts.py`, never committed or shipped | — |

@@ -176,6 +176,44 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
   (upstream's `Lx.getBuildGradleString` never listed them).
 - Rewarded-ad component imports `OnUserEarnedRewardListener` itself (was an auto-fix at every build).
 
+## v1.8.6 additions
+
+- **Material 3 colour roles** (`project.M3Palette`, Material Color Utilities = the `color.utilities` classes of Material
+  1.13.0 in `app/libs/material-color-utilities-1.13.0.jar`, Apache-2.0): `SchemeContent` from the project's primary colour,
+  light and dark. yq writes `values/m3_colors.xml` (colour resources `sketch_m3_*`; the `m3_` prefix is Material's own) and
+  points every M3 role attribute of AppTheme at them (on-primary, primary/secondary/tertiary containers, error, background,
+  surface, surface variant, inverse, surface bright/dim/container x5, outline, outline variant). colorPrimary, colorAccent
+  (= colorSecondary), colorPrimaryDark (status bar) stay the user's exact colours in both modes; on-primary / on-secondary
+  are white when its WCAG contrast on the user colour is >= 3, else tone 10 of that colour's palette. The FAB icon uses
+  on-secondary.
+- **Dark theme** (`ModernProjectDefaults.SETTING_M3_DARK_THEME`, written true for new projects; absent/false = light, so
+  v1.8.4/v1.8.5 Material 3 projects keep their look): AppTheme parent `Theme.Material3.DayNight.NoActionBar`,
+  `values-night/m3_colors.xml` (source-list name `m3_colors-night.xml`, mapped by `yq.a(fileName, content)`), PopupOverlay
+  `ThemeOverlay.Material3`. **Dynamic colour** (`SETTING_M3_DYNAMIC_COLOR`, default false; `jq.m3DynamicColor` = AppCompat +
+  Material 3 + setting + generated styles.xml): Jx writes
+  `com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);` before `super.onCreate` in every
+  generated activity (no-op below Android 12). Library Manager: "Dark theme" and "Dynamic colour" rows under Material 3,
+  shown while it is on (they write the project settings at once, like the Material 3 row).
+- **Outlined field**: generated style `AppTheme.TextField` (OutlinedBox with 8dp box corners) replaces the direct OutlinedBox
+  style. `SketchTextField.onMeasure` measures the hint as the collapsed label is drawn: bodySmall 12sp, letter spacing
+  0.4sp (the field's own is 0.5/16), the box typeface with the phone's bold-text weight adjustment (API 31+), and keeps
+  2dp spare. v1.8.5 measured with the field's paint + 1px: a 12sp field with 8dp padding cut the label by 1px
+  ("Telugu language title crea…"), reproduced in layoutlib.
+- **Buttons with a background colour** (`M3Widgets.tintedButton`): a plain Button whose own background is an opaque colour
+  (no image, no injected background/tint/style) is a SketchButton with `app:backgroundTint` (pill kept); a label in the
+  editor's default black gets white or #1D1B20 by contrast. `scanCode` keeps a Button plain when code calls
+  `<id>.getBackground(` (it would no longer be a ColorDrawable).
+- **Design canvas**: `DesignTheme` computes the project's light palette (`DesignTheme.role`); `M3Canvas` reads outline,
+  on-surface(-variant), surface-container-highest, on-primary from it (baseline values as fallback); ItemEditText draws
+  8dp corners; ItemButton draws tinted pills; `ItemLinearLayout` is a source class now (removed from
+  com.besome.sketch-classes.jar, same fields and behaviour) so the screen root shows the app's window background instead
+  of the editor grey #EEEEEE in Material 3 projects.
+- **Build Settings dialog** (`project_config_layout.xml`): the root clips its children. The ScrollView has no padding, so
+  only the parent's clip bounds it; with `clipChildren="false"` scrolled options were drawn under the Cancel / Save row.
+- **Repository**: `.gitignore` anchors the Gradle build folders (`/build/`, `/app/build/` ...), so the source packages
+  `mod/hey/studios/build` and `mod/jbk/build` are tracked; the public AOSP test key `testkey.keystore` is tracked. A clone
+  of the repository builds without the patches zip's `overlay/`.
+
 ## Existing repair engine (v1.7.x)
 
 - `AutoHeal` (problem parser, located edits, never changes line count, rollback), `JavaTokens` (dead-code detection after JLS 14.22), `AutoHealLoop` (attempts, per-site escalation keep -> remove, report), `ClassIndex` (imports from the classpath), `LibraryAutoResolve`/`LibraryHeal` (enable installed library, known Maven coordinates, sub-dependency linking, D8), `BuildWarnings`.
@@ -195,4 +233,8 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
 
 ## Repository notes
 
-- `.gitignore` has an unanchored `build/` rule, so source folders named `build` are not tracked: `mod/hey/studios/build/`, `mod/jbk/build/` (and the flavors' `mod/jbk/build`). Three upstream files there are modified by this fork (`BuildSettings.java`, `BuildSettingsDialog.java`, `ResourceCompiler.java`); they are not in the patch series and ship as whole files in the patches zip under `overlay/`. Never put new code in a package folder named `build`.
+- Until v1.8.5, `.gitignore` had an unanchored `build/` rule, so source folders named `build` were not tracked
+  (`mod/hey/studios/build/`, `mod/jbk/build/` and the flavours' copies) and their changed files shipped as whole files in
+  the patches zip's `overlay/`. Since v1.8.6 the rule is anchored and those folders are tracked; a round trip from the
+  upstream zip runs `git clean -fdX` after the base commit so the patches can add them. Still: never put new code in a
+  package folder named `build`.

@@ -129,6 +129,30 @@
       "file": "androidx.compose.material 1.12.1 / 1.13.0-beta02 and material3 1.4.0 / 1.5.0-beta02 release notes, read 22 Oct 2026",
       "purpose": "Compose (Material 2 and 3) can't be built on the phone: needs the Compose compiler plugin with Kotlin 2.x (kotlinc 2.2 for 1.13), compileSdk 37+, min SDK 23",
       "available": false
+    },
+    {
+      "id": "material-color-utilities",
+      "file": "com.google.android.material:material:1.13.0 aar, package com.google.android.material.color.utilities (47 classes) -> app/libs/material-color-utilities-1.13.0.jar",
+      "purpose": "M3Palette: SchemeContent, MaterialDynamicColors, TonalPalette (Apache-2.0, POM)",
+      "available": true
+    },
+    {
+      "id": "material-1.13-expressive",
+      "file": "material-1.13.0 classes.jar / res values",
+      "purpose": "1.13 has MaterialButtonGroup, MaterialSplitButton, LoadingIndicator, DockedToolbarLayout, FloatingToolbarLayout, TextInputLayout.setHintMaxLines; no Theme.Material3Expressive",
+      "available": true
+    },
+    {
+      "id": "github-repo",
+      "file": "https://github.com/smartapps000-hub/SketchwareAI",
+      "purpose": "owner's public repository; before v1.8.6 it held 3 commits (GPL-3.0 LICENSE text, Android .gitignore, a README listing unbuilt features); v1.8.6 merges this fork's history into it",
+      "available": true
+    },
+    {
+      "id": "owner-screens-v185",
+      "file": "owner's screenshots of 23 Oct 2026 (Build Settings overlap, Library Manager Material 3 row, canvas, generated app with cut label)",
+      "purpose": "v1.8.6 fixes",
+      "available": false
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

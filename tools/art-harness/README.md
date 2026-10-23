@@ -11,7 +11,7 @@ D8, packaged and signed by its own code. Only the Activity screens are not run.
 3. Inputs for two fixtures (once per workspace): `make-test-fonts.py out/fonts` (909; OFL fonts from npm @fontsource,
    modified copies for tests only, never shipped) and `make-native-fixture.sh out/native-fixture` (910; NDK clang).
 4. `suite.sh <IDE apk> <tag> libs:901 held:902 plain:903 kotlin:904 autofix:905 typo:906 min19:907 m3:908
-   telugu:909 jni:910 desugar:911 m3code:912` (a spec name ends up in a package name: never a Java keyword)
+   telugu:909 jni:910 desugar:911 m3code:912 m3dark:913` (a spec name ends up in a package name: never a Java keyword)
    or one fixture: `run.sh <IDE apk> <root> create libs 901` then `run.sh <IDE apk> <root> build 901 [resume step]`.
    `run.sh <IDE apk> <root> aab <id> [resume step]` runs the export screen's Export AAB (export build, DEX merge,
    AppBundleCompiler, bundletool (1.18.3 since v1.8.5), BundleSigner with the test key since v1.8.5) into
@@ -34,3 +34,8 @@ must exist and every namespace must be `visible = true`; `/system/etc/public.lib
 `/.sketchware/debug.txt`, so the harness prints to FileDescriptor.out; aapt2 runs fine from ART here; kotlinc leaves
 non-daemon threads, so `Main` ends with `System.exit`; `.sketchware/bak/<id>` is the IDE's working copy of a project and
 must be deleted with `data/<id>` before an id is reused (suite.sh does), or every view is added twice.
+
+v1.8.6: fixture 913 `m3dark` (a new project with dynamic colour on: DayNight + values-night colour roles, buttons with
+their own background colour, a button whose background the code reads, the long-hint 12sp field); 912 `m3code` stores no
+dark setting (a v1.8.5 Material 3 project, stays light). `run.sh` extracts the APK's aapt2 into `out/native-run/<pid>`:
+with one shared folder, a second lane could run the file while the first was rewriting it (`error=13`).

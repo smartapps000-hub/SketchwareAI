@@ -198,6 +198,42 @@
       "notVerifiedOn": [
         "Android Studio itself; running the exported app on a device"
       ]
+    },
+    {
+      "fingerprint": "Outlined field label ends in an ellipsis (\"Telugu language title crea…\") in a wrap_content Material 3 text field",
+      "rootCause": "v1.8.5 SketchTextField measured the hint with the field's paint (letter spacing 0.5sp/16sp = 0.03125em) + 1px; TextInputLayout draws the collapsed label in bodySmall (letter spacing 0.4sp/12sp = 0.0333em) and with the phone's bold-text weight. With a 12sp field the label was 1-2px wider than the space (layoutlib: label 439px, room 438px).",
+      "repair": "GENERATED_HELPER: SketchTextField.onMeasure measures with max(field, label) size and letter spacing, the box typeface plus Configuration.fontWeightAdjustment (API 31+), and 2dp spare (v1.8.6).",
+      "scope": "generated SketchTextField of Material 3 projects",
+      "verifiedOn": [
+        "layoutlib (Paparazzi 1.3.5, Android 14): font scale 1.0 and 1.3, bold text 300"
+      ]
+    },
+    {
+      "fingerprint": "Build Settings: Cancel / Save drawn over the last option",
+      "rootCause": "project_config_layout's root had clipChildren=false; its ScrollView has no padding, so only the parent's clip bounds its content. Scrolled options were drawn outside the ScrollView, under the button row.",
+      "repair": "IDE layout: root clipChildren=true (v1.8.6).",
+      "scope": "IDE Build Settings dialog",
+      "verifiedOn": [
+        "layoutlib reproduction of the layout at font scale 1.3 (before/after)"
+      ]
+    },
+    {
+      "fingerprint": "A clone of the repository doesn't build: mod/hey/studios/build, mod/jbk/build missing",
+      "rootCause": "Upstream's .gitignore rule build/ is unanchored and also hides source packages named build; the fork shipped them in the patches zip's overlay/.",
+      "repair": "REPOSITORY: anchored build-output rules; the source packages and the public test key are tracked (v1.8.6). Round trip from the upstream zip: git clean -fdX after the base commit.",
+      "scope": "repository",
+      "verifiedOn": [
+        "round trip of the v1.8.6 patches zip"
+      ]
+    },
+    {
+      "fingerprint": "Library Manager switch has no effect until the project is reopened (Material 3 turned on mid-session: aapt2 'style/AppTheme.TextField not found')",
+      "rootCause": "DesignActivity keeps one yq for all Run builds and yq read project_config once, in its constructor; M3Widgets.decide read it fresh. Found by the v1.8.6 review before release.",
+      "repair": "yq re-reads ProjectSettings at the start of every generation (v1.8.6).",
+      "scope": "IDE generator",
+      "verifiedOn": [
+        "review (source)"
+      ]
     }
   ]
 }

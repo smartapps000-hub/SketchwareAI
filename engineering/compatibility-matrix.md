@@ -70,3 +70,12 @@ Whether a generated APK runs on a given Android version depends on that project'
   night device settings. Results in `v1.8.5-verification.md`.
 - No device run by the developer of this fork. Android 15 / 16 KB-page devices and a Play upload of an AAB: NOT TESTED.
   The AAB's JAR signature now verifies with JDK 17's jarsigner (SHA-256).
+
+## v1.8.6 (23 Oct 2026)
+- Generated Material 3 apps: colour roles from the project colour, DayNight for new projects, dynamic colour opt-in,
+  tinted pill buttons, 8dp outlined fields, label measure fix. Run build of fixtures 901-913, Export AAB of 908-913 and
+  Export to Android Studio of 902/908/911/913 on the Android 12 (API 31) ART harness with the final APK; layoutlib renders
+  of fixture 913's widgets (light and night), of the outlined field label (font scale 1.0/1.3, bold text) and of the
+  Build Settings sheet. Results in `v1.8.6-verification.md`.
+- No device run by the developer of this fork; no Android emulator (no hardware virtualisation on the build machine).
+  Dynamic colour needs Android 12+ with a wallpaper: NOT TESTED. Android 15 / 16 KB-page devices, Play upload: NOT TESTED.

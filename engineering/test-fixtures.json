@@ -262,6 +262,50 @@
       "checks": [
         "inflated classes as written; the app stays light on a night device; hint and label shown in full; SketchButton shows a background set from code as set (MaterialButton tints it): image v1.8.5-m3-widgets.png"
       ]
+    },
+    {
+      "id": "913",
+      "kind": "harness fixture m3dark (tools/art-harness, Fixtures.java)",
+      "content": "New project (Material 3, dark theme default) with Dynamic colour on: Button x4 (default; background #2196F3; #FFEB3B; #E91E63 whose background the add-source code reads), TextView, EditText (hint 'Telugu language title create', 8dp padding, 12sp), CheckBox, Switch.",
+      "checks": [
+        "builds, 0 warnings",
+        "AppTheme parent Theme.Material3.DayNight.NoActionBar, values/m3_colors.xml + values-night/m3_colors.xml (sketch_m3_*), AppTheme.TextField 8dp",
+        "button2/button3 SketchButton with app:backgroundTint and label #FFFFFF / #1D1B20, button4 plain Button",
+        "DynamicColors.applyToActivityIfAvailable(this) before super.onCreate",
+        "Export AAB, LoadAll"
+      ]
+    },
+    {
+      "id": "912 (v1.8.6)",
+      "kind": "m3code with m3_dark_theme empty",
+      "content": "a Material 3 project of v1.8.4/v1.8.5",
+      "checks": [
+        "AppTheme stays Theme.Material3.Light.NoActionBar, no values-night"
+      ]
+    },
+    {
+      "id": "render-m386",
+      "kind": "layoutlib (tools/layoutlib-renders, M386Test.kt)",
+      "content": "fixture 913's widgets under its generated DayNight theme and palette, light and night, unchecked/checked",
+      "checks": [
+        "image out/m386_*.png"
+      ]
+    },
+    {
+      "id": "render-label",
+      "kind": "layoutlib (LabelTest.kt)",
+      "content": "wrap_content 12sp outlined field, 8dp padding, long hint; font scale 1.0, 1.3, bold text",
+      "checks": [
+        "collapsed label width <= the space TextInputLayout gives it"
+      ]
+    },
+    {
+      "id": "render-dialog",
+      "kind": "layoutlib (DialogClipTest.kt)",
+      "content": "Build Settings sheet layout before/after the clip fix at font scale 1.3",
+      "checks": [
+        "no option drawn under the Cancel / Save row"
+      ]
     }
   ]
 }
