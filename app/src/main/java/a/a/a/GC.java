@@ -295,7 +295,9 @@ public class GC extends DA implements View.OnClickListener {
     }
 
     private void toProjectSettingsActivity() {
-        Intent intent = new Intent(getActivity(), MyProjectSettingActivity.class);
+        // v1.8.7: new projects are made on the full-screen New Project screen (templates, colours, SDK); the
+        // setting dialog (MyProjectSettingActivity) stays for the settings of existing projects.
+        Intent intent = new Intent(getActivity(), com.sketchware.ai.ui.NewProjectActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivityForResult(intent, REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY);
     }

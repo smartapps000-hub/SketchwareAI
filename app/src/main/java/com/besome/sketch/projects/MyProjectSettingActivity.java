@@ -351,7 +351,8 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
 
         String[] split = projectVersionNameView.getText().toString().split("\\.");
         AtomicInteger projectNewVersionNameFirstPart = new AtomicInteger(parseInt(split[0], 1));
-        AtomicInteger projectNewVersionNameSecondPart = new AtomicInteger(parseInt(split[1], 0));
+        // a version name without a dot (typed elsewhere) reads as x.0 instead of crashing the dialog
+        AtomicInteger projectNewVersionNameSecondPart = new AtomicInteger(split.length > 1 ? parseInt(split[1], 0) : 0);
         if (projectNewVersionNameFirstPart.get() - 5 > 0) {
             versionNameFirstPartMinimum = projectNewVersionNameFirstPart.get() - 5;
         }

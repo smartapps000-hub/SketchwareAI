@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
@@ -40,6 +42,7 @@ public class ItemVideoView extends LinearLayout implements sy {
         this.f.setPadding(0, 0, 0, 0);
         addView(this.f);
         setGravity(17);
+        setWillNotDraw(false);
     }
 
     @Override
@@ -71,8 +74,35 @@ public class ItemVideoView extends LinearLayout implements sy {
         invalidate();
     }
 
+    /**
+     * v1.8.7: measured like the app's VideoView before a video is loaded (VideoView.onMeasure with no video size is
+     * View.getDefaultSize(0, spec)): with wrap_content the empty VideoView takes all the width and height its parent
+     * offers, and the app shows it black (a SurfaceView) until a video plays; widgets after it are pushed off the
+     * screen. The canvas showed a fixed preview instead, so a layout that looked fine here was black from the
+     * VideoView down on the phone. A parent that doesn't limit the height (a ScrollView) keeps the preview size here;
+     * on the phone the empty VideoView is 0 high there.
+     */
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int width = getMeasuredWidth();
+        int height = getMeasuredHeight();
+        if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.AT_MOST) {
+            width = Math.max(width, MeasureSpec.getSize(widthMeasureSpec));
+        }
+        if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST) {
+            height = Math.max(height, MeasureSpec.getSize(heightMeasureSpec));
+        }
+        setMeasuredDimension(width, height);
+    }
+
     @Override
     public void onDraw(Canvas canvas) {
+        // the empty video surface is black on the phone; a background colour set on the widget stays
+        Drawable background = getBackground();
+        if (background == null || (background instanceof ColorDrawable && ((ColorDrawable) background).getAlpha() == 0)) {
+            canvas.drawColor(0xFF000000);
+        }
         if (this.b) {
             canvas.drawRect(new Rect(0, 0, getMeasuredWidth(), getMeasuredHeight()), this.d);
         }

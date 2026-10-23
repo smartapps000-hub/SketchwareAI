@@ -92,6 +92,10 @@ public class Fixtures {
     }
 
     public static void create(String spec, String sc_id) throws Throwable {
+        if (spec.startsWith("np")) {
+            createLikeNewProjectScreen(spec, sc_id);
+            return;
+        }
         Class<?> jC = c("a.a.a.jC"), wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
         HashMap<String, Object> data = new HashMap<>();
         data.put("sc_id", sc_id);
@@ -381,5 +385,42 @@ public class Fixtures {
             call(ps, "saveNow");
         }
         Main.OUT.println("CREATED " + spec + " as #" + sc_id + ": " + widgets.size() + " widgets, " + comps.size() + " components");
+    }
+
+    /**
+     * v1.8.7: a project made the way the New Project screen makes it: NewProjectSetup.create with the screen's choices
+     * (the screen itself only collects them). Nothing else is written, so the build sees exactly what a phone user gets,
+     * including AppCompat switched on by the new-project defaults.
+     *  npempty   - Empty Activity, Solar Orange, Material 3 + dark theme (the screen's defaults)
+     *  npscaffold- Material 3 Scaffold (cards + FAB), Material Purple, dynamic colour on
+     *  npbottom  - Bottom Navigation (menu code in an add-source block), Material Blue
+     *  npdrawer  - Navigation Drawer (drawer layout), Material Green, Material 3 off (MaterialComponents theme)
+     *  nptabs    - Tabbed ViewPager (pager code in an add-source block), Rose Wine, Java 7, target 34
+     */
+    static void createLikeNewProjectScreen(String spec, String sc_id) throws Throwable {
+        Object choices = neu("com.sketchware.ai.project.NewProjectSetup$Choices");
+        Object[] presets = (Object[]) get(c("com.sketchware.ai.project.ThemePresets"), "PRESETS");
+        String preset;
+        int palette;
+        switch (spec) {
+            case "npscaffold": preset = "scaffold"; palette = 1; set(choices, "dynamicColor", true); break;
+            case "npbottom": preset = "bottom_navigation"; palette = 2; break;
+            case "npdrawer": preset = "drawer"; palette = 3; set(choices, "material3", false); break;
+            case "nptabs":
+                // Java 7 (the template code must compile at the lowest level), target 34; D8 as the screen stores it
+                preset = "tabs"; palette = 4;
+                set(choices, "javaVersion", "1.7");
+                set(choices, "targetSdk", 34);
+                break;
+            case "npempty": preset = "empty"; palette = 0; break;
+            default: throw new IllegalArgumentException("unknown fixture spec " + spec);
+        }
+        set(choices, "preset", preset);
+        set(choices, "colors", ((int[]) get(presets[palette], "colors")).clone());
+        set(choices, "appName", "NP " + spec);
+        set(choices, "packageName", "com.fixture." + spec);
+        set(choices, "projectName", spec);
+        call(c("com.sketchware.ai.project.NewProjectSetup"), "create", Main.CTX, sc_id, choices);
+        Main.OUT.println("CREATED " + spec + " as #" + sc_id + " through NewProjectSetup.create (template " + preset + ")");
     }
 }

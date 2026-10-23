@@ -115,6 +115,16 @@ public class yq {
 
     public final int colorControlHighlight;
 
+    /**
+     * v1.8.7: colorControlHighlight (ripples, pressed list rows) with its alpha. Up to v1.8.6 colors.xml dropped the
+     * alpha of every colour, so the IDE's translucent default (#26F4511E) became an opaque orange press flash. A fully
+     * opaque or fully transparent stored value is written as before (#RRGGBB).
+     */
+    static String highlightColor(int color) {
+        int alpha = color >>> 24;
+        return alpha == 0 || alpha == 0xff ? String.format("#%06X", color & 0xffffff) : String.format("#%08X", color);
+    }
+
     public final int colorControlNormal;
 
     public final String versionCode;
@@ -857,7 +867,7 @@ public class yq {
             colorsFileBuilder.a("colorPrimary", String.format("#%06X", colorPrimary & 0xffffff));
             colorsFileBuilder.a("colorPrimaryDark", String.format("#%06X", colorPrimaryDark & 0xffffff));
             colorsFileBuilder.a("colorAccent", String.format("#%06X", colorAccent & 0xffffff));
-            colorsFileBuilder.a("colorControlHighlight", String.format("#%06X", colorControlHighlight & 0xffffff));
+            colorsFileBuilder.a("colorControlHighlight", highlightColor(colorControlHighlight));
             colorsFileBuilder.a("colorControlNormal", String.format("#%06X", colorControlNormal & 0xffffff));
             srcCodeBeans.add(new SrcCodeBean("colors.xml",
                     CommandBlock.applyCommands("colors.xml", colorsFileBuilder.toCode())));
@@ -946,7 +956,7 @@ public class yq {
             colorsFileBuilder.a("colorPrimary", String.format("#%06X", colorPrimary & 0xffffff));
             colorsFileBuilder.a("colorPrimaryDark", String.format("#%06X", colorPrimaryDark & 0xffffff));
             colorsFileBuilder.a("colorAccent", String.format("#%06X", colorAccent & 0xffffff));
-            colorsFileBuilder.a("colorControlHighlight", String.format("#%06X", colorControlHighlight & 0xffffff));
+            colorsFileBuilder.a("colorControlHighlight", highlightColor(colorControlHighlight));
             colorsFileBuilder.a("colorControlNormal", String.format("#%06X", colorControlNormal & 0xffffff));
             srcCodeBeans.add(new SrcCodeBean("colors.xml",
                     CommandBlock.applyCommands("colors.xml", colorsFileBuilder.toCode())));

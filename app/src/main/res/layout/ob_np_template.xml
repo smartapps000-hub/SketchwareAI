@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A template card of the New Project screen (com.sketchware.ai.ui.NewProjectActivity); amber when selected. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="164dp"
+    android:layout_height="wrap_content"
+    android:layout_marginRight="10dp"
+    android:background="@drawable/ob_pill16_state"
+    android:clickable="true"
+    android:focusable="true"
+    android:minHeight="148dp"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:stateListAnimator="@animator/sw_press">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/np_tpl_icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/ob_avatar"
+            android:contentDescription="@null"
+            android:padding="8dp"
+            android:tint="@color/ob_accent" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/np_tpl_badge"
+            style="@style/Ob.Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/ob_badge"
+            android:paddingLeft="8dp"
+            android:paddingTop="3dp"
+            android:paddingRight="8dp"
+            android:paddingBottom="3dp"
+            android:textColor="@color/ob_accent"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/np_tpl_title"
+        style="@style/Ob.Text.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/np_tpl_desc"
+        style="@style/Ob.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:lineSpacingExtra="1dp"
+        android:maxLines="3" />
+</LinearLayout>

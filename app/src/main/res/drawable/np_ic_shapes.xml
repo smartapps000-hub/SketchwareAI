@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New Project screen icon: shapes (Sketchware AI, v1.8.7) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M7.5,3.5L11.5,10.5L3.5,10.5Z M13.5,7a3.5,3.5 0,1 0,7,0a3.5,3.5 0,1 0,-7,0Z M4,13.5h7v7h-7Z M13.5,13.5h7v7h-7Z" />
+</vector>

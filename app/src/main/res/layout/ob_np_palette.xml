@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A colour preset of the New Project screen: four tones of the set and its name; amber ring when selected. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginRight="10dp"
+    android:background="@drawable/ob_pill16_state"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingLeft="10dp"
+    android:paddingTop="10dp"
+    android:paddingRight="10dp"
+    android:paddingBottom="8dp"
+    android:stateListAnimator="@animator/sw_press">
+
+    <LinearLayout
+        android:id="@+id/np_pal_tones"
+        android:layout_width="88dp"
+        android:layout_height="36dp"
+        android:orientation="horizontal" />
+
+    <TextView
+        android:id="@+id/np_pal_name"
+        style="@style/Ob.Text.Caption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:textColor="@color/ob_text_3" />
+</LinearLayout>

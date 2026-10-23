@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New Project screen icon: template thumbnail (Sketchware AI, v1.8.7) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M7,2.5h10a2,2 0,0 1,2,2v15a2,2 0,0 1,-2,2h-10a2,2 0,0 1,-2,-2v-15a2,2 0,0 1,2,-2Z M5,7h14 M5,10.5h14 M10.3,7v3.5 M13.7,7v3.5 M7.5,9.6h1.4" />
+</vector>

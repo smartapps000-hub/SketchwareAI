@@ -139,6 +139,10 @@
             android:name="com.besome.sketch.editor.manage.library.ManageLibraryActivity"
             android:configChanges="orientation|screenSize" />
         <activity
+            android:name="com.sketchware.ai.ui.NewProjectActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name="com.besome.sketch.editor.manage.ManageCollectionActivity"
             android:configChanges="orientation|screenSize" />
         <activity

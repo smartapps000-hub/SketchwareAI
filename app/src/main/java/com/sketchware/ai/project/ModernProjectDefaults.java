@@ -92,6 +92,7 @@ public final class ModernProjectDefaults {
         project.put(SETTING_M3_DARK_THEME, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
         project.put(SETTING_M3_DYNAMIC_COLOR, ProjectSettings.SETTING_GENERIC_VALUE_FALSE);
         putIfAbsent(new ProjectSettings(scId), project);
+        enableAppCompat(scId);
 
         // D8 runs on Android 8.0+ only (the minApi21 build can run on older phones).
         if (android.os.Build.VERSION.SDK_INT >= 26) {
@@ -99,6 +100,25 @@ public final class ModernProjectDefaults {
             build.put(BuildSettings.SETTING_DEXER, BuildSettings.SETTING_DEXER_D8);
             build.put(BuildSettings.SETTING_JAVA_VERSION, BuildSettings.SETTING_JAVA_VERSION_11);
             putIfAbsent(new BuildSettings(scId), build);
+        }
+    }
+
+    /**
+     * v1.8.7: "AppCompat and Design" on for a new project. Material 3 (stored on above) only applies to AppCompat
+     * projects, and a project's libraries start "N" ({@code iC.f()}): up to v1.8.6 a project made on the phone kept the
+     * framework theme until the user switched AppCompat on (the harness fixtures switched it on themselves).
+     * Only a project without a library file yet is touched, so nothing a user chose is changed.
+     */
+    static void enableAppCompat(String scId) {
+        try {
+            if (new java.io.File(a.a.a.wq.b(scId), "library").exists()) return;
+            a.a.a.iC libraries = new a.a.a.iC(scId);
+            com.besome.sketch.beans.ProjectLibraryBean compat = libraries.c();
+            if (compat == null) return;
+            compat.useYn = com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y;
+            libraries.l();
+        } catch (RuntimeException e) {
+            // The project keeps the default library state; the Library Manager can still switch it on.
         }
     }
 
