@@ -339,6 +339,14 @@ Status words: **handled** = the generator has code for the new rule. **not handl
 
 Items 1 to 4 need no new library and no toolchain change.
 
+v1.8.5 (22-23 Oct 2026): the built-in libraries are unchanged (Material 1.13.0 ...). Checked for the next step:
+Material Components for Android 1.14.0 (13 May 2026, the last planned View release: the repository is in maintenance
+mode since Google I/O 2026) needs min SDK 23 for Material and AndroidX and pulls androidx.core 1.16.0 (minCompileSdk 35):
+it needs a bundled API 35 android.jar and generated apps at min SDK 23, so it is its own migration. Compose Material
+(1.12.1 / 1.13.0-beta) and Material 3 for Compose can't be built on the phone at all (Compose compiler plugin with Kotlin
+2.x, compileSdk 37+, min SDK 23). Source: release notes read 22 Oct 2026 (reference-index.json `mdc-android-1.14.0`,
+`compose-material`); not verified from the AAR metadata.
+
 ## Could not be determined here
 
 - Whether any bundled library version fails on Android 15: no library was run.

@@ -145,12 +145,58 @@
     {
       "fingerprint": "Export AAB: Play Console may refuse the bundle as unsigned (\"The Android App Bundle was not signed\"); jarsigner (JDK 17): \"treated as unsigned, because it is signed with a weak algorithm\"",
       "rootCause": "The export screen signs the .aab with kellinwood ZipSigner / CustomKeySigner (upstream code), which always writes SHA1-Digest entries in MANIFEST.MF and CERT.SF, also with an own keystore and \"SHA256withRSA\". SHA-1 JAR signatures are disabled in current JDKs; a public report (B4X forum) shows Play rejecting an AAB with SHA-1 digests and accepting it with SHA-256.",
-      "repair": "none in v1.8.4: the owner asked to keep the signing pipeline untouched in this release. Needs his decision (AAB-only JAR signing with SHA-256 digests, e.g. apksig's V1 signer; APK export and ReleaseSigner unchanged).",
+      "repair": "v1.8.5 (owner's go): AABs are signed by com.sketchware.ai.project.BundleSigner (apksig, JAR signature only, SHA-256-Digest + SHA256withRSA; test key from cacheDir/libs/testkey or the user's keystore). APK export (ReleaseSigner/ApkSigner) unchanged. v1.8.4 and earlier: SHA-1, as described.",
       "verifiedOn": [
-        "Android 12 ART harness: Export AAB of fixtures 908/909/910 with the test key; jarsigner -verify on JVM 17 shows SHA1 digests / SHA1withRSA"
+        "Android 12 ART harness: Export AAB of fixtures 908/909/910 with the test key; jarsigner -verify on JVM 17 shows SHA1 digests / SHA1withRSA",
+        "v1.8.5, Android 12 ART harness: Export AAB of fixtures 908-912; jarsigner -verify (JDK 17) on the host: 'jar verified', CERT.SF/CERT.RSA, SHA-256-Digest"
       ],
       "notVerifiedOn": [
         "an upload to Play Console"
+      ]
+    },
+    {
+      "fingerprint": "Build warning: \"Core library desugaring (desugar_jdk_libs 2.1.5) failed (...), so this build has no desugared library\"",
+      "rootCause": "v1.8.5 compiles project code with D8 8.11.18 and the desugar_jdk_libs_nio 2.1.5 configuration; when the code uses java.time, streams, java.nio.file ... below the API that has them, L8 builds the desugared library DEX. A damaged copy of the extracted files (assets/libs/desugar.zip -> cacheDir/libs/desugar, checked by size only), an L8 failure or out-of-memory, or D8 failing with the configuration ends here.",
+      "repair": "automatic: the project is dexed again without the configuration (as before v1.8.5), the build finishes with this warning, and the extracted desugar.zip copy is deleted so the next build extracts the files again (CoreLibDesugaring.reset). The APK then has no j$ classes: those Java 8+ library APIs work only on Android versions that have them.",
+      "verifiedOn": [
+        "Android 12 ART harness: fixture 911 with a same-size corrupted desugar_jdk_libs jar (L8 fails): build ok, 1 warning, 0 j$ references in the APK; a same-size corrupted desugar.json (D8 fails with the configuration): see v1.8.5-verification.md"
+      ],
+      "notVerifiedOn": [
+        "a phone (memory limits of L8 under the app's largeHeap)"
+      ]
+    },
+    {
+      "fingerprint": "Material 3 project: a Button set to a colour, image or rounded GradientDrawable shows as a solid primary-coloured shape (MaterialButton background tint)",
+      "rootCause": "MaterialButton tints a background that replaces its own (android:background or setBackground from code) with its backgroundTint (colorPrimary, SRC_IN). The first v1.8.5 build inflated every <Button> as MaterialButton (MaterialComponentsViewInflater); found by the pre-release review, never shipped.",
+      "repair": "v1.8.5: the theme keeps AppCompatViewInflater; only a plain Button without a background of its own is written as <package>.SketchButton, a MaterialButton that drops the tint when code sets a background. Buttons with a background stay AppCompat Buttons.",
+      "verifiedOn": [
+        "layoutlib (Paparazzi 1.3.5): SketchButton with a GradientDrawable from code shows it as set; a plain MaterialButton turns it into an orange silhouette (render v1.8.5-m3-widgets.png)"
+      ],
+      "notVerifiedOn": [
+        "a phone"
+      ]
+    },
+    {
+      "fingerprint": "Material 3 project: \"incompatible types: MaterialSwitch cannot be converted to Switch\" or ClassCastException on a Switch / EditText layout params",
+      "rootCause": "v1.8.5 writes plain <Switch> as MaterialSwitch (not a subclass of android.widget.Switch) and wraps plain EditTexts in an outlined TextInputLayout (their parent and layout params change). Code written for the framework widgets (Switch-typed variables, setThumb/TrackResource, (LinearLayout.LayoutParams) edittext1.getLayoutParams(), addView/removeView of the field) breaks.",
+      "repair": "prevented: M3Widgets.scanCode reads the project's blocks, add-source code, custom variables and more blocks before generating; any Switch type use or thumb/track call keeps all Switches framework Switches, and a field the code moves or re-lays out stays a plain EditText (likewise CheckBox/RadioButton with setButtonDrawable/Tint). A View passed to a more block and cast there is not traced.",
+      "verifiedOn": [
+        "Android 12 ART harness: fixture 912 (m3code): Switch-typed add-source code, edittext1 layout params, checkbox1 setButtonDrawable, edittext2.setHint(int) - see v1.8.5-verification.md"
+      ],
+      "notVerifiedOn": [
+        "a phone"
+      ]
+    },
+    {
+      "fingerprint": "Export to Android Studio: \"package com.google.firebase.messaging does not exist\" / \"cannot find symbol GoogleSignIn\", or NoClassDefFoundError <library package>.R$styleable when an OTPView, CodeView, PatternLockView or WaveSideBar inflates",
+      "rootCause": "upstream's exported build.gradle (Lx.getBuildGradleString) had no FCM, Google sign-in, OneSignal or Audience Network dependency; the v1.8.5 export's local .aar files for four widget libraries had no R.txt, so AGP generated no R classes for them (their code refers to R$styleable, R$color ...).",
+      "repair": "v1.8.5 (final build): GradleExport adds the built-in versions of those dependencies and writes an R.txt (aapt2's text-symbol format, values 0) into each local .aar that lacks one.",
+      "verifiedOn": [
+        "HOST Gradle 8.13 / AGP 8.12 build of the exported fixtures 902/908/911 and dexdump of the resulting APK (library R classes defined for every one the library code references) - see v1.8.5-verification.md",
+        "R.txt of the four libraries compared with aapt2 --output-text-symbols: identical lines (values 0)"
+      ],
+      "notVerifiedOn": [
+        "Android Studio itself; running the exported app on a device"
       ]
     }
   ]

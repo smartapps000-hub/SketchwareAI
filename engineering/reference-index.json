@@ -93,6 +93,42 @@
       "file": "SDK platforms android-34 (rev 3) and android-35 (rev 2) via sdkmanager",
       "purpose": "android-34 android.jar is the bundled compile platform since v1.8.4 (sha256 6cea1df3...); android-35 only to check that aapt2 2.19 links Android 15 resource tables",
       "available": true
+    },
+    {
+      "id": "r8-8.11.18",
+      "file": "com.android.tools:r8:8.11.18 (Google Maven)",
+      "purpose": "D8/L8 for user projects since v1.8.5 (IDE dependency); BSD-3-Clause per POM",
+      "available": true
+    },
+    {
+      "id": "desugar-jdk-libs-2.1.5",
+      "file": "com.android.tools:desugar_jdk_libs:2.1.5 + desugar_jdk_libs_configuration_nio:2.1.5 (Google Maven), packed as assets/libs/desugar.zip",
+      "purpose": "core library desugaring of project code (CoreLibDesugaring); GPL-2.0 with Classpath Exception (library), BSD-3-Clause (configuration)",
+      "available": true
+    },
+    {
+      "id": "bundletool-1.18.3",
+      "file": "com.android.tools.build:bundletool:1.18.3 (Google Maven); apksig 8.12.0",
+      "purpose": "AAB export since v1.8.5 (PAGE_ALIGNMENT_16K); apksig for BundleSigner. Host checks also use bundletool 1.11.3 and 1.17.2 (/home/claude/bt)",
+      "available": true
+    },
+    {
+      "id": "aosp-android-16.0.0_r4",
+      "file": "android.googlesource.com gitiles tarballs at tag android-16.0.0_r4 (tools/aapt2-static/SOURCES.md)",
+      "purpose": "aapt2 2.20 for all four ABIs since v1.8.5; NOTICE in assets/licenses/aapt2-NOTICE.txt",
+      "available": true
+    },
+    {
+      "id": "mdc-android-1.14.0",
+      "file": "material-components-android 1.14.0 release notes (13 May 2026), read Oct 2026",
+      "purpose": "next View-based Material release: minSdk 23 for Material and AndroidX, built with compileSdk 35, androidx.core 1.16.0 (minCompileSdk 35). Not usable with the bundled API 34 android.jar and min SDK 21; repo in maintenance mode since Google I/O 2026",
+      "available": false
+    },
+    {
+      "id": "compose-material",
+      "file": "androidx.compose.material 1.12.1 / 1.13.0-beta02 and material3 1.4.0 / 1.5.0-beta02 release notes, read 22 Oct 2026",
+      "purpose": "Compose (Material 2 and 3) can't be built on the phone: needs the Compose compiler plugin with Kotlin 2.x (kotlinc 2.2 for 1.13), compileSdk 37+, min SDK 23",
+      "available": false
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

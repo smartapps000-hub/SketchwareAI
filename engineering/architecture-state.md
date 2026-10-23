@@ -1,6 +1,6 @@
 # Architecture state
 
-Verified facts about this fork, kept so they don't have to be rediscovered. Last updated for v1.8.4.
+Verified facts about this fork, kept so they don't have to be rediscovered. Last updated for v1.8.5.
 
 ## Foundations (do not bypass)
 
@@ -97,13 +97,84 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
   doesn't add twice); API 35+: `setUseBoundsForWidth` + `setShiftDrawingOffsetForStartOverhang` by reflection.
   The font manager still stores every font as `<name>.ttf`; Android reads TTF and OTF/CFF by content.
 - **AAB export** (minApi26 `AppBundleCompiler`, overlay): local libraries' `jni/` native libraries are added (the APK build
-  always did; AABs missed them), duplicate entries and library jar signature files are skipped. Signing of the .aab is
-  unchanged (kellinwood ZipSigner, as upstream).
+  always did; AABs missed them), duplicate entries and library jar signature files are skipped. Signing of the .aab was
+  unchanged in v1.8.4 (kellinwood ZipSigner, SHA-1); v1.8.5 replaced it with BundleSigner (SHA-256).
 - **NativeAlignment**: build warning for a 64-bit `.so` (project or local library) whose LOAD alignment is below 16 KB.
 - **DEX merge with the bigger libraries**: for min SDK < 21 the project's own D8 output is now several files (the R classes of
   the libraries pass 64K fields; the activities and the Application land in the last one). `project.DexOrder.codeFirst` merges
   the files that hold code right after MultiDex. `DexMerger.WriterSizes` reserves 3x the debug info written per code item
   (D8 shares identical debug_info_items; the merger writes one per use) instead of 3x the section, which overflowed (fixture 907).
+
+## v1.8.5 additions
+
+- **IDE build on AGP 8.12.0 / Gradle 8.13 / compileSdk 34** (target 34, min 26/21 flavours unchanged): KGP 1.9.25 with
+  kotlin-stdlib pinned to 1.7.10 (`kotlin.stdlib.default.dependency=false`, language/api 1.7) so kotlinc stays the embedded
+  1.7.10; `android.nonTransitiveRClass=false` and `android.nonFinalResIds=false` (the precompiled jars use R ids as
+  constants); `buildConfig true`; `--stable-ids public-stable-ids.txt` still pins 7,860 IDs with 0 mismatches. The IDE itself
+  uses coreLibraryDesugaring (desugar_jdk_libs_nio 2.1.5). compileSdk 34 changed one API: `MediaMetadataRetriever.release()`
+  declares IOException (API 33), caught in AddSoundActivity and ManageCollectionActivity.
+- **D8/R8 8.11.18 for user projects + core library desugaring** (`DexCompiler`, overlay; `project.CoreLibDesugaring`): D8 gets
+  desugar_jdk_libs_configuration_nio 2.1.5 (`assets/libs/desugar.zip` -> cacheDir/libs/desugar, checked by exact file sizes) and
+  a keep-rule consumer. When the project uses any `j$` class, L8 compiles desugar_jdk_libs 2.1.5 for the min SDK, shrunk to
+  those classes, cached per min SDK + keep rules + android.jar size (per-run temp names, deleted in `finally`, also when L8
+  throws; two concurrent calls for one key both return the same DEX), and writes `bin/dex/desugar_jdk_libs.dex`; it is
+  packaged/merged like the project's DEX. If D8 with the configuration or L8 fails (L8 also on OOM) the project is dexed
+  again without the configuration, a build warning says so, and `CoreLibDesugaring.reset()` deletes the extracted
+  `desugar.zip` copy so the next build extracts the files again (`available()` checks sizes only). Library jars are D8 *library* input: calls into them with
+  desugared types get API conversions (checked: `connectTimeout(Duration)` -> `TimeConversions.convert` + original
+  signature), so library methods keep working as before. R8 8.x has no public `CompilationFailedException(String, Throwable)`
+  (DexCompiler.failure uses initCause). R8 8.11 calls Java 9+ `InputStream.readAllBytes` only on R8/resource-shrinker paths,
+  which the IDE doesn't use (shrinking is ProGuard); the D8/L8 path runs on the API 31 harness runtime, which lacks it.
+- **bundletool 1.18.3** (minApi26): `AppBundleCompiler` BundleConfig adds `uncompressNativeLibraries { enabled, alignment
+  PAGE_ALIGNMENT_16K }`. **AAB signing** = `project.BundleSigner` (apksig, JAR signature only, minSdk 24 for apksig so the
+  digests are SHA-256: `SHA-256-Digest` + SHA256withRSA, no v2/v3 block). The test key comes from cacheDir/libs/testkey
+  (extracted with the built-in libraries); a user keystore through `KeyStoreFileManager`. APK signing (ReleaseSigner,
+  ApkSigner) is untouched.
+- **aapt2 2.20 (android-16.0.0_r4)** for all four ABIs (`tools/aapt2-static`: protobuf 25.8 needs abseil-cpp, built with
+  protobuf's own CMake; one aconfig header stub; `-llog` from abseil resolved to our static liblog). Same resource table and
+  R.java as 2.19 on the 52 library resource sets (all ABIs).
+- **Material 3 widgets** (`project.M3Widgets`, decided once per generation in `yq` set-up -> `jq.m3Widgets`): AppCompat on,
+  `material3_theme` true, no user `values/styles.xml`, no activity Java file replaced in the Java manager. Per layout file,
+  not when the user replaced that layout. The theme stays `Theme.Material3.Light.NoActionBar` with
+  `viewInflaterClass` = AppCompatViewInflater (as v1.8.4): MaterialComponentsViewInflater tinted every Button background
+  (property colour, image, `setBackground(GradientDrawable)` from code) with the primary colour, and DayNight hid
+  user-chosen dark colours, black icons and `setTextColor` results at night (both found by the review, shown in layoutlib).
+  Tags written instead: plain Button without own background/style -> `<package>.SketchButton` (MaterialButton whose
+  `setBackgroundDrawable` drops the tint for a background set from code); plain CheckBox/RadioButton without injected
+  button/style -> MaterialCheckBox/MaterialRadioButton; plain `<Switch>` (no injected style/thumb/track) ->
+  `MaterialSwitch` and its Java fields (activity, drawer `_drawer_x`, adapter locals via `M3Widgets.enter/exit`); plain
+  EditText (no own background incl. transparent, no injected style/background/layout_/visibility, parent not converted,
+  not inside a TextInputLayout) -> outlined `TextInputLayout` (`Widget.Material3.TextInputLayout.OutlinedBox`) around
+  `<package>.SketchTextField` (layout_*, alpha, rotation, translation, scale move to the box; SketchTextField.setVisibility
+  forwards to the box; a wrap_content field is at least as wide as its hint); `x.setHint(` of such a field ->
+  `SketchTextField.hint(x, ` (same line; CharSequence and string-resource overloads). **`scanCode`** reads the project's
+  blocks as `opCode(params)`, add-source code, custom variables and more blocks first: any `Switch` type or
+  `set/getThumb|Track` keeps every Switch a Switch (`jq.m3Switches`); an EditText/CheckBox/RadioButton id that code moves
+  (`addView/removeView...(id`), re-lays out (`id.get/setLayoutParams`, `getParent`) or restyles (`setButtonDrawable/Tint`)
+  stays plain (`jq.m3KeepPlain`). Default text colour #000000 -> `?attr/colorOnPrimary` on a SketchButton, else
+  `?attr/colorOnSurface` when nothing opaque is behind it; default hint #607D8B -> `?attr/colorOnSurfaceVariant`.
+  **"Plain"** = convert empty or equal to the widget's own class name: upstream's palette sets convert "Button",
+  "EditText", "Switch" ...
+- **Design canvas**: `ItemButton`, `ItemEditText`, `ItemSwitch`, `ItemCheckBox` are source classes now (removed from
+  com.besome.sketch-classes.jar; same public fields). `M3Canvas.widgets()` = DesignTheme.widgets (the generator's decision):
+  pill filled button, checkbox/radio tint, MaterialSwitch track/thumb, outlined field with label notch, theme text colours;
+  `M3Canvas.active()` (the M3 theme) only for the palette's own MaterialButton/TextInputLayout. The canvas doesn't run
+  `scanCode` (it would need the logic data): a widget kept plain because of code still draws the M3 look. ItemEditText
+  changes its background only when it enters or leaves the outlined look (ViewPane sets image backgrounds before the
+  item is attached). TextView.setHintTextColor is final, so ItemEditText applies the hint colour in setVisibility
+  (ViewPane ends every property update with setVisibility(VISIBLE)). `DesignTheme.load` reads libraries and the file list
+  with its own iC/hC instances, never jC's editor cache. Library Manager has a "Material 3 (M3)" row.
+- **Export to Android Studio** (`project.GradleExport`): AGP 8.12.0 / Gradle 8.13 projects (settings.gradle with
+  pluginManagement/dependencyResolutionManagement google()+mavenCentral(), plugins DSL, `namespace`, compileSdk 36 (AGP 8.12's
+  maximum; targetSdk as in the project), Java version from Build Settings, coreLibraryDesugaring from min SDK 21,
+  gradle.properties, gradle-wrapper.properties); the exported manifest loses its package attribute. Widget libraries: Lottie
+  and CircleImageView from Maven Central; YouTube player 10.0.5, OTPView, CodeView, PatternLockView, WaveSideBar (no Maven
+  artifact at these versions) as `app/libs/<name>.aar` made from assets/libs/libs.zip, with an `R.txt` from
+  `GradleExport.textSymbols` when the built-in copy has none (without it AGP makes no R classes for the library:
+  NoClassDefFoundError `R$styleable` at run time); SwipeRefreshLayout 1.1.0 with AppCompat; firebase-messaging +
+  firebase-iid 19.0.0 (FCM), play-services-auth 19.0.0 (Google sign-in), OneSignal 3.14.0, audience-network-sdk 5.9.0
+  (upstream's `Lx.getBuildGradleString` never listed them).
+- Rewarded-ad component imports `OnUserEarnedRewardListener` itself (was an auto-fix at every build).
 
 ## Existing repair engine (v1.7.x)
 

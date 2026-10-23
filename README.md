@@ -1,103 +1,116 @@
-<p align="center">
-    <img src="assets/Sketchware-Pro.png" />
-</p>
+# Sketchware AI
 
-# Sketchware Pro
-![GitHub contributors](https://img.shields.io/github/contributors/Sketchware-Pro/Sketchware-Pro) ![GitHub last commit](https://img.shields.io/github/last-commit/Sketchware-Pro/Sketchware-Pro) ![Discord server stats](https://img.shields.io/discord/790686719753846785)
+A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
+Current release: **v1.8.5** (versionCode 175). Maintained by AiTechApps. Not affiliated with Sketchware
+(besome) or with the Sketchware Pro team.
 
-Here you'll find the source code of many decompiled classes in Sketchware Pro,
-and most importantly, **the place** to contribute to Sketchware Pro.
+## Licence status (read this first)
 
-## Building the app
+- **This project is not open source.** It is built on Sketchware Pro, which its own [LICENSE](LICENSE) calls
+  *source-available, not open-source*: most of its code is decompiled from the original Sketchware app, and the licence
+  allows forks for personal use. Every file this fork inherits keeps that status.
+- **GPL-3.0 parts** (as stated in the upstream LICENSE): the `kotlinc` module, taken from
+  [CodeAssist](https://github.com/tyron12233/CodeAssist), and the `minApi26` build flavour, a derivative of it.
+  The APK this fork ships is the `minApi26` flavour, so those parts are GPL-3.0.
+- **Third-party components** (AOSP aapt2 and libraries, R8/D8, desugar_jdk_libs, bundletool, apksig, ECJ, kotlinc,
+  fonts, and the libraries generated apps can use) keep their own licences: Apache-2.0, BSD-3-Clause, EPL-2.0,
+  GPL-2.0 with Classpath Exception, OFL-1.1 and others. Each one is listed in [CREDITS.md](CREDITS.md).
+- The code this fork added (`com.sketchware.ai.*`, `tools/`, `engineering/`) has **no separate licence grant yet**.
 
-You must use Gradle to build the project. It's highly recommended to use Android Studio, though.
+This is a summary of what the files say, not legal advice.
 
-There are two build variants with same features but slightly different:
+## What "AI" means here
 
- - `minApi26:` This variant supports exporting AABs from projects and supports building with Java 8 to 11. However, it works only on Android 8.0 (O) and above.
- - `minApi21:` This variant can't produce AABs from projects and only supports Java 7, but it supports down to Android 5.
+The name is the product name. **There is no AI model, LLM or cloud service in the app or in its builds.** The build
+auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
+(Google Maven, Maven Central, JitPack).
 
-You must select the appropriate build variant in Android Studio using the Build Variants tab
-or use the appropriate Gradle command.
+## Shipped (v1.0 – v1.8.5)
 
-### Source code map
+Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
-| Class | Role |
-| ----- | ---- |
-| `La/a/a/Dp;` | Helper for compiling the projects. |
-| `La/a/a/Ix;` | Responsible for generating AndroidManifest.xml. |
-| `La/a/a/Jx;` | Generates source code of activities. |
-| `La/a/a/Lx;` | Generates source code of components, such as listeners, etc. |
-| `La/a/a/Ox;` | Responsible for generating XML files of layouts. |
-| `La/a/a/qq;` | Registry of built-in libraries' dependencies. |
-| `La/a/a/tq;` | Responsible for compiling dialog's quizzes. |
-| `La/a/a/yq;` | Organizes Sketchware projects' file paths. |
+| Area | What it does | Since |
+|---|---|---|
+| On-phone toolchain | aapt2 2.20 built from AOSP `android-16.0.0_r4`, static, for arm64-v8a, armeabi-v7a, x86_64, x86, 16 KB-aligned | v1.0 (64-bit), v1.8.4 (all ABIs), v1.8.5 (android-16) |
+| | Projects compile against the bundled Android 14 (API 34) `android.jar`; ECJ 3.26 (Java 7 to 11) | v1.8.4 |
+| | D8 / R8 8.11.18 with core library desugaring (`desugar_jdk_libs_nio` 2.1.5): `java.time`, streams and `java.nio.file` on older Android versions. If that step fails, the build continues without it and says so | v1.8.5 |
+| | Embedded Kotlin compiler 1.7.10; bundletool 1.18.3 (AAB export, 16 KB page alignment for native libraries) | upstream / v1.8.5 |
+| Build repair (offline, rule-based) | Unreachable code, missing imports, missing or broken libraries (restore, exact Maven download), damaged PNGs, missing images. Repairs never move a line. Repairs inside *add source directly* blocks can be stored back into the block | v1.7.0 – v1.8.2 |
+| Diagnostics | Source map (a compile error points to its block, with *Open block*), build map (time and status per step), Build Doctor diagnosis, build history | v1.8.0 – v1.8.2 |
+| New-project defaults | Target API 37, min API 21, D8, Java 11, Material 3 theme. Existing projects keep their stored settings | v1.2 – v1.8.4 |
+| Material 3 | Material 3 AppTheme (light). Plain Buttons become filled Material 3 buttons, Switches `MaterialSwitch`, CheckBoxes and RadioButtons their Material versions, plain EditTexts outlined `TextInputLayout` fields; default text colours follow the theme. Widgets the project's own code treats as framework widgets stay as they are. The design canvas draws them the same way | v1.8.4, v1.8.5 |
+| Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |
+| Export | APK signed v1+v2+v3; AAB with a SHA-256 JAR signature; "Export to Android Studio" writes an AGP 8.12 / Gradle 8.13 project | v1.8.2, v1.8.5 |
+| Built-in libraries | Material 1.13.0, AppCompat 1.7.1, AndroidX core 1.13.1 and the rest of the set listed in `engineering/component-library-inventory.md` | v1.8.4 |
+| Native libraries | Warning for a 64-bit `.so` with 4 KB page alignment; local libraries' `.so` files in APK and AAB | v1.8.4 |
+| UI | "Obsidian liquid glass" visual layer over upstream's screens. The logic editor, block drawer and view editor are upstream's own (precompiled) classes | v1.6 |
 
-You can also check the `mod` package that has the majority of contributors' changes.
+## How it is tested, and what is not
 
-## Contributing
+- **Android runtime harness** (`tools/art-harness`): the APK's own classes run on an Android 12 (API 31) ART runtime
+  **without the Android framework**: whole Run builds of fixture projects 901–912 and AAB exports of 908–912 (aapt2,
+  ECJ, Kotlin, D8/L8, DEX merge, packaging, signing). This is not a device test and says nothing about other Android versions.
+- **layoutlib** (`tools/layoutlib-renders`): Android 14's view, theme and text code on a desktop JVM, for generated
+  layouts and themes (on light and night-mode device settings) and Telugu text.
+- **Host checks**: resource-ID pinning, API-level and linkage scans of the APK, signatures, 16 KB alignment.
+- **Not run here**: the IDE's screens (logic editor, design editor, compile log), aapt2 on a real phone, installing or
+  starting generated apps. Device testing is done by the maintainer on his phone (Android 15) after each build; its
+  results go to `engineering/compatibility-matrix.md`.
 
-Fork this repository and contribute back using
-[pull requests](https://github.com/Sketchware-Pro/Sketchware-Pro/pulls).
+Per-release evidence: `engineering/v<version>-verification.md`; device and API status:
+`engineering/compatibility-matrix.md`.
 
-Any contributions, large or small, major features, or bug fixes, are welcomed and appreciated, but will
-be thoroughly reviewed.
+## Known limits
 
-### How to contribute
+- Project code can't call Android 15+ APIs unless a newer `android.jar` is set in Build Settings (the bundled one is API 34).
+- Java 17 language level is not possible with ECJ 3.26 and the on-phone R8 (`engineering/java17-path.md`).
+- Kotlin code is compiled by kotlinc 1.7.10, which reads Kotlin metadata up to 1.8: Kotlin sources can't use libraries built with newer Kotlin.
+- Material Components 1.14 (Material 3 Expressive) needs min SDK 23 and API 35: not shipped.
+- Firebase, Play services (Ads 20.1.0, Maps, Auth), OneSignal and Audience Network are held at their old versions.
+- The debug APK is signed with the public test key, so it installs over earlier releases. It is not a release key.
 
-- Fork the repository to your GitHub account.
-- Make a branch if necessary.
-- Clone the forked repository to your local device (optional, you can edit files through GitHub's web interface).
-- Make changes to files.
-- (IMPORTANT) Test out those changes.
-- Create a pull request in this repository.
-- The repository members will review your pull request, and merge it when they are accepted.
+## Advanced Roadmap (v1.9 – v2.0): not built
 
-### What changes we'll (most likely) not accept
+**None of the following exists in the code yet.** Order as planned; one release does not attempt everything.
 
-Most changes might be UI-related, and we think it's more or less a waste of time. If something design-related gets changed,
-ideally the whole app must follow the new style too, and that's hard to accomplish, especially for mods. That's why:
+1. Build Doctor strategies with IDs, skipping fixes that already failed for the same fingerprint.
+2. Error dashboard.
+3. Verified repair memory kept on disk.
+4. Dependency and library intelligence.
+5. Developer-tools controller, Project Brain, Git/GitHub, extensions, Android Studio import (export exists).
+6. Sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Blocked until a Firebase project for
+   `com.sketchware.ai`, a private release key and consent screens exist. Telemetry would ship switched off.
+7. Material Components 1.14 migration (needs min SDK 23 and a bundled API 35 `android.jar`).
+8. Dark mode (DayNight) for generated apps as an opt-in project setting: off for now, because colours, icons and
+   `setTextColor` blocks in existing projects assume a light background.
+9. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
 
-- Major changes to the UI (components which exist in vanilla Sketchware) are unlikely to be accepted.
+## Building from source
 
-### Commit message
+The tree is the upstream source zip `Sketchware-Pro-6_4_0-rc05.zip` (sha256
+`ac9c63106dd81879ece6178fc83bb0356dfb0aef6a5493eebf338008d2b1f0b8`) plus this fork's commits. Files in folders hidden by
+the `.gitignore` rule `build/` ship as whole files in the release's patches zip (`overlay/`).
 
-When you've made changes to one or more files, you have to *commit* that file. You also need a
-*message* for that *commit*.
+Needs JDK 17 and the Android SDK (platform 34; Gradle 8.13 and AGP 8.12 are fetched by the wrapper). Then:
 
-You should read [these guidelines](https://www.freecodecamp.org/news/writing-good-commit-messages-a-practical-guide/), or that summarized:
+```
+echo sdk.dir=/path/to/android-sdk > local.properties
+./gradlew assembleMinApi26Debug
+```
 
-- Short and detailed.
-- Prefix one of these commit types:
-   - `feat:` A feature, possibly improving something already existing.
-   - `fix:` A fix, for example of a bug.
-   - `style:` Feature and updates related to styling.
-   - `refactor:` Refactoring a specific section of the codebase.
-   - `test:` Everything related to testing.
-   - `docs:` Everything related to documentation.
-   - `chore:` Code maintenance (you can also use emojis to represent commit types).
+Output: `app/build/outputs/apk/minApi26/debug/app-minApi26-debug.apk`.
 
-Examples:
- - `feat: Speed up compiling with new technique`
- - `fix: Fix crash during launch on certain phones`
- - `refactor: Reformat code at File.java`
+## Repository layout
 
+| Path | Contents |
+|---|---|
+| `app/` | the IDE (upstream sources + this fork's changes; most of the core is precompiled in `app/libs/*.jar`) |
+| `kotlinc/` | the embedded Kotlin compiler module (GPL-3.0, from CodeAssist) |
+| `engineering/` | verified state of the fork, per-release verification records, test fixtures, compatibility matrix, known errors |
+| `tools/` | Android runtime harness, layoutlib renders, static aapt2 build, built-in library packaging, APK scans, JVM tests |
+| `releases/` | release notes and SHA-256 sums per release. The APK (about 138 MB) and the patches zip are release assets, not git files: GitHub refuses files over 100 MB |
 
-## Thanks for contributing
-They help keeping Sketchware Pro alive. Each (helpful) accepted contribution will get noted down in the "About Modders" activity. We'll use your GitHub name and profile picture initially, but they can be
-changed of course.
+## Credits
 
-## Discord
-Wanna chat with us, talk about changes, or just hang out? We have a Discord server just for that.
-
-[![Join our Discord server!](https://invidget.switchblade.xyz/kq39yhT4rX)](http://discord.gg/kq39yhT4rX)
-
-## Disclaimer
-This mod was not meant for any harmful purposes, such as harming Sketchware; Quite the opposite actually.
-It was made to keep Sketchware alive by the community for the community. Please use it at your own discretion
-and be a Patreon backer of them, for example. Sadly, all other ways to support them aren't working anymore,
-so it's the only way available currently.
-[Here's their Patreon page.](https://www.patreon.com/sketchware)
-
-We love Sketchware very much, and we are grateful to Sketchware's developers for making such an amazing app, but unfortunately, we haven't received updates for a long time.
-That's why we decided to keep Sketchware alive by making this mod, plus we don't demand any money, it's completely free :)
+Sketchware (besome), the Sketchware Pro team and contributors, CodeAssist (tyron12233), the Android Open Source Project,
+and the authors of every component in [CREDITS.md](CREDITS.md).
