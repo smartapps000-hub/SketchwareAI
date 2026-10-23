@@ -1,2 +1,4 @@
-# sha256 of the v1.8.6 release files (sha256sum format). The patches zip's sum is in the GitHub release notes: it cannot list itself.
+# sha256 of the v1.8.6 release files (sha256sum format), on the binaries branch. The patches zip's sums are in that branch's README: it cannot list itself.
 8cf18893a303293fd78f44f9f36b5b5ff5436eda82baddc5135a94c45e67382b  SketchwareAI-v1.8.6.apk
+ca50b9ac5fa2dd78a3cf443eef9864335fbd738a149440e51f33ad7469d788e6  SketchwareAI-v1.8.6.apk.7z.001
+932f77f9f3ad4a7a7d4d5b2804d385ac5e1ec8c8137a1e4517be01236a705477  SketchwareAI-v1.8.6.apk.7z.002

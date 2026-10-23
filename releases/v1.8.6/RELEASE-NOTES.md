@@ -55,4 +55,5 @@ installing or starting built apps, dynamic colour on an Android 12+ device, a Pl
 
 ## Files
 
-The APK (`SketchwareAI-v1.8.6.apk`, 138,320,721 bytes) is a GitHub release asset; `SHA256SUMS` lists it.
+The APK (`SketchwareAI-v1.8.6.apk`, 138,320,721 bytes) and the patches zip are on the repository's `binaries` branch as
+7z parts (GitHub refuses files over 100 MB); `SHA256SUMS` lists them. Open `.7z.001` in ZArchiver.

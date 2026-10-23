@@ -119,7 +119,7 @@ Output: `app/build/outputs/apk/minApi26/debug/app-minApi26-debug.apk`.
 | `kotlinc/` | the embedded Kotlin compiler module (GPL-3.0, from CodeAssist) |
 | `engineering/` | verified state of the fork, per-release verification records, test fixtures, compatibility matrix, known errors |
 | `tools/` | Android runtime harness, layoutlib renders, static aapt2 build, built-in library packaging, APK scans, JVM tests |
-| `releases/` | release notes and SHA-256 sums per release. The APK (about 138 MB) is a GitHub release asset, not a git file: GitHub refuses files over 100 MB |
+| `releases/` | release notes and SHA-256 sums per release. The APKs (about 138 MB) are not in this branch: they are on the `binaries` branch as 7z parts, because GitHub refuses files over 100 MB |
 
 ## Credits
 
