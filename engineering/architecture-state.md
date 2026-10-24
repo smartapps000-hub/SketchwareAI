@@ -307,6 +307,16 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
 - **Build**: `Dp` adds the built-in libraries every enabled local library's `needs.json` names
   (`LibraryNeeds.addBuiltIns`), so e.g. Retrofit gets the built-in OkHttp and Gson with no block using them;
   `GradleExport` writes those libraries' Maven coordinates (`LibraryNeeds.exportCoordinates`).
+- **Export to Android Studio and local libraries** (`GradleExport.localLibraries`, `writeLocalLibraries`,
+  `blankUnresolvableImports`; called by ExportProjectActivity after `writeWidgetLibraries`): the project's enabled local
+  libraries were never exported (upstream gap). A library whose coordinate is recorded (needs.json, else source.json; a
+  valid `g:a:v` only, nothing guessed from a name) becomes an `implementation` line in `extraDependencies`; JitPack is
+  added to settings.gradle when such a library's source URL is jitpack.io. Others go to `app/libs`: classes.jar as
+  `local-<name>.jar`, or `local-<name>.aar` (classes.jar, res, assets, jni, proguard.txt, the folder's manifest or one
+  with the `config` package, R.txt from the folder or `textSymbols`) when the folder has Android parts. A local library's
+  "packageName" is its R package (ManageLocalLibrary: `import <pkg>.*` in generated code, an R class in the on-phone
+  build): the Library Resolver writes it only from an .aar manifest; in an export, `import <pkg>.*;` for a package with no
+  class in the library and no res/ is left as an empty line.
 - **Android ICU regex**: an unescaped `}` in a `java.util.regex.Pattern` is a syntax error on Android (ICU) and fine on the
   desktop JVM: `MavenResolver`'s property pattern threw in `<clinit>` on ART. Known-errors KE-ICU-REGEX.
 

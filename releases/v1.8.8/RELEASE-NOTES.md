@@ -1,6 +1,6 @@
 # Sketchware AI v1.8.8
 
-versionCode 178, versionName `v1.8.8-HASH-minApi26`. Installs over v1.8.7 (same test key).
+versionCode 178, versionName `v1.8.8-f6b8e9f-minApi26`. Installs over v1.8.7 (same test key).
 
 ## Edit Java code → blocks
 
@@ -49,6 +49,17 @@ a different major version of something built in (Retrofit 3 needs OkHttp 4; the 
 says so before you install: such a library may not work. Retrofit 2.x works with the built-in OkHttp 3. Or **Import file**
 (.aar / .jar / library .zip).
 
+## Export to Android Studio: your local libraries are included
+
+Until now the exported project left out the project's local libraries, so it didn't compile in Android Studio when
+the code used one. Now: a library with a known Maven coordinate (installed by the Library Resolver, or downloaded by
+the build's library repair) is written to `app/build.gradle` as `implementation 'group:artifact:version'` (JitPack is
+added to `settings.gradle` when one came from there); any other library is copied to `app/libs` (a `.jar`, or an `.aar`
+when it has resources, assets, native libraries or a manifest). Plain `.jar` libraries the Library Resolver installs no
+longer get an "R package" name (their Maven group, e.g. `com.squareup.retrofit2`, is not a Java package; the generated
+`import com.squareup.retrofit2.*;` only compiled on the phone); in an export, such an import left by an older install is
+removed.
+
 ## Code tab
 
 A fourth tab in the design editor: the project's activities (→ Java editor) and your own Java/Kotlin classes
@@ -57,7 +68,30 @@ needs its manifest entry: Java Manager → ⋮ → Add as Activity).
 
 ## Checked
 
-SUITE-PENDING
+On the Android 12 (API 31) ART runtime with this APK's own classes, no phone (details:
+`engineering/v1.8.8-verification.md`):
+
+- **Java editor**: a test project edited through the editor's save, 43 checks (changes inside events and inside
+  if/else, fields, imports, MoreBlocks, removals, refusals that must change nothing, a URL field), each result
+  generated again from the blocks and compared; then the project builds. Every activity of the 20 test projects opens
+  as convertible and an unchanged save changes nothing.
+- **Library Resolver**: Retrofit 2.9.0 + its Gson converter resolved, installed and switched on in a project; the
+  build adds the built-in OkHttp and Gson; every Retrofit class loads. POM resolution was also run against the live
+  Google Maven, Maven Central and JitPack (Retrofit, Room, RxAndroid, AndroidX Preference, MPAndroidChart).
+- **Export to Android Studio** of that project, with its libraries by Maven coordinate and with imported copies in
+  `app/libs`: both build with Gradle 8.13 / AGP 8.12.
+- **Everything else again**: Run build of all 20 test projects (906 fails as designed and names its block), LoadAll
+  of every built app, Export AAB of 9 projects (bundletool 1.11.3 / 1.17.2 / 1.18.3, `jarsigner`), Export to Android
+  Studio of 6 projects built with Gradle.
+- The Library Resolver, Java editor and Code tab screens were rendered with layoutlib (Android 14's view code on a PC).
+
+**Not run here:** these screens on a phone (Activities, the code editor), Maven Central search and downloads over a
+phone's network, Dx on Android 7.1 and older, installing or starting built apps.
+
+## Files
+
+The APK (`SketchwareAI-v1.8.8.apk`, 138,448,009 bytes) and the patches zip are on the repository's `binaries` branch as
+7z parts (GitHub refuses files over 100 MB); `SHA256SUMS` lists them. Open `.7z.001` in ZArchiver.
 
 ## Not in this release
 

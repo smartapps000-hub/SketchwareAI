@@ -333,6 +333,15 @@
    "verifiedOn": [
     "ART API 31: fixture 919 'URL field' (stored as written) and 'field with a trailing comment refused' checks"
    ]
+  },
+  {
+   "fingerprint": "Export to Android Studio of a project with local libraries: the exported project doesn't compile (classes of the local library missing; or 'package com.squareup.retrofit2 does not exist' for import com.squareup.retrofit2.*)",
+   "rootCause": "the export never wrote the project's local libraries (upstream); a plain .jar library installed with its Maven group as R package name gets an import of a package that only the on-phone build's empty R class creates",
+   "repair": "GradleExport writes local libraries by Maven coordinate or as app/libs .jar/.aar; the Library Resolver gives plain .jar libraries no package name; the export empties import lines for packages that exist neither in the library nor as an R package",
+   "scope": "Export to Android Studio",
+   "verifiedOn": [
+    "ART API 31 + Gradle 8.13 / AGP 8.12 on JDK 17: fixture 920 exported with its Maven libraries (an old-style package name blanked) and with two coordinate-less copies (app/libs .jar + .aar): both build; Retrofit's classes in both APKs, the .aar's resource in the second"
+   ]
   }
  ]
 }

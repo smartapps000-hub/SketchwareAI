@@ -95,6 +95,7 @@ Whether a generated APK runs on a given Android version depends on that project'
   and an unchanged open + save of every suite project's activities. Library Resolver: POM resolution and install of
   Retrofit 2.9.0 + converter-gson (fixture 920, POMs and archives from a cache downloaded from Maven Central; the live
   repositories were read by `tools/jvm-tests/MavenResolverTest` on JDK 17), built with the built-in OkHttp and Gson.
+  Export to Android Studio of that project (libraries by Maven coordinate, and as app/libs files) built with Gradle.
   Regression fixtures 901-918 built again. Results in `v1.8.8-verification.md`.
 - The Java editor, Library Resolver and Code tab screens (Activities, sora-editor), Maven Central search and downloads on a
   phone's network, Dx on Android 7.1 and older (minApi21 build): NOT TESTED here (no device, no emulator). Layouts
