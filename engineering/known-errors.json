@@ -324,6 +324,15 @@
    "verifiedOn": [
     "review of the v1.8.8 diff; minApi21 compiled, not run"
    ]
+  },
+  {
+   "fingerprint": "(check before release) Java editor: a new field holding \"//\" in a string, e.g. private String api = \"https://example.com/\", was refused as a comment",
+   "rootCause": "the field check looked for \"//\" in the line text, inside string literals too",
+   "repair": "JavaMembers records which lines hold a comment outside string and character literals (JavaMembers.hasComment); only those are refused",
+   "scope": "IDE (Java editor)",
+   "verifiedOn": [
+    "ART API 31: fixture 919 'URL field' (stored as written) and 'field with a trailing comment refused' checks"
+   ]
   }
  ]
 }

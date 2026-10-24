@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.8.7** (versionCode 177). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.8.8** (versionCode 178). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,7 +27,7 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.8.7)
+## Shipped (v1.0 – v1.8.8)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -42,6 +42,9 @@ Everything in this section is in the released APK and was exercised as described
 | New Project screen | Full screen in cards: names with icons, app icon, version; templates (Empty Activity, Material 3 Scaffold, Bottom Navigation, Navigation Drawer, Tabbed ViewPager) written as ordinary views and blocks you can edit; colour presets and a random harmonious set (Material Color Utilities) with a live light/dark preview; Material 3, dark theme and dynamic colour; minimum / target SDK and Java level. Shows the phone's build engine (D8 / R8 on Android 8+) | v1.8.7 |
 | New-project defaults | AppCompat and Design on (Material 3 needs it), target API 37, min API 21, D8, Java 11 (core library desugaring and the 16 KB aapt2 are always on), Material 3 theme with dark theme. Existing projects keep their stored settings | v1.2 – v1.8.7 |
 | Material 3 | Material 3 AppTheme whose colour roles (containers, tonal surfaces, outlines, tertiary, error) are computed from the project's primary colour with Material Color Utilities; the project's own colours stay exact. Light and dark (follows the phone's dark mode; on for new projects, a Library Manager switch for older ones). Dynamic colour from the wallpaper on Android 12+ as an opt-in switch. Plain Buttons become filled Material 3 buttons (also in a background colour of their own, keeping the pill shape), Switches `MaterialSwitch`, CheckBoxes and RadioButtons their Material versions, plain EditTexts outlined fields with 8dp corners, at least as wide as their label; default text colours follow the theme. Widgets the project's own code treats as framework widgets stay as they are. The design canvas draws the light look with the project's colours | v1.8.4 – v1.8.6 |
+| Java editor | Design editor → *Edit Java code* or the Code tab: an activity's generated Java in a code editor. Saving turns the changes back into the project: changed lines inside an event become *add source directly* blocks (only the blocks whose lines changed are replaced; changes inside if/else/loops stay there), new fields custom variables, new imports custom imports, methods written as `public void _name(final String _x, …)` MoreBlocks. What the designer generates itself is refused with its line. Nothing is kept unless the code generated again from the blocks is the code you wrote | v1.8.8 |
+| Library Resolver | Replaces the local library manager. Required / All / Updates / Cache tabs; Maven Central search; + Add by Maven coordinate (POMs read like Gradle: parents, BOMs, properties, exclusions, version ranges) or AAR/JAR/ZIP import; libraries Sketchware AI has built in are not downloaded, and a build adds the built-in libraries a local library needs (Retrofit → OkHttp, Gson) | v1.8.8 |
+| Code tab | Fourth design editor tab: the project's activities (→ Java editor) and its own Java/Kotlin files; + New class | v1.8.8 |
 | Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |
 | Export | APK signed v1+v2+v3; AAB with a SHA-256 JAR signature; "Export to Android Studio" writes an AGP 8.12 / Gradle 8.13 project | v1.8.2, v1.8.5 |
 | Built-in libraries | Material 1.13.0, AppCompat 1.7.1, AndroidX core 1.13.1 and the rest of the set listed in `engineering/component-library-inventory.md` | v1.8.4 |
@@ -51,14 +54,16 @@ Everything in this section is in the released APK and was exercised as described
 ## How it is tested, and what is not
 
 - **Android runtime harness** (`tools/art-harness`): the APK's own classes run on an Android 12 (API 31) ART runtime
-  **without the Android framework**: whole Run builds of fixture projects 901–918 (914–918 created by the New Project
-  screen's own code) and AAB exports (aapt2,
+  **without the Android framework**: whole Run builds of fixture projects 901–920 (914–918 created by the New Project
+  screen's own code; 919 edited through the Java editor's save; 920 with libraries installed by the Library Resolver) and
+  AAB exports (aapt2,
   ECJ, Kotlin, D8/L8, DEX merge, packaging, signing). This is not a device test and says nothing about other Android versions.
 - **layoutlib** (`tools/layoutlib-renders`): Android 14's view, theme and text code on a desktop JVM, for generated
   layouts and themes (on light and night-mode device settings, large font and bold-text settings), Telugu text and IDE
   dialog layouts. No Android emulator: the build machine has no hardware virtualisation.
 - **Host checks**: resource-ID pinning, API-level and linkage scans of the APK, signatures, 16 KB alignment.
-- **Not run here**: the IDE's screens (logic editor, design editor, compile log), aapt2 on a real phone, installing or
+- **Not run here**: the IDE's screens (logic editor, design editor, compile log, Java editor, Library Resolver), Maven
+  downloads on a phone's network, aapt2 on a real phone, installing or
   starting generated apps. Device testing is done by the maintainer on his phone (Android 15) after each build; its
   results go to `engineering/compatibility-matrix.md`.
 
@@ -77,6 +82,12 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
   colour on the theme background can be hard to read in dark mode; the Library Manager's *Dark theme* switch turns it
   off per project. Dynamic colour replaces the project colours on Android 12+ by design.
 - The design canvas shows the light look only.
+- Java editor: only code inside events, fields, imports and MoreBlock-shaped methods becomes blocks; other methods and
+  classes belong in a Java file of their own (Code tab → + New class). Changed code is stored as *add source directly*
+  blocks, not as individual blocks.
+- Library Resolver: a library that needs a different major version of a built-in library (Retrofit 3 needs OkHttp 4;
+  OkHttp 3.14.9 is built in) may not work; the install plan says so. Libraries compiled for Java 8+ can't be dexed on
+  Android 7.1 and older (Dx).
 - A drawer's panel keeps the AppCompat Manager's light grey (#EEEEEE) in dark mode; its default black text stays readable there.
 - Not on the phone: a Gradle build (it needs a JDK and Gradle runtime of about 1.5 GB on the device), Kotlin as the
   language of the blocks (blocks generate Java; Kotlin files can be added in the Java Manager), Jetpack Compose.
@@ -87,20 +98,17 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 
 **None of the following exists in the code yet.** Order as planned; one release does not attempt everything.
 
-1. Planned next (v1.8.8): Library Resolver (Required / All / Updates / Cache, Maven coordinates and AAR/JAR import), a
-   Direct Java editor whose saved code becomes blocks (each change proven by regenerating the code), a Code tab with
-   New class.
-2. Build Doctor strategies with IDs, skipping fixes that already failed for the same fingerprint.
-3. Error dashboard.
-4. Verified repair memory kept on disk.
-5. Dependency and library intelligence.
-6. Developer-tools controller, Project Brain, Git/GitHub, extensions, Android Studio import (export exists).
-7. Sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Blocked until a Firebase project for
+1. Build Doctor strategies with IDs, skipping fixes that already failed for the same fingerprint.
+2. Error dashboard.
+3. Verified repair memory kept on disk.
+4. Dependency and library intelligence beyond the Library Resolver.
+5. Developer-tools controller, Project Brain, Git/GitHub, extensions, Android Studio import (export exists).
+6. Sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Blocked until a Firebase project for
    `com.sketchware.ai`, a private release key and consent screens exist. Telemetry would ship switched off.
-8. Material 3 Expressive: the Expressive components of Material 1.13 in the palette, then the Material Components 1.14
+7. Material 3 Expressive: the Expressive components of Material 1.13 in the palette, then the Material Components 1.14
    migration (Expressive theme; needs min SDK 23 and a bundled API 35 `android.jar`).
-9. A dark-mode preview on the design canvas.
-10. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
+8. A dark-mode preview on the design canvas.
+9. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
 
 ## Building from source
 
