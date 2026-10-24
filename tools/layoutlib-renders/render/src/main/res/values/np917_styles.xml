@@ -1,0 +1,15 @@
+<resources>
+	<style name="AppTheme917" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+		<item name="colorPrimary">@color/np917_colorPrimary</item>
+		<item name="colorPrimaryDark">@color/np917_colorPrimaryDark</item>
+		<item name="colorAccent">@color/np917_colorAccent</item>
+		<item name="colorControlHighlight">@color/np917_colorControlHighlight</item>
+		<item name="colorControlNormal">@color/np917_colorControlNormal</item>
+	</style>
+	<style name="AppTheme917.FullScreen" parent="AppTheme917">
+		<item name="android:windowFullscreen">true</item>
+		<item name="android:windowContentOverlay">@null</item>
+	</style>
+	<style name="AppTheme917.AppBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+	<style name="AppTheme917.PopupOverlay" parent="ThemeOverlay.MaterialComponents.Light" />
+</resources>

@@ -79,3 +79,12 @@ Whether a generated APK runs on a given Android version depends on that project'
   Build Settings sheet. Results in `v1.8.6-verification.md`.
 - No device run by the developer of this fork; no Android emulator (no hardware virtualisation on the build machine).
   Dynamic colour needs Android 12+ with a wallpaper: NOT TESTED. Android 15 / 16 KB-page devices, Play upload: NOT TESTED.
+
+## v1.8.7 (23 Oct 2026)
+- New Project screen; new projects get AppCompat on, so Material 3 applies to projects made on the phone. Projects made by
+  the screen's own code (`NewProjectSetup.create`: fixtures 914-918, one per template) and the regression fixtures
+  901-913 built on the Android 12 (API 31) ART harness with the final APK; layoutlib renders of the New Project screen,
+  of the five generated template apps (light and night) and of an empty VideoView in the owner's layout. Results in
+  `v1.8.7-verification.md`.
+- The New Project screen itself (an Activity), the design canvas VideoView and the template apps on a phone: NOT TESTED
+  here (no device, no emulator).

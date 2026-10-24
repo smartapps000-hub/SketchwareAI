@@ -1,0 +1,7 @@
+<resources>
+	<color name="np918_colorPrimary">#8E4A5E</color>
+	<color name="np918_colorPrimaryDark">#6B2C3F</color>
+	<color name="np918_colorAccent">#B4637A</color>
+	<color name="np918_colorControlHighlight">#338E4A5E</color>
+	<color name="np918_colorControlNormal">#757575</color>
+</resources>

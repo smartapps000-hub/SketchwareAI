@@ -1,0 +1,7 @@
+<resources>
+	<color name="np914_colorPrimary">#F4511E</color>
+	<color name="np914_colorPrimaryDark">#BF360C</color>
+	<color name="np914_colorAccent">#FF7043</color>
+	<color name="np914_colorControlHighlight">#F4511E</color>
+	<color name="np914_colorControlNormal">#757575</color>
+</resources>

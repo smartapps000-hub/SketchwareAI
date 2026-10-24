@@ -1,6 +1,6 @@
 # Credits and licences
 
-Sketchware AI v1.8.6. Who made what this fork is built from, and under which licence each part is distributed.
+Sketchware AI v1.8.7. Who made what this fork is built from, and under which licence each part is distributed.
 The column *Checked from* says where the licence was read; "not re-verified" means it is the component's published
 licence but this fork found no licence file in the copy it ships. This is a record of what the files say, not legal advice.
 
@@ -62,7 +62,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | Part | Licence | Checked from |
 |---|---|---|
 | Sora, Manrope, JetBrains Mono (`res/font`, the Obsidian UI) | SIL Open Font License 1.1 | `assets/licenses/fonts-OFL.txt` |
-| Material icons "palette", "dark_mode", "wallpaper" (`res/drawable/ob_ic_material3.xml`, `ob_ic_dark_theme.xml`, `ob_ic_dynamic_color.xml`) | Apache-2.0 | not re-verified |
+| Material icons "palette", "dark_mode", "wallpaper", "android" (`res/drawable/ob_ic_material3.xml`, `ob_ic_dark_theme.xml`, `ob_ic_dynamic_color.xml`, `np_ic_android.xml`) | Apache-2.0 | not re-verified |
 | Droid Sans Mono (`assets/fonts`, upstream) | Apache-2.0 | not re-verified |
 | `assets/libs/android.jar.zip`: Android SDK platform android-34 rev 3 `android.jar` (compile-only; upstream bundles one the same way) | Android Software Development Kit License Agreement | not re-verified |
 | Test fonts used by `tools/` (fixture 909, layoutlib) | OFL-1.1; created by `make-test-fonts.py`, never committed or shipped | — |

@@ -214,6 +214,45 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
   `mod/hey/studios/build` and `mod/jbk/build` are tracked; the public AOSP test key `testkey.keystore` is tracked. A clone
   of the repository builds without the patches zip's `overlay/`.
 
+## v1.8.7 additions
+
+- **New Project screen** (`ui.NewProjectActivity`, `res/layout/ob_new_project.xml`, `ob_np_template.xml`,
+  `ob_np_palette.xml`): full screen instead of the project setting dialog for *new* projects (GC.toProjectSettingsActivity;
+  the dialog `MyProjectSettingActivity` stays for the settings of existing projects). Obsidian glass cards: names with
+  icons, app icon, version code/name (validated: a whole number from 1, "x.y"); template carousel; build engine (one per
+  phone, shown, not chosen: `Dp.isD8Enabled()` uses D8 on Android 8+ even for a project that says Dx, and D8 can't run
+  below 8, where Dx is the only dexer); colour presets (`project.ThemePresets`: Solar Orange, Material Purple / Blue /
+  Green, Rose Wine, Custom; "Generate random" = one random HCT hue: primary tone 40, dark primary tone 30, accent hue+60);
+  the five project colours (labelled by what they colour: Accent, Primary, Status bar, Ripple, Controls); a live preview
+  (`ui.ThemePreviewView`: light and dark phone with the colours the build writes, M3Palette roles, white toolbar title of
+  the generated AppBarOverlay; MaterialComponents look when Material 3 is off); Material 3 / dark theme / dynamic colour
+  rows; min SDK (21-34), target SDK (34-37), Java level (the flavour's `BuildSettingsDialogBridge` list without 9/10).
+  Result extras `sc_id` + `is_new` as before, so the projects list opens the design editor. A failed create deletes
+  what was written for the id (`lC.a(context, id)`).
+- **One creation path** (`project.NewProjectSetup.create(Context, scId, Choices)`): the project list entry (lC), `wq.a`,
+  the emptied data folder, `ModernProjectDefaults.applyToNewProject`, then the screen's choices over the defaults
+  (project settings, build settings: dexer + Java level) and the template. The harness fixtures 914-918 call the same
+  method (`Fixtures.createLikeNewProjectScreen`).
+- **Templates** (`project.ProjectPresets`): ordinary project content written with the managers' own load/save (`hC`
+  files, `eC` views/logic, `kC` resources; data folder): Empty (toolbar); Material 3 Scaffold (ScrollView, two CardViews,
+  FAB with a "+" project image `fab_add` from the Java resource `preset_fab_add.png`); Bottom Navigation (content +
+  BottomNavigationView, one add-source block in onCreate adding three items and a selection listener); Navigation Drawer
+  (activity drawer option + `_drawer_main` with a header in the primary colour and three rows); Tabbed ViewPager
+  (TabLayout in the primary colour + ViewPager, one add-source block with a PagerAdapter of three text pages and
+  setupWithViewPager). Block code is Java 7 (anonymous classes, final captures, fully qualified names).
+- **AppCompat on for new projects** (`ModernProjectDefaults.enableAppCompat`, only when the project has no library file
+  yet): Material 3 applies only to AppCompat projects and a project's libraries start "N" (`iC.f()`), so projects created
+  on the phone with v1.8.4-v1.8.6 kept the framework theme although `material3_theme` was stored (the owner's NewProject8
+  / NewProject9). The harness fixtures had always switched AppCompat on themselves.
+- **Canvas VideoView** (`ItemVideoView`, source): measures like android's VideoView with no video
+  (`View.getDefaultSize(0, spec)`: wrap_content takes all the space an AT_MOST parent offers) and draws black where no
+  background is set. On the phone such a VideoView is a black SurfaceView that pushes later widgets off the screen (the
+  owner's "black area below the widgets"); the canvas showed a fixed preview. A ScrollView parent keeps the preview size
+  in the canvas (on the phone the empty VideoView is 0 high there).
+- **colors.xml**: `colorControlHighlight` keeps its alpha (`yq.highlightColor`); every colour used to be written #RRGGBB,
+  so the translucent ripple colour became an opaque flash. Opaque or fully transparent stored values are written as before.
+- **Project setting dialog**: the old version dialog reads "x" as "x.0" instead of throwing on a version name without a dot.
+
 ## Existing repair engine (v1.7.x)
 
 - `AutoHeal` (problem parser, located edits, never changes line count, rollback), `JavaTokens` (dead-code detection after JLS 14.22), `AutoHealLoop` (attempts, per-site escalation keep -> remove, report), `ClassIndex` (imports from the classpath), `LibraryAutoResolve`/`LibraryHeal` (enable installed library, known Maven coordinates, sub-dependency linking, D8), `BuildWarnings`.

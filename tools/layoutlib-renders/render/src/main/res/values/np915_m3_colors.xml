@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- Material 3 colour roles from the project's primary colour (Sketchware AI, M3Palette) -->
+	<color name="np915_sketch_m3_on_primary">#FFFFFF</color>
+	<color name="np915_sketch_m3_primary_container">#6750A4</color>
+	<color name="np915_sketch_m3_on_primary_container">#E0D2FF</color>
+	<color name="np915_sketch_m3_primary_inverse">#CFBCFF</color>
+	<color name="np915_sketch_m3_on_secondary">#FFFFFF</color>
+	<color name="np915_sketch_m3_secondary_container">#E1D4FD</color>
+	<color name="np915_sketch_m3_on_secondary_container">#645A7D</color>
+	<color name="np915_sketch_m3_tertiary">#762A5B</color>
+	<color name="np915_sketch_m3_on_tertiary">#FFFFFF</color>
+	<color name="np915_sketch_m3_tertiary_container">#924274</color>
+	<color name="np915_sketch_m3_on_tertiary_container">#FFCAE5</color>
+	<color name="np915_sketch_m3_error">#BA1A1A</color>
+	<color name="np915_sketch_m3_on_error">#FFFFFF</color>
+	<color name="np915_sketch_m3_error_container">#FFDAD6</color>
+	<color name="np915_sketch_m3_on_error_container">#93000A</color>
+	<color name="np915_sketch_m3_background">#FDF7FF</color>
+	<color name="np915_sketch_m3_on_background">#1D1B20</color>
+	<color name="np915_sketch_m3_surface">#FDF7FF</color>
+	<color name="np915_sketch_m3_on_surface">#1D1B20</color>
+	<color name="np915_sketch_m3_surface_variant">#E7E0EE</color>
+	<color name="np915_sketch_m3_on_surface_variant">#494551</color>
+	<color name="np915_sketch_m3_surface_inverse">#322F35</color>
+	<color name="np915_sketch_m3_on_surface_inverse">#F5EFF7</color>
+	<color name="np915_sketch_m3_surface_bright">#FDF7FF</color>
+	<color name="np915_sketch_m3_surface_dim">#DED8E0</color>
+	<color name="np915_sketch_m3_surface_container_lowest">#FFFFFF</color>
+	<color name="np915_sketch_m3_surface_container_low">#F8F2FA</color>
+	<color name="np915_sketch_m3_surface_container">#F2ECF4</color>
+	<color name="np915_sketch_m3_surface_container_high">#ECE6EE</color>
+	<color name="np915_sketch_m3_surface_container_highest">#E6E0E9</color>
+	<color name="np915_sketch_m3_outline">#7A7582</color>
+	<color name="np915_sketch_m3_outline_variant">#CBC4D2</color>
+</resources>

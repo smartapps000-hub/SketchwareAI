@@ -1,0 +1,62 @@
+<resources>
+	<style name="AppTheme914" parent="Theme.Material3.DayNight.NoActionBar">
+		<item name="colorPrimary">@color/np914_colorPrimary</item>
+		<item name="colorPrimaryDark">@color/np914_colorPrimaryDark</item>
+		<item name="colorPrimaryVariant">@color/np914_colorPrimaryDark</item>
+		<item name="colorAccent">@color/np914_colorAccent</item>
+		<item name="colorSecondary">@color/np914_colorAccent</item>
+		<item name="colorOnPrimary">@color/np914_sketch_m3_on_primary</item>
+		<item name="colorPrimaryContainer">@color/np914_sketch_m3_primary_container</item>
+		<item name="colorOnPrimaryContainer">@color/np914_sketch_m3_on_primary_container</item>
+		<item name="colorPrimaryInverse">@color/np914_sketch_m3_primary_inverse</item>
+		<item name="colorOnSecondary">@color/np914_sketch_m3_on_secondary</item>
+		<item name="colorSecondaryContainer">@color/np914_sketch_m3_secondary_container</item>
+		<item name="colorOnSecondaryContainer">@color/np914_sketch_m3_on_secondary_container</item>
+		<item name="colorTertiary">@color/np914_sketch_m3_tertiary</item>
+		<item name="colorOnTertiary">@color/np914_sketch_m3_on_tertiary</item>
+		<item name="colorTertiaryContainer">@color/np914_sketch_m3_tertiary_container</item>
+		<item name="colorOnTertiaryContainer">@color/np914_sketch_m3_on_tertiary_container</item>
+		<item name="colorError">@color/np914_sketch_m3_error</item>
+		<item name="colorOnError">@color/np914_sketch_m3_on_error</item>
+		<item name="colorErrorContainer">@color/np914_sketch_m3_error_container</item>
+		<item name="colorOnErrorContainer">@color/np914_sketch_m3_on_error_container</item>
+		<item name="android:colorBackground">@color/np914_sketch_m3_background</item>
+		<item name="colorOnBackground">@color/np914_sketch_m3_on_background</item>
+		<item name="colorSurface">@color/np914_sketch_m3_surface</item>
+		<item name="colorOnSurface">@color/np914_sketch_m3_on_surface</item>
+		<item name="colorSurfaceVariant">@color/np914_sketch_m3_surface_variant</item>
+		<item name="colorOnSurfaceVariant">@color/np914_sketch_m3_on_surface_variant</item>
+		<item name="colorSurfaceInverse">@color/np914_sketch_m3_surface_inverse</item>
+		<item name="colorOnSurfaceInverse">@color/np914_sketch_m3_on_surface_inverse</item>
+		<item name="colorSurfaceBright">@color/np914_sketch_m3_surface_bright</item>
+		<item name="colorSurfaceDim">@color/np914_sketch_m3_surface_dim</item>
+		<item name="colorSurfaceContainerLowest">@color/np914_sketch_m3_surface_container_lowest</item>
+		<item name="colorSurfaceContainerLow">@color/np914_sketch_m3_surface_container_low</item>
+		<item name="colorSurfaceContainer">@color/np914_sketch_m3_surface_container</item>
+		<item name="colorSurfaceContainerHigh">@color/np914_sketch_m3_surface_container_high</item>
+		<item name="colorSurfaceContainerHighest">@color/np914_sketch_m3_surface_container_highest</item>
+		<item name="colorOutline">@color/np914_sketch_m3_outline</item>
+		<item name="colorOutlineVariant">@color/np914_sketch_m3_outline_variant</item>
+		<item name="colorControlHighlight">@color/np914_colorControlHighlight</item>
+		<item name="colorControlNormal">@color/np914_colorControlNormal</item>
+		<item name="android:statusBarColor">@color/np914_colorPrimaryDark</item>
+		<item name="viewInflaterClass">androidx.appcompat.app.AppCompatViewInflater</item>
+		<item name="floatingActionButtonStyle">@style/AppTheme914.Fab</item>
+	</style>
+	<style name="AppTheme914.Fab" parent="Widget.Material3.FloatingActionButton.Primary">
+		<item name="backgroundTint">@color/np914_colorAccent</item>
+		<item name="tint">@color/np914_sketch_m3_on_secondary</item>
+	</style>
+	<style name="AppTheme914.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+		<item name="boxCornerRadiusTopStart">8dp</item>
+		<item name="boxCornerRadiusTopEnd">8dp</item>
+		<item name="boxCornerRadiusBottomStart">8dp</item>
+		<item name="boxCornerRadiusBottomEnd">8dp</item>
+	</style>
+	<style name="AppTheme914.FullScreen" parent="AppTheme914">
+		<item name="android:windowFullscreen">true</item>
+		<item name="android:windowContentOverlay">@null</item>
+	</style>
+	<style name="AppTheme914.AppBarOverlay" parent="ThemeOverlay.Material3.Dark.ActionBar" />
+	<style name="AppTheme914.PopupOverlay" parent="ThemeOverlay.Material3" />
+</resources>

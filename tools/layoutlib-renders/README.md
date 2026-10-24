@@ -1,4 +1,4 @@
-# layoutlib renders (v1.8.4, v1.8.5)
+# layoutlib renders (v1.8.4 - v1.8.7)
 
 A standalone Gradle module (AGP 8.7, Paparazzi 1.3.5, Gradle 8.11, compileSdk 34, Material 1.13.0, AppCompat 1.7.1) that
 renders with **layoutlib**: Android 14's own view, resource and text code (Minikin + HarfBuzz + FreeType) on the JVM.
@@ -35,6 +35,21 @@ It is not a device and not ART. Used for:
 - v1.8.6: `DialogClipTest` (DialogClipTest.kt): the Build Settings sheet layout (`dialog_cfg_before|after`: the IDE's
   `project_config_layout` with plain shapes for the glass drawables) at font scale 1.3 in a sheet shorter than its options.
   Writes `out/dialog_before.png` (options drawn under the buttons) and `out/dialog_after.png`.
+
+- v1.8.7: `NewProjectScreenTest` (NewProjectScreenTest.kt): the IDE's New Project screen (`ob_new_project.xml` and its item
+  layouts, copied in by `setup_newproject.sh` with the plain-shape fallbacks of the glass drawables, the Obsidian styles
+  and fonts, and the real `ThemePreviewView` / `M3Palette` / `ThemePresets`) filled as NewProjectActivity fills it, under
+  the IDE's MaterialComponents Bridge theme: defaults, Material 3 Scaffold + Material Purple + dynamic colour, Tabs + Rose
+  Wine + Material 3 off. Writes `out/np_<variant>_screen.png` (first screen) and `out/np_<variant>_full.png`.
+- v1.8.7: `Preset914Light` ... `Preset918Night` (PresetRenderTest.kt): the five template apps as the ART harness generated
+  them (fixtures 914-918, `NewProjectSetup.create`). `import_generated.py <mysc/<id>/app/src/main> <id> <module> [Type:view
+  ...]` copies a fixture's generated layouts, styles, colours and images under its own names (`np<id>_*`, `AppTheme<id>`)
+  and its onCreate code (initializeLogic, the template's add-source block) as `PresetCode<id>.run(views)`, which the test
+  runs on the inflated views (menu items, pager adapter). Inflated through AppCompatViewInflater, light and night; the
+  drawer open and closed. Writes `out/np91x_*.png`.
+- v1.8.7: `VideoViewTest` (VideoViewTest.kt): the owner's NewProject9 widgets (`screen_video`) with an empty wrap_content
+  VideoView; writes the measured bounds (`out/videoview_fill.txt`: VideoView 1080x1788 of 1080x2340, WebView and Button
+  0 px) and `out/videoview_fill.png` (layoutlib doesn't draw a SurfaceView: its bounds are filled black and outlined).
 
 Setup: `echo sdk.dir=/opt/android-sdk > local.properties`; fonts: `python3 ../art-harness/make-test-fonts.py
 render/src/main/assets/fonts`; helpers: the generated `SketchFonts.java` (FontCode.helperClass("pz.render")), `SketchTextField.java` and

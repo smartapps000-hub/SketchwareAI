@@ -11,7 +11,8 @@ D8, packaged and signed by its own code. Only the Activity screens are not run.
 3. Inputs for two fixtures (once per workspace): `make-test-fonts.py out/fonts` (909; OFL fonts from npm @fontsource,
    modified copies for tests only, never shipped) and `make-native-fixture.sh out/native-fixture` (910; NDK clang).
 4. `suite.sh <IDE apk> <tag> libs:901 held:902 plain:903 kotlin:904 autofix:905 typo:906 min19:907 m3:908
-   telugu:909 jni:910 desugar:911 m3code:912 m3dark:913` (a spec name ends up in a package name: never a Java keyword)
+   telugu:909 jni:910 desugar:911 m3code:912 m3dark:913 npempty:914 npscaffold:915 npbottom:916 npdrawer:917 nptabs:918`
+   (a spec name ends up in a package name: never a Java keyword)
    or one fixture: `run.sh <IDE apk> <root> create libs 901` then `run.sh <IDE apk> <root> build 901 [resume step]`.
    `run.sh <IDE apk> <root> aab <id> [resume step]` runs the export screen's Export AAB (export build, DEX merge,
    AppBundleCompiler, bundletool (1.18.3 since v1.8.5), BundleSigner with the test key since v1.8.5) into
@@ -39,3 +40,8 @@ v1.8.6: fixture 913 `m3dark` (a new project with dynamic colour on: DayNight + v
 their own background colour, a button whose background the code reads, the long-hint 12sp field); 912 `m3code` stores no
 dark setting (a v1.8.5 Material 3 project, stays light). `run.sh` extracts the APK's aapt2 into `out/native-run/<pid>`:
 with one shared folder, a second lane could run the file while the first was rewriting it (`error=13`).
+
+v1.8.7: fixtures 914-918 (`np*` specs) are created by the New Project screen's own code, `NewProjectSetup.create` with
+the screen's choices (`Fixtures.createLikeNewProjectScreen`), nothing else written: one per template (Empty, Material 3
+Scaffold, Bottom Navigation, Navigation Drawer, Tabbed ViewPager), with different colour presets, Material 3 off (917),
+dynamic colour on (915), Java 7 + target 34 (918). An unknown `np` spec stops the run.

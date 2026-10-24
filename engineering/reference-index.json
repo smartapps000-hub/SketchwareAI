@@ -1,159 +1,171 @@
 {
-  "note": "Reference material supplied for this project. No secrets are stored here. 'available' says whether the file was present in the workspace when this index was last written (2026-10-21).",
-  "references": [
-    {
-      "id": "src-v6.4.0-rc05",
-      "file": "Sketchware-Pro-6_4_0-rc05.zip",
-      "alsoUploadedAs": [
-        "Sketchware-Pro-6_4_0-rc05_1.zip, Sketchware-Pro-6_4_0-rc05_2.zip (byte-identical)"
-      ],
-      "sha256": "ac9c63106dd81879ece6178fc83bb0356dfb0aef6a5493eebf338008d2b1f0b8",
-      "purpose": "Upstream source this fork is built on (git base = the repository's first commit: 966d905 in the first workspace, f2fbbf8 in the 2026-10-21 rebuild; same tree).",
-      "version": "Sketchware Pro 6.4.0-rc05",
-      "relevantModules": [
-        "app/src/main/java",
-        "app/libs/*.jar (precompiled, obfuscated core incl. a.a.a.Fx block-to-code)"
-      ],
-      "knownIssues": [
-        "Fx, eC, BlockPane and most of a.a.a are only present as compiled classes"
-      ],
-      "lastAnalysis": "Base of every release; storage root /.sketchware/ kept identical. A new workspace is rebuilt from it: git base commit of the zip, then git am patches/*.patch, then overlay/ (v1.8.3: tree identical to the patch series).",
-      "available": true
-    },
-    {
-      "id": "src-v7.0.0-beta-01",
-      "file": "Sketchware-Pro-7_0_0-beta-01_2.zip",
-      "alsoUploadedAs": [
-        "Sketchware-Pro-7_0_0-beta-01_3.zip (byte-identical)"
-      ],
-      "sha256": "5bedbed9a7f613c2792f9224971c758869e3e86a84dc7e8e537b69e6e25994b1",
-      "purpose": "Readable source of classes that are obfuscated in 6.4.0 (Fx, Hx, Jx, eC, ViewLogicEditor, LogicEditorScrollView). Read-only reference; nothing is copied wholesale.",
-      "version": "Sketchware Pro 7.0.0-beta-01",
-      "relevantModules": [
-        "a.a.a.Fx (block-to-code)",
-        "com.besome.sketch.editor.view"
-      ],
-      "knownIssues": [],
-      "lastAnalysis": "Used to confirm how the logic editor scrolls (plain scrollTo) and how blocks are chained.",
-      "available": true
-    },
-    {
-      "id": "src-v7.0.0",
-      "file": "Sketchware-Pro-7_0_0.zip",
-      "sha256": "fd354c4d5d0c91a665d50694c4dd848e8856f1532e7ff189e95d4e7f58f87645",
-      "purpose": "Upstream 7.0.0 source (readable a.a.a classes such as Fx, Jx, kq). Read-only reference for engine ideas; nothing is copied wholesale. 6.4.0-rc05 stays the base.",
-      "version": "Sketchware Pro 7.0.0",
-      "relevantModules": [
-        "a.a.a.Fx (block-to-code)",
-        "a.a.a.kq"
-      ],
-      "knownIssues": [
-        "eC/hC/iC/kC (project data managers) are still precompiled jars here"
-      ],
-      "lastAnalysis": "2026-10-21: used to read how Fx writes setImageUrl (Glide) for the v1.8.3 library fixture.",
-      "available": true
-    },
-    {
-      "id": "apk-v6.4.0-rc05-minApi26",
-      "file": "Sketchware_Pro_v6_4_0-rc05-minApi26.apk",
-      "purpose": "Upstream release APK, reference for resource ids and behaviour.",
-      "version": "6.4.0-rc05",
-      "available": true
-    },
-    {
-      "id": "fixture-639-code",
-      "file": "engineering fixture: Bt_Perm MoreBlock code of project #639 (taken from an earlier chat)",
-      "purpose": "Regression fixture only: unreachable code after a try/catch that returns on every path. Nothing in the engine refers to this project, its names or Bluetooth.",
-      "knownIssues": [
-        "The user's real project file was never supplied; the fixture is a reconstruction of one MoreBlock."
-      ],
-      "available": true
-    },
-    {
-      "id": "device-logs",
-      "file": "compile logs and screenshots sent in chat (v1.7.0, v1.7.1 failures on project #639/#643)",
-      "purpose": "Evidence of on-device failures.",
-      "lastAnalysis": "v1.7.1 failure (MainActivity.java:6379 Unreachable code) could not be reproduced off-device; cause still unknown. No device log for v1.7.2 or later received yet.",
-      "available": true
-    },
-    {
-      "id": "fonts-fontsource",
-      "file": "npm @fontsource/{ramabhadra,tenali-ramakrishna,noto-sans-telugu,mandali,...} 5.3.0 (Telugu subsets, woff2)",
-      "purpose": "OFL-1.1 Telugu fonts used only to make test fonts (tools/art-harness/make-test-fonts.py); nothing is shipped or committed",
-      "available": true
-    },
-    {
-      "id": "bundletool-1.17.2",
-      "file": "com.android.tools.build:bundletool:1.17.2 (Google Maven) on JVM 17",
-      "purpose": "current bundletool to validate AABs made by the embedded 1.11.3 (Play builds APKs with its own, newer bundletool)",
-      "available": true
-    },
-    {
-      "id": "android-platforms",
-      "file": "SDK platforms android-34 (rev 3) and android-35 (rev 2) via sdkmanager",
-      "purpose": "android-34 android.jar is the bundled compile platform since v1.8.4 (sha256 6cea1df3...); android-35 only to check that aapt2 2.19 links Android 15 resource tables",
-      "available": true
-    },
-    {
-      "id": "r8-8.11.18",
-      "file": "com.android.tools:r8:8.11.18 (Google Maven)",
-      "purpose": "D8/L8 for user projects since v1.8.5 (IDE dependency); BSD-3-Clause per POM",
-      "available": true
-    },
-    {
-      "id": "desugar-jdk-libs-2.1.5",
-      "file": "com.android.tools:desugar_jdk_libs:2.1.5 + desugar_jdk_libs_configuration_nio:2.1.5 (Google Maven), packed as assets/libs/desugar.zip",
-      "purpose": "core library desugaring of project code (CoreLibDesugaring); GPL-2.0 with Classpath Exception (library), BSD-3-Clause (configuration)",
-      "available": true
-    },
-    {
-      "id": "bundletool-1.18.3",
-      "file": "com.android.tools.build:bundletool:1.18.3 (Google Maven); apksig 8.12.0",
-      "purpose": "AAB export since v1.8.5 (PAGE_ALIGNMENT_16K); apksig for BundleSigner. Host checks also use bundletool 1.11.3 and 1.17.2 (/home/claude/bt)",
-      "available": true
-    },
-    {
-      "id": "aosp-android-16.0.0_r4",
-      "file": "android.googlesource.com gitiles tarballs at tag android-16.0.0_r4 (tools/aapt2-static/SOURCES.md)",
-      "purpose": "aapt2 2.20 for all four ABIs since v1.8.5; NOTICE in assets/licenses/aapt2-NOTICE.txt",
-      "available": true
-    },
-    {
-      "id": "mdc-android-1.14.0",
-      "file": "material-components-android 1.14.0 release notes (13 May 2026), read Oct 2026",
-      "purpose": "next View-based Material release: minSdk 23 for Material and AndroidX, built with compileSdk 35, androidx.core 1.16.0 (minCompileSdk 35). Not usable with the bundled API 34 android.jar and min SDK 21; repo in maintenance mode since Google I/O 2026",
-      "available": false
-    },
-    {
-      "id": "compose-material",
-      "file": "androidx.compose.material 1.12.1 / 1.13.0-beta02 and material3 1.4.0 / 1.5.0-beta02 release notes, read 22 Oct 2026",
-      "purpose": "Compose (Material 2 and 3) can't be built on the phone: needs the Compose compiler plugin with Kotlin 2.x (kotlinc 2.2 for 1.13), compileSdk 37+, min SDK 23",
-      "available": false
-    },
-    {
-      "id": "material-color-utilities",
-      "file": "com.google.android.material:material:1.13.0 aar, package com.google.android.material.color.utilities (47 classes) -> app/libs/material-color-utilities-1.13.0.jar",
-      "purpose": "M3Palette: SchemeContent, MaterialDynamicColors, TonalPalette (Apache-2.0, POM)",
-      "available": true
-    },
-    {
-      "id": "material-1.13-expressive",
-      "file": "material-1.13.0 classes.jar / res values",
-      "purpose": "1.13 has MaterialButtonGroup, MaterialSplitButton, LoadingIndicator, DockedToolbarLayout, FloatingToolbarLayout, TextInputLayout.setHintMaxLines; no Theme.Material3Expressive",
-      "available": true
-    },
-    {
-      "id": "github-repo",
-      "file": "https://github.com/smartapps000-hub/SketchwareAI",
-      "purpose": "owner's public repository; before v1.8.6 it held 3 commits (GPL-3.0 LICENSE text, Android .gitignore, a README listing unbuilt features); v1.8.6 merges this fork's history into it",
-      "available": true
-    },
-    {
-      "id": "owner-screens-v185",
-      "file": "owner's screenshots of 23 Oct 2026 (Build Settings overlap, Library Manager Material 3 row, canvas, generated app with cut label)",
-      "purpose": "v1.8.6 fixes",
-      "available": false
-    }
-  ],
-  "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."
+ "note": "Reference material supplied for this project. No secrets are stored here. 'available' says whether the file was present in the workspace when this index was last written (2026-10-21).",
+ "references": [
+  {
+   "id": "src-v6.4.0-rc05",
+   "file": "Sketchware-Pro-6_4_0-rc05.zip",
+   "alsoUploadedAs": [
+    "Sketchware-Pro-6_4_0-rc05_1.zip, Sketchware-Pro-6_4_0-rc05_2.zip (byte-identical)"
+   ],
+   "sha256": "ac9c63106dd81879ece6178fc83bb0356dfb0aef6a5493eebf338008d2b1f0b8",
+   "purpose": "Upstream source this fork is built on (git base = the repository's first commit: 966d905 in the first workspace, f2fbbf8 in the 2026-10-21 rebuild; same tree).",
+   "version": "Sketchware Pro 6.4.0-rc05",
+   "relevantModules": [
+    "app/src/main/java",
+    "app/libs/*.jar (precompiled, obfuscated core incl. a.a.a.Fx block-to-code)"
+   ],
+   "knownIssues": [
+    "Fx, eC, BlockPane and most of a.a.a are only present as compiled classes"
+   ],
+   "lastAnalysis": "Base of every release; storage root /.sketchware/ kept identical. A new workspace is rebuilt from it: git base commit of the zip, then git am patches/*.patch, then overlay/ (v1.8.3: tree identical to the patch series).",
+   "available": true
+  },
+  {
+   "id": "src-v7.0.0-beta-01",
+   "file": "Sketchware-Pro-7_0_0-beta-01_2.zip",
+   "alsoUploadedAs": [
+    "Sketchware-Pro-7_0_0-beta-01_3.zip (byte-identical)"
+   ],
+   "sha256": "5bedbed9a7f613c2792f9224971c758869e3e86a84dc7e8e537b69e6e25994b1",
+   "purpose": "Readable source of classes that are obfuscated in 6.4.0 (Fx, Hx, Jx, eC, ViewLogicEditor, LogicEditorScrollView). Read-only reference; nothing is copied wholesale.",
+   "version": "Sketchware Pro 7.0.0-beta-01",
+   "relevantModules": [
+    "a.a.a.Fx (block-to-code)",
+    "com.besome.sketch.editor.view"
+   ],
+   "knownIssues": [],
+   "lastAnalysis": "Used to confirm how the logic editor scrolls (plain scrollTo) and how blocks are chained.",
+   "available": true
+  },
+  {
+   "id": "src-v7.0.0",
+   "file": "Sketchware-Pro-7_0_0.zip",
+   "sha256": "fd354c4d5d0c91a665d50694c4dd848e8856f1532e7ff189e95d4e7f58f87645",
+   "purpose": "Upstream 7.0.0 source (readable a.a.a classes such as Fx, Jx, kq). Read-only reference for engine ideas; nothing is copied wholesale. 6.4.0-rc05 stays the base.",
+   "version": "Sketchware Pro 7.0.0",
+   "relevantModules": [
+    "a.a.a.Fx (block-to-code)",
+    "a.a.a.kq"
+   ],
+   "knownIssues": [
+    "eC/hC/iC/kC (project data managers) are still precompiled jars here"
+   ],
+   "lastAnalysis": "2026-10-21: used to read how Fx writes setImageUrl (Glide) for the v1.8.3 library fixture.",
+   "available": true
+  },
+  {
+   "id": "apk-v6.4.0-rc05-minApi26",
+   "file": "Sketchware_Pro_v6_4_0-rc05-minApi26.apk",
+   "purpose": "Upstream release APK, reference for resource ids and behaviour.",
+   "version": "6.4.0-rc05",
+   "available": true
+  },
+  {
+   "id": "fixture-639-code",
+   "file": "engineering fixture: Bt_Perm MoreBlock code of project #639 (taken from an earlier chat)",
+   "purpose": "Regression fixture only: unreachable code after a try/catch that returns on every path. Nothing in the engine refers to this project, its names or Bluetooth.",
+   "knownIssues": [
+    "The user's real project file was never supplied; the fixture is a reconstruction of one MoreBlock."
+   ],
+   "available": true
+  },
+  {
+   "id": "device-logs",
+   "file": "compile logs and screenshots sent in chat (v1.7.0, v1.7.1 failures on project #639/#643)",
+   "purpose": "Evidence of on-device failures.",
+   "lastAnalysis": "v1.7.1 failure (MainActivity.java:6379 Unreachable code) could not be reproduced off-device; cause still unknown. No device log for v1.7.2 or later received yet.",
+   "available": true
+  },
+  {
+   "id": "fonts-fontsource",
+   "file": "npm @fontsource/{ramabhadra,tenali-ramakrishna,noto-sans-telugu,mandali,...} 5.3.0 (Telugu subsets, woff2)",
+   "purpose": "OFL-1.1 Telugu fonts used only to make test fonts (tools/art-harness/make-test-fonts.py); nothing is shipped or committed",
+   "available": true
+  },
+  {
+   "id": "bundletool-1.17.2",
+   "file": "com.android.tools.build:bundletool:1.17.2 (Google Maven) on JVM 17",
+   "purpose": "current bundletool to validate AABs made by the embedded 1.11.3 (Play builds APKs with its own, newer bundletool)",
+   "available": true
+  },
+  {
+   "id": "android-platforms",
+   "file": "SDK platforms android-34 (rev 3) and android-35 (rev 2) via sdkmanager",
+   "purpose": "android-34 android.jar is the bundled compile platform since v1.8.4 (sha256 6cea1df3...); android-35 only to check that aapt2 2.19 links Android 15 resource tables",
+   "available": true
+  },
+  {
+   "id": "r8-8.11.18",
+   "file": "com.android.tools:r8:8.11.18 (Google Maven)",
+   "purpose": "D8/L8 for user projects since v1.8.5 (IDE dependency); BSD-3-Clause per POM",
+   "available": true
+  },
+  {
+   "id": "desugar-jdk-libs-2.1.5",
+   "file": "com.android.tools:desugar_jdk_libs:2.1.5 + desugar_jdk_libs_configuration_nio:2.1.5 (Google Maven), packed as assets/libs/desugar.zip",
+   "purpose": "core library desugaring of project code (CoreLibDesugaring); GPL-2.0 with Classpath Exception (library), BSD-3-Clause (configuration)",
+   "available": true
+  },
+  {
+   "id": "bundletool-1.18.3",
+   "file": "com.android.tools.build:bundletool:1.18.3 (Google Maven); apksig 8.12.0",
+   "purpose": "AAB export since v1.8.5 (PAGE_ALIGNMENT_16K); apksig for BundleSigner. Host checks also use bundletool 1.11.3 and 1.17.2 (/home/claude/bt)",
+   "available": true
+  },
+  {
+   "id": "aosp-android-16.0.0_r4",
+   "file": "android.googlesource.com gitiles tarballs at tag android-16.0.0_r4 (tools/aapt2-static/SOURCES.md)",
+   "purpose": "aapt2 2.20 for all four ABIs since v1.8.5; NOTICE in assets/licenses/aapt2-NOTICE.txt",
+   "available": true
+  },
+  {
+   "id": "mdc-android-1.14.0",
+   "file": "material-components-android 1.14.0 release notes (13 May 2026), read Oct 2026",
+   "purpose": "next View-based Material release: minSdk 23 for Material and AndroidX, built with compileSdk 35, androidx.core 1.16.0 (minCompileSdk 35). Not usable with the bundled API 34 android.jar and min SDK 21; repo in maintenance mode since Google I/O 2026",
+   "available": false
+  },
+  {
+   "id": "compose-material",
+   "file": "androidx.compose.material 1.12.1 / 1.13.0-beta02 and material3 1.4.0 / 1.5.0-beta02 release notes, read 22 Oct 2026",
+   "purpose": "Compose (Material 2 and 3) can't be built on the phone: needs the Compose compiler plugin with Kotlin 2.x (kotlinc 2.2 for 1.13), compileSdk 37+, min SDK 23",
+   "available": false
+  },
+  {
+   "id": "material-color-utilities",
+   "file": "com.google.android.material:material:1.13.0 aar, package com.google.android.material.color.utilities (47 classes) -> app/libs/material-color-utilities-1.13.0.jar",
+   "purpose": "M3Palette: SchemeContent, MaterialDynamicColors, TonalPalette (Apache-2.0, POM)",
+   "available": true
+  },
+  {
+   "id": "material-1.13-expressive",
+   "file": "material-1.13.0 classes.jar / res values",
+   "purpose": "1.13 has MaterialButtonGroup, MaterialSplitButton, LoadingIndicator, DockedToolbarLayout, FloatingToolbarLayout, TextInputLayout.setHintMaxLines; no Theme.Material3Expressive",
+   "available": true
+  },
+  {
+   "id": "github-repo",
+   "file": "https://github.com/smartapps000-hub/SketchwareAI",
+   "purpose": "owner's public repository; before v1.8.6 it held 3 commits (GPL-3.0 LICENSE text, Android .gitignore, a README listing unbuilt features); v1.8.6 merges this fork's history into it",
+   "available": true
+  },
+  {
+   "id": "owner-screens-v185",
+   "file": "owner's screenshots of 23 Oct 2026 (Build Settings overlap, Library Manager Material 3 row, canvas, generated app with cut label)",
+   "purpose": "v1.8.6 fixes",
+   "available": false
+  },
+  {
+   "id": "ref-astr-video",
+   "file": "owner's chat upload 5ba515b6-1004405034.mp4 (229 s)",
+   "purpose": "The owner's screen recording of the ASTR Sketchware Pro mod (com.rev.astr, data path /data/user/0/pro.sketchware/...): full-screen New Project (presets, build engine Gradle/Sketchware Core, Java/Kotlin, theme presets, SDK settings), Library Resolver (Required/All/Updates/Cache), View/res/Code switcher with New class, Direct Java editor that converts saved code to blocks, Gradle environment (Termux JDK 17, Gradle 8.9, ~1.5 GB) whose Build Release ended in 'APK not found'. Use: Feature reference for v1.8.7 (New Project) and v1.8.8 (Library Resolver, Direct Java editor). No code from it; its source was not available here.",
+   "available": false
+  },
+  {
+   "id": "ref-videoview-measure",
+   "file": "android.widget.VideoView (AOSP, Android 14 in layoutlib)",
+   "purpose": "android.widget.VideoView.onMeasure: with no video size, width/height = View.getDefaultSize(0, spec) (AT_MOST -> the spec size) Use: KE-187-2, ItemVideoView; reproduced in layoutlib (VideoViewTest)",
+   "available": true
+  }
+ ],
+ "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."
 }

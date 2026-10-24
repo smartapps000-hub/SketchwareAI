@@ -361,3 +361,10 @@ it needs a bundled API 35 android.jar and generated apps at min SDK 23, so it is
 - Material 1.13.0 (built-in) already contains Material 3 Expressive components: MaterialButtonGroup, MaterialSplitButton,
   LoadingIndicator, DockedToolbarLayout, FloatingToolbarLayout (no Expressive theme). The palette does not offer them yet
   (roadmap); calling them from project code was not tested.
+
+## v1.8.7
+
+- No library changed. Templates use what is built in: CardView, Material 1.13.0 BottomNavigationView
+  (`NavigationBarView.OnItemSelectedListener`), TabLayout + androidx ViewPager (PagerAdapter), FloatingActionButton.
+- The scaffold template's FAB icon is a project image (`fab_add.png`, 48x48 white plus, drawn for this fork), copied from
+  the IDE's Java resource `com/sketchware/ai/project/preset_fab_add.png`.

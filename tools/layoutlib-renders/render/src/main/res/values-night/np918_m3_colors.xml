@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- Material 3 dark colour roles from the project's primary colour (Sketchware AI, M3Palette) -->
+	<color name="np918_sketch_m3_on_primary">#FFFFFF</color>
+	<color name="np918_sketch_m3_primary_container">#8E4A5E</color>
+	<color name="np918_sketch_m3_on_primary_container">#FFCDD8</color>
+	<color name="np918_sketch_m3_primary_inverse">#8D495D</color>
+	<color name="np918_sketch_m3_on_secondary">#FFFFFF</color>
+	<color name="np918_sketch_m3_secondary_container">#5E3E46</color>
+	<color name="np918_sketch_m3_on_secondary_container">#D5AAB4</color>
+	<color name="np918_sketch_m3_tertiary">#FFB876</color>
+	<color name="np918_sketch_m3_on_tertiary">#4B2800</color>
+	<color name="np918_sketch_m3_tertiary_container">#88531A</color>
+	<color name="np918_sketch_m3_on_tertiary_container">#FFD2AB</color>
+	<color name="np918_sketch_m3_error">#FFB4AB</color>
+	<color name="np918_sketch_m3_on_error">#690005</color>
+	<color name="np918_sketch_m3_error_container">#93000A</color>
+	<color name="np918_sketch_m3_on_error_container">#FFDAD6</color>
+	<color name="np918_sketch_m3_background">#181213</color>
+	<color name="np918_sketch_m3_on_background">#EDDFE1</color>
+	<color name="np918_sketch_m3_surface">#181213</color>
+	<color name="np918_sketch_m3_on_surface">#EDDFE1</color>
+	<color name="np918_sketch_m3_surface_variant">#524346</color>
+	<color name="np918_sketch_m3_on_surface_variant">#D7C1C5</color>
+	<color name="np918_sketch_m3_surface_inverse">#EDDFE1</color>
+	<color name="np918_sketch_m3_on_surface_inverse">#362E30</color>
+	<color name="np918_sketch_m3_surface_bright">#3F3739</color>
+	<color name="np918_sketch_m3_surface_dim">#181213</color>
+	<color name="np918_sketch_m3_surface_container_lowest">#120D0E</color>
+	<color name="np918_sketch_m3_surface_container_low">#201A1B</color>
+	<color name="np918_sketch_m3_surface_container">#251E1F</color>
+	<color name="np918_sketch_m3_surface_container_high">#2F282A</color>
+	<color name="np918_sketch_m3_surface_container_highest">#3A3334</color>
+	<color name="np918_sketch_m3_outline">#9F8C90</color>
+	<color name="np918_sketch_m3_outline_variant">#524346</color>
+</resources>
