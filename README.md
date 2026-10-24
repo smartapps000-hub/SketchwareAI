@@ -2,6 +2,20 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.8.8 (versionCode 178, `v1.8.8-f6b8e9f-minApi26`)
+
+| File | sha256 |
+|---|---|
+| `v1.8.8/SketchwareAI-v1.8.8.apk.7z.001` | `e2b332e041362bb59b8fb7eea2ebbea7101b97c0857def7123533032e2dd3b60` |
+| `v1.8.8/SketchwareAI-v1.8.8.apk.7z.002` | `579b939bdcfa425449ff69867bffd3a009d216b889ecdbe6654cd039a2594c51` |
+| the APK inside, `SketchwareAI-v1.8.8.apk` (138,448,009 bytes) | `0f3ca85d2bf3041b808c454c310c76faaf6d72f5db66a42b8f164cf98a1ed56d` |
+| `v1.8.8/SketchwareAI-v1.8.8-patches.zip.7z.001` | `c7f8ab58638786369861348a6d1ee09bdd5c67b3b5f36b9efd3db64acd094612` |
+| `v1.8.8/SketchwareAI-v1.8.8-patches.zip.7z.002` | `93ba8661309651bd042ac97f90d1d79cd39dde850d71a710f0a24b243d9f701f` |
+| the patches zip inside, `SketchwareAI-v1.8.8-patches.zip` (139,564,473 bytes; 59 patches against the upstream zip, `main` at 6f2c8de) | `dae256be8bffb78eef5129bdc7647ae9b94846fca4c95a653992a34dab1b0fd0` |
+
+Signed with the public test key, like every release, so it installs over v1.8.7. Release notes:
+`releases/v1.8.8/RELEASE-NOTES.md` on `main`.
+
 ## v1.8.7 (versionCode 177, `v1.8.7-b2bdd42-minApi26`)
 
 | File | sha256 |
