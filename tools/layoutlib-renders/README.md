@@ -1,4 +1,4 @@
-# layoutlib renders (v1.8.4 - v1.8.7)
+# layoutlib renders (v1.8.4 - v1.8.8)
 
 A standalone Gradle module (AGP 8.7, Paparazzi 1.3.5, Gradle 8.11, compileSdk 34, Material 1.13.0, AppCompat 1.7.1) that
 renders with **layoutlib**: Android 14's own view, resource and text code (Minikin + HarfBuzz + FreeType) on the JVM.
@@ -50,6 +50,11 @@ It is not a device and not ART. Used for:
 - v1.8.7: `VideoViewTest` (VideoViewTest.kt): the owner's NewProject9 widgets (`screen_video`) with an empty wrap_content
   VideoView; writes the measured bounds (`out/videoview_fill.txt`: VideoView 1080x1788 of 1080x2340, WebView and Button
   0 px) and `out/videoview_fill.png` (layoutlib doesn't draw a SurfaceView: its bounds are filled black and outlined).
+- v1.8.8: `V188ScreensTest` (V188ScreensTest.kt): the Library Resolver (`ob_library_resolver` + `ob_lib_tab` +
+  `ob_lib_row`: Required, All, Updates, Cache tabs filled as LibraryResolverActivity fills them, and the + Add dialog's
+  `ob_lib_add`), the Java editor (`ob_java_editor`, convertible and read-only; a monospace TextView stands for sora's
+  CodeEditor) and the design editor's Code tab (rows as CodeTabFragment builds them). `setup_v188.sh <repo root>` copies
+  the layouts and drawables (after `setup_newproject.sh`). Writes `out/lr_*.png`, `out/je_*.png`, `out/code_tab.png`.
 
 Setup: `echo sdk.dir=/opt/android-sdk > local.properties`; fonts: `python3 ../art-harness/make-test-fonts.py
 render/src/main/assets/fonts`; helpers: the generated `SketchFonts.java` (FontCode.helperClass("pz.render")), `SketchTextField.java` and

@@ -11,6 +11,7 @@ import static h.R.*;
  * main build <sc_id>         : DesignActivity.BuildAsyncTask.b() step by step (minus the Activity)
  * main aab <sc_id>           : the export screen's "Export AAB" with the test key
  * main export <sc_id>        : the export screen's "Export to Android Studio" (the Gradle project), unzipped
+ * main javaedit <sc_id>      : (v1.8.8) the Java editor's saves on fixture javaedit (JavaEdit), then a build
  * System properties: h.apk (the IDE APK: assets), h.root (app dirs), h.native (dir with libaapt2.so).
  */
 public class Main {
@@ -37,6 +38,12 @@ public class Main {
                     break;
                 case "export":
                     exportSource(args[1]);
+                    break;
+                case "javaedit-open":
+                    JavaEdit.openAll(Arrays.copyOfRange(args, 1, args.length));
+                    break;
+                case "javaedit":
+                    JavaEdit.run(args[1], args.length < 3 || !args[2].equals("nobuild"));
                     break;
                 default:
                     throw new IllegalArgumentException(args[0]);

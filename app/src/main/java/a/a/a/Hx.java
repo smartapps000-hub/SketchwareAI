@@ -128,7 +128,9 @@ public class Hx {
     private void a(ArrayList<EventBean> events, HashMap<String, ArrayList<BlockBean>> logicBlocks) {
         for (EventBean eventBean : events) {
             ArrayList<BlockBean> eventLogicBlocks = logicBlocks.get(eventBean.targetId + "_" + eventBean.eventName);
-            String eventLogic = (eventLogicBlocks == null || eventLogicBlocks.size() == 0) ? "" :
+            // v1.8.8: an event without blocks is "" as always; the Java editor's marked generation marks its place
+            String eventLogic = (eventLogicBlocks == null || eventLogicBlocks.size() == 0)
+                    ? com.sketchware.ai.editor.EditMarkers.emptyEventLogic(projectFileBean.getActivityName(), jq, eventBean.eventName, eventBean.targetId) :
                     new Fx(projectFileBean.getActivityName(), jq, eventBean.eventName, com.sketchware.ai.sourcemap.SourceMapMarkers.wrap(
                             eventLogicBlocks, "event", eventBean.targetId, eventBean.eventName)).a();
 

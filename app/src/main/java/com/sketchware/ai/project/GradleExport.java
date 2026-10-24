@@ -153,6 +153,8 @@ public final class GradleExport {
         if (x.isFBGoogleUsed) lines.add("com.google.android.gms:play-services-auth:19.0.0");
         if (x.isOneSignalUsed) lines.add("com.onesignal:OneSignal:3.14.0");
         if (x.isFBAdsUsed) lines.add("com.facebook.android:audience-network-sdk:5.9.0");
+        // v1.8.8: built-in libraries the project's local libraries need (Library Resolver, needs.json)
+        lines.addAll(com.sketchware.ai.library.LibraryNeeds.exportCoordinates(metadata.sc_id));
         StringBuilder out = new StringBuilder();
         for (String line : lines) out.append("implementation '").append(line).append("'\r\n");
         return out.toString();

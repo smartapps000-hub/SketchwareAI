@@ -1178,6 +1178,8 @@ public class Dp {
         KotlinCompilerBridge.maybeAddKotlinBuiltInLibraryDependenciesIfPossible(this, builtInLibraryManager);
 
         ExtLibSelected.addUsedDependencies(yq.N.x, builtInLibraryManager);
+        // v1.8.8: built-in libraries the enabled local libraries need (Library Resolver, needs.json)
+        com.sketchware.ai.library.LibraryNeeds.addBuiltIns(yq.sc_id, builtInLibraryManager);
     }
 
     public static void maybeExtractAndroidJar(BuildProgressReceiver optionalProgressReceiver) {

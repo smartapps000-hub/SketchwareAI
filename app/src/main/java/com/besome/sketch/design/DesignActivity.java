@@ -119,6 +119,16 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     private static final int REQUEST_CODE_FONT_MANAGER = 228;
     private static final int REQUEST_CODE_COLLECTION_MANAGER = 233;
     private static final int REQUEST_CODE_SOURCE_CODE_VIEWER = 240;
+    /** v1.8.8: the design editor's Code tab. */
+    private com.sketchware.ai.editor.CodeTabFragment codeTab;
+    /** v1.8.8: set when ProjectLoader has loaded the project (the Code tab waits for it). */
+    private volatile boolean projectReady;
+
+    public boolean isProjectReady() {
+        return projectReady;
+    }
+    /** v1.8.8 Java editor (com.sketchware.ai.editor.JavaEditorActivity). */
+    private static final int REQUEST_CODE_JAVA_EDITOR = 241;
 
     private ImageView xmlLayoutOrientation;
     private boolean B = false;
@@ -336,6 +346,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                 }
                 break;
 
+            case REQUEST_CODE_JAVA_EDITOR:
+                if (resultCode == RESULT_OK && eventTabAdapter != null) {
+                    // events, MoreBlocks and variables may have changed
+                    eventTabAdapter.refreshEvents();
+                }
+                if (codeTab != null) codeTab.refresh();
+                break;
+
             case 224:
                 if (resultCode == RESULT_OK) {
                     if (componentTabAdapter != null) {
@@ -406,6 +424,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                 menu.add(Menu.NONE, 2, Menu.NONE, "Clean temporary files");
                 menu.add(Menu.NONE, 3, Menu.NONE, "Show last compile error");
                 menu.add(Menu.NONE, 5, Menu.NONE, "Show source code");
+                // v1.8.8: the current activity's Java code, editable; saving turns it into blocks
+                menu.add(Menu.NONE, 6, Menu.NONE, "Edit Java code");
                 if (FileUtil.isExistFile(q.finalToInstallApkPath)) {
                     menu.add(Menu.NONE, 4, Menu.NONE, "Install last built APK");
                 }
@@ -438,6 +458,10 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
 
                         case 5:
                             showCurrentActivitySrcCode();
+                            break;
+
+                        case 6:
+                            toJavaEditor();
                             break;
 
                         default:
@@ -583,7 +607,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                             eventTabAdapter.refreshEvents();
                         }
                     }
-                } else {
+                } else if (i == 2) {
                     if (viewTabAdapter != null) {
                         viewTabAdapter.c(false);
                         xmlLayoutOrientation.setVisibility(View.GONE);
@@ -593,6 +617,15 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                             componentTabAdapter.d();
                         }
                     }
+                } else {
+                    // v1.8.8 Code tab
+                    if (viewTabAdapter != null) {
+                        viewTabAdapter.c(false);
+                        xmlLayoutOrientation.setVisibility(View.GONE);
+                        projectFileSelector.setFileType(1);
+                        projectFileSelector.syncState();
+                    }
+                    if (codeTab != null) codeTab.refresh();
                 }
                 currentTabNumber = i;
             }
@@ -886,10 +919,10 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     }
 
     /**
-     * Opens {@link ManageLocalLibraryActivity}.
+     * Opens the Library Resolver (v1.8.8; it replaces {@link ManageLocalLibraryActivity}).
      */
     void toLocalLibraryManager() {
-        launchActivity(ManageLocalLibraryActivity.class, null);
+        launchActivity(com.sketchware.ai.library.LibraryResolverActivity.class, null);
     }
 
     /**
@@ -960,6 +993,17 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
      */
     void toSoundManager() {
         launchActivity(ManageSoundActivity.class, REQUEST_CODE_SOUND_MANAGER);
+    }
+
+    /** v1.8.8: the current activity's Java code in the Java editor. */
+    private void toJavaEditor() {
+        String javaName = projectFileSelector == null ? null : projectFileSelector.currentJavaFileName;
+        if (javaName == null || javaName.isEmpty()) {
+            SketchwareUtil.toast("Open an activity first");
+            return;
+        }
+        startActivityForResult(com.sketchware.ai.editor.JavaEditorActivity.intent(getApplicationContext(), sc_id, javaName),
+                REQUEST_CODE_JAVA_EDITOR);
     }
 
     /**
@@ -1348,6 +1392,9 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
 
             projectFileSelector.syncState();
             h();
+            // v1.8.8: the Code tab reads the project only once it is loaded
+            projectReady = true;
+            if (codeTab != null) codeTab.refresh();
             if (savedInstanceState == null) {
                 checkForUnsavedProjectData();
             }
@@ -1516,13 +1563,14 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
             labels = new String[]{
                     Helper.getResString(R.string.design_tab_title_view),
                     Helper.getResString(R.string.design_tab_title_event),
-                    Helper.getResString(R.string.design_tab_title_component)};
+                    Helper.getResString(R.string.design_tab_title_component),
+                    "Code"};
         }
 
         @Override
         // PagerAdapter#getCount()
         public int a() {
-            return 3;
+            return 4;
         }
 
         @Override
@@ -1539,8 +1587,10 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                 viewTabAdapter = (jr) fragment;
             } else if (position == 1) {
                 eventTabAdapter = (rs) fragment;
-            } else {
+            } else if (position == 2) {
                 componentTabAdapter = (br) fragment;
+            } else {
+                codeTab = (com.sketchware.ai.editor.CodeTabFragment) fragment;
             }
 
             return fragment;
@@ -1551,6 +1601,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         public Fragment c(int position) {
             if (position == 0) {
                 return new jr();
+            } else if (position == 3) {
+                return new com.sketchware.ai.editor.CodeTabFragment();
             } else {
                 return position == 1 ? new rs() : new br();
             }

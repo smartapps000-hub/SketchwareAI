@@ -61,6 +61,10 @@ public final class SourceMapMarkers {
      * unexpected); inside one, a marked copy for the code generator
      */
     public static ArrayList<BlockBean> wrap(ArrayList<BlockBean> blocks, String kind, String targetId, String eventName) {
+        // v1.8.8: the Java editor's marked generation (com.sketchware.ai.editor.EditMarkers) uses the same hook
+        if (com.sketchware.ai.editor.EditMarkers.active()) {
+            return com.sketchware.ai.editor.EditMarkers.wrap(blocks, kind, targetId, eventName);
+        }
         List<Event> session = SESSION.get();
         if (session == null || blocks == null || blocks.isEmpty()) return blocks;
         try {

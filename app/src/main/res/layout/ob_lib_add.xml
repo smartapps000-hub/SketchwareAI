@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Library Resolver's Add library dialog (v1.8.8): a Maven coordinate, with or without what it needs. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingLeft="24dp"
+    android:paddingTop="8dp"
+    android:paddingRight="24dp"
+    android:tag="obsidian">
+
+    <EditText
+        android:id="@+id/la_coordinate"
+        style="@style/Ob.Field"
+        android:hint="group:artifact:version"
+        android:inputType="textNoSuggestions" />
+
+    <CheckBox
+        android:id="@+id/la_with_needs"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:buttonTint="@color/ob_amber"
+        android:checked="true"
+        android:fontFamily="@font/manrope_medium"
+        android:text="With the libraries it needs"
+        android:textColor="@color/ob_text" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/la_message"
+            style="@style/Ob.Text.Caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:lineSpacingExtra="2dp"
+            android:text="Google Maven, Maven Central and JitPack are searched. Libraries Sketchware AI has built in (AndroidX, Material, Gson, OkHttp, Glide …) are not downloaded again." />
+    </ScrollView>
+</LinearLayout>

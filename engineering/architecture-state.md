@@ -253,6 +253,63 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
   so the translucent ripple colour became an opaque flash. Opaque or fully transparent stored values are written as before.
 - **Project setting dialog**: the old version dialog reads "x" as "x.0" instead of throwing on a version name without a dot.
 
+## v1.8.8 additions
+
+- **Java editor** (`editor.JavaEditorActivity`, `res/layout/ob_java_editor.xml`; design editor build options menu item 6
+  "Edit Java code" and the Code tab, request code 241, RESULT_OK when blocks changed): one activity's generated Java in
+  sora-editor (JavaLanguage, the user's code editor settings). Opened with the design editor's live project data
+  (`jC.b/a/c(sc_id)`: only started from DesignActivity once its project is loaded, so these are the editor's own copies).
+  Save runs on a background thread; the editor is locked while it runs.
+- **Edit map** (`editor.EditMarkers`, `EditMap`): a second, throw-away generation with comment markers (`/*@SWED`) around
+  every event and every block, through the source map's hook (`SourceMapMarkers.wrap` delegates while
+  `EditMarkers.active()`) and `Hx` (an event without blocks gets a marker for its place; `""` as before otherwise). The
+  map is used only when the marked text minus markers equals the normal generation line for line; an empty event is
+  matched against the classic text (with or without its blank line). Otherwise the editor is read-only and says why.
+  Activities whose generated file differs after command-block processing are read-only too; an activity replaced by a Java
+  Manager file is that file, written as it is.
+- **Save** (`editor.JavaToBlocks`, `JavaMembers`, `LineDiff`): members (fields, methods, imports) of the shown and the
+  edited text are compared by signature; inside an event a Myers line diff (`LineDiff`, O(D²) trace memory, one hunk over
+  everything past D 1500) finds the changed runs, and `LineDiff.slide` moves a pure insert/delete run to the equal
+  neighbouring lines inside the event. Each changed run replaces the blocks whose lines it touches with one add-source
+  block in the same stack (a change inside if/else/repeat stays in that stack: `BlockInfo(parentId, stack)`); unchanged
+  blocks stay. New field → custom variable (type 6, one line; a multi-line declaration is joined, one with comments or
+  annotations is refused); changed field → custom variable with the new text (removed + added of one name pair up as a
+  type change); removed variable → removed (refused while a block uses it); new import → type 9; `public void
+  _name(final T _p, ...)` with boolean/double/String/Map/List/View parameters → MoreBlock with its body in one add-source
+  block; removed MoreBlock → removed (refused while called). Lines outside any member (stray text) and everything the
+  generator writes by itself (view fields, `initialize()`, onCreate's frame, listener frames, adapters, the class and
+  package lines, generated imports) are refused with the line and what generates it. **Proof**: the activity is generated again from the changed data and
+  compared with the edited text (imports and members as sets, trimmed non-blank lines, `final` ignored in method headers,
+  multi-line fields joined); on any difference or any Throwable the `Snapshot` of the touched data (blocks, variables,
+  MoreBlocks) is put back. On success the design editor's working copy is written (`jC.a(sc_id).k()`).
+- **Code tab** (`editor.CodeTabFragment`): fourth design editor tab (View / Event / Component / Code): the project's
+  activities (→ Java editor) and its own Java/Kotlin files (`data/<sc_id>/files/java`, → code editor); + New class writes
+  a Java or Kotlin class or activity in the project's package (names of the project's activities and of generated
+  classes, and existing files, refused; an activity still needs its manifest entry from the Java Manager, as before;
+  Kotlin only on Android 8+). Waits for the
+  design editor's project load (`DesignActivity.isProjectReady`).
+- **Library Resolver** (`library.LibraryResolverActivity`, `ob_library_resolver.xml`, `ob_lib_*.xml`): replaces the
+  local library manager (design editor drawer, Tools, Compile log → Local libraries). Tabs Required / All / Updates /
+  Cache; + Add (Maven coordinate or Gradle line → resolve → plan with what's downloaded, what's built in and what's
+  already installed → Install; or Import .aar/.jar/.zip). Listing, search (debounced), enable, delete and dex run in the
+  background. Maven Central search: `search.maven.org/solrsearch` (`MavenSearch`).
+- **Resolver** (`library.MavenResolver`): repositories Google Maven, Maven Central, JitPack only. Reads POMs like Gradle:
+  compile + runtime scopes, optional skipped, parents, `${...}` properties, dependencyManagement and BOM imports,
+  exclusions (also `*:*`), version ranges (highest published version in range from `maven-metadata.xml`), conflicts →
+  highest version. What `BuiltInCoordinates` maps to a `BuiltInLibraries` constant (generated from tools/builtin-libs
+  coords.py, plus manual entries) is never downloaded. Cache `/.sketchware/libs/cache/maven/<group path>/<artifact>/<version>`.
+  Downloads and installs nothing but POM/AAR/JAR/metadata files; no Gradle scripts or plugins.
+- **Install** (`library.LibraryInstaller`): `<artifact>_V_<version>` folders in `local_libs` as the old downloader named
+  them, staged in `.<name>.installing` and renamed; D8 on Android 8+, Dx (class files up to Java 7) below; `config`,
+  `source.json`, and `needs.json` (`library.LibraryNeeds`: coordinate, required local libraries, built-in libraries).
+  Enabling replaces another version of the same artifact only when both groups are known and equal; an unreadable
+  `local_library` list is never overwritten.
+- **Build**: `Dp` adds the built-in libraries every enabled local library's `needs.json` names
+  (`LibraryNeeds.addBuiltIns`), so e.g. Retrofit gets the built-in OkHttp and Gson with no block using them;
+  `GradleExport` writes those libraries' Maven coordinates (`LibraryNeeds.exportCoordinates`).
+- **Android ICU regex**: an unescaped `}` in a `java.util.regex.Pattern` is a syntax error on Android (ICU) and fine on the
+  desktop JVM: `MavenResolver`'s property pattern threw in `<clinit>` on ART. Known-errors KE-ICU-REGEX.
+
 ## Existing repair engine (v1.7.x)
 
 - `AutoHeal` (problem parser, located edits, never changes line count, rollback), `JavaTokens` (dead-code detection after JLS 14.22), `AutoHealLoop` (attempts, per-site escalation keep -> remove, report), `ClassIndex` (imports from the classpath), `LibraryAutoResolve`/`LibraryHeal` (enable installed library, known Maven coordinates, sub-dependency linking, D8), `BuildWarnings`.

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Library Resolver (v1.8.8, com.sketchware.ai.library.LibraryResolverActivity): local libraries in four tabs
+     (Required, All, Updates, Cache) and Add library. Tagged "obsidian": designed for the glass ground. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:forceDarkAllowed="false"
+    android:orientation="vertical"
+    android:tag="obsidian">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="10dp"
+        android:paddingRight="12dp">
+
+        <ImageView
+            android:id="@+id/lr_back"
+            style="@style/Ob.IconPill"
+            android:contentDescription="Back"
+            android:src="@drawable/ob_ic_back" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Ob.Text.Screen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:singleLine="true"
+                android:text="Library Resolver" />
+
+            <TextView
+                android:id="@+id/lr_subtitle"
+                style="@style/Ob.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/lr_add"
+            style="@style/Ob.Text.Button.Cta"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:background="@drawable/ob_cta_state"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="+ Add"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/lr_tabs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingLeft="16dp"
+            android:paddingTop="4dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="10dp" />
+    </HorizontalScrollView>
+
+    <EditText
+        android:id="@+id/lr_search"
+        style="@style/Ob.Field"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="10dp"
+        android:hint="Search installed, or Maven Central"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:singleLine="true"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fadingEdgeLength="16dp"
+        android:requiresFadingEdge="vertical"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/lr_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="16dp" />
+    </ScrollView>
+
+    <TextView
+        android:id="@+id/lr_action"
+        style="@style/Ob.Text.Button"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="14dp"
+        android:background="@drawable/ob_pill16_state"
+        android:stateListAnimator="@animator/sw_press"
+        android:visibility="gone" />
+</LinearLayout>

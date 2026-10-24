@@ -362,7 +362,7 @@ public class CompileLogActivity extends Activity {
                 || com.sketchware.ai.doctor.BuildDoctor.MISSING_CLASS.equals(code)) {
             nextActionLabel = "Local libraries";
             nextActionHint = "Open the project's local libraries to download, replace or switch off the one named above.";
-            return () -> openProjectScreen("dev.aldi.sayuti.editor.manage.ManageLocalLibraryActivity");
+            return () -> openProjectScreen("com.sketchware.ai.library.LibraryResolverActivity");
         }
         if (com.sketchware.ai.doctor.BuildDoctor.JAVA_ERROR.equals(code)) {
             java.util.List<com.sketchware.ai.sourcemap.ErrorOrigins.Item> problems;

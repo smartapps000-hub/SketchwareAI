@@ -109,6 +109,12 @@ public final class R {
         f.set(st ? null : target, value);
     }
 
+    /** Throws a checked exception through code that can't declare it (a proxy's handler). */
+    @SuppressWarnings("unchecked")
+    public static <T extends Throwable> RuntimeException sneaky(Throwable t) throws T {
+        throw (T) t;
+    }
+
     /** A java.lang.reflect.Proxy for any interface; every call is logged and returns a default. */
     public static Object proxy(String iface, java.util.function.BiFunction<String, Object[], Object> handler) {
         Class<?> k = c(iface);

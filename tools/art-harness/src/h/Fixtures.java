@@ -171,6 +171,12 @@ public class Fixtures {
         } else if (spec.equals("m3dark")) {
             // v1.8.6: Button x4 (default, blue, yellow, pink read from code), TextView, EditText, CheckBox, Switch
             for (int[] t : new int[][]{{3}, {3, 2}, {3, 3}, {3, 4}, {4}, {5}, {11}, {13}}) widgets.add(t);
+        } else if (spec.equals("resolver")) {
+            // v1.8.8: Button, TextView (the Library Resolver's test project)
+            for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
+        } else if (spec.equals("javaedit")) {
+            // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit)
+            for (int[] t : new int[][]{{3}, {3, 2}, {4}, {5}}) widgets.add(t);
         } else {
             for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
         }
@@ -270,6 +276,13 @@ public class Fixtures {
                     + "    android.util.Log.d(\"m3dark\", \"button4 \" + ((android.graphics.drawable.ColorDrawable) bg4).getColor());\n"
                     + "}\n"
                     + "button2.setBackgroundColor(0xFF3F51B5);";
+        } else if (spec.equals("resolver")) {
+            // v1.8.8: Retrofit + its Gson converter, installed by the Library Resolver below; OkHttp (HttpUrl) and Gson
+            // come from the built-in libraries the resolved libraries need (LibraryNeeds), no block uses them
+            source = "retrofit2.Retrofit retrofit = new retrofit2.Retrofit.Builder().baseUrl(\"https://example.com/api/\")\n"
+                    + "        .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create()).build();\n"
+                    + "okhttp3.HttpUrl url = retrofit.baseUrl();\n"
+                    + "android.util.Log.d(\"resolver\", url.host() + \" \" + retrofit.converterFactories().size());";
         } else if (spec.equals("m3")) {
             // Material 1.13 API that needs the android-34 compile platform and the Material 3 theme
             source = "com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this);\n"
@@ -305,6 +318,12 @@ public class Fixtures {
             call(proj, "a", javaName, "onCreate_initializeLogic", blocks);
         }
 
+        if (spec.equals("javaedit")) {
+            javaEditBlocks(proj, javaName);
+        }
+        if (spec.equals("resolver")) {
+            resolveLibraries(sc_id, "com.squareup.retrofit2:converter-gson:2.9.0");
+        }
         if (spec.equals("telugu")) {
             // fonts as the font manager stores them: <resources/fonts/<sc_id>>/<name>.ttf whatever the format
             String fontsDir = (String) get(res, "g");
@@ -385,6 +404,116 @@ public class Fixtures {
             call(ps, "saveNow");
         }
         Main.OUT.println("CREATED " + spec + " as #" + sc_id + ": " + widgets.size() + " widgets, " + comps.size() + " components");
+    }
+
+    /**
+     * v1.8.8 javaedit: what the Java editor (JavaEdit) edits. Variables count (number), name (string), a custom variable
+     * and a list; button1 onClick: setText, if (true) { toast }, setText; button2 onClick without blocks; textview1
+     * onClick: if/else with a setText in each stack; onCreate: setText; MoreBlock greet(String who) with one
+     * add-source block.
+     */
+    @SuppressWarnings("unchecked")
+    static void javaEditBlocks(Object proj, String javaName) throws Throwable {
+        HashMap<String, ArrayList<Object>> vars = (HashMap<String, ArrayList<Object>>) get(proj, "e");
+        ArrayList<Object> v = vars.computeIfAbsent(javaName, k -> new ArrayList<>());
+        v.add(neu("android.util.Pair", 1, "count"));
+        v.add(neu("android.util.Pair", 2, "name"));
+        v.add(neu("android.util.Pair", 6, "private int clicks = 0"));
+        HashMap<String, ArrayList<Object>> lists = (HashMap<String, ArrayList<Object>>) get(proj, "f");
+        lists.computeIfAbsent(javaName, k -> new ArrayList<>()).add(neu("android.util.Pair", 2, "items"));
+        HashMap<String, ArrayList<Object>> more = (HashMap<String, ArrayList<Object>>) get(proj, "g");
+        more.computeIfAbsent(javaName, k -> new ArrayList<>()).add(neu("android.util.Pair", "greet", "greet %s.who"));
+        HashMap<String, ArrayList<Object>> events = (HashMap<String, ArrayList<Object>>) get(proj, "i");
+        ArrayList<Object> ev = events.computeIfAbsent(javaName, k -> new ArrayList<>());
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 3, "button1", "onClick"));
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 3, "button2", "onClick"));
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 4, "textview1", "onClick"));
+
+        ArrayList<Object> click = new ArrayList<>();
+        Object a = block("10", "%m.textview setText %s", " ", "setText", "textview1", "Hi");
+        Object cond = block("20", "true", "b", "true");
+        Object iff = block("11", "if %b then", "c", "if", "@20");
+        Object toast = block("12", "Toast %s", " ", "doToast", "inside");
+        Object b = block("13", "%m.textview setText %s", " ", "setText", "textview1", "after");
+        set(a, "nextBlock", 11);
+        set(iff, "subStack1", 12);
+        set(iff, "nextBlock", 13);
+        click.add(a);
+        click.add(iff);
+        click.add(cond);
+        click.add(toast);
+        click.add(b);
+        call(proj, "a", javaName, "button1_onClick", click);
+
+        // textview1 onClick: if (true) { setText "yes" } else { setText "no" }
+        ArrayList<Object> tv = new ArrayList<>();
+        Object ifElse = block("10", "if %b then else", "e", "ifElse", "@11");
+        Object yes = block("12", "%m.textview setText %s", " ", "setText", "textview1", "yes");
+        Object no = block("13", "%m.textview setText %s", " ", "setText", "textview1", "no");
+        set(ifElse, "subStack1", 12);
+        set(ifElse, "subStack2", 13);
+        tv.add(ifElse);
+        tv.add(block("11", "true", "b", "true"));
+        tv.add(yes);
+        tv.add(no);
+        call(proj, "a", javaName, "textview1_onClick", tv);
+
+        ArrayList<Object> create = new ArrayList<>();
+        create.add(block("10", "%m.textview setText %s", " ", "setText", "edittext1", "x"));
+        call(proj, "a", javaName, "onCreate_initializeLogic", create);
+
+        ArrayList<Object> greet = new ArrayList<>();
+        greet.add(block("10", "add source directly %s.inputOnly", " ", "addSourceDirectly", "android.util.Log.d(\"greet\", _who);"));
+        call(proj, "a", javaName, "greet_moreBlock", greet);
+    }
+
+    /**
+     * v1.8.8 resolver: the Library Resolver's own classes resolve and install a coordinate for the project, offline:
+     * POMs and archives come from the cache folder the desktop test (tools/jvm-tests/MavenResolverTest) filled
+     * (system property h.mavencache), copied to /.sketchware/libs/cache/maven as on a phone.
+     */
+    static void resolveLibraries(String sc_id, String coordinate) throws Throwable {
+        java.io.File cache = (java.io.File) call(c("com.sketchware.ai.library.LibraryResolverActivity"), "cacheFolder");
+        String from = System.getProperty("h.mavencache");
+        if (from != null) copyTree(new java.io.File(from), cache);
+        // the libraries installed by an earlier run go, so this run installs them again
+        for (String old : new String[]{"retrofit_V_2.9.0", "converter-gson_V_2.9.0"}) {
+            deleteTree(new java.io.File((java.io.File) call(c("com.sketchware.ai.project.LibraryHeal"), "localLibs"), old));
+        }
+        Object offline = proxy("com.sketchware.ai.library.MavenResolver$Source", (m, a) -> {
+            throw R.<RuntimeException>sneaky(new java.io.IOException("offline: " + a[0]));
+        });
+        Object resolver = neu("com.sketchware.ai.library.MavenResolver",
+                call(c("com.sketchware.ai.library.MavenResolver"), "defaultRepositories"), cache, offline);
+        Object plan = call(resolver, "resolve", coordinate);
+        Main.OUT.println("RESOLVED " + coordinate + ": " + get(plan, "artifacts") + " built in " + get(plan, "builtIn")
+                + " problems " + get(plan, "problems"));
+        Object outcome = call(c("com.sketchware.ai.library.LibraryInstaller"), "install", resolver, plan, sc_id, null);
+        Main.OUT.println("INSTALLED " + get(outcome, "installed") + " reused " + get(outcome, "reused") + " enabled "
+                + get(outcome, "enabled") + " failed " + get(outcome, "failed"));
+        if (!((List<?>) get(outcome, "failed")).isEmpty()) throw new IllegalStateException("install failed: " + get(outcome, "failed"));
+    }
+
+    static void copyTree(java.io.File from, java.io.File to) throws java.io.IOException {
+        if (from.isDirectory()) {
+            String[] names = from.list();
+            if (names != null) for (String n : names) copyTree(new java.io.File(from, n), new java.io.File(to, n));
+        } else if (from.isFile()) {
+            copy(from, to);
+        }
+    }
+
+    static void deleteTree(java.io.File f) {
+        java.io.File[] children = f.listFiles();
+        if (children != null) for (java.io.File c : children) deleteTree(c);
+        f.delete();
+    }
+
+    @SuppressWarnings("unchecked")
+    static Object block(String id, String spec, String type, String opCode, String... parameters) throws Throwable {
+        Object b = neu("com.besome.sketch.beans.BlockBean", id, spec, type, opCode);
+        ((List<String>) get(b, "parameters")).addAll(Arrays.asList(parameters));
+        return b;
     }
 
     /**

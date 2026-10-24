@@ -204,7 +204,7 @@ public final class LibraryHeal {
      * Maven group is used as before, but only when it is a valid Java package name
      * ("com.github.some-user" is not, and would break the import and the resource link).
      */
-    static void writeConfig(File directory, String group) {
+    public static void writeConfig(File directory, String group) {
         File config = new File(directory, "config");
         if (config.exists()) return; // what is there (possibly set by the user) stays
         String packageName = null;
@@ -218,7 +218,7 @@ public final class LibraryHeal {
         FileUtil.writeFile(config.getAbsolutePath(), packageName);
     }
 
-    static void dex(File classesJar) throws Exception {
+    public static void dex(File classesJar) throws Exception {
         File libs = BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH;
         // D8 needs the bundled android.jar, which the first build after an install hasn't unpacked yet.
         if (!new File(libs, "android.jar").isFile()) a.a.a.Dp.maybeExtractAndroidJar(null);

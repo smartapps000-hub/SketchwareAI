@@ -390,6 +390,43 @@
    "checks": [
     "VideoView 1080x1788 of a 1080x2340 screen; WebView and Button 0 px high"
    ]
+  },
+  {
+   "id": "919",
+   "kind": "harness fixture javaedit (tools/art-harness, Fixtures: javaEditBlocks; run.sh <apk> <root> javaedit 919)",
+   "content": "v1.8.8 Java editor: MainActivity with variables (number, string, custom 'private int clicks = 0'), a list, a MoreBlock 'greet', button1 onClick (setText, if with a Toast inside, setText), textview1 onClick (if/else), button2 onClick and onCreate blocks; JavaEdit.run opens it in JavaEditSession and saves a series of edits",
+   "checks": [
+    "every CHECK ok (JAVAEDIT n/n): unchanged save, empty event, inside if, insert before a block, field + import + MoreBlock, view lookup edit refused, plain method refused, remove variable + block, replace the if, else stack, onCreate emptied, line into an empty onCreate, unbalanced braces refused, two-line field, comment before the closing brace refused, variable type changed",
+    "refused saves leave blocks, variables and MoreBlocks unchanged",
+    "after the edits the project builds (Run build steps ok)"
+   ]
+  },
+  {
+   "id": "920",
+   "kind": "harness fixture resolver (tools/art-harness, Fixtures.resolveLibraries: MavenResolver + LibraryInstaller with POMs/archives read from out/maven-cache)",
+   "content": "v1.8.8 Library Resolver: com.squareup.retrofit2:converter-gson:2.9.0 resolved and installed as local libraries (retrofit, converter-gson; OkHttp and Gson are built in); one add-source block uses Retrofit, its Gson converter and okhttp3.HttpUrl",
+   "checks": [
+    "retrofit_V_2.9.0 and converter-gson_V_2.9.0 installed, dexed, switched on; needs.json names the built-in OKHTTP / GSON",
+    "Run build: the built-in okhttp and gson are added for the local libraries (no block uses them) and the build succeeds",
+    "LoadAll: Retrofit's classes link",
+    "Export to Android Studio: build.gradle names the built-in libraries' coordinates; Gradle builds it"
+   ]
+  },
+  {
+   "id": "javaedit-open",
+   "kind": "harness (run.sh <apk> <root> javaedit-open <ids>)",
+   "content": "v1.8.8: every activity of the built suite projects opened in JavaEditSession and saved unchanged",
+   "checks": [
+    "convertible (or read-only with the reason), unchanged, project data the same"
+   ]
+  },
+  {
+   "id": "render-v188",
+   "kind": "layoutlib (V188ScreensTest.kt, setup_v188.sh)",
+   "content": "v1.8.8: Library Resolver tabs and + Add, Java editor (convertible and read-only), Code tab",
+   "checks": [
+    "every row, tab and button label visible"
+   ]
   }
  ]
 }

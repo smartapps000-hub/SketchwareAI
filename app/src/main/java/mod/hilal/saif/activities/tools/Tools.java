@@ -234,7 +234,7 @@ public class Tools extends Activity {
         makeup(localLibraryManagerLayout, R.drawable.colored_box_96, "Local library manager", "Manage and download local libraries");
         base.addView(localLibraryManager);
         localLibraryManagerLayout.setOnClickListener(new ActivityLauncher(
-                new Intent(getApplicationContext(), ManageLocalLibraryActivity.class),
+                new Intent(getApplicationContext(), com.sketchware.ai.library.LibraryResolverActivity.class),
                 new Pair<>("sc_id", "system")));
 
         CardView modSettings = newCard(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0.0f);

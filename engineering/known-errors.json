@@ -270,6 +270,60 @@
    "verifiedOn": [
     "review of the v1.8.7 diff; not run on a device"
    ]
+  },
+  {
+   "fingerprint": "java.util.regex.PatternSyntaxException in MavenResolver.<clinit> on Android (\"\\\\$\\\\{([^}]+)}\")",
+   "rootCause": "Android's java.util.regex is ICU: an unescaped '}' is a syntax error there; the desktop JVM accepts it, so the JVM test passed",
+   "repair": "pattern written as \"\\\\$\\\\{([^}]+)\\\\}\"; every regex in new code is run once on the ART harness with the APK's classes",
+   "scope": "IDE (Library Resolver)",
+   "verifiedOn": [
+    "ART API 31 with the v1.8.8 test APK: the class failed to load before, loads and resolves fixture 920 after"
+   ]
+  },
+  {
+   "fingerprint": "Java editor: the marked generation differs from the normal one at an empty event (initializeLogic with no blocks)",
+   "rootCause": "the generator writes an empty event as nothing; whether a blank line stays depends on the event, so a marker line can't be matched by position alone",
+   "repair": "EditMap compares the empty event's place with the normal generation and records it with or without its own blank line",
+   "scope": "IDE (Java editor)",
+   "verifiedOn": [
+    "ART API 31: javaedit-open on fixtures 902/903 (failed before), fixture 919 'empty event' and 'onCreate emptied' checks"
+   ]
+  },
+  {
+   "fingerprint": "Java editor: an inserted line saved into the wrong event (the diff put the change next to an equal '}' outside the event)",
+   "rootCause": "a pure insertion or deletion of a line equal to its neighbour (\"}\") can sit in several places; Myers picks one",
+   "repair": "LineDiff.slide moves such a run to the nearest equal place inside an event",
+   "scope": "IDE (Java editor)",
+   "verifiedOn": [
+    "ART API 31: fixture 919 'insert before a block' and 'else stack' checks"
+   ]
+  },
+  {
+   "fingerprint": "(review finding) Java editor: a field declared over two lines, or text outside every member, was stored wrongly",
+   "rootCause": "custom variables are stored one per line in the project file; stray lines belonged to no member",
+   "repair": "multi-line declarations are joined (refused with comments or annotations); stray lines are refused with their line number",
+   "scope": "IDE (Java editor)",
+   "verifiedOn": [
+    "ART API 31: fixture 919 'two-line field' and 'comment before the closing brace refused' checks"
+   ]
+  },
+  {
+   "fingerprint": "(review finding) Library Resolver: installing a library replaced another library of the same artifact name from a different group; an unreadable local_library list was overwritten",
+   "rootCause": "folders are named <artifact>_V_<version> without the group",
+   "repair": "another version is switched off only when both recorded groups are known and equal; an unreadable list is left as it is and the install says so",
+   "scope": "IDE (Library Resolver)",
+   "verifiedOn": [
+    "review of the v1.8.8 diff; not run on a device"
+   ]
+  },
+  {
+   "fingerprint": "(review finding) Library Resolver on Android 7.1 and older: D8 can't run there",
+   "rootCause": "D8 needs Android 8 (minApi21 flavour)",
+   "repair": "LibraryInstaller.dex uses Dx below API 26 and refuses class files newer than Java 7 with a message",
+   "scope": "IDE (Library Resolver, minApi21 build)",
+   "verifiedOn": [
+    "review of the v1.8.8 diff; minApi21 compiled, not run"
+   ]
   }
  ]
 }
