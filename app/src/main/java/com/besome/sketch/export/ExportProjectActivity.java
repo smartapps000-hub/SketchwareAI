@@ -175,6 +175,8 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
             // widget libraries with no Maven artifact go to app/libs as .aar files
             com.sketchware.ai.project.GradleExport.writeWidgetLibraries(new File(project_metadata.projectMyscPath, "app"),
                     project_metadata.N);
+            // v1.8.8: the project's own local libraries (by Maven coordinate in build.gradle, else as files in app/libs)
+            com.sketchware.ai.project.GradleExport.writeLocalLibraries(new File(project_metadata.projectMyscPath), sc_id);
             if (yB.a(lC.b(sc_id), "custom_icon")) {
                 project_metadata.a(wq.e() + File.separator + sc_id + File.separator + "icon.png");
             }

@@ -76,7 +76,10 @@ public final class LibraryInstaller {
                         outcome.failed.add(a.coordinate() + ": " + reason);
                         continue;
                     }
-                    com.sketchware.ai.project.LibraryHeal.writeConfig(staging, a.group);
+                    // the package name is the library's R package: an .aar's manifest package. A plain .jar has no
+                    // resources, so it gets none (its Maven group is no Java package: the generated code would import a
+                    // package that only the on-phone build's empty R class makes exist, and Gradle exports fail on it)
+                    com.sketchware.ai.project.LibraryHeal.writeConfig(staging, null);
                     if (progress != null) progress.status("Dexing " + a.coordinate() + "…");
                     dex(new File(staging, "classes.jar"));
                     com.sketchware.ai.project.LibraryIntegrity.writeSource(staging, a.coordinate(), a.repository);

@@ -254,6 +254,7 @@ public class Main {
             call(q[0], "b", m[0], m[2], m[3], true);
             call(c("com.sketchware.ai.project.GradleExport"), "stripPackageAttribute", new File((String) get(q[0], "androidManifestPath")));
             call(c("com.sketchware.ai.project.GradleExport"), "writeWidgetLibraries", new File(mysc, "app"), get(q[0], "N"));
+            OUT.println("LOCAL LIBRARIES in app/libs: " + call(c("com.sketchware.ai.project.GradleExport"), "writeLocalLibraries", new File(mysc), sc_id));
             call(q[0], "a");
             String res = (String) get(q[0], "resDirectoryPath");
             call(m[1], "b", res + File.separator + "drawable-xhdpi");

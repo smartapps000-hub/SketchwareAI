@@ -155,6 +155,11 @@ public final class GradleExport {
         if (x.isFBAdsUsed) lines.add("com.facebook.android:audience-network-sdk:5.9.0");
         // v1.8.8: built-in libraries the project's local libraries need (Library Resolver, needs.json)
         lines.addAll(com.sketchware.ai.library.LibraryNeeds.exportCoordinates(metadata.sc_id));
+        // v1.8.8: the project's own local libraries that came from a Maven repository, by coordinate (Gradle resolves
+        // what they need); the others go to app/libs (writeLocalLibraries)
+        for (LocalLibrary library : localLibraries(metadata.sc_id)) {
+            if (library.coordinate != null) lines.add(library.coordinate);
+        }
         StringBuilder out = new StringBuilder();
         for (String line : lines) out.append("implementation '").append(line).append("'\r\n");
         return out.toString();
@@ -437,6 +442,256 @@ public final class GradleExport {
             while ((n = in.read(buffer)) > 0) bytes.write(buffer, 0, n);
             return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
         }
+    }
+
+    /** v1.8.8: one of the project's enabled local libraries (/.sketchware/libs/local_libs/<name>) for the export. */
+    static final class LocalLibrary {
+        String name;
+        File directory;
+        /** group:artifact:version when it is known where the library came from, else null. */
+        String coordinate;
+        boolean fromJitPack;
+    }
+
+    private static final java.util.regex.Pattern COORDINATE =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+");
+
+    /**
+     * The project's enabled local libraries with what is known about where they came from: the Library Resolver's
+     * needs.json, else the source.json the downloaders and the integrity restore write. Nothing is guessed from a name.
+     */
+    static java.util.List<LocalLibrary> localLibraries(String scId) {
+        java.util.List<LocalLibrary> out = new java.util.ArrayList<>();
+        if (scId == null) return out;
+        try {
+            File list = new File(mod.agus.jcoderz.lib.FileUtil.getExternalStorageDir(), ".sketchware/data/" + scId + "/local_library");
+            if (!list.isFile()) return out;
+            java.util.List<java.util.HashMap<String, Object>> libraries = new com.google.gson.Gson().fromJson(
+                    mod.agus.jcoderz.lib.FileUtil.readFile(list.getAbsolutePath()), mod.hey.studios.util.Helper.TYPE_MAP_LIST);
+            if (libraries == null) return out;
+            File root = LibraryHeal.localLibs();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (java.util.HashMap<String, Object> entry : libraries) {
+                Object name = entry.get("name");
+                if (!(name instanceof String) || ((String) name).isEmpty() || ((String) name).startsWith(".")
+                        || ((String) name).contains("/") || !seen.add((String) name)) {
+                    continue;
+                }
+                LocalLibrary library = new LocalLibrary();
+                library.name = (String) name;
+                library.directory = new File(root, library.name);
+                com.sketchware.ai.library.LibraryNeeds needs = com.sketchware.ai.library.LibraryNeeds.read(library.directory);
+                LibraryIntegrity.Source source = LibraryIntegrity.readSource(library.directory);
+                String coordinate = needs != null && needs.coordinate != null ? needs.coordinate
+                        : source != null ? source.coordinate : null;
+                if (coordinate != null && COORDINATE.matcher(coordinate.trim()).matches()) {
+                    library.coordinate = coordinate.trim();
+                    library.fromJitPack = source != null && source.url != null && source.url.contains("jitpack.io");
+                }
+                out.add(library);
+            }
+        } catch (RuntimeException ignored) {
+            // an unreadable list: the export has no local libraries, as before v1.8.8
+        }
+        return out;
+    }
+
+    /**
+     * v1.8.8, Export to Android Studio: the project's enabled local libraries without a Maven coordinate go to app/libs
+     * (classes.jar alone as local-<name>.jar; with resources, assets, a manifest or native libraries as local-<name>.aar
+     * with an R.txt), and JitPack is added to settings.gradle when a library with a coordinate came from there.
+     *
+     * @return the libraries written to app/libs (names), for the export's log
+     */
+    public static java.util.List<String> writeLocalLibraries(File projectDir, String scId) throws IOException {
+        java.util.List<String> written = new java.util.ArrayList<>();
+        boolean jitPack = false;
+        File libs = new File(projectDir, "app/libs");
+        for (LocalLibrary library : localLibraries(scId)) {
+            if (library.coordinate != null) {
+                jitPack |= library.fromJitPack;
+                continue;
+            }
+            File jar = new File(library.directory, "classes.jar");
+            if (!jar.isFile()) continue;
+            if (!libs.isDirectory() && !libs.mkdirs()) throw new IOException("Can't create " + libs);
+            String fileName = "local-" + library.name.replaceAll("[^A-Za-z0-9._-]", "_");
+            boolean androidParts = nonEmpty(new File(library.directory, "res")) || nonEmpty(new File(library.directory, "assets"))
+                    || nonEmpty(new File(library.directory, "jni")) || new File(library.directory, "AndroidManifest.xml").isFile();
+            if (!androidParts) {
+                copy(jar, new File(libs, fileName + ".jar"));
+            } else {
+                writeAar(library, new File(libs, fileName + ".aar"));
+            }
+            written.add(library.name);
+        }
+        blankUnresolvableImports(projectDir, scId);
+        if (jitPack) {
+            File settings = new File(projectDir, "settings.gradle");
+            String text = mod.agus.jcoderz.lib.FileUtil.readFile(settings.getAbsolutePath());
+            String marker = "        mavenCentral()\r\n    }\r\n}\r\n\r\ninclude";
+            if (text != null && text.contains(marker) && !text.contains("jitpack.io")) {
+                write(settings, text.replace(marker, "        mavenCentral()\r\n        maven { url 'https://jitpack.io' }\r\n"
+                        + "    }\r\n}\r\n\r\ninclude"));
+            }
+        }
+        return written;
+    }
+
+    /**
+     * The generated code imports "<package>.*" for every local library with a package name (its R package). The on-phone
+     * build generates an R class there, so the import always resolves; Gradle doesn't when the library has no resources.
+     * Libraries installed before v1.8.8 by the missing-library download got their Maven group as package name, which is
+     * often no Java package (com.squareup.retrofit2: the classes are in retrofit2). Such an import line, for a package
+     * with no class in the library and no res/ folder, is left empty in the exported sources (line numbers kept).
+     */
+    static void blankUnresolvableImports(File projectDir, String scId) {
+        java.util.Set<String> lines = new java.util.HashSet<>();
+        try {
+            File list = new File(mod.agus.jcoderz.lib.FileUtil.getExternalStorageDir(), ".sketchware/data/" + scId + "/local_library");
+            if (!list.isFile()) return;
+            java.util.List<java.util.HashMap<String, Object>> libraries = new com.google.gson.Gson().fromJson(
+                    mod.agus.jcoderz.lib.FileUtil.readFile(list.getAbsolutePath()), mod.hey.studios.util.Helper.TYPE_MAP_LIST);
+            if (libraries == null) return;
+            File root = LibraryHeal.localLibs();
+            for (java.util.HashMap<String, Object> entry : libraries) {
+                Object name = entry.get("name"), pkg = entry.get("packageName");
+                if (!(name instanceof String) || !(pkg instanceof String) || ((String) pkg).trim().isEmpty()) continue;
+                File directory = new File(root, (String) name);
+                if (nonEmpty(new File(directory, "res"))) continue; // an R class is generated in that package
+                if (holdsPackage(new File(directory, "classes.jar"), ((String) pkg).trim())) continue;
+                lines.add("import " + ((String) pkg).trim() + ".*;");
+            }
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (lines.isEmpty()) return;
+        blankLines(new File(projectDir, "app/src/main/java"), lines);
+    }
+
+    private static boolean holdsPackage(File jar, String pkg) {
+        String prefix = pkg.replace('.', '/') + "/";
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar)) {
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                String entryName = entries.nextElement().getName();
+                if (entryName.startsWith(prefix) && entryName.endsWith(".class") && entryName.indexOf('/', prefix.length()) < 0) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            return true; // unreadable: leave the import as it is
+        }
+        return false;
+    }
+
+    private static void blankLines(File directory, java.util.Set<String> lines) {
+        File[] children = directory.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (child.isDirectory()) {
+                blankLines(child, lines);
+            } else if (child.getName().endsWith(".java")) {
+                String text = mod.agus.jcoderz.lib.FileUtil.readFile(child.getAbsolutePath());
+                if (text == null) continue;
+                String[] parts = text.split("\n", -1);
+                boolean changed = false;
+                for (int i = 0; i < parts.length; i++) {
+                    String trimmed = parts[i].trim();
+                    if (lines.contains(trimmed)) {
+                        parts[i] = parts[i].endsWith("\r") ? "\r" : "";
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    StringBuilder joined = new StringBuilder(text.length());
+                    for (int i = 0; i < parts.length; i++) {
+                        if (i > 0) joined.append('\n');
+                        joined.append(parts[i]);
+                    }
+                    write(child, joined.toString());
+                }
+            }
+        }
+    }
+
+    private static boolean nonEmpty(File directory) {
+        String[] names = directory.list();
+        return names != null && names.length > 0;
+    }
+
+    private static void copy(File from, File to) throws IOException {
+        try (java.io.InputStream in = new java.io.FileInputStream(from); OutputStream out = new FileOutputStream(to)) {
+            byte[] buffer = new byte[16384];
+            int n;
+            while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+        }
+    }
+
+    /** An .aar from a local library folder: classes.jar, res/, assets/, jni/ (as jni/), proguard.txt, manifest, R.txt. */
+    private static void writeAar(LocalLibrary library, File aar) throws IOException {
+        File dir = library.directory;
+        java.util.Map<String, byte[]> resources = new java.util.TreeMap<>();
+        try (java.util.zip.ZipOutputStream out = new java.util.zip.ZipOutputStream(new FileOutputStream(aar))) {
+            addFile(out, new File(dir, "classes.jar"), "classes.jar", null);
+            addTree(out, new File(dir, "res"), "res/", resources);
+            addTree(out, new File(dir, "assets"), "assets/", null);
+            addTree(out, new File(dir, "jni"), "jni/", null);
+            File proguard = new File(dir, "proguard.txt");
+            if (proguard.isFile()) addFile(out, proguard, "proguard.txt", null);
+            File manifest = new File(dir, "AndroidManifest.xml");
+            String manifestText = manifest.isFile() ? mod.agus.jcoderz.lib.FileUtil.readFile(manifest.getAbsolutePath()) : null;
+            if (manifestText == null || !manifestText.contains("package=")) {
+                String pkg = null;
+                File config = new File(dir, "config");
+                if (config.isFile()) pkg = mod.agus.jcoderz.lib.FileUtil.readFile(config.getAbsolutePath()).trim();
+                if (pkg == null || !pkg.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+")) {
+                    pkg = "local." + library.name.replaceAll("[^A-Za-z0-9_]", "_").toLowerCase(java.util.Locale.ROOT);
+                }
+                manifestText = "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"" + pkg + "\" />\n";
+            }
+            out.putNextEntry(new java.util.zip.ZipEntry("AndroidManifest.xml"));
+            out.write(manifestText.getBytes(StandardCharsets.UTF_8));
+            out.closeEntry();
+            File symbols = new File(dir, "R.txt");
+            if (symbols.isFile()) {
+                addFile(out, symbols, "R.txt", null);
+            } else {
+                out.putNextEntry(new java.util.zip.ZipEntry("R.txt"));
+                out.write(textSymbols(resources).getBytes(StandardCharsets.UTF_8));
+                out.closeEntry();
+            }
+        }
+    }
+
+    private static void addTree(java.util.zip.ZipOutputStream out, File directory, String prefix,
+                                java.util.Map<String, byte[]> collect) throws IOException {
+        File[] children = directory.listFiles();
+        if (children == null) return;
+        java.util.Arrays.sort(children);
+        for (File child : children) {
+            if (child.isDirectory()) {
+                addTree(out, child, prefix + child.getName() + "/", collect == null ? null : collect);
+            } else {
+                addFile(out, child, prefix + child.getName(), collect);
+            }
+        }
+    }
+
+    private static void addFile(java.util.zip.ZipOutputStream out, File file, String path,
+                                java.util.Map<String, byte[]> collect) throws IOException {
+        out.putNextEntry(new java.util.zip.ZipEntry(path));
+        java.io.ByteArrayOutputStream content = collect != null ? new java.io.ByteArrayOutputStream() : null;
+        try (java.io.InputStream in = new java.io.FileInputStream(file)) {
+            byte[] buffer = new byte[16384];
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                out.write(buffer, 0, n);
+                if (content != null) content.write(buffer, 0, n);
+            }
+        }
+        out.closeEntry();
+        if (content != null) collect.put(path.substring(path.indexOf('/') + 1), content.toByteArray());
     }
 
     private static void write(File file, String content) {
