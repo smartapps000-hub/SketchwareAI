@@ -1,0 +1,2 @@
+# sha256 of the v1.8.10 release files (sha256sum format), on the binaries branch (apk/, Git LFS). The patches zip's sum is in that branch's README: it cannot list itself.
+46c4668066849c17e046d7a77e9312f3309421babe3e7d3feff17dfdcffc21a5  Sketchware_AI_v1.8.10.apk

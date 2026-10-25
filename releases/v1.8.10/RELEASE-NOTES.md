@@ -36,4 +36,4 @@ Scaffold project) in the design editor.
 
 ## Files
 
-`apk/Sketchware_AI_v1.8.10.apk` on the repository's `binaries` branch (one file, Git LFS).
+`apk/Sketchware_AI_v1.8.10.apk` (138476161 bytes, sha256 `46c46680…ffc21a5`) on the repository's `binaries` branch (one file, Git LFS).
