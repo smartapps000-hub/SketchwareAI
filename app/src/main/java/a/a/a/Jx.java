@@ -167,7 +167,8 @@ public class Jx {
         // v1.8.5: setHint on an EditText shown as an outlined Material 3 field sets the field's label (M3Widgets)
         String code = com.sketchware.ai.project.M3Widgets.routeHints(formattedCodeWithWidgets(), wrappedTextFields());
         // v1.8.9: on-demand imports for the Java packages of local libraries the code uses (LibraryImports)
-        return com.sketchware.ai.library.LibraryImports.apply(code, localLibraryJars(), localLibraryAndroidJar());
+        return com.sketchware.ai.library.LibraryImports.apply(code, localLibraryJars(), mll.getPackageNames(),
+                localLibraryAndroidJar(), mod.jbk.build.BuiltInLibraries.EXTRACTED_BUILT_IN_LIBRARIES_PATH);
     }
 
     private java.util.List<java.io.File> localLibraryJars() {
@@ -182,15 +183,8 @@ public class Jx {
 
     private java.io.File localLibraryAndroidJar() {
         if (mll.list == null || mll.list.isEmpty()) return null;
-        java.io.File androidJar = new java.io.File(mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar");
-        if (!androidJar.isFile()) {
-            try {
-                Dp.maybeExtractAndroidJar(null);
-            } catch (Throwable ignored) {
-                // no imports added
-            }
-        }
-        return androidJar;
+        // never extracted here (a build may be reading it): before the first build there are no automatic imports
+        return new java.io.File(mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar");
     }
 
     /** Names of the EditTexts this class reaches that the layouts show as outlined Material 3 fields. */

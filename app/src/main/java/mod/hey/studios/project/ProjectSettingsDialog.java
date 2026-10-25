@@ -97,9 +97,12 @@ public class ProjectSettingsDialog {
         // v1.8.9: older / imported projects (below Android 17, or without Material 3) get the conversion card
         int storedTarget = com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings);
         boolean m3 = com.sketchware.ai.project.ModernProjectDefaults.material3(settings);
-        boolean compat = com.sketchware.ai.project.ModernProjectDefaults.appCompatOn(settings.sc_id);
         final boolean[] convert = {false};
-        if (storedTarget < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK || !m3 || !compat) {
+        // the library state is read off the UI thread; the card appears when it is known
+        new Thread(() -> {
+            boolean compat = com.sketchware.ai.project.ModernProjectDefaults.appCompatOn(settings.sc_id);
+            activity.runOnUiThread(() -> {
+        if (!activity.isFinishing() && (storedTarget < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK || !m3 || !compat)) {
             View upgrade = content.findViewById(R.id.ob_cfg_upgrade);
             upgrade.setVisibility(View.VISIBLE);
             ((TextView) content.findViewById(R.id.ob_cfg_upgrade_title)).setText("Older project (target " + storedTarget
@@ -127,6 +130,8 @@ public class ProjectSettingsDialog {
                     .setNegativeButton("Cancel", null)
                     .show());
         }
+            });
+        }, "ProjectConfigLibraries").start();
 
         dialog.a(content);
 
@@ -144,13 +149,23 @@ public class ProjectSettingsDialog {
         dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {
             settings.setValues(preferences);
-            if (convert[0] && !com.sketchware.ai.project.ModernProjectDefaults.convertToModern(settings.sc_id)) {
-                mod.SketchwareUtil.toast("Theme and SDK saved; AppCompat couldn't be switched on: turn it on in the Library "
-                        + "Manager.", android.widget.Toast.LENGTH_LONG);
+            if (!convert[0]) {
+                // the design editor draws Material 3 widgets for Material 3 projects
+                com.sketchware.ai.editor.DesignTheme.load(settings.sc_id);
+                dialog.dismiss();
+                return;
             }
-            // the design editor draws Material 3 widgets for Material 3 projects
-            com.sketchware.ai.editor.DesignTheme.load(settings.sc_id);
-            dialog.dismiss();
+            v.setEnabled(false);
+            new Thread(() -> {
+                boolean ok = com.sketchware.ai.project.ModernProjectDefaults.convertToModern(settings.sc_id);
+                activity.runOnUiThread(() -> {
+                    mod.SketchwareUtil.toast(ok ? "Converted to Material 3 & Modern Stack."
+                            : "Theme and SDK saved; AppCompat couldn't be switched on: turn it on in the Library Manager.",
+                            android.widget.Toast.LENGTH_LONG);
+                    com.sketchware.ai.editor.DesignTheme.load(settings.sc_id);
+                    dialog.dismiss();
+                });
+            }, "ProjectConvert").start();
         });
         dialog.show();
     }

@@ -72,9 +72,15 @@ public final class MavenSearch {
 
     public static List<Hit> search(String query, int rows, MavenResolver.Source source) throws IOException {
         MavenResolver.Source src = source != null ? source : (MavenResolver.Source) MavenResolver::download;
-        byte[] data = src.fetch(url(query, rows));
-        List<Hit> hits = parse(data == null ? "" : new String(data, StandardCharsets.UTF_8));
         String[] c = coordinate(query);
+        List<Hit> hits;
+        try {
+            byte[] data = src.fetch(url(query, rows));
+            hits = parse(data == null ? "" : new String(data, StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            if (c == null) throw e;   // a coordinate is still looked up in Google Maven and JitPack
+            hits = new ArrayList<>();
+        }
         if (hits.isEmpty() && c != null) {
             // Not on Maven Central (JitPack and Google Maven have no search): read the coordinate's
             // maven-metadata.xml from those two repositories.

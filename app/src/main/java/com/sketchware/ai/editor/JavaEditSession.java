@@ -84,6 +84,22 @@ public final class JavaEditSession {
     }
 
     /** v1.8.9: maps single statements to the blocks that write them (verified with the IDE's own generator). */
+    /** Java packages of the project's enabled local libraries (v1.8.9 automatic imports, LibraryImports). */
+    private java.util.Set<String> libraryPackages() {
+        java.util.Set<String> packages = new java.util.HashSet<>();
+        try {
+            java.util.ArrayList<java.util.HashMap<String, Object>> list = new mod.agus.jcoderz.editor.manage.library.locallibrary.ManageLocalLibrary(scId).list;
+            if (list == null) return packages;
+            for (java.util.HashMap<String, Object> library : list) {
+                Object jar = library.get("jarPath");
+                if (jar instanceof String) packages.addAll(com.sketchware.ai.library.LibraryImports.packages(new java.io.File((String) jar)).keySet());
+            }
+        } catch (RuntimeException ignored) {
+            // none known: an automatic import that went away is reported as missing
+        }
+        return packages;
+    }
+
     StatementBlocks statementBlocks() {
         if (generatorUsed == null || file == null) return null;
         final a.a.a.jq buildConfig = generatorUsed.N;
@@ -173,6 +189,7 @@ public final class JavaEditSession {
         JavaToBlocks converter = new JavaToBlocks(data, file, code, map,
                 () -> new yq(context, scId).getFileSrc(javaName, files, data, libraries));
         converter.useStatementBlocks(statementBlocks());
+        converter.useLibraryPackages(libraryPackages());
         JavaToBlocks.Result result = converter.save(edited);
         if (result.ok && !result.unchanged) {
             try {

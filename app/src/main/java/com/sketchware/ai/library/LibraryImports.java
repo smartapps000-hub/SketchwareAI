@@ -139,13 +139,12 @@ public final class LibraryImports {
      * @param androidJar the android.jar the project compiles against; without it nothing is added
      * @return the packages to import on demand, in order (empty when none)
      */
-    public static List<String> forCode(String code, Collection<File> libraryJars, File androidJar) {
+    public static List<String> forCode(String code, Collection<File> libraryJars, Collection<String> rPackages,
+                                       File androidJar, File builtInLibraries) {
         List<String> result = new ArrayList<>();
         if (code == null || libraryJars == null || libraryJars.isEmpty() || androidJar == null || !androidJar.isFile()) {
             return result;
         }
-        Map<String, Set<String>> platform = platform(androidJar);
-        if (platform == null) return result;
 
         // what the activity already imports
         Set<String> onDemand = new HashSet<>();
@@ -161,7 +160,6 @@ public final class LibraryImports {
         used.removeAll(singleNames);   // a single-type import decides those names already
         if (used.isEmpty()) return result;
 
-        // names already reachable on demand: platform packages + library packages imported already (the R package)
         Map<String, Set<String>> libraryPackages = new LinkedHashMap<>();
         for (File jar : libraryJars) {
             for (Map.Entry<String, Set<String>> e : packages(jar).entrySet()) {
@@ -170,13 +168,6 @@ public final class LibraryImports {
                 set.addAll(e.getValue());
             }
         }
-        Map<String, Set<String>> reachable = new HashMap<>();   // name → packages that bring it on demand
-        for (String pkg : onDemand) {
-            if (pkg.equals("androidx.annotation")) addNames(reachable, pkg, ANDROIDX_ANNOTATIONS);
-            addNames(reachable, pkg, platform.get(pkg));
-            addNames(reachable, pkg, libraryPackages.get(pkg));
-        }
-
         // candidates: library packages not imported yet whose classes the code uses
         List<String> candidates = new ArrayList<>();
         for (Map.Entry<String, Set<String>> e : libraryPackages.entrySet()) {
@@ -187,6 +178,28 @@ public final class LibraryImports {
                     break;
                 }
             }
+        }
+        if (candidates.isEmpty()) return result;
+
+        // names every on-demand import already brings: android.jar, the built-in libraries, the local libraries.
+        // A package found in none of them (an import block of some other package) can't be checked: then nothing
+        // is added, so no import can make a name ambiguous.
+        Map<String, Set<String>> platform = platform(androidJar);
+        if (platform == null) return result;
+        Set<String> unknown = new HashSet<>();
+        for (String pkg : onDemand) {
+            if (!platform.containsKey(pkg) && !libraryPackages.containsKey(pkg) && !pkg.equals("androidx.annotation")
+                    && (rPackages == null || !rPackages.contains(pkg))) unknown.add(pkg);
+        }
+        Map<String, Set<String>> builtIn = unknown.isEmpty() ? new HashMap<String, Set<String>>() : builtInNames(builtInLibraries, unknown);
+        for (String pkg : unknown) if (!builtIn.containsKey(pkg)) return result;
+
+        Map<String, Set<String>> reachable = new HashMap<>();   // name -> packages that bring it on demand
+        for (String pkg : onDemand) {
+            if (pkg.equals("androidx.annotation")) addNames(reachable, pkg, ANDROIDX_ANNOTATIONS);
+            addNames(reachable, pkg, platform.get(pkg));
+            addNames(reachable, pkg, libraryPackages.get(pkg));
+            addNames(reachable, pkg, builtIn.get(pkg));
         }
         // a used name in two candidates is ambiguous: neither is added
         Map<String, Integer> usedCount = new HashMap<>();
@@ -209,14 +222,62 @@ public final class LibraryImports {
         return result;
     }
 
+    /** Public names in the given packages (or members of the given classes) of the built-in libraries' jars. */
+    private static Map<String, Set<String>> builtInNames(File dir, Set<String> wanted) {
+        Map<String, Set<String>> out = new HashMap<>();
+        List<File> jars = new ArrayList<>();
+        collectJars(dir, jars, 0);
+        for (File jar : jars) {
+            try (ZipFile zip = new ZipFile(jar)) {
+                Enumeration<? extends ZipEntry> entries = zip.entries();
+                while (entries.hasMoreElements()) {
+                    ZipEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if (!name.endsWith(".class") || name.startsWith("META-INF/")) continue;
+                    int slash = name.lastIndexOf('/');
+                    if (slash < 0) continue;
+                    String pkg = name.substring(0, slash).replace('/', '.');
+                    String simple = name.substring(slash + 1, name.length() - 6);
+                    int dollar = simple.indexOf('$');
+                    if (dollar >= 0) {
+                        String outer = pkg + "." + simple.substring(0, dollar);
+                        String inner = simple.substring(dollar + 1);
+                        if (!wanted.contains(outer) || inner.isEmpty() || inner.indexOf('$') >= 0 || Character.isDigit(inner.charAt(0))) continue;
+                        pkg = outer;
+                        simple = inner;
+                    } else if (!wanted.contains(pkg) || !isPublic(zip, entry)) {
+                        continue;
+                    }
+                    Set<String> set = out.get(pkg);
+                    if (set == null) out.put(pkg, set = new HashSet<>());
+                    set.add(simple);
+                }
+            } catch (IOException | RuntimeException ignored) {
+                // unreadable jar: its packages stay unknown
+            }
+        }
+        return out;
+    }
+
+    private static void collectJars(File dir, List<File> out, int level) {
+        if (dir == null || level > 3) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) collectJars(f, out, level + 1);
+            else if (f.getName().endsWith(".jar")) out.add(f);
+        }
+    }
+
     /**
      * Adds the on-demand imports for the libraries' packages after the last import line. Never changes the code when
      * nothing is needed.
      */
-    public static String apply(String code, Collection<File> libraryJars, File androidJar) {
+    public static String apply(String code, Collection<File> libraryJars, Collection<String> rPackages, File androidJar,
+                               File builtInLibraries) {
         List<String> packages;
         try {
-            packages = forCode(code, libraryJars, androidJar);
+            packages = forCode(code, libraryJars, rPackages, androidJar, builtInLibraries);
         } catch (RuntimeException e) {
             return code;
         }
@@ -267,6 +328,13 @@ public final class LibraryImports {
                 }
                 i++;
                 out.append(' ');
+            } else if (c == '"' && i + 2 < n && code.charAt(i + 1) == '"' && code.charAt(i + 2) == '"') {
+                // a text block (Java 15+): blanked up to its closing """
+                int close = code.indexOf("\"\"\"", i + 3);
+                int stopAt = close < 0 ? n : close + 3;
+                out.append("\"\"");
+                for (int k = i; k < stopAt; k++) if (code.charAt(k) == '\n') out.append('\n');
+                i = stopAt - 1;
             } else if (c == '"' || c == '\'') {
                 char q = c;
                 out.append(q);

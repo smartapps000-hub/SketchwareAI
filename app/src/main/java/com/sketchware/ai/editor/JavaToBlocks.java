@@ -95,6 +95,22 @@ public final class JavaToBlocks {
     private StatementBlocks statements;
     private int mappedBlocks;
 
+    /** v1.8.9: Java packages of the project's local libraries (LibraryImports may add "import pkg.*;" for them). */
+    private final Set<String> libraryPackages = new HashSet<>();
+
+    public JavaToBlocks useLibraryPackages(java.util.Collection<String> packages) {
+        if (packages != null) libraryPackages.addAll(packages);
+        return this;
+    }
+
+    /** An "import pkg.*;" the generator adds by itself for a local library (LibraryImports), not stored in the project. */
+    private boolean automaticImport(String line) {
+        Matcher m = IMPORT.matcher(line);
+        if (!m.matches()) return false;
+        String target = m.group(1).trim();
+        return target.endsWith(".*") && libraryPackages.contains(target.substring(0, target.length() - 2));
+    }
+
     public JavaToBlocks useStatementBlocks(StatementBlocks statements) {
         this.statements = statements;
         return this;
@@ -136,6 +152,7 @@ public final class JavaToBlocks {
     private final List<String[]> moreBlockAdditions = new ArrayList<>();   // {name, spec, body}
     private final List<String> moreBlockRemovals = new ArrayList<>();
     private final Set<String> importsAdded = new LinkedHashSet<>();
+    private final Set<String> originalImports = new HashSet<>();
     private final Set<String> importsRemoved = new LinkedHashSet<>();
     /** Names of removed variables and lists: no typed block may use them any more. */
     private final List<String> removedNames = new ArrayList<>();
@@ -200,6 +217,7 @@ public final class JavaToBlocks {
         }
         // Imports.
         Set<String> gImports = new LinkedHashSet<>(g.imports);
+        originalImports.addAll(g.imports);
         Set<String> eImports = new LinkedHashSet<>(e.imports);
         for (int k = 0; k < e.imports.size(); k++) {
             String line = e.imports.get(k);
@@ -603,7 +621,9 @@ public final class JavaToBlocks {
             ArrayList<BlockBean> blocks = new ArrayList<>();
             if (!added[2].isEmpty()) {
                 Map<String, BlockBean> nested = new LinkedHashMap<>();
+                int counted = mappedBlocks;
                 List<BlockBean> chain = chainFor(added[2], new int[]{1}, nested);
+                mappedBlocks = counted;   // the count is reported per event; a new MoreBlock is its own change
                 blocks.addAll(chain);
                 for (BlockBean b : nested.values()) if (!chain.contains(b)) blocks.add(b);
             }
@@ -882,15 +902,31 @@ public final class JavaToBlocks {
     private List<BlockBean> chainFor(String content, int[] nextId, Map<String, BlockBean> live) {
         List<BlockBean> chain = new ArrayList<>();
         String[] lines = content.split("\n", -1);
+        int lastCode = lines.length - 1;
+        while (lastCode >= 0 && lines[lastCode].trim().isEmpty()) lastCode--;
         StringBuilder pending = new StringBuilder();
         int depth = 0;
-        for (String line : lines) {
+        boolean[] inComment = {false};
+        String previous = null;   // the last non-blank code line before this one
+        for (int n = 0; n < lines.length; n++) {
+            String line = lines[n];
             int before = depth;
-            depth += braceDelta(line);
+            boolean commentBefore = inComment[0];
+            depth += braceDelta(line, inComment);
+            String trimmed = line.trim();
             ArrayList<BlockBean> mapped = null;
-            if (statements != null && before == 0 && depth == 0 && line.trim().endsWith(";")) {
+            // only a whole statement of its own: not inside braces or a block comment, not the body of a braceless
+            // if / else / loop on the line before (the previous code line ends a statement or a block)
+            boolean own = previous == null || previous.endsWith(";") || previous.endsWith("{") || previous.endsWith("}");
+            if (statements != null && before == 0 && depth == 0 && !commentBefore && !inComment[0] && own
+                    && !trimmed.contains("/*") && !trimmed.contains("*/") && trimmed.endsWith(";")) {
                 mapped = statements.map(line, nextId);
+                // Finish Activity is a cap block: nothing may hang under it, so only as the last statement
+                if (mapped != null && "finishActivity".equals(mapped.get(0).opCode) && n != lastCode) {
+                    mapped = null;   // its ids stay unused (gaps are fine; ids are only unique)
+                }
             }
+            if (!trimmed.isEmpty() && !commentBefore && !trimmed.startsWith("//")) previous = codePart(trimmed);
             if (mapped == null) {
                 if (pending.length() > 0) pending.append('\n');
                 pending.append(line);
@@ -909,13 +945,31 @@ public final class JavaToBlocks {
         return chain;
     }
 
-    /** '{' minus '}' outside strings, characters and comments of one line. */
-    private static int braceDelta(String line) {
+    /** A code line without a trailing // comment (approximate: a // inside a string ends it too early, which only
+     * makes the next line stay "add source"). */
+    private static String codePart(String trimmed) {
+        int c = trimmed.indexOf("//");
+        return (c >= 0 ? trimmed.substring(0, c) : trimmed).trim();
+    }
+
+    /** '{' minus '}' outside strings, characters and comments of one line; {@code inComment} carries a block comment
+     * over line ends. */
+    private static int braceDelta(String line, boolean[] inComment) {
         int d = 0;
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
+            if (inComment[0]) {
+                if (c == '*' && i + 1 < line.length() && line.charAt(i + 1) == '/') {
+                    inComment[0] = false;
+                    i++;
+                }
+                continue;
+            }
             if (c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/') break;
-            if (c == '"' || c == '\'') {
+            if (c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '*') {
+                inComment[0] = true;
+                i++;
+            } else if (c == '"' || c == '\'') {
                 int j = i + 1;
                 while (j < line.length() && line.charAt(j) != c) {
                     if (line.charAt(j) == '\\') j++;
@@ -1010,7 +1064,8 @@ public final class JavaToBlocks {
             }
         }
         for (String line : expected) {
-            if (!got.contains(line)) return "missing " + line;
+            // an automatic library import that is no longer needed (or would now be ambiguous) goes away by itself
+            if (!got.contains(line) && !(automaticImport(line) && originalImports.contains(line))) return "missing " + line;
         }
         if (!r.line(r.classLine).trim().equals(e.line(e.classLine).trim())) return "class line";
         Map<String, Integer> counts = new HashMap<>();

@@ -280,7 +280,7 @@ public final class M3Widgets {
         if (bean.type != ViewBeans.VIEW_TYPE_LAYOUT_CARDVIEW) return false;
         String c = bean.convert == null ? "" : bean.convert.trim();
         if (!(c.isEmpty() || c.equals("CardView") || c.equals("androidx.cardview.widget.CardView"))) return false;
-        return bean.inject == null || !bean.inject.contains("style=");
+        return bean.inject == null || !Pattern.compile("(^|\\s)style\\s*=").matcher(bean.inject).find();
     }
 
     /** Not converted to another class: no convert, or the palette's own class name ("Button", "Switch", ...). */

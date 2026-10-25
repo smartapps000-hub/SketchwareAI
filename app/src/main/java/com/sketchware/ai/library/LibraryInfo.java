@@ -68,7 +68,7 @@ public final class LibraryInfo {
         }
         Map<String, Set<String>> packages = LibraryImports.packages(new File(dir, "classes.jar"));
         for (Set<String> names : packages.values()) info.classes += names.size();
-        info.packages.addAll(LibraryImports.topPackages(packages));
+        info.packages.addAll(packages.keySet());   // every package: import a.b.* doesn't reach a.b.c
         return info;
     }
 
@@ -94,7 +94,7 @@ public final class LibraryInfo {
             s.append("No public classes found in classes.jar.");
         } else {
             s.append("Public classes: ").append(classes).append('\n');
-            s.append("Import (added by the build when your code uses its classes):\n");
+            s.append("Imports (the build adds the ones your code uses):\n");
             for (String p : packages) s.append("import ").append(p).append(".*;\n");
         }
         if (!pomFound && coordinate != null) s.append("\nIts POM isn't on this phone, so there is no description or licence.");

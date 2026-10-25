@@ -143,22 +143,28 @@ public final class ModernProjectDefaults {
     public static boolean convertToModern(String scId) {
         boolean ok = true;
         try {
-            a.a.a.iC libraries = new a.a.a.iC(scId);
-            boolean backup = libraries.g();
-            if (backup) libraries.h(); else libraries.i();
-            com.besome.sketch.beans.ProjectLibraryBean compat = libraries.c();
-            if (compat == null) {
-                ok = false;
-            } else if (!com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y.equals(compat.useYn)) {
-                compat.useYn = com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y;
-                libraries.l();
-                if (backup) libraries.k();
+            // the saved data and the unsaved working copy are changed separately: neither gets the other's state
+            a.a.a.iC saved = new a.a.a.iC(scId);
+            saved.i();
+            ok = switchCompatOn(saved);
+            if (ok) saved.l();
+            a.a.a.iC working = new a.a.a.iC(scId);
+            if (working.g()) {
+                working.h();
+                if (switchCompatOn(working)) working.k();
             }
         } catch (RuntimeException e) {
             ok = false;
         }
         applyModernBuildSettings(scId);
         return ok;
+    }
+
+    private static boolean switchCompatOn(a.a.a.iC libraries) {
+        com.besome.sketch.beans.ProjectLibraryBean compat = libraries.c();
+        if (compat == null) return false;
+        compat.useYn = com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y;
+        return true;
     }
 
     /** Sets D8 + Java 11 (Android 8.0+) for a project, overwriting its stored choice. */
