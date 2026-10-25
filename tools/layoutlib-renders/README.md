@@ -60,3 +60,8 @@ Setup: `echo sdk.dir=/opt/android-sdk > local.properties`; fonts: `python3 ../ar
 render/src/main/assets/fonts`; helpers: the generated `SketchFonts.java` (FontCode.helperClass("pz.render")), `SketchTextField.java` and
 `SketchButton.java` (M3Widgets.textFieldClass / buttonClass("pz.render")) into `render/src/main/java/pz/render/`. Run: `./gradlew :render:recordPaparazziDebug` (JDK 17). Output in `out/` (paths in the
 tests are absolute to /home/claude/pz; change them when the module lives elsewhere).
+- v1.8.10: `CardParamsTest` (CardParamsTest.kt + `pz.render.FixedLinear`, a copy of `ItemLinearLayout.onMeasure`): a card
+  drawn as a LinearLayout inside a ScrollView column, its child given FrameLayout params after being added (what
+  ViewPane does for parentType 36). With the system property `withPlain` set in the test JVM (`systemProperty` in the test task), the plain LinearLayout throws the owner's ClassCastException
+  (`LinearLayout.java:1194`, layoutlib reports it as the test failure); FixedLinear measures and keeps margin and gravity
+  (`out/card_params.txt`).

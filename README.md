@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.8.9** (versionCode 179). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.8.10** (versionCode 180). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)

@@ -366,6 +366,22 @@
       "scope": "Java editor, Material 3 projects",
       "verifiedOn": "ART fixture 919",
       "permanent": false
+    },
+    {
+      "fingerprint": "Design editor crash: ClassCastException android.widget.FrameLayout$LayoutParams cannot be cast to android.widget.LinearLayout$LayoutParams (LinearLayout.measureHorizontal, ItemVerticalScrollView)",
+      "rootCause": "ViewPane gives a child FrameLayout params when its bean's parentType != 0; the v1.8.7-v1.8.9 New Project templates stored parentType 36 for a card's column, and cards (and TextInputLayout, SwipeRefreshLayout, RadioGroup, CollapsingToolbarLayout) are drawn as ItemLinearLayout",
+      "repair": "v1.8.10: ItemLinearLayout.onMeasure converts foreign child params to LinearLayout params (size, margins, gravity kept); ProjectPresets.canvasParentType stores what the editor stores (12 VSCROLL, 2 HSCROLL, else 0)",
+      "scope": "design editor canvas; projects made from the templates",
+      "verifiedOn": "layoutlib (crash reproduced at LinearLayout.java:1194, fixed); ART fixtures 914-918",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Material 3: EditText inside a TextInputLayout wrapped in a second outlined TextInputLayout",
+      "rootCause": "M3Widgets.wrapsEditText checked bean.parentType == 38, but the editor stores 0 for a view dropped into a TextInputLayout",
+      "repair": "v1.8.10: the parent bean's own type is checked too",
+      "scope": "generated layouts of Material 3 projects",
+      "verifiedOn": "ART fixture 913 (textinputlayout9/edittext9)",
+      "permanent": true
     }
   ]
 }
