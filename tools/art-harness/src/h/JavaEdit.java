@@ -401,6 +401,41 @@ public class JavaEdit {
         for (String t : typed) allThere &= regenerated.contains(t);
         check("statements to blocks: generated again, every line as typed", allThere, "");
 
+        // 16. v1.8.9: the other statements the mapper knows, in button2's onClick again
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed2 = {
+                "edittext1.setHint(\"Name\");",
+                "button1.setClickable(true);",
+                "checkbox1.setChecked(true);",
+                "edittext1.requestFocus();",
+                "setTitle(\"Home\");",
+                "done = true;",
+                "score--;",
+                "checkbox1.setChecked(done);"};
+        for (int k = 0; k < typed2.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed2[k]);
+        r = save(join(l));
+        check("more statements to blocks: ok", ok(r), report(r));
+        all.clear();
+        for (Object b : blocks("button2_onClick")) all.put((String) get(b, "id"), b);
+        cur = blocks("button2_onClick").isEmpty() ? null : blocks("button2_onClick").get(0);
+        ops = new StringBuilder();
+        while (cur != null) {
+            ops.append(get(cur, "opCode")).append(' ');
+            int nx = (Integer) get(cur, "nextBlock");
+            cur = nx < 0 ? null : all.get(String.valueOf(nx));
+        }
+        check("more statements to blocks: one block each", ops.toString().equals(
+                "setHint setClickable setChecked requestFocus setTitle setVarBoolean decreaseInt setChecked "), ops.toString());
+        regenerated = code();
+        allThere = true;
+        for (String t : typed2) allThere &= regenerated.contains(t);
+        check("more statements to blocks: generated again, every line as typed", allThere, "");
+
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());
         Main.OUT.println("AFTER " + state());

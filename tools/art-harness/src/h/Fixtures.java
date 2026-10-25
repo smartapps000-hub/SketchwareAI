@@ -175,8 +175,8 @@ public class Fixtures {
             // v1.8.8: Button, TextView (the Library Resolver's test project)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("javaedit")) {
-            // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit)
-            for (int[] t : new int[][]{{3}, {3, 2}, {4}, {5}}) widgets.add(t);
+            // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit); v1.8.9 a CheckBox
+            for (int[] t : new int[][]{{3}, {3, 2}, {4}, {5}, {11}}) widgets.add(t);
         } else {
             for (int t : new int[]{3, 4, 5, 6, 9, 11}) widgets.add(new int[]{t});
         }
@@ -452,6 +452,7 @@ public class Fixtures {
         v.add(neu("android.util.Pair", 6, "private int clicks = 0"));
         v.add(neu("android.util.Pair", 2, "title"));   // v1.8.9 statement-to-block checks
         v.add(neu("android.util.Pair", 1, "score"));
+        v.add(neu("android.util.Pair", 0, "done"));
         HashMap<String, ArrayList<Object>> lists = (HashMap<String, ArrayList<Object>>) get(proj, "f");
         lists.computeIfAbsent(javaName, k -> new ArrayList<>()).add(neu("android.util.Pair", 2, "items"));
         HashMap<String, ArrayList<Object>> more = (HashMap<String, ArrayList<Object>>) get(proj, "g");
