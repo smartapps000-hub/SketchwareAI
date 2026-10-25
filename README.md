@@ -2,6 +2,18 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.8.10 (versionCode 180, `v1.8.10-23820dd-minApi26`)
+
+Fix release: the design editor crash in projects made from the Material 3 Scaffold template (ClassCastException
+FrameLayout$LayoutParams). One full APK: open `apk/Sketchware_AI_v1.8.10.apk` on GitHub and tap **Download**.
+
+| File | sha256 |
+|---|---|
+| `apk/Sketchware_AI_v1.8.10.apk` (138,476,161 bytes) | `46c4668066849c17e046d7a77e9312f3309421babe3e7d3feff17dfdcffc21a5` |
+| `v1.8.10/SketchwareAI-v1.8.10-patches.zip` (139,672,287 bytes; 69 patches against the upstream zip, `main` at 3788b83) | `dcf4ebcda6eee4045deadf2badf6ff45ef11d823a201406413f9bf586079e18e` |
+
+Signed with the public test key, so it installs over v1.8.9. Release notes: `releases/v1.8.10/RELEASE-NOTES.md` on `main`.
+
 ## v1.8.9 (versionCode 179, `v1.8.9-f975642-minApi26`)
 
 One full APK, no 7z parts: open `apk/Sketchware_AI_v1.8.9.apk` on GitHub and tap **Download** (the large files of this
