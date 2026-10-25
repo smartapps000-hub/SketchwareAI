@@ -122,6 +122,45 @@ public final class ModernProjectDefaults {
         }
     }
 
+    /** Whether the project already uses AppCompat and Design (the Material 3 theme needs it). */
+    public static boolean appCompatOn(String scId) {
+        try {
+            a.a.a.iC libraries = new a.a.a.iC(scId);
+            if (libraries.g()) libraries.h(); else libraries.i();
+            com.besome.sketch.beans.ProjectLibraryBean compat = libraries.c();
+            return compat != null && com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y.equals(compat.useYn);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * v1.8.9 "Convert to Material 3 & Modern Stack" (Project Configuration): switches AppCompat and Design on (in the
+     * project's data and, when there is one, its unsaved working copy) and sets D8 + Java 11. The theme, min and target
+     * SDK are set by the dialog's fields. Called from the project list, never while the project is open in the editor.
+     * @return false when the library state couldn't be read or written (nothing changed there)
+     */
+    public static boolean convertToModern(String scId) {
+        boolean ok = true;
+        try {
+            a.a.a.iC libraries = new a.a.a.iC(scId);
+            boolean backup = libraries.g();
+            if (backup) libraries.h(); else libraries.i();
+            com.besome.sketch.beans.ProjectLibraryBean compat = libraries.c();
+            if (compat == null) {
+                ok = false;
+            } else if (!com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y.equals(compat.useYn)) {
+                compat.useYn = com.besome.sketch.beans.ProjectLibraryBean.LIB_USE_Y;
+                libraries.l();
+                if (backup) libraries.k();
+            }
+        } catch (RuntimeException e) {
+            ok = false;
+        }
+        applyModernBuildSettings(scId);
+        return ok;
+    }
+
     /** Sets D8 + Java 11 (Android 8.0+) for a project, overwriting its stored choice. */
     public static void applyModernBuildSettings(String scId) {
         if (android.os.Build.VERSION.SDK_INT < 26) return;

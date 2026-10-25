@@ -34,6 +34,8 @@ public final class JavaEditSession {
     private final eC data;
     private final iC libraries;
     private EditMap map;
+    /** The generator the code was made with (its build config is what Fx needs to write single blocks). */
+    private yq generatorUsed;
 
     private JavaEditSession(Context context, String scId, String javaName, hC files, eC data, iC libraries) {
         this.context = context;
@@ -68,6 +70,7 @@ public final class JavaEditSession {
             return;
         }
         yq generator = new yq(context, scId);
+        generatorUsed = generator;
         String written = generator.getFileSrc(javaName, files, data, libraries);
         String formatted = new a.a.a.Jx(generator.N, file, data).formattedCode();
         code = formatted;
@@ -78,6 +81,62 @@ public final class JavaEditSession {
         }
         map = EditMap.generate(generator.N, file, data, formatted);
         problem = map.problem;
+    }
+
+    /** v1.8.9: maps single statements to the blocks that write them (verified with the IDE's own generator). */
+    StatementBlocks statementBlocks() {
+        if (generatorUsed == null || file == null) return null;
+        final a.a.a.jq buildConfig = generatorUsed.N;
+        final String activityName = file.getActivityName();
+        java.util.List<com.besome.sketch.beans.ViewBean> views = new java.util.ArrayList<>();
+        try {
+            java.util.List<com.besome.sketch.beans.ViewBean> main = data.d(file.getXmlName());
+            if (main != null) views.addAll(main);
+            String drawer = file.getDrawerXmlName();
+            java.util.List<com.besome.sketch.beans.ViewBean> drawerViews = drawer == null || drawer.isEmpty() ? null : data.d(drawer);
+            if (drawerViews != null) views.addAll(drawerViews);
+        } catch (Throwable ignored) {
+            // no views: view blocks aren't offered
+        }
+        java.util.Set<String> activities = new java.util.HashSet<>();
+        for (ProjectFileBean bean : files.b()) {
+            String name = bean.getActivityName();
+            if (name != null && !name.isEmpty()) activities.add(name);
+        }
+        java.util.List<com.besome.sketch.beans.ComponentBean> components = null;
+        try {
+            components = data.e(javaName);
+        } catch (Throwable ignored) {
+            // none
+        }
+        return new StatementBlocks(
+                blocks -> new a.a.a.Fx(activityName, buildConfig, "", blocks).a(),
+                paletteSpecs(context),
+                views, components, data.e.get(javaName), activities);
+    }
+
+    /** The palette's spec for an opcode (localized like the palette's), the English one when that can't be read. */
+    static StatementBlocks.Specs paletteSpecs(final Context context) {
+        return opCode -> {
+            String english = StatementBlocks.ENGLISH.get(opCode);
+            try {
+                java.util.ArrayList<String> params = a.a.a.lq.a(opCode);
+                String spec = a.a.a.xB.b().a(context, "block_" + a.a.a.lq.d(opCode), params == null ? new java.util.ArrayList<String>() : params);
+                if (spec == null || spec.trim().isEmpty()) return english;
+                // the same parameter slots in the same order, or it isn't the block's spec
+                if (params != null) {
+                    int at = 0;
+                    for (String p : params) {
+                        int found = spec.indexOf(p, at);
+                        if (found < 0) return english;
+                        at = found + p.length();
+                    }
+                }
+                return spec;
+            } catch (Throwable t) {
+                return english;
+            }
+        };
     }
 
     /** The two texts differ in nothing but trailing line breaks (what command-block processing does to every file). */
@@ -113,6 +172,7 @@ public final class JavaEditSession {
         }
         JavaToBlocks converter = new JavaToBlocks(data, file, code, map,
                 () -> new yq(context, scId).getFileSrc(javaName, files, data, libraries));
+        converter.useStatementBlocks(statementBlocks());
         JavaToBlocks.Result result = converter.save(edited);
         if (result.ok && !result.unchanged) {
             try {

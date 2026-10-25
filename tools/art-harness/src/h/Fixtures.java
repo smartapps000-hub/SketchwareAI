@@ -163,7 +163,7 @@ public class Fixtures {
             for (int t : new int[]{3, 4, 6, 17, 18, 42}) widgets.add(new int[]{t});
         } else if (spec.equals("telugu")) {
             for (int t : new int[]{3, 4, 5}) widgets.add(new int[]{t}); // Button, TextView, EditText
-        } else if (spec.equals("jni")) {
+        } else if (spec.equals("jni") || spec.equals("escpos")) {
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("m3code")) {
             // Button, TextView, EditText x2, CheckBox, Switch, RadioButton (v1.8.5 code scan, M3Widgets.scanCode)
@@ -219,6 +219,9 @@ public class Fixtures {
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 26, "notify"));
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 2, "prefs"));
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 1, "intent"));
+        } else if (spec.equals("javaedit")) {
+            // v1.8.9: an intent for the Java editor's setScreen / StartActivity / putExtra blocks
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 1, "intent1"));
         } else if (spec.equals("held")) {
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 6, "db", "users"));
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 12, "auth"));
@@ -252,6 +255,21 @@ public class Fixtures {
             source = "String label = \"abc\";\nint n = label.lenght();";
         } else if (spec.equals("jni")) {
             source = "android.util.Log.d(\"native\", com.fixture.nativelib.Native.hello());";
+        } else if (spec.equals("escpos")) {
+            // v1.8.9: a local library's classes by simple name, no import block (LibraryImports adds the imports);
+            // UsbConnection only in a comment and a string: its package gets no import
+            source = "// UsbConnection is not used\n"
+                    + "try {\n"
+                    + "    BluetoothConnection connection = BluetoothPrintersConnections.selectFirstPaired();\n"
+                    + "    if (connection != null) {\n"
+                    + "        EscPosPrinter printer = new EscPosPrinter(connection, 203, 48f, 32);\n"
+                    + "        printer.printFormattedText(\"[C]UsbConnection\\n\");\n"
+                    + "    }\n"
+                    + "} catch (EscPosConnectionException e) {\n"
+                    + "    android.util.Log.e(\"escpos\", \"connection\", e);\n"
+                    + "} catch (Exception e) {\n"
+                    + "    android.util.Log.e(\"escpos\", \"print\", e);\n"
+                    + "}";
         } else if (spec.equals("desugar")) {
             java.io.File dir = new java.io.File((String) call(neu("mod.agus.jcoderz.lib.FilePathUtil"), "getPathJava", sc_id));
             dir.mkdirs();
@@ -368,6 +386,19 @@ public class Fixtures {
             list.add(entry);
             call(c("com.sketchware.ai.project.LibraryHeal"), "save", sc_id, list);
         }
+        if (spec.equals("escpos")) {
+            java.io.File fx = new java.io.File(System.getProperty("h.nativefx"), "escpos");
+            java.io.File lib = new java.io.File((java.io.File) call(c("com.sketchware.ai.project.LibraryHeal"), "localLibs"),
+                    "ESCPOS-ThermalPrinter-Android_V_3.4.0");
+            for (String f : new String[]{"classes.jar", "classes.dex", "AndroidManifest.xml", "pom.xml"}) {
+                copy(new java.io.File(fx, f), new java.io.File(lib, f));
+            }
+            java.nio.file.Files.write(new java.io.File(lib, "config").toPath(), "com.dantsu.escposprinter".getBytes("UTF-8"));
+            ArrayList<HashMap<String, Object>> list = new ArrayList<>();
+            list.add((HashMap<String, Object>) call(c("com.sketchware.ai.library.LibraryInstaller"), "entry",
+                    "ESCPOS-ThermalPrinter-Android_V_3.4.0"));
+            call(c("com.sketchware.ai.project.LibraryHeal"), "save", sc_id, list);
+        }
         if (spec.equals("m3dark")) {
             // v1.8.6: dynamic colour on (Library Manager); the dark theme is the new-project default
             Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
@@ -419,6 +450,8 @@ public class Fixtures {
         v.add(neu("android.util.Pair", 1, "count"));
         v.add(neu("android.util.Pair", 2, "name"));
         v.add(neu("android.util.Pair", 6, "private int clicks = 0"));
+        v.add(neu("android.util.Pair", 2, "title"));   // v1.8.9 statement-to-block checks
+        v.add(neu("android.util.Pair", 1, "score"));
         HashMap<String, ArrayList<Object>> lists = (HashMap<String, ArrayList<Object>>) get(proj, "f");
         lists.computeIfAbsent(javaName, k -> new ArrayList<>()).add(neu("android.util.Pair", 2, "items"));
         HashMap<String, ArrayList<Object>> more = (HashMap<String, ArrayList<Object>>) get(proj, "g");

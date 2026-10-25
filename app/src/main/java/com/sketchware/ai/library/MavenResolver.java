@@ -558,6 +558,11 @@ public final class MavenResolver {
 
     // ---------------------------------------------------------------------------------------------- files
 
+    /** The cache folder (POMs and archives), or null. */
+    public File cacheDir() {
+        return cache;
+    }
+
     private static String base(String repo) {
         return repo.endsWith("/") ? repo.substring(0, repo.length() - 1) : repo;
     }

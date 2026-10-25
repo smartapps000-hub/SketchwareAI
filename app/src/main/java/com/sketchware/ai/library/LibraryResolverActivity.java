@@ -107,7 +107,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             public void afterTextChanged(Editable s) {
                 // filtered when typing pauses
                 list.removeCallbacks(refreshSearch);
-                if (tab == 1) list.postDelayed(refreshSearch, 250);
+                list.removeCallbacks(liveSearch);
+                if (tab == 1) {
+                    list.postDelayed(refreshSearch, 250);
+                    // v1.8.9: repositories are searched as you type (after a short pause)
+                    if (search.getText().toString().trim().length() >= 3) list.postDelayed(liveSearch, 700);
+                }
             }
         });
         select(scId == null ? 1 : 0);
@@ -115,6 +120,44 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
 
     private final Runnable refreshSearch = () -> {
         if (tab == 1 && !isFinishing()) show();
+    };
+
+    /** Live search: the newest query wins; an older answer that arrives late is dropped. */
+    private int searchSeq;
+    private String searching;
+    private String searchFailed;
+
+    private final Runnable liveSearch = () -> {
+        if (tab != 1 || isFinishing()) return;
+        String typed = search.getText().toString().trim();
+        String key = typed.toLowerCase(Locale.ROOT);
+        if (typed.length() < 3 || key.equals(hitsQuery) || key.equals(searching)) return;
+        final int seq = ++searchSeq;
+        searching = key;
+        searchFailed = null;
+        show();
+        new Thread(() -> {
+            List<MavenSearch.Hit> found = null;
+            String failure = null;
+            try {
+                found = MavenSearch.search(typed, 25, null);
+            } catch (Throwable t) {
+                failure = t.getMessage() != null ? t.getMessage() : t.toString();
+            }
+            final List<MavenSearch.Hit> result = found;
+            final String error = failure;
+            runOnUiThread(() -> {
+                if (seq != searchSeq || isFinishing()) return;
+                searching = null;
+                if (result != null) {
+                    hits = result;
+                    hitsQuery = key;
+                } else {
+                    searchFailed = key + "\u0000" + error;
+                }
+                if (tab == 1) show();
+            });
+        }, "LibraryLiveSearch").start();
     };
 
     private void select(int index) {
@@ -256,6 +299,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 setEnabled(name, check.isChecked());
                 show();
             });
+            if (dir.isDirectory()) infoButton(row, name, dir, needs != null ? needs.coordinate : null);
             if (!missing.isEmpty()) {
                 actionButton(row, "Add " + missing.size(), v -> installCoordinates(missing));
             } else if (status.startsWith("Not dexed")) {
@@ -304,22 +348,29 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 check.setChecked(enabled.contains(lib.name));
                 check.setOnClickListener(v -> setEnabled(lib.name, check.isChecked()));
             }
+            infoButton(row, lib.name, lib.dir, lib.coordinate);
             actionButton(row, "Delete", v -> confirmDelete(lib));
             list.addView(row);
         }
         if (shown == 0) note(query.isEmpty() ? "No local libraries installed yet: + Add gets one." : "None installed matches \"" + query + "\".");
         if (query.length() >= 2) {
             if (hits != null && query.equals(hitsQuery)) {
-                header("Maven Central");
+                header("Search results");
                 if (hits.isEmpty()) note("Nothing found.");
                 for (MavenSearch.Hit hit : hits) {
                     View row = row(hit.group + ":" + hit.name, hit.latestVersion + " · " + (hit.packaging == null ? "" : hit.packaging));
                     actionButton(row, "Add", v -> showAddDialog(hit.coordinate()));
                     list.addView(row);
                 }
+            } else if (query.equals(searching)) {
+                header("Search results");
+                note("Searching…");
             } else {
-                View row = row("Search Maven Central for \"" + query + "\"", "Google Maven libraries (androidx…) are added by coordinate");
-                actionButton(row, "Search", v -> searchMaven(query));
+                String failed = searchFailed != null && searchFailed.startsWith(query + "\u0000")
+                        ? searchFailed.substring(query.length() + 1) : null;
+                View row = row(failed != null ? "Search failed: " + failed : "Search for \"" + query + "\"",
+                        "Maven Central by name; group:artifact also finds Google Maven and JitPack");
+                actionButton(row, "Search", v -> searchMaven(search.getText().toString().trim()));
                 list.addView(row);
             }
         }
@@ -509,10 +560,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     }
 
     private void searchMaven(String query) {
-        runBusy("Searching Maven Central…", () -> {
+        runBusy("Searching…", () -> {
+            // the typed case is kept: JitPack paths are case-sensitive (com.github.DantSu)
             List<MavenSearch.Hit> found = MavenSearch.search(query, 25, null);
             hits = found;
-            hitsQuery = query;
+            hitsQuery = query.toLowerCase(Locale.ROOT);
             return null;
         });
     }
@@ -828,6 +880,42 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         button.setText(text);
         button.setVisibility(View.VISIBLE);
         button.setOnClickListener(listener);
+    }
+
+    /** (i): what is known about the library on this phone (LibraryInfo, offline). */
+    private void infoButton(View row, String name, File dir, String coordinate) {
+        TextView button = row.findViewById(R.id.lib_info);
+        button.setVisibility(View.VISIBLE);
+        button.setOnClickListener(v -> new Thread(() -> {
+            String text;
+            String importLines = null;
+            try {
+                LibraryInfo info = LibraryInfo.read(dir, coordinate, cacheFolder());
+                text = info.describe(name, size(folderSize(dir)));
+                if (!info.packages.isEmpty()) {
+                    StringBuilder lines = new StringBuilder();
+                    for (String p : info.packages) lines.append("import ").append(p).append(".*;\n");
+                    importLines = lines.toString().trim();
+                }
+            } catch (Throwable t) {
+                text = "Couldn't read the library's files: " + t;
+            }
+            final String message = text, imports = importLines;
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                AlertDialog.Builder b = new ObAlertBuilder(this).setTitle(name).setMessage(message).setPositiveButton("OK", null);
+                if (imports != null) {
+                    b.setNeutralButton("Copy import", (d, w) -> {
+                        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("import", imports));
+                            Toast.makeText(this, "Import copied", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+                b.show();
+            });
+        }, "LibraryInfo").start());
     }
 
     private void note(String text) {

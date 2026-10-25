@@ -149,7 +149,9 @@ public class Ox {
                     rootLayout = coordinatorLayoutTag;
                 }
                 if (projectFile.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_TOOLBAR)) {
-                    Nx toolbarTag = new Nx("androidx.appcompat.widget.Toolbar");
+                    // v1.8.9: MaterialToolbar (extends Toolbar) in Material 3 projects
+                    Nx toolbarTag = new Nx(material3 ? com.sketchware.ai.project.M3Widgets.MATERIAL_TOOLBAR
+                            : "androidx.appcompat.widget.Toolbar");
                     toolbarTag.a("android", "id", "@+id/_toolbar");
                     aci.inject(toolbarTag, "Toolbar");
                     Nx appBarLayoutTag = new Nx("com.google.android.material.appbar.AppBarLayout");
@@ -281,6 +283,12 @@ public class Ox {
             widgetTag = new Nx(buildConfig.packageName + "." + com.sketchware.ai.project.M3Widgets.BUTTON_CLASS);
         } else if (com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3) != null) {
             widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3));
+        }
+        if (material3 && com.sketchware.ai.project.M3Widgets.materialCard(viewBean)) {
+            // v1.8.9: Material 3 card (MaterialCardView extends CardView: the generated Java keeps its CardView type);
+            // the elevated style keeps the card's shadow and draws no outline
+            widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.MATERIAL_CARD);
+            if (!toNotAdd.contains("style")) widgetTag.a("", "style", com.sketchware.ai.project.M3Widgets.MATERIAL_CARD_STYLE);
         }
         if (convert.equals("include")) {
             if (!toNotAdd.contains("layout")) {

@@ -103,6 +103,7 @@ public final class LibraryInstaller {
                     }
                 }
                 needs.write(dir);
+                keepPom(resolver, a, dir);
                 ready.add(name);
             } catch (Throwable t) {
                 FileUtil.deleteFile(new File(root(), "." + name + ".installing").getAbsolutePath());
@@ -111,6 +112,16 @@ public final class LibraryInstaller {
         }
         if (scId != null && !ready.isEmpty()) enable(scId, ready, outcome);
         return outcome;
+    }
+
+    /** v1.8.9: the library's POM copied next to it (pom.xml) for the Library Resolver's offline (i). */
+    private static void keepPom(MavenResolver resolver, MavenResolver.Artifact a, File dir) {
+        File target = new File(dir, "pom.xml");
+        if (target.isFile() || resolver == null || resolver.cacheDir() == null) return;
+        File pom = new File(resolver.cacheDir(), MavenResolver.path(a.group, a.name, a.version, "pom"));
+        if (!pom.isFile()) return;
+        String text = FileUtil.readFile(pom.getAbsolutePath());
+        if (text != null && !text.isEmpty()) FileUtil.writeFile(target.getAbsolutePath(), text);
     }
 
     /**

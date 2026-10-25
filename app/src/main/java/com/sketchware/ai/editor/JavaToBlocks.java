@@ -91,6 +91,15 @@ public final class JavaToBlocks {
         this.generator = generator;
     }
 
+    /** v1.8.9: turns single statements into real blocks; null = everything stays "add source directly". */
+    private StatementBlocks statements;
+    private int mappedBlocks;
+
+    public JavaToBlocks useStatementBlocks(StatementBlocks statements) {
+        this.statements = statements;
+        return this;
+    }
+
     // ------------------------------------------------------------------------------------------------ planning
 
     /** One run of changed lines inside an event body. */
@@ -592,7 +601,12 @@ public final class JavaToBlocks {
         for (String[] added : moreBlockAdditions) {
             moreBlocks.add(new Pair<>(added[0], added[1]));
             ArrayList<BlockBean> blocks = new ArrayList<>();
-            if (!added[2].isEmpty()) blocks.add(addSource("1", added[2]));
+            if (!added[2].isEmpty()) {
+                Map<String, BlockBean> nested = new LinkedHashMap<>();
+                List<BlockBean> chain = chainFor(added[2], new int[]{1}, nested);
+                blocks.addAll(chain);
+                for (BlockBean b : nested.values()) if (!chain.contains(b)) blocks.add(b);
+            }
             data.blocks(javaName).put(added[0] + "_moreBlock", blocks);
         }
     }
@@ -677,7 +691,9 @@ public final class JavaToBlocks {
         for (int k = targets.size() - 1; k >= 0; k--) {
             Target t = targets.get(k);
             String content = body(e, t.eStart, t.eEnd);
-            BlockBean added = content.isEmpty() ? null : addSource(String.valueOf(nextId[0]++), content);
+            List<BlockBean> chain = content.isEmpty() ? new ArrayList<BlockBean>() : chainFor(content, nextId, live);
+            BlockBean added = chain.isEmpty() ? null : chain.get(0);
+            BlockBean lastAdded = chain.isEmpty() ? null : chain.get(chain.size() - 1);
             String after;      // id the new block (or the removal) continues with
             String before;     // id of the block in front, or null (head of the chain)
             if (t.from >= 0) {
@@ -703,9 +719,11 @@ public final class JavaToBlocks {
             }
             String continueWith = added != null ? added.id : after;
             if (added != null) {
-                added.nextBlock = after == null ? -1 : Integer.parseInt(after);
-                live.put(added.id, added);
-                addedBlocks++;
+                lastAdded.nextBlock = after == null ? -1 : Integer.parseInt(after);
+                for (BlockBean b : chain) {
+                    live.put(b.id, b);
+                    if ("addSourceDirectly".equals(b.opCode)) addedBlocks++;
+                }
             }
             if (before != null) {
                 live.get(before).nextBlock = continueWith == null ? -1 : Integer.parseInt(continueWith);
@@ -728,8 +746,11 @@ public final class JavaToBlocks {
             list.clear();
         }
         data.blocks(javaName).put(key, list);
+        int mapped = mappedBlocks;
+        mappedBlocks = 0;
         result.changes.add(SourceName.of(event) + ": " + (replacedBlocks == 0 ? "" : replacedBlocks + " block"
-                + (replacedBlocks == 1 ? "" : "s") + " replaced, ") + addedBlocks + " add source block"
+                + (replacedBlocks == 1 ? "" : "s") + " replaced, ") + (mapped == 0 ? "" : mapped + " block"
+                + (mapped == 1 ? "" : "s") + " from your code, ") + addedBlocks + " add source block"
                 + (addedBlocks == 1 ? "" : "s"));
     }
 
@@ -850,6 +871,64 @@ public final class JavaToBlocks {
             removeWithChildren(live, block.id);
             current = next;
         }
+    }
+
+    /**
+     * v1.8.9: the blocks for edited code: each complete one-line statement outside any braces that a block writes
+     * exactly ({@link StatementBlocks}) becomes that block; the other lines, in runs, become "add source directly"
+     * blocks. Returns the chain (linked by nextBlock, the last one's nextBlock -1); variable blocks used as parameters
+     * go into {@code live} only.
+     */
+    private List<BlockBean> chainFor(String content, int[] nextId, Map<String, BlockBean> live) {
+        List<BlockBean> chain = new ArrayList<>();
+        String[] lines = content.split("\n", -1);
+        StringBuilder pending = new StringBuilder();
+        int depth = 0;
+        for (String line : lines) {
+            int before = depth;
+            depth += braceDelta(line);
+            ArrayList<BlockBean> mapped = null;
+            if (statements != null && before == 0 && depth == 0 && line.trim().endsWith(";")) {
+                mapped = statements.map(line, nextId);
+            }
+            if (mapped == null) {
+                if (pending.length() > 0) pending.append('\n');
+                pending.append(line);
+                continue;
+            }
+            if (pending.toString().trim().length() > 0) chain.add(addSource(String.valueOf(nextId[0]++), pending.toString().trim()));
+            pending.setLength(0);
+            chain.add(mapped.get(0));
+            mappedBlocks++;
+            for (int i = 1; i < mapped.size(); i++) live.put(mapped.get(i).id, mapped.get(i));
+        }
+        if (pending.toString().trim().length() > 0) chain.add(addSource(String.valueOf(nextId[0]++), pending.toString().trim()));
+        for (int i = 0; i < chain.size(); i++) {
+            chain.get(i).nextBlock = i + 1 < chain.size() ? Integer.parseInt(chain.get(i + 1).id) : -1;
+        }
+        return chain;
+    }
+
+    /** '{' minus '}' outside strings, characters and comments of one line. */
+    private static int braceDelta(String line) {
+        int d = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/') break;
+            if (c == '"' || c == '\'') {
+                int j = i + 1;
+                while (j < line.length() && line.charAt(j) != c) {
+                    if (line.charAt(j) == '\\') j++;
+                    j++;
+                }
+                i = j;
+            } else if (c == '{') {
+                d++;
+            } else if (c == '}') {
+                d--;
+            }
+        }
+        return d;
     }
 
     static BlockBean addSource(String id, String code) {

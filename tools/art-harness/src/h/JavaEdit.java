@@ -272,11 +272,15 @@ public class JavaEdit {
         for (Object b : tv) byId.put((String) get(b, "id"), b);
         Object ie = byId.get("10");
         Object e1 = ie == null ? null : byId.get(String.valueOf(get(ie, "subStack2")));
-        check("else stack: ifElse, its condition and the then-stack kept; one add-source in the else stack",
+        // v1.8.9: the Log line is add source; the changed setText line becomes a setText block again
+        Object e2 = e1 == null ? null : byId.get(String.valueOf(get(e1, "nextBlock")));
+        check("else stack: ifElse, its condition and the then-stack kept; add source + setText block in the else stack",
                 ie != null && byId.containsKey("11") && byId.containsKey("12") && !byId.containsKey("13")
                         && ((Integer) get(ie, "subStack1")) == 12 && e1 != null && "addSourceDirectly".equals(get(e1, "opCode"))
-                        && sourceOf(e1).equals("android.util.Log.d(\"tv\", \"else\");\ntextview1.setText(\"nope\");")
-                        && ((Integer) get(e1, "nextBlock")) == -1, shape("textview1_onClick"));
+                        && sourceOf(e1).equals("android.util.Log.d(\"tv\", \"else\");")
+                        && e2 != null && "setText".equals(get(e2, "opCode"))
+                        && String.valueOf(get(e2, "parameters")).equals("[textview1, nope]")
+                        && ((Integer) get(e2, "nextBlock")) == -1, shape("textview1_onClick"));
 
         // 11. onCreate emptied (the generator then writes nothing between its braces), then a line put back
         l = lines(code());
@@ -342,6 +346,60 @@ public class JavaEdit {
         r = save(join(l));
         check("field with a trailing comment refused", !ok(r) && String.valueOf(get(r, "problems")).contains("retries"), report(r));
         check("field with a trailing comment: project unchanged", stateBefore.equals(state()), "");
+
+        // 15. v1.8.9: statements a Sketchware block writes become that block (checked with the IDE's generator);
+        // other lines stay "add source directly"; the code generated again is the edited code
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        int stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed = {
+                "textview1.setText(\"Mapped\");",
+                "textview1.setVisibility(View.GONE);",
+                "SketchwareUtil.showMessage(getApplicationContext(), \"Hi \\\"there\\\"\");",
+                "android.util.Log.d(\"keep\", \"as source\");",
+                "title = \"Ravi\";",
+                "textview1.setText(title);",
+                "score++;",
+                "score = 5;",
+                "button1.setEnabled(false);",
+                "intent1.setClass(getApplicationContext(), MainActivity.class);",
+                "intent1.putExtra(\"key\", title);",
+                "startActivity(intent1);",
+                "finish();"};
+        for (int k = 0; k < typed.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed[k]);
+        r = save(join(l));
+        check("statements to blocks: ok", ok(r), report(r));
+        ArrayList<Object> chain = new ArrayList<>();
+        Map<String, Object> all = new HashMap<>();
+        for (Object b : blocks("button2_onClick")) all.put((String) get(b, "id"), b);
+        Object cur = blocks("button2_onClick").isEmpty() ? null : blocks("button2_onClick").get(0);
+        while (cur != null) {
+            chain.add(cur);
+            int nx = (Integer) get(cur, "nextBlock");
+            cur = nx < 0 ? null : all.get(String.valueOf(nx));
+        }
+        StringBuilder ops = new StringBuilder();
+        for (Object b : chain) ops.append(get(b, "opCode")).append(' ');
+        String expected = "setText setVisible doToast addSourceDirectly setVarString setText increaseInt setVarInt setEnable intentSetScreen intentPutExtra startActivity finishActivity ";
+        check("statements to blocks: one block per statement, the Log line as add source", ops.toString().equals(expected), ops.toString());
+        if (chain.size() == 13) {
+            check("setText parameters", String.valueOf(get(chain.get(0), "parameters")).equals("[textview1, Mapped]")
+                    && "%m.textview setText %s".equals(get(chain.get(0), "spec")), get(chain.get(0), "parameters") + " " + get(chain.get(0), "spec"));
+            check("setVisible parameters", String.valueOf(get(chain.get(1), "parameters")).equals("[textview1, GONE]"), String.valueOf(get(chain.get(1), "parameters")));
+            check("Toast text unescaped", String.valueOf(get(chain.get(2), "parameters")).equals("[Hi \"there\"]"), String.valueOf(get(chain.get(2), "parameters")));
+            @SuppressWarnings("unchecked") List<String> p5 = (List<String>) get(chain.get(5), "parameters");
+            Object getter = p5.size() == 2 && p5.get(1).startsWith("@") ? all.get(p5.get(1).substring(1)) : null;
+            check("setText(title): a variable block", getter != null && "getVar".equals(get(getter, "opCode")) && "title".equals(get(getter, "spec")), String.valueOf(p5));
+            check("setScreen / Finish Activity", String.valueOf(get(chain.get(9), "parameters")).equals("[intent1, MainActivity]")
+                    && "f".equals(get(chain.get(12), "type")), get(chain.get(9), "parameters") + " " + get(chain.get(12), "type"));
+        }
+        String regenerated = code();
+        boolean allThere = true;
+        for (String t : typed) allThere &= regenerated.contains(t);
+        check("statements to blocks: generated again, every line as typed", allThere, "");
 
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());

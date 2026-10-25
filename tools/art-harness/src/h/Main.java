@@ -45,6 +45,13 @@ public class Main {
                 case "javaedit":
                     JavaEdit.run(args[1], args.length < 3 || !args[2].equals("nobuild"));
                     break;
+                case "libinfo": {
+                    // v1.8.9: the Library Resolver's (i) text for an installed library, read on ART (offline)
+                    java.io.File dir = new java.io.File((java.io.File) call(c("com.sketchware.ai.project.LibraryHeal"), "localLibs"), args[1]);
+                    Object info = call(c("com.sketchware.ai.library.LibraryInfo"), "read", dir, args.length > 2 ? args[2] : null, null);
+                    OUT.println("LIBINFO\n" + call(info, "describe", args[1], "size") + "\nLIBINFO END");
+                    break;
+                }
                 default:
                     throw new IllegalArgumentException(args[0]);
             }

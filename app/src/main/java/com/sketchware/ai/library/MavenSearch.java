@@ -33,16 +33,82 @@ public final class MavenSearch {
 
     public static String url(String query, int rows) {
         try {
-            return "https://search.maven.org/solrsearch/select?q=" + URLEncoder.encode(query.trim(), "UTF-8")
+            return "https://search.maven.org/solrsearch/select?q=" + URLEncoder.encode(solrQuery(query), "UTF-8")
                     + "&rows=" + rows + "&wt=json";
         } catch (java.io.UnsupportedEncodingException e) {
             throw new IllegalStateException(e);
         }
     }
 
+    /**
+     * v1.8.9: the search service answers HTTP 400 to a raw colon. "group:artifact[:version]" becomes the field query
+     * g:"group" AND a:"artifact"; any other colon or quote becomes a space.
+     */
+    static String solrQuery(String query) {
+        String q = normalize(query);
+        String[] parts = q.split(":");
+        if (parts.length >= 2 && parts.length <= 4 && parts[0].matches("[\\w.\\-]+") && parts[1].matches("[\\w.\\-]+")) {
+            return "g:\"" + parts[0] + "\" AND a:\"" + parts[1] + "\"";
+        }
+        return q.replace(':', ' ').replace('"', ' ').replaceAll("\\s+", " ").trim();
+    }
+
+    /** A Gradle line (implementation 'g:a:v', implementation("g:a:v")) reduced to its coordinate. */
+    static String normalize(String query) {
+        String q = query == null ? "" : query.trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^\\w+\\s*\\(?\\s*['\"]([^'\"]+)['\"]\\s*\\)?$").matcher(q);
+        return m.matches() ? m.group(1).trim() : q;
+    }
+
+    /** "group:artifact[:version]" typed into search, or null. */
+    static String[] coordinate(String query) {
+        String q = normalize(query);
+        String[] parts = q.split(":");
+        if (parts.length >= 2 && parts.length <= 4 && parts[0].matches("[\\w.\\-]+") && parts[1].matches("[\\w.\\-]+")) {
+            return parts;
+        }
+        return null;
+    }
+
     public static List<Hit> search(String query, int rows, MavenResolver.Source source) throws IOException {
-        byte[] data = (source != null ? source : (MavenResolver.Source) MavenResolver::download).fetch(url(query, rows));
-        return parse(data == null ? "" : new String(data, StandardCharsets.UTF_8));
+        MavenResolver.Source src = source != null ? source : (MavenResolver.Source) MavenResolver::download;
+        byte[] data = src.fetch(url(query, rows));
+        List<Hit> hits = parse(data == null ? "" : new String(data, StandardCharsets.UTF_8));
+        String[] c = coordinate(query);
+        if (hits.isEmpty() && c != null) {
+            // Not on Maven Central (JitPack and Google Maven have no search): read the coordinate's
+            // maven-metadata.xml from those two repositories.
+            String path = c[0].replace('.', '/') + "/" + c[1] + "/maven-metadata.xml";
+            String[] repos = {"https://dl.google.com/dl/android/maven2/", "https://jitpack.io/"};
+            for (String repo : repos) {
+                try {
+                    byte[] meta = src.fetch(repo + path);
+                    String latest = latestStable(meta == null ? "" : new String(meta, StandardCharsets.UTF_8));
+                    if (latest != null) {
+                        Hit hit = new Hit();
+                        hit.group = c[0];
+                        hit.name = c[1];
+                        hit.latestVersion = latest;
+                        hits.add(hit);
+                        break;
+                    }
+                } catch (IOException ignored) {
+                    // try the next repository
+                }
+            }
+        }
+        return hits;
+    }
+
+    /** Newest stable version listed in a maven-metadata.xml, or null. */
+    static String latestStable(String metadata) {
+        String best = null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("<version>\\s*([^<\\s]+)\\s*</version>").matcher(metadata);
+        while (m.find()) {
+            String v = m.group(1);
+            if (MavenResolver.stable(v) && (best == null || MavenResolver.compareVersions(v, best) > 0)) best = v;
+        }
+        return best;
     }
 
     static List<Hit> parse(String json) {

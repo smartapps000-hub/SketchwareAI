@@ -177,20 +177,25 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/manrope_bold"
-                android:text="Raise it to target 37 · D8 · Java 11"
+                android:text="Material 3 · target 37 · D8 · Java 11"
                 android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/ob_cfg_upgrade_button"
                 android:layout_width="match_parent"
-                android:layout_height="44dp"
+                android:layout_height="wrap_content"
+                android:minHeight="44dp"
+                android:paddingLeft="12dp"
+                android:paddingTop="8dp"
+                android:paddingRight="12dp"
+                android:paddingBottom="8dp"
                 android:layout_marginTop="12dp"
                 android:background="@drawable/ob_amber_pill"
                 android:fontFamily="@font/manrope_extrabold"
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:stateListAnimator="@animator/sw_press"
-                android:text="Upgrade to Android 17"
+                android:text="Convert to Material 3 &amp; Modern Stack"
                 android:textColor="@color/ob_accent"
                 android:textSize="14sp" />
         </LinearLayout>

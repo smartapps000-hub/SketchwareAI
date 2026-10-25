@@ -165,7 +165,32 @@ public class Jx {
     /** The activity's Java code, formatted, before command blocks are applied. */
     public String formattedCode() {
         // v1.8.5: setHint on an EditText shown as an outlined Material 3 field sets the field's label (M3Widgets)
-        return com.sketchware.ai.project.M3Widgets.routeHints(formattedCodeWithWidgets(), wrappedTextFields());
+        String code = com.sketchware.ai.project.M3Widgets.routeHints(formattedCodeWithWidgets(), wrappedTextFields());
+        // v1.8.9: on-demand imports for the Java packages of local libraries the code uses (LibraryImports)
+        return com.sketchware.ai.library.LibraryImports.apply(code, localLibraryJars(), localLibraryAndroidJar());
+    }
+
+    private java.util.List<java.io.File> localLibraryJars() {
+        java.util.List<java.io.File> jars = new ArrayList<>();
+        if (mll.list == null) return jars;
+        for (HashMap<String, Object> library : mll.list) {
+            Object jar = library.get("jarPath");
+            if (jar instanceof String && new java.io.File((String) jar).isFile()) jars.add(new java.io.File((String) jar));
+        }
+        return jars;
+    }
+
+    private java.io.File localLibraryAndroidJar() {
+        if (mll.list == null || mll.list.isEmpty()) return null;
+        java.io.File androidJar = new java.io.File(mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar");
+        if (!androidJar.isFile()) {
+            try {
+                Dp.maybeExtractAndroidJar(null);
+            } catch (Throwable ignored) {
+                // no imports added
+            }
+        }
+        return androidJar;
     }
 
     /** Names of the EditTexts this class reaches that the layouts show as outlined Material 3 fields. */

@@ -94,19 +94,38 @@ public class ProjectSettingsDialog {
             }
         });
 
-        // Only projects still below Android 17 (old / imported .swb projects) get the upgrade card.
+        // v1.8.9: older / imported projects (below Android 17, or without Material 3) get the conversion card
         int storedTarget = com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings);
-        if (storedTarget < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
+        boolean m3 = com.sketchware.ai.project.ModernProjectDefaults.material3(settings);
+        boolean compat = com.sketchware.ai.project.ModernProjectDefaults.appCompatOn(settings.sc_id);
+        final boolean[] convert = {false};
+        if (storedTarget < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK || !m3 || !compat) {
             View upgrade = content.findViewById(R.id.ob_cfg_upgrade);
             upgrade.setVisibility(View.VISIBLE);
-            ((TextView) content.findViewById(R.id.ob_cfg_upgrade_title)).setText("Older project (target " + storedTarget + ")");
-            content.findViewById(R.id.ob_cfg_upgrade_button).setOnClickListener(v -> {
-                minimumSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK));
-                targetSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK));
-                com.sketchware.ai.project.ModernProjectDefaults.applyModernBuildSettings(settings.sc_id);
-                mod.SketchwareUtil.toast("Target SDK 37 (Android 17), D8 and Java 11 set. Tap Save to keep them.",
-                        android.widget.Toast.LENGTH_LONG);
-            });
+            ((TextView) content.findViewById(R.id.ob_cfg_upgrade_title)).setText("Older project (target " + storedTarget
+                    + (m3 && compat ? "" : ", no Material 3") + ")");
+            TextView button = content.findViewById(R.id.ob_cfg_upgrade_button);
+            button.setText("Convert to Material 3 & Modern Stack");
+            button.setOnClickListener(v -> new com.sketchware.ai.ui.ObAlertBuilder(activity)
+                    .setTitle("Convert to Material 3?")
+                    .setMessage("When you tap Save:\n"
+                            + "\u2022 Target SDK " + com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK
+                            + " (Android 17), min SDK " + com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK + "\n"
+                            + "\u2022 AppCompat and Design switched on" + (compat ? " (already on)" : "") + "\n"
+                            + "\u2022 Material 3 theme: buttons, fields, switches, cards and the toolbar as Material 3 widgets\n"
+                            + "\u2022 D8 dexer and Java 11\n\n"
+                            + "Your blocks, layouts and colours stay as they are; the theme stays light (Dark theme can be "
+                            + "switched on in the Library Manager). Target 30+ changes Android's storage and permission rules "
+                            + "for the app: test file access after converting. A backup (.swb) before converting is a good idea.")
+                    .setPositiveButton("Convert", (d, w) -> {
+                        minimumSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_MIN_SDK));
+                        targetSdkVersion.setText(String.valueOf(com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK));
+                        material3AppTheme.setChecked(true);
+                        convert[0] = true;
+                        mod.SketchwareUtil.toast("Tap Save to convert the project.", android.widget.Toast.LENGTH_LONG);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show());
         }
 
         dialog.a(content);
@@ -125,6 +144,10 @@ public class ProjectSettingsDialog {
         dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {
             settings.setValues(preferences);
+            if (convert[0] && !com.sketchware.ai.project.ModernProjectDefaults.convertToModern(settings.sc_id)) {
+                mod.SketchwareUtil.toast("Theme and SDK saved; AppCompat couldn't be switched on: turn it on in the Library "
+                        + "Manager.", android.widget.Toast.LENGTH_LONG);
+            }
             // the design editor draws Material 3 widgets for Material 3 projects
             com.sketchware.ai.editor.DesignTheme.load(settings.sc_id);
             dialog.dismiss();

@@ -45,6 +45,21 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/lib_info"
+        style="@style/Ob.Text.Button"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginLeft="8dp"
+        android:background="@drawable/ob_pill16_state"
+        android:contentDescription="Library info"
+        android:gravity="center"
+        android:stateListAnimator="@animator/sw_press"
+        android:text="i"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
         android:id="@+id/lib_action"
         style="@style/Ob.Text.Button"
         android:layout_width="wrap_content"

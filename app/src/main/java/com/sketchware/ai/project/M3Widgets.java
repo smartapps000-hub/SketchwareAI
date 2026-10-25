@@ -45,6 +45,9 @@ import mod.hey.studios.project.ProjectSettings;
  */
 public final class M3Widgets {
 
+    public static final String MATERIAL_CARD = "com.google.android.material.card.MaterialCardView";
+    public static final String MATERIAL_CARD_STYLE = "@style/Widget.Material3.CardView.Elevated";
+    public static final String MATERIAL_TOOLBAR = "com.google.android.material.appbar.MaterialToolbar";
     public static final String MATERIAL_SWITCH = "com.google.android.material.materialswitch.MaterialSwitch";
     public static final String TEXT_INPUT_LAYOUT = "com.google.android.material.textfield.TextInputLayout";
     public static final String TEXT_FIELD_CLASS = "SketchTextField";
@@ -270,6 +273,14 @@ public final class M3Widgets {
     public static boolean active() {
         Boolean value = ACTIVE.get();
         return value != null && value;
+    }
+
+    /** v1.8.9: a palette CardView not converted to another class, and no style injected: written as MaterialCardView. */
+    public static boolean materialCard(ViewBean bean) {
+        if (bean.type != ViewBeans.VIEW_TYPE_LAYOUT_CARDVIEW) return false;
+        String c = bean.convert == null ? "" : bean.convert.trim();
+        if (!(c.isEmpty() || c.equals("CardView") || c.equals("androidx.cardview.widget.CardView"))) return false;
+        return bean.inject == null || !bean.inject.contains("style=");
     }
 
     /** Not converted to another class: no convert, or the palette's own class name ("Button", "Switch", ...). */
