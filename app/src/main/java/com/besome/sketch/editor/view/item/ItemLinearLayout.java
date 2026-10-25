@@ -45,6 +45,31 @@ public class ItemLinearLayout extends LinearLayout implements sy, ty {
         a(context);
     }
 
+    /**
+     * v1.9.0 fix: ViewPane gives a child FrameLayout params whenever its bean's parentType isn't 0, but containers drawn
+     * as LinearLayouts (CardView, TextInputLayout, SwipeRefreshLayout, RadioGroup, CollapsingToolbarLayout) only get 0
+     * from the editor's own drop. Children with other params (projects made by the v1.8.7-v1.8.9 templates: a card's
+     * column stored with parentType 36) crashed LinearLayout's measure with a ClassCastException. They are converted to
+     * LinearLayout params here, keeping size, margins and gravity.
+     */
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            android.view.ViewGroup.LayoutParams params = child.getLayoutParams();
+            if (params != null && !(params instanceof LinearLayout.LayoutParams)) {
+                LinearLayout.LayoutParams fixed = params instanceof android.view.ViewGroup.MarginLayoutParams
+                        ? new LinearLayout.LayoutParams((android.view.ViewGroup.MarginLayoutParams) params)
+                        : new LinearLayout.LayoutParams(params);
+                if (params instanceof android.widget.FrameLayout.LayoutParams) {
+                    fixed.gravity = ((android.widget.FrameLayout.LayoutParams) params).gravity;
+                }
+                child.setLayoutParams(fixed);
+            }
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+
     /** Renumbers the beans of the children by their order. */
     public void a() {
         int index = 0;

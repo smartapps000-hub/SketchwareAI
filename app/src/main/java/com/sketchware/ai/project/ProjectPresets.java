@@ -312,13 +312,24 @@ public final class ProjectPresets {
         return M3Palette.contrast(0xFFFFFFFF, background | 0xFF000000) >= 3.0 ? 0xFFFFFFFF : 0xFF1D1B20;
     }
 
+    /**
+     * The parentType the editor itself stores when a view is dropped (ViewPane): 12 in a vertical ScrollView, 2 in a
+     * horizontal one, 0 in everything drawn as a LinearLayout, cards and the other containers included. ViewPane gives a
+     * child FrameLayout params for any other value (v1.8.7-v1.8.9 stored 36 for a card's column: the canvas crashed).
+     */
+    static int canvasParentType(int parentViewType) {
+        if (parentViewType == VSCROLL) return VSCROLL;
+        if (parentViewType == ViewBean.VIEW_TYPE_LAYOUT_HSCROLLVIEW) return ViewBean.VIEW_TYPE_LAYOUT_HSCROLLVIEW;
+        return LINEAR;
+    }
+
     private static ViewBean view(eC project, String xml, String id, int type, String convert, String parent,
                                  int parentType, int index) {
         ViewBean bean = new ViewBean(id, type);
         bean.convert = convert;
         bean.image.resName = "default_image";
         bean.parent = parent == null ? "root" : parent;
-        bean.parentType = parent == null ? LINEAR : parentType;
+        bean.parentType = parent == null ? LINEAR : canvasParentType(parentType);
         bean.index = index;
         project.a(xml, bean);
         return bean;

@@ -315,7 +315,10 @@ public final class M3Widgets {
      */
     public static boolean wrapsEditText(ViewBean bean, ViewBean parent, boolean material3) {
         if (!material3 || bean.type != ViewBean.VIEW_TYPE_WIDGET_EDITTEXT || !plain(bean)) return false;
-        if (bean.parentType == ViewBeans.VIEW_TYPE_LAYOUT_TEXTINPUTLAYOUT) return false;
+        // the editor stores parentType 0 for a view dropped into a TextInputLayout (drawn as a LinearLayout): the
+        // parent's own type tells (v1.9.0 fix)
+        if (bean.parentType == ViewBeans.VIEW_TYPE_LAYOUT_TEXTINPUTLAYOUT
+                || parent != null && parent.type == ViewBeans.VIEW_TYPE_LAYOUT_TEXTINPUTLAYOUT) return false;
         if (parent != null && !plain(parent)) return false;
         if (hasOwnBackground(bean)) return false;
         String inject = inject(bean);

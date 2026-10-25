@@ -208,6 +208,22 @@ public class Fixtures {
             set(vb, "index", index++);
             call(proj, "a", xmlName, vb);
         }
+        if (spec.equals("m3dark")) {
+            // v1.9.0: an EditText dropped into a TextInputLayout, stored as the editor stores it (parentType 0: the
+            // container is drawn as a LinearLayout): it must not get a second outlined box
+            Object til = neu("com.besome.sketch.beans.ViewBean", "textinputlayout9", 38);
+            defaults(til, 38, true);
+            set(til, "parent", "linear1");
+            set(til, "parentType", LINEAR);
+            set(til, "index", index++);
+            call(proj, "a", xmlName, til);
+            Object field = neu("com.besome.sketch.beans.ViewBean", "edittext9", 5);
+            defaults(field, 5, true);
+            set(field, "parent", "textinputlayout9");
+            set(field, "parentType", LINEAR);
+            set(field, "index", 0);
+            call(proj, "a", xmlName, field);
+        }
 
         List<Object> comps = new ArrayList<>();
         if (libsLike) {
