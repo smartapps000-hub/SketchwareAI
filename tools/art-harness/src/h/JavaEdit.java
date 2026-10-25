@@ -409,7 +409,6 @@ public class JavaEdit {
         while (!l.get(stop).trim().equals("}")) stop++;
         for (int k = stop - 1; k > on; k--) l.remove(k);
         String[] typed2 = {
-                "edittext1.setHint(\"Name\");",
                 "button1.setClickable(true);",
                 "checkbox1.setChecked(true);",
                 "edittext1.requestFocus();",
@@ -430,7 +429,7 @@ public class JavaEdit {
             cur = nx < 0 ? null : all.get(String.valueOf(nx));
         }
         check("more statements to blocks: one block each", ops.toString().equals(
-                "setHint setClickable setChecked requestFocus setTitle setVarBoolean decreaseInt setChecked "), ops.toString());
+                "setClickable setChecked requestFocus setTitle setVarBoolean decreaseInt setChecked "), ops.toString());
         regenerated = code();
         allThere = true;
         for (String t : typed2) allThere &= regenerated.contains(t);

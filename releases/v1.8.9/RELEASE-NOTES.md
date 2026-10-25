@@ -10,7 +10,7 @@ that generates it, instead of an *add source directly* block:
 | You write | Block |
 |---|---|
 | `textview1.setText("Hi");`, `textview1.setText(title);` | setText (a String variable becomes its variable block) |
-| `edittext1.setHint("Name");` | set hint |
+| `edittext1.setHint("Name");` | set hint (not on Material 3 outlined fields: there the generator writes the hint as the field's label, so the Java editor refuses that line and changes nothing) |
 | `button1.setVisibility(View.GONE);` | setVisible (VISIBLE / INVISIBLE / GONE) |
 | `button1.setEnabled(false);`, `setClickable`, `checkbox1.setChecked(true);`, `requestFocus()` | setEnable, setClickable, setChecked, request focus |
 | `SketchwareUtil.showMessage(getApplicationContext(), "Saved");` | Toast |
