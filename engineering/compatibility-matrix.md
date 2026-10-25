@@ -100,3 +100,14 @@ Whether a generated APK runs on a given Android version depends on that project'
 - The Java editor, Library Resolver and Code tab screens (Activities, sora-editor), Maven Central search and downloads on a
   phone's network, Dx on Android 7.1 and older (minApi21 build): NOT TESTED here (no device, no emulator). Layouts
   rendered with layoutlib.
+
+## v1.8.9 (25 Oct 2026)
+- Java statements to blocks (`StatementBlocks`, `JavaToBlocks.chainFor`): fixture 919's edit series (54 checks, then a
+  Run build) and an unchanged open + save of all 21 suite projects on the Android 12 (API 31) ART harness with the final
+  APK's classes. Automatic library imports (`LibraryImports`): fixture 922 (ESCPOS local library, code without import
+  blocks) built; 924 the same on a fresh install (auto-fix adds the imports on that first build); ambiguity cases on JDK
+  17. Library info (`LibraryInfo`) read on ART. Maven Central field search and the JitPack metadata lookup run live from
+  this workspace. MaterialCardView / MaterialToolbar layouts (908, 915) built; 915 rendered with layoutlib, light and
+  night. Regression fixtures 901-920 built again. Results in `v1.8.9-verification.md`.
+- The Library Resolver's live search, (i) dialog and Copy import, the Project Configuration dialog and its Convert to
+  Material 3 action, the Java editor screen: NOT TESTED here (no device, no emulator).

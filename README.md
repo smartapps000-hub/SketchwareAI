@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.8.8** (versionCode 178). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.8.9** (versionCode 179). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,7 +27,7 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.8.8)
+## Shipped (v1.0 – v1.8.9)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -45,6 +45,9 @@ Everything in this section is in the released APK and was exercised as described
 | Java editor | Design editor → *Edit Java code* or the Code tab: an activity's generated Java in a code editor. Saving turns the changes back into the project: changed lines inside an event become *add source directly* blocks (only the blocks whose lines changed are replaced; changes inside if/else/loops stay there), new fields custom variables, new imports custom imports, methods written as `public void _name(final String _x, …)` MoreBlocks. What the designer generates itself is refused with its line. Nothing is kept unless the code generated again from the blocks is the code you wrote | v1.8.8 |
 | Library Resolver | Replaces the local library manager. Required / All / Updates / Cache tabs; Maven Central search; + Add by Maven coordinate (POMs read like Gradle: parents, BOMs, properties, exclusions, version ranges) or AAR/JAR/ZIP import; libraries Sketchware AI has built in are not downloaded, and a build adds the built-in libraries a local library needs (Retrofit → OkHttp, Gson) | v1.8.8 |
 | Export of local libraries | Export to Android Studio includes the project's local libraries: by Maven coordinate in `build.gradle` when known, else as `.jar` / `.aar` files in `app/libs` | v1.8.8 |
+| Java statements to blocks | Saving the Java editor turns statements a block writes (setText, setVisible, setEnabled/Clickable/Checked, requestFocus, Toast, setTitle, set/increase/decrease variables, Intent setScreen/putExtra, StartActivity, Finish) into those blocks instead of add-source blocks, when the block generates exactly the typed line | v1.8.9 |
+| Library Resolver 2 | Search as you type; `group:artifact` queries Maven Central by field (no HTTP 400) and Google Maven / JitPack by coordinate; `import pkg.*;` added to generated activities for local-library classes the code uses (skipped when it would make a name ambiguous); (i) per library: POM description, licence, project page, manifest permissions, packages, Copy import (offline) | v1.8.9 |
+| Material 3 tags | MaterialCardView (elevated) and MaterialToolbar in Material 3 projects; Project Configuration → *Convert to Material 3 & Modern Stack* for older projects (target 37, min 21, AppCompat, Material 3, D8 + Java 11) | v1.8.9 |
 | Code tab | Fourth design editor tab: the project's activities (→ Java editor) and its own Java/Kotlin files; + New class | v1.8.8 |
 | Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |
 | Export | APK signed v1+v2+v3; AAB with a SHA-256 JAR signature; "Export to Android Studio" writes an AGP 8.12 / Gradle 8.13 project | v1.8.2, v1.8.5 |
@@ -55,7 +58,7 @@ Everything in this section is in the released APK and was exercised as described
 ## How it is tested, and what is not
 
 - **Android runtime harness** (`tools/art-harness`): the APK's own classes run on an Android 12 (API 31) ART runtime
-  **without the Android framework**: whole Run builds of fixture projects 901–920 (914–918 created by the New Project
+  **without the Android framework**: whole Run builds of fixture projects 901–922 (914–918 created by the New Project
   screen's own code; 919 edited through the Java editor's save; 920 with libraries installed by the Library Resolver) and
   AAB exports (aapt2,
   ECJ, Kotlin, D8/L8, DEX merge, packaging, signing). This is not a device test and says nothing about other Android versions.
@@ -136,7 +139,7 @@ Output: `app/build/outputs/apk/minApi26/debug/app-minApi26-debug.apk`.
 | `kotlinc/` | the embedded Kotlin compiler module (GPL-3.0, from CodeAssist) |
 | `engineering/` | verified state of the fork, per-release verification records, test fixtures, compatibility matrix, known errors |
 | `tools/` | Android runtime harness, layoutlib renders, static aapt2 build, built-in library packaging, APK scans, JVM tests |
-| `releases/` | release notes and SHA-256 sums per release. The APKs (about 138 MB) are not in this branch: they are on the `binaries` branch as 7z parts, because GitHub refuses files over 100 MB |
+| `releases/` | release notes and SHA-256 sums per release. The APKs (about 138 MB) are not in this branch: they are on the `binaries` branch (up to v1.8.8 as 7z parts; since v1.8.9 one full APK in `apk/`, stored with Git LFS because GitHub refuses normal files over 100 MB) |
 
 ## Credits
 

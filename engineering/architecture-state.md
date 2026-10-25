@@ -344,3 +344,27 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
   the patches zip's `overlay/`. Since v1.8.6 the rule is anchored and those folders are tracked; a round trip from the
   upstream zip runs `git clean -fdX` after the base commit so the patches can add them. Still: never put new code in a
   package folder named `build`.
+
+## v1.8.9 additions
+
+- `com.sketchware.ai.editor.StatementBlocks`: maps one statement line (outside braces and comments, not the body of a
+  braceless if/else/loop) to the block that writes it (setText, setHint, setVisible, setEnable, setClickable, setChecked,
+  requestFocus, doToast, setTitle, setVarString/Int/Boolean, increaseInt/decreaseInt, intentSetScreen, intentPutExtra,
+  startActivity, finishActivity only as the last statement); accepted only when `Fx` writes exactly that line. Used by
+  `JavaToBlocks.chainFor` for event bodies and new MoreBlocks; everything else stays add-source.
+- `com.sketchware.ai.library.LibraryImports` (called from `Jx.formattedCode`): `import pkg.*;` for local-library packages
+  whose public classes the code uses by simple name; never when a used name would become ambiguous against the activity's
+  other on-demand imports (android.jar, built-in libraries under `EXTRACTED_BUILT_IN_LIBRARIES_PATH`, java.lang,
+  androidx.annotation, local libraries); nothing when one of those packages can't be indexed or android.jar isn't unpacked
+  (the generator never unpacks it). The Java editor treats these lines as generated.
+- `LibraryInfo` (offline (i)): pom.xml kept in the library folder at install (`LibraryInstaller.keepPom`), else the
+  resolver cache; AndroidManifest.xml permissions; classes.jar packages.
+- `MavenSearch.solrQuery`/`normalize`: no raw colon reaches search.maven.org; coordinate fallback to Google Maven / JitPack
+  maven-metadata.xml. Live search in `LibraryResolverActivity` (debounced, newest query wins).
+- `Ox`: MaterialCardView (`Widget.Material3.CardView.Elevated`, unless the inject sets a style) and MaterialToolbar in
+  Material 3 layouts (`M3Widgets.materialCard`, `MATERIAL_TOOLBAR`).
+- `ModernProjectDefaults.convertToModern` (Project Configuration → Convert to Material 3 & Modern Stack): AppCompat on in
+  the saved data and, separately, in the unsaved working copy; D8 + Java 11; the dialog's fields set target 37, min 21,
+  Material 3. Runs off the UI thread.
+- Release packaging: the APK is one file in `binaries:apk/` stored with Git LFS (not shrunk: the embedded Kotlin compiler
+  is reflective; see v1.8.9-verification.md section 5).
