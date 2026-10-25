@@ -73,7 +73,7 @@ the auto-fix (a warning) until android.jar has been unpacked once.
 
 ## Files
 
-`apk/Sketchware_AI_v1.8.9.apk` on the repository's `binaries` branch: one full APK (no 7z parts), stored with Git LFS
+`apk/Sketchware_AI_v1.8.9.apk` (138,476,021 bytes, sha256 `9023c26e…669c0cc`) on the repository's `binaries` branch: one full APK (no 7z parts), stored with Git LFS
 (GitHub's limit for normal files is 100 MB). Download it from GitHub's file page (Download / View raw).
 
 ## Not in this release
