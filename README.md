@@ -2,6 +2,19 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.8.9 (versionCode 179, `v1.8.9-f975642-minApi26`)
+
+One full APK, no 7z parts: open `apk/Sketchware_AI_v1.8.9.apk` on GitHub and tap **Download** (the large files of this
+release are stored with Git LFS; GitHub serves them like any file).
+
+| File | sha256 |
+|---|---|
+| `apk/Sketchware_AI_v1.8.9.apk` (138,476,021 bytes) | `9023c26e363bb409be1d8384c63a8b80a253b5688d9981f8794d4f938669c0cc` |
+| `v1.8.9/SketchwareAI-v1.8.9-patches.zip` (139,645,182 bytes; 66 patches against the upstream zip, `main` at 7a5eaf5) | `506aea6f34edb6745e5d6d26c88bec408f27e3f1aeeb2f55ad5ffdb926c06b58` |
+
+Signed with the public test key, like every release, so it installs over v1.8.8. Release notes:
+`releases/v1.8.9/RELEASE-NOTES.md` on `main`.
+
 ## v1.8.8 (versionCode 178, `v1.8.8-f6b8e9f-minApi26`)
 
 | File | sha256 |
