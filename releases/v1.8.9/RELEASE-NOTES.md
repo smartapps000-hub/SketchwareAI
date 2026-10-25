@@ -1,6 +1,6 @@
 # Sketchware AI v1.8.9
 
-versionCode 179, versionName `v1.8.9-HASH-minApi26`. Installs over v1.8.8 (same test key).
+versionCode 179, versionName `v1.8.9-f975642-minApi26`. Installs over v1.8.8 (same test key).
 
 ## Java editor: your statements become real blocks
 
@@ -52,7 +52,24 @@ and variable names, same text); anything else, and every `if`/loop you write, st
 
 ## Checked
 
-(see `engineering/v1.8.9-verification.md`)
+On the Android 12 (API 31) ART runtime with this APK's own classes, no phone (details: `engineering/v1.8.9-verification.md`):
+
+- **Statements to blocks**: 21 statements typed into a click event of a test project become the expected blocks with the
+  right parameters; the code generated again from them is what was typed; the project builds (54 checks). Every activity
+  of the 21 test projects opens and saves unchanged.
+- **Imports**: a project using the ESCPOS printer library with no import blocks builds; its exported Android Studio project
+  builds with Gradle. On a fresh install (before the first build has unpacked android.jar) the build's auto-fix adds the
+  imports instead, with a warning. Ambiguous cases (e.g. `okhttp3.*` and a library `Callback`) add nothing.
+- **Search and (i)**: the field query and the JitPack lookup against the live services; the (i) text of the installed
+  ESCPOS library (description, MIT licence, project page, 8 packages).
+- **Material 3**: MaterialCardView / MaterialToolbar layouts build; rendered with layoutlib in light and dark (toolbar
+  icon and title white on the toolbar colour).
+- **Everything else again**: Run build of all test projects (906 fails as designed), LoadAll of every built app, Export AAB
+  (bundletool validate, jarsigner), Export to Android Studio built with Gradle.
+
+**Not run here:** these screens on a phone (Library Resolver live search, (i), Copy import, Project Configuration and
+Convert, the Java editor), installing or starting built apps. **First build after installing:** library imports come from
+the auto-fix (a warning) until android.jar has been unpacked once.
 
 ## Files
 
