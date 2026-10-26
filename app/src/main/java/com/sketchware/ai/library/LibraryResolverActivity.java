@@ -241,6 +241,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 runOnUiThread(() -> {
                     installedCache = read;
                     loadingInstalled = false;
+                    for (Installed l : read) {
+                        String latest = updates.get(l.name);
+                        Installed newer = latest == null ? null : newerInstalled(l, read);
+                        if (newer != null && MavenResolver.compareVersions(newer.version, latest) >= 0) updates.remove(l.name);
+                    }
                     if (!isFinishing()) show();
                 });
             }, "LibraryList").start();
@@ -347,10 +352,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             CheckBox check = card.findViewById(R.id.lc_check);
             check.setVisibility(View.VISIBLE);
             check.setChecked(checked);
-            check.setOnClickListener(v -> {
-                setEnabled(lib.name, check.isChecked());
-                if (tab == 0) show();
-            });
+            check.setOnClickListener(v -> setEnabled(lib.name, check.isChecked()));
         }
         return card;
     }
@@ -529,7 +531,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         if (query.length() >= 2) {
             if (hits != null && query.equals(hitsQuery)) {
                 header("Search results");
-                if (hits.isEmpty()) note("Nothing found (web and POM-only artifacts are left out: only .aar / .jar libraries).");
+                if (hits.isEmpty()) {
+                    note("Nothing found on Maven Central (web and POM-only artifacts are left out: only .aar / .jar libraries). "
+                            + "JitPack has no search: paste the library's GitHub link in + Add.");
+                }
                 for (MavenSearch.Hit hit : hits) {
                     View row = row(hit.group + ":" + hit.name, hit.latestVersion + (hit.packaging == null ? "" : " · " + hit.packaging));
                     TextView title = row.findViewById(R.id.lib_title);
@@ -773,9 +778,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             MavenResolver resolver = new MavenResolver(repositories(), cacheFolder(), null);
             StringBuilder report = new StringBuilder();
             for (String coordinate : coordinates) {
+                status("Reading the POM files\n" + coordinate);
                 MavenResolver.Plan plan = resolver.resolve(coordinate);
-                if (!plan.problems.isEmpty() && plan.root == null) {
-                    report.append(coordinate).append(": ").append(join(plan.problems)).append('\n');
+                if (!MavenResolver.found(plan)) {
+                    report.append(coordinate).append(": ").append(join(plan.problems)).append(networkNotes(plan)).append('\n');
                     continue;
                 }
                 LibraryInstaller.Outcome outcome = LibraryInstaller.install(resolver, plan, scId, this::status);
@@ -788,7 +794,30 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
 
     private void status(String text) {
         runOnUiThread(() -> {
-            if (busyDialog != null) busyDialog.setMessage(text);
+            if (busyStep == null) return;
+            busyStep.setText(text);
+            busyBar.setIndeterminate(true);
+            busyBytes.setText("");
+        });
+    }
+
+    /** MavenResolver.PROGRESS of the worker thread: at most five updates a second, and the last one. */
+    private void bytes(String url, long done, long total) {
+        long now = android.os.SystemClock.uptimeMillis();
+        boolean last = total > 0 && done >= total;
+        if (!last && now - busyShownAt < 200) return;
+        busyShownAt = now;
+        String file = url.substring(url.lastIndexOf('/') + 1);
+        runOnUiThread(() -> {
+            if (busyBar == null) return;
+            if (total > 0) {
+                busyBar.setIndeterminate(false);
+                busyBar.setProgress((int) Math.min(1000, done * 1000 / total));
+                busyBytes.setText(size(done) + " of " + size(total) + " · " + file);
+            } else {
+                busyBar.setIndeterminate(true);
+                busyBytes.setText(size(done) + " · " + file);
+            }
         });
     }
 
@@ -869,10 +898,13 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         });
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (busy) return;
-            String text = coordinate.getText().toString().trim();
-            if (MavenFetcher.parse(text) == null) {
+            String typed = coordinate.getText().toString().trim();
+            // v1.8.11: a GitHub / JitPack link is a JitPack coordinate (the newest version JitPack built, without a tag)
+            final String[] link = MavenFetcher.parse(typed) == null ? MavenResolver.fromLink(typed) : null;
+            if (MavenFetcher.parse(typed) == null && link == null) {
                 message.setText("Write it as group:artifact:version, e.g. com.squareup.retrofit2:converter-gson:2.9.0 "
-                        + "(a Gradle line like implementation 'g:a:v' works too).");
+                        + "(a Gradle line like implementation 'g:a:v' or a GitHub link github.com/user/repo works too). "
+                        + "To find a library by name, type in the search field instead.");
                 return;
             }
             if (found[0] == null) {
@@ -880,20 +912,47 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 message.setText("Reading the POM files…");
                 new Thread(() -> {
                     MavenResolver r = new MavenResolver(repositories(), cacheFolder(), null);
+                    final long[] shownAt = {0};
+                    MavenResolver.PROGRESS.set((url, done, total) -> {
+                        long now = android.os.SystemClock.uptimeMillis();
+                        if (now - shownAt[0] < 200) return;
+                        shownAt[0] = now;
+                        String file = url.substring(url.lastIndexOf('/') + 1);
+                        String host = Uri.parse(url).getHost();
+                        runOnUiThread(() -> {
+                            if (dialog.isShowing() && found[0] == null) message.setText("Reading the POM files…\n" + file + " · " + host);
+                        });
+                    });
                     MavenResolver.Plan resolved;
+                    String text = typed;
                     try {
-                        resolved = r.resolve(text);
+                        String version = link == null ? null : link[2] != null ? link[2] : r.latestStable(link[0], link[1]);
+                        if (link != null && version == null) {
+                            resolved = new MavenResolver.Plan();
+                            resolved.problems.add("JitPack has no built version of " + link[0] + ":" + link[1]
+                                    + ". Add the version (a tag from the repository's Releases page), e.g. "
+                                    + link[0] + ":" + link[1] + ":1.0.0" + LibraryInstaller.hostLinks(link[0], link[1], null));
+                        } else {
+                            if (link != null) text = link[0] + ":" + link[1] + ":" + version;
+                            resolved = r.resolve(text);
+                        }
                     } catch (Throwable t) {
                         resolved = new MavenResolver.Plan();
                         resolved.problems.add("Reading the POM files failed: " + t);
+                    } finally {
+                        MavenResolver.PROGRESS.remove();
                     }
                     final MavenResolver.Plan plan = resolved;
+                    final String asked = text;
                     runOnUiThread(() -> {
                         busy = false;
                         if (!dialog.isShowing()) return;
-                        if (plan.root == null || plan.root.builtIn == null && plan.artifacts.isEmpty()) {
+                        // the link becomes the coordinate it stands for (resets found: set before it)
+                        if (!asked.equals(coordinate.getText().toString().trim())) coordinate.setText(asked);
+                        if (!MavenResolver.found(plan)) {
                             message.setText((plan.offline ? "No connection to the repositories.\n" : "") + join(plan.problems)
-                                    + (plan.problems.isEmpty() ? "Not found." : ""));
+                                    + (plan.problems.isEmpty() ? "Not found." : "") + networkNotes(plan)
+                                    + (plan.root == null ? "" : LibraryInstaller.hostLinks(plan.root.group, plan.root.name, plan.root.version)));
                             return;
                         }
                         if (!withNeeds.isChecked()) {
@@ -906,7 +965,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                         found[0] = plan;
                         resolver[0] = r;
                         message.setText(describe(plan));
-                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText(plan.artifacts.isEmpty() ? "OK" : "Install");
+                        boolean installable = false;
+                        for (MavenResolver.Artifact a : plan.artifacts) installable |= !"pom".equals(a.packaging);
+                        if (!installable) plan.artifacts.clear();
+                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText(installable ? "Install" : "OK");
                     });
                 }, "LibraryResolve").start();
                 return;
@@ -926,12 +988,37 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         });
     }
 
+    /**
+     * v1.8.11: why a repository gave no answer (time-out, HTTP 401, no connection), shown when nothing was found:
+     * before, only "Not found in the repositories" was shown and the reason stayed hidden.
+     */
+    static String networkNotes(MavenResolver.Plan plan) {
+        StringBuilder s = new StringBuilder();
+        int shown = 0;
+        for (String note : plan.notes) {
+            if (!note.startsWith("No answer")) continue;
+            if (shown++ == 6) {
+                s.append("\n…");
+                break;
+            }
+            s.append("\n• ").append(note);
+        }
+        return s.length() == 0 ? "" : "\n\nRepositories that didn't answer:" + s;
+    }
+
     static String describe(MavenResolver.Plan plan) {
         StringBuilder s = new StringBuilder();
         if (plan.root != null && plan.root.builtIn != null) {
             s.append(plan.root.key()).append(" is built into Sketchware AI (").append(plan.root.builtInVersion)
                     .append("): the build adds it when the project uses it. Nothing to download.");
             return s.toString();
+        }
+        if (plan.root != null && "pom".equals(plan.root.packaging)) {
+            // v1.8.11: a POM-only root (a BOM, the root of a multi-module build): nothing of its own to install
+            s.append(plan.root.coordinate()).append(" is only a POM: it has no .aar or .jar of its own")
+                    .append(plan.artifacts.size() > 1 ? ", only what it lists is installed" : "")
+                    .append(". A multi-module JitPack build has one coordinate per module: com.github.User.Repo:module:version.")
+                    .append(LibraryInstaller.hostLinks(plan.root.group, plan.root.name, plan.root.version)).append("\n\n");
         }
         List<String> install = new ArrayList<>();
         for (MavenResolver.Artifact a : plan.artifacts) {
@@ -1024,25 +1111,54 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     }
 
     private AlertDialog busyDialog;
+    private TextView busyStep, busyBytes;
+    private android.widget.ProgressBar busyBar;
+    private long busyShownAt;
 
-    /** Runs work off the UI thread behind a small dialog, then shows its report (if any) and the tab again. */
+    /**
+     * Runs work off the UI thread behind a dialog with the step it is on and (v1.8.11) a progress bar: the bytes of
+     * the download in progress when the server gives its size, else a moving bar. Then shows the report (if any) and
+     * the tab again.
+     */
     private void runBusy(String title, Work work) {
         if (busy) return;
         busy = true;
-        busyDialog = new ObAlertBuilder(this).setTitle(title).setMessage("…").setCancelable(false).create();
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(24), dp(8), dp(24), dp(4));
+        busyStep = new TextView(this, null, 0, R.style.Ob_Text_Body);
+        busyStep.setText("…");
+        box.addView(busyStep);
+        busyBar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        busyBar.setIndeterminate(true);
+        busyBar.setMax(1000);
+        android.content.res.ColorStateList amber = android.content.res.ColorStateList.valueOf(0xFFFF7A29);
+        busyBar.setProgressTintList(amber);
+        busyBar.setIndeterminateTintList(amber);
+        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(14));
+        barParams.topMargin = dp(12);
+        box.addView(busyBar, barParams);
+        busyBytes = new TextView(this, null, 0, R.style.Ob_Text_Caption);
+        box.addView(busyBytes);
+        busyDialog = new ObAlertBuilder(this).setTitle(title).setView(box).setCancelable(false).create();
         busyDialog.show();
         new Thread(() -> {
+            MavenResolver.PROGRESS.set(this::bytes);
             String report;
             try {
                 report = work.run();
             } catch (Throwable t) {
                 report = "Failed: " + t;
+            } finally {
+                MavenResolver.PROGRESS.remove();
             }
             final String text = report;
             runOnUiThread(() -> {
                 busy = false;
                 if (busyDialog != null) busyDialog.dismiss();
                 busyDialog = null;
+                busyStep = busyBytes = null;
+                busyBar = null;
                 if (isFinishing()) return;
                 installedCache = null;
                 show();
@@ -1068,10 +1184,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     }
 
     /** (i): what is known about the library on this phone (LibraryInfo, offline). */
-    private void infoButton(View row, String name, File dir, String coordinate) {
-        TextView button = row.findViewById(R.id.lib_info);
-        button.setVisibility(View.VISIBLE);
-        button.setOnClickListener(v -> new Thread(() -> {
+    private void showInfo(String name, File dir, String coordinate) {
+        new Thread(() -> {
             String text;
             String importLines = null;
             try {
@@ -1100,7 +1214,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 }
                 b.show();
             });
-        }, "LibraryInfo").start());
+        }, "LibraryInfo").start();
     }
 
     private void note(String text) {

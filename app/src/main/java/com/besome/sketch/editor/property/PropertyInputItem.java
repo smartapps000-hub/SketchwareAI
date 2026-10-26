@@ -242,13 +242,33 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
     }
 
     private void showViewIdDialog() {
-        // v1.8.11: the id check needs the screen's views; without them (panel not bound to a screen yet) say so
-        // instead of a NullPointerException in the dialog
-        if (hostActivity() == null || sc_id == null || projectFileBean == null) {
+        // v1.8.11: the ids checked for duplicates are those of the screen the property bar shows now (ViewProperty
+        // knows it; this item's own copy is only refreshed when the widget spinner changes, so after a screen switch
+        // it could be another screen's). Without any (bar not bound to a screen yet) say so instead of crashing.
+        Activity activity = hostActivity();
+        String projectId = sc_id;
+        ProjectFileBean file = projectFileBean;
+        for (android.view.ViewParent p = getParent(); p != null; p = p.getParent()) {
+            if (p instanceof com.besome.sketch.editor.view.ViewProperty) {
+                com.besome.sketch.editor.view.ViewProperty bar = (com.besome.sketch.editor.view.ViewProperty) p;
+                if (bar.boundProjectId() != null && bar.boundProjectFile() != null) {
+                    projectId = bar.boundProjectId();
+                    file = bar.boundProjectFile();
+                }
+                break;
+            }
+        }
+        java.util.ArrayList<String> ids = null;
+        try {
+            if (projectId != null && file != null && jC.a(projectId) != null) ids = jC.a(projectId).a(file);
+        } catch (RuntimeException ignored) {
+            // no project data for that screen: handled below
+        }
+        if (activity == null || ids == null) {
             mod.SketchwareUtil.toast("Select the widget on the canvas again, then change its ID.");
             return;
         }
-        aB dialog = new aB(hostActivity());
+        aB dialog = new aB(activity);
         dialog.b(tvName.getText().toString());
         dialog.a(icon);
         View view = wB.a(getContext(), R.layout.property_popup_input_text);
@@ -257,7 +277,7 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
         input.setLines(1);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         input.setImeOptions(EditorInfo.IME_ACTION_DONE);
-        _B validator = new _B(context, view.findViewById(R.id.ti_input), uq.b, uq.a(), jC.a(sc_id).a(projectFileBean), value);
+        _B validator = new _B(context, view.findViewById(R.id.ti_input), uq.b, uq.a(), ids, value);
         validator.a(value);
         dialog.a(view);
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {

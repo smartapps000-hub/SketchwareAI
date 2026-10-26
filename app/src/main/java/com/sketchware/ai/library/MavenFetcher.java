@@ -12,8 +12,11 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Finds and downloads a Maven artifact (Google Maven, Maven Central, JitPack, ...) and turns an
@@ -198,16 +201,17 @@ public final class MavenFetcher {
         libDir.mkdirs();
         if (names.contains("classes.jar")) {
             unzip(archive, libDir, "");
+            mergeNestedJars(libDir);
         } else if (hasClasses(names)) {
             copy(archive, new File(libDir, "classes.jar"));
         } else {
+            // v1.8.11: an .aar inside wins over a .jar (a release zip often has the library's .aar plus sample jars)
             String inner = null;
             for (String n : names) {
                 String lower = n.toLowerCase(Locale.ROOT);
                 if ((lower.endsWith(".aar") || lower.endsWith(".jar")) && !lower.contains("sources") && !lower.contains("javadoc")
                         && !lower.contains("gradle-wrapper")) {
-                    inner = n;
-                    break;
+                    if (inner == null || lower.endsWith(".aar") && !inner.toLowerCase(Locale.ROOT).endsWith(".aar")) inner = n;
                 }
             }
             if (inner == null) {
@@ -222,6 +226,55 @@ public final class MavenFetcher {
             return reason;
         }
         return new File(libDir, "classes.jar").exists() ? null : "No classes.jar found in the archive.";
+    }
+
+    /**
+     * v1.8.11: an .aar's libs/*.jar are part of the library (classes it bundles), but a local library is only its
+     * classes.jar + classes.dex: they are merged into classes.jar (the library's own class wins over a bundled copy),
+     * so they compile and are dexed with it. Signature files and module-info are left out.
+     */
+    static void mergeNestedJars(File libDir) throws IOException {
+        File libs = new File(libDir, "libs");
+        File[] jars = libs.listFiles((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".jar"));
+        if (jars == null || jars.length == 0) return;
+        java.util.Arrays.sort(jars);
+        File classes = new File(libDir, "classes.jar");
+        File merged = new File(libDir, "classes.jar.merging");
+        Set<String> seen = new HashSet<>();
+        byte[] buffer = new byte[16384];
+        try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(merged))) {
+            copyEntries(classes, out, seen, buffer);
+            for (File jar : jars) {
+                if (isZip(jar)) copyEntries(jar, out, seen, buffer);
+            }
+        } catch (IOException | RuntimeException e) {
+            merged.delete();
+            throw e instanceof IOException ? (IOException) e : new IOException(e);
+        }
+        if (!classes.delete() || !merged.renameTo(classes)) {
+            merged.delete();
+            throw new IOException("couldn't merge " + libs + " into classes.jar");
+        }
+        for (File jar : jars) jar.delete();
+        libs.delete();   // only when empty
+    }
+
+    private static void copyEntries(File jar, ZipOutputStream out, Set<String> seen, byte[] buffer) throws IOException {
+        try (ZipInputStream zip = new ZipInputStream(new FileInputStream(jar))) {
+            ZipEntry e;
+            while ((e = zip.getNextEntry()) != null) {
+                String name = e.getName();
+                String upper = name.toUpperCase(Locale.ROOT);
+                if (e.isDirectory() || name.endsWith("module-info.class") || upper.equals("META-INF/MANIFEST.MF")
+                        || upper.startsWith("META-INF/") && (upper.endsWith(".SF") || upper.endsWith(".RSA")
+                        || upper.endsWith(".DSA") || upper.endsWith(".EC"))) continue;
+                if (!seen.add(name)) continue;
+                out.putNextEntry(new ZipEntry(name));
+                int r;
+                while ((r = zip.read(buffer)) != -1) out.write(buffer, 0, r);
+                out.closeEntry();
+            }
+        }
     }
 
     private static boolean hasClasses(List<String> names) {

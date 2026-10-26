@@ -67,7 +67,38 @@ public final class CrashDiagnostics {
         return new Result(cause, where, advice(simple, rootMessage, trace));
     }
 
+    /**
+     * v1.8.11: crashes whose cause is known and fixed (engineering/known-errors.json): matched on the whole report, so
+     * the screen says what it was and what to do instead of the generic text. Rules, not guesses: no match, no claim.
+     */
+    private static final String[][] KNOWN = {
+            {"(?s)ClassCastException: android\\.widget\\.FrameLayout\\$LayoutParams cannot be cast to android\\.widget\\.LinearLayout\\$LayoutParams.*at android\\.widget\\.LinearLayout\\.",
+                    "Known cause (fixed in v1.8.10): a card or layout of a template project was stored with the wrong parent "
+                            + "type, and the design canvas measured it as a LinearLayout child. The project isn't damaged: "
+                            + "with v1.8.10 or newer the canvas converts the layout values and opens it."},
+            {"(?s)WindowManager\\$BadTokenException|Unable to add window.*is your activity running",
+                    "Known cause (guarded since v1.8.11): a dialog was opened for a screen that was already closing, e.g. the "
+                            + "ID dialog of the property bar right after leaving the editor. Open the screen again and select "
+                            + "the widget before changing its ID. If it still happens, copy this report."},
+            {"(?s)NullPointerException.*at com\\.besome\\.sketch\\.editor\\.property\\.PropertyInputItem\\.",
+                    "Known cause (guarded since v1.8.11): a property dialog (ID, text, …) opened before the widget's project data "
+                            + "was loaded. Select the widget on the canvas again, then change the property. If it still "
+                            + "happens, copy this report."},
+            {"(?s)Found invalid data of Custom Variable",
+                    "Known cause (fixed in v1.8.11): a statement was saved as a custom variable by Java to blocks. Open Edit "
+                            + "Java code, delete that line from the class body and tap Save as blocks to remove it."},
+    };
+
+    private static String known(String trace) {
+        for (String[] rule : KNOWN) {
+            if (Pattern.compile(rule[0]).matcher(trace).find()) return rule[1];
+        }
+        return null;
+    }
+
     private static String advice(String type, String message, String trace) {
+        String knownCause = known(trace);
+        if (knownCause != null) return knownCause;
         String missing = null;
         Matcher m = Pattern.compile("(?:Failed resolution of: L|Didn't find class \")([\\w/$.]+)").matcher(trace);
         if (m.find()) missing = m.group(1).replace('/', '.').replace(";", "");

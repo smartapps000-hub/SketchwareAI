@@ -136,8 +136,9 @@ public final class MavenResolver {
     public Plan resolve(String coordinate) {
         Plan plan = resolveExactly(coordinate);
         String[] gav = MavenFetcher.parse(coordinate);
-        if (plan.root != null || gav == null) return plan;
+        if (gav == null) return plan;
         String id = gav[0] + ":" + gav[1] + ":" + gav[2];
+        // the root artifact is in plan.root even when no repository has it: missing = its POM wasn't found
         boolean rootMissing = plan.problems.contains("Not found in the repositories: " + id);
         boolean gitHosted = gav[0].startsWith("com.github.") || gav[0].startsWith("io.github.")
                 || gav[0].startsWith("com.gitlab.") || gav[0].startsWith("org.bitbucket.");
@@ -145,9 +146,48 @@ public final class MavenResolver {
         String other = gav[2].startsWith("v") && gav[2].length() > 1 && Character.isDigit(gav[2].charAt(1))
                 ? gav[2].substring(1) : "v" + gav[2];
         Plan retry = resolveExactly(gav[0] + ":" + gav[1] + ":" + other);
-        if (retry.root == null) return plan;
+        if (retry.root == null || retry.problems.contains("Not found in the repositories: " + gav[0] + ":" + gav[1] + ":" + other)) {
+            return plan;
+        }
         retry.notes.add(0, "Found as " + gav[0] + ":" + gav[1] + ":" + other + " (the tag's spelling on JitPack)");
         return retry;
+    }
+
+    /** True when the plan's root library was found (built in, or its POM read); false for "Not found". */
+    public static boolean found(Plan plan) {
+        return plan.root != null && (plan.root.builtIn != null || plan.artifacts.contains(plan.root));
+    }
+
+    private static final Pattern GITHUB_LINK = Pattern.compile(
+            "(?i)^(?:https?://)?(?:www\\.)?github\\.com/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\\.git)?"
+                    + "(?:/(?:releases/tag|tree|commit)/([^/?#\\s]+))?(?:[/?#].*)?$");
+    private static final Pattern JITPACK_LINK = Pattern.compile(
+            "(?i)^(?:https?://)?(?:www\\.)?jitpack\\.io/#([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:/([^/?#\\s]+))?/?$");
+
+    /**
+     * v1.8.11: + Add also takes a GitHub link (github.com/User/Repo, …/releases/tag/v1.2, …/tree/1.2) or a JitPack page
+     * (jitpack.io/#User/Repo/1.2): JitPack builds GitHub repositories as com.github.User:Repo:tag. Also
+     * com.github.User:Repo without a version.
+     *
+     * @return {group, artifact, version or null}, or null when the text is none of these
+     */
+    public static String[] fromLink(String text) {
+        if (text == null) return null;
+        String t = text.trim();
+        Matcher m = GITHUB_LINK.matcher(t);
+        if (!m.matches()) m = JITPACK_LINK.matcher(t);
+        if (m.matches()) {
+            String version = m.group(3);
+            return new String[]{"com.github." + m.group(1), m.group(2), version == null || version.isEmpty() ? null : version};
+        }
+        String d = t.replaceFirst("^(implementation|api|compile|compileOnly)\\s*\\(?", "")
+                .replace("'", "").replace("\"", "").replace(")", "").trim();
+        String[] p = d.split(":");
+        if (p.length == 2 && p[0].startsWith("com.github.") && p[0].length() > 11 && !p[1].isEmpty()
+                && p[0].matches("[A-Za-z0-9._-]+") && p[1].matches("[A-Za-z0-9._-]+")) {
+            return new String[]{p[0], p[1], null};
+        }
+        return null;
     }
 
     private Plan resolveExactly(String coordinate) {

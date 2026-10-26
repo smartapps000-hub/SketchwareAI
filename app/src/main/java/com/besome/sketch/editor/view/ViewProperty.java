@@ -137,6 +137,8 @@ public class ViewProperty extends LinearLayout implements Kw {
         }
         if (idsAdapter.getSelectedItemPosition() < projectActivityViews.size()) {
             ViewBean viewBean = projectActivityViews.get(idsAdapter.getSelectedItemPosition());
+            // v1.8.11: the items get the screen shown now, also when the spinner position didn't change on a screen switch
+            viewPropertyItems.setProjectFileBean(projectFile);
             if (selectedGroupId == 0) {
                 propertyLayout.setVisibility(VISIBLE);
                 layoutPropertySeeAll.setVisibility(VISIBLE);
@@ -272,6 +274,15 @@ public class ViewProperty extends LinearLayout implements Kw {
     public void a(String sc_id, ProjectFileBean projectFileBean) {
         this.sc_id = sc_id;
         projectFile = projectFileBean;
+    }
+
+    /** v1.8.11: the project and screen this bar shows now (the ID dialog checks this screen's ids). */
+    public String boundProjectId() {
+        return sc_id;
+    }
+
+    public ProjectFileBean boundProjectFile() {
+        return projectFile;
     }
 
     public void a(String str) {

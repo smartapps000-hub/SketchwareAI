@@ -50,7 +50,8 @@ public final class MavenSearch {
         if (parts.length >= 2 && parts.length <= 4 && parts[0].matches("[\\w.\\-]+") && parts[1].matches("[\\w.\\-]+")) {
             return "g:\"" + parts[0] + "\" AND a:\"" + parts[1] + "\"";
         }
-        return q.replace(':', ' ').replace('"', ' ').replaceAll("\\s+", " ").trim();
+        // v1.8.11: keywords only: the search service's operators (+ - ! ( ) [ ] { } ^ ~ * ? \\ / && ||) become spaces
+        return q.replaceAll("[^\\p{L}\\p{N}._\\- ]", " ").replaceAll("(^|\\s)[-.]+", " ").replaceAll("\\s+", " ").trim();
     }
 
     /** A Gradle line (implementation 'g:a:v', implementation("g:a:v")) reduced to its coordinate. */
@@ -71,6 +72,8 @@ public final class MavenSearch {
     }
 
     public static List<Hit> search(String query, int rows, MavenResolver.Source source) throws IOException {
+        String[] link = MavenResolver.fromLink(query);   // v1.8.11: a GitHub link pasted in the search field
+        if (link != null) query = link[0] + ":" + link[1];
         MavenResolver.Source src = source != null ? source : (MavenResolver.Source) MavenResolver::download;
         String[] c = coordinate(query);
         List<Hit> hits;

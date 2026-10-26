@@ -53,34 +53,38 @@ public final class LibraryInstaller {
         Outcome outcome = new Outcome();
         List<MavenResolver.Artifact> order = MavenResolver.installOrder(plan.artifacts);
         List<String> ready = new ArrayList<>();
+        int steps = 0, step = 0;
+        for (MavenResolver.Artifact a : order) if (!"pom".equals(a.packaging)) steps++;
         for (MavenResolver.Artifact a : order) {
             if ("pom".equals(a.packaging)) continue;   // nothing to install, only what it needs
             String name = folderName(a);
             File dir = new File(root(), name);
+            String counter = steps > 1 ? " (" + (++step) + "/" + steps + ")" : "";
             try {
                 if (usable(dir)) {
                     outcome.reused.add(name);
                 } else {
-                    if (progress != null) progress.status("Downloading " + a.coordinate() + "…");
+                    if (progress != null) progress.status("Fetching the " + (a.packaging == null ? "archive" : "." + a.packaging)
+                            + counter + "\n" + a.coordinate());
                     File archive = resolver.archive(a, plan);
                     if (archive == null) {
-                        outcome.failed.add(a.coordinate() + ": no repository has its .aar or .jar");
+                        outcome.failed.add(a.coordinate() + ": no repository has its .aar or .jar" + hostLinks(a.group, a.name, a.version));
                         continue;
                     }
-                    if (progress != null) progress.status("Installing " + a.coordinate() + "…");
+                    if (progress != null) progress.status("Unpacking" + counter + "\n" + a.coordinate());
                     File staging = new File(root(), "." + name + ".installing");
                     FileUtil.deleteFile(staging.getAbsolutePath());
                     String reason = MavenFetcher.install(archive, staging);
                     if (reason != null) {
                         FileUtil.deleteFile(staging.getAbsolutePath());
-                        outcome.failed.add(a.coordinate() + ": " + reason);
+                        outcome.failed.add(a.coordinate() + ": " + reason + hostLinks(a.group, a.name, a.version));
                         continue;
                     }
                     // the package name is the library's R package: an .aar's manifest package. A plain .jar has no
                     // resources, so it gets none (its Maven group is no Java package: the generated code would import a
                     // package that only the on-phone build's empty R class makes exist, and Gradle exports fail on it)
                     com.sketchware.ai.project.LibraryHeal.writeConfig(staging, null);
-                    if (progress != null) progress.status("Dexing " + a.coordinate() + "…");
+                    if (progress != null) progress.status("D8 dexing" + counter + "\n" + a.coordinate());
                     dex(new File(staging, "classes.jar"));
                     com.sketchware.ai.project.LibraryIntegrity.writeSource(staging, a.coordinate(), a.repository);
                     FileUtil.deleteFile(dir.getAbsolutePath());
@@ -112,6 +116,20 @@ public final class LibraryInstaller {
         }
         if (scId != null && !ready.isEmpty()) enable(scId, ready, outcome);
         return outcome;
+    }
+
+    /**
+     * v1.8.11: where a library without a usable archive can be looked at: JitPack's build page (its log says why no
+     * .aar was made) and the GitHub releases, for com.github coordinates; empty for anything else.
+     */
+    static String hostLinks(String group, String artifact, String version) {
+        if (group == null || artifact == null || !group.startsWith("com.github.")) return "";
+        // com.github.User:Repo:v, or a module of a multi-module build: com.github.User.Repo:module:v
+        String[] parts = group.substring("com.github.".length()).split("\\.");
+        if (parts.length == 0 || parts[0].isEmpty()) return "";
+        String user = parts[0], repo = parts.length > 1 ? parts[1] : artifact;
+        return "\nJitPack build log: https://jitpack.io/#" + user + "/" + repo + (version == null ? "" : "/" + version)
+                + "\nReleases (.aar / .jar): https://github.com/" + user + "/" + repo + "/releases";
     }
 
     /** v1.8.9: the library's POM copied next to it (pom.xml) for the Library Resolver's offline (i). */

@@ -96,9 +96,11 @@ public final class LibraryInfo {
         }
         if (name != null) name = clean(name);
         if (gav != null && gav.length >= 2) {
-            if (name == null || name.isEmpty() || name.equals(gav[1])) name = readable(gav[0], gav[1]);
-            if (gav[0].startsWith("com.github.") && gav[0].length() > 11) {
-                url = "https://github.com/" + gav[0].substring(11) + "/" + gav[1];
+            if (name == null || name.isEmpty() || name.equals(gav[1]) || name.startsWith("${")) name = pretty(readable(gav[0], gav[1]));
+            String[] owner = gav[0].startsWith("com.github.") ? gav[0].substring(11).split("\\.") : null;
+            if (owner != null && owner.length > 0 && !owner[0].isEmpty()) {
+                // com.github.User:Repo, or a module of a multi-module JitPack build: com.github.User.Repo:module
+                url = "https://github.com/" + owner[0] + "/" + (owner.length > 1 ? owner[1] : gav[1]);
             } else if (url == null || !url.startsWith("http")) {
                 url = gav[0].startsWith("androidx.") || gav[0].startsWith("com.google.android.")
                         ? "https://maven.google.com/web/index.html#" + gav[0] + ":" + gav[1]
@@ -111,13 +113,29 @@ public final class LibraryInfo {
         return new String[]{name, url};
     }
 
+    /** v1.8.11: "ESCPOS-ThermalPrinter-Android" → "ESCPOS Thermal Printer Android", "lottie" → "Lottie". */
+    static String pretty(String id) {
+        StringBuilder out = new StringBuilder();
+        for (String word : id.split("[-_ ]+")) {
+            if (word.isEmpty()) continue;
+            if (out.length() > 0) out.append(' ');
+            // ThermalPrinter → Thermal Printer (a capital after a small letter); ESCPOS and okhttp3 stay
+            String split = word.replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+            out.append(Character.toUpperCase(split.charAt(0))).append(split.substring(1));
+        }
+        return out.length() == 0 ? id : out.toString();
+    }
+
     /** "core" of com.google.zxing → "zxing core"; names with a capital or a dash stay as they are. */
     static String readable(String group, String artifact) {
         if (!artifact.equals(artifact.toLowerCase(java.util.Locale.ROOT)) || artifact.contains("-") || artifact.length() > 12) {
             return artifact;
         }
         String[] parts = group.split("\\.");
+        // com.airbnb.android:lottie → "airbnb lottie": words like android / library say nothing about whose it is
         String owner = parts[parts.length - 1];
+        for (int i = parts.length - 1; i > 0 && java.util.Arrays.asList("android", "library", "lib", "libs", "sdk", "core", "java")
+                .contains(parts[i].toLowerCase(java.util.Locale.ROOT)); i--) owner = parts[i - 1];
         return owner.equals(artifact) ? artifact : owner + " " + artifact;
     }
 
