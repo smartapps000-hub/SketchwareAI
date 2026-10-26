@@ -438,6 +438,22 @@
       "scope": "Library Resolver installs and imports from v1.8.11 on (earlier installs unchanged)",
       "verifiedOn": "JVM unit test",
       "permanent": false
+    },
+    {
+      "fingerprint": "Library Resolver + Add (v1.8.11, phone): 'Not found in the repositories: com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0' with 'No answer from repo.hortonworks.com … Chain validation failed' and 'repo.spring.io … HTTP 401'; Find stuck on 'Reading the POM files'",
+      "rootCause": "the Library Resolver read the old library downloader's repositories.json (shared with Sketchware Pro: Hortonworks, Spring, Atlassian, JCenter, Sonatype …) and asked every one of them for every POM, each with a 20 s connect / 60 s read time-out; JitPack has both 3.3.0 and 3.4.0 (HTTP 200 from this PC), so the phone's JitPack request didn't get its answer through, and which answer it got was not shown (only exceptions were noted)",
+      "repair": "v1.8.12: only Google Maven, Maven Central and JitPack, JitPack first for com.github / com.gitlab / org.bitbucket groups (Google first for androidx and Google groups), repositories.json ignored (also by the old downloader); every request and its answer kept and offered by Copy log; 15 s / 30 s time-outs; Cancel; when no POM is found the .aar / .jar at its Maven path is installed alone (the v1.8.2-1.8.5 way)",
+      "scope": "Library Resolver, old library downloader",
+      "verifiedOn": "JVM against the real repositories (DantSu 3.3.0 and 3.4.0: first request JitPack, 5 requests); ART fixture 920; the phone's network: not run",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Library Resolver: installing com.github.brunotl:boost_date_time (from a search for 'date time') gives one 'This archive has no compiled library … GitHub Download ZIP' paragraph per dependency (boost_config, boost_assert …)",
+      "rootCause": "Boost for Android is published as NDK 'Prefab' .aar files (prefab/ headers and .so files, no classes.jar); the search showed them (packaging aar) and every one failed with the source-zip message",
+      "repair": "v1.8.12: search hides hits whose files list no .aar/.jar, boost*, *prefab*, ndk/cpp/cxx names and server artifacts (vaadin, jwebmp, spring-boot …), and lists .aar hits first; the installer leaves archives without Android code out in one line ('Left out, no Android code in them (13): …'); an imported Prefab .aar is named as a C++ package; at most five failures in full, all of them in Copy log",
+      "scope": "Library Resolver search and installs",
+      "verifiedOn": "JVM (real boost_date_time-1.81.0.aar from Maven Central → 'C++ (Prefab) package'; search filter cases)",
+      "permanent": true
     }
   ]
 }
