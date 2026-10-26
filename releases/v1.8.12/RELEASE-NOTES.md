@@ -52,7 +52,16 @@ files with C++ headers and `.so` files, no Java classes. Installing it gave one 
 
 ## Checked
 
-CHECKED
+On this APK's own classes on the Android 12 (API 31) ART runtime and on the PC's JVM against the real repositories (no
+phone; details: `engineering/v1.8.12-verification.md`):
+- `com.github.DantSu:ESCPOS-ThermalPrinter-Android` 3.3.0 and 3.4.0 with only the three repositories: the first request
+  goes to JitPack, 5 requests in all, the .aar downloaded has its classes;
+- Library Resolver install + Run build (fixture 920) and the ESCPOS library (922): 14 steps, 0 warnings each; the Java
+  editor fixture 919: 58/58 checks; 10 projects open and save unchanged in the Java editor;
+- the real `boost_date_time` .aar is recognised as a C++ (Prefab) package; the search filter; the no-POM install only
+  after 404s from all three; Cancel stops a resolve in under a second;
+- the Find progress, the failure state and the green "Up to date" card rendered with layoutlib;
+- two separate reviews of the code; all their findings fixed.
 
 **Not run here:** the Library Resolver screen itself (an Activity) and your phone's network. Please try on the phone:
 + Add with `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (and Cancel once while it works). If it fails, tap
