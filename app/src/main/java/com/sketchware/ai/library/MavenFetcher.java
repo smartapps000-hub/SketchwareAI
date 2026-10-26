@@ -191,6 +191,28 @@ public final class MavenFetcher {
      *
      * @return null on success, otherwise the reason it failed
      */
+    /**
+     * v1.8.12: what an archive holds for Android: null when it has Java/Kotlin classes (classes.jar, .class files, an
+     * inner .aar/.jar), else why it can't be a library: "C++ (Prefab) package" for an NDK .aar with headers and .so
+     * files only, "no compiled code" for anything else (a source zip, an empty archive).
+     */
+    public static String withoutAndroidCode(File archive) throws IOException {
+        if (!isZip(archive)) return "not an archive";
+        boolean prefab = false;
+        try (ZipInputStream zip = new ZipInputStream(new FileInputStream(archive))) {
+            ZipEntry e;
+            while ((e = zip.getNextEntry()) != null) {
+                String n = e.getName();
+                String lower = n.toLowerCase(Locale.ROOT);
+                if (n.equals("classes.jar") || n.endsWith(".class")) return null;
+                if ((lower.endsWith(".aar") || lower.endsWith(".jar")) && !lower.contains("sources") && !lower.contains("javadoc")
+                        && !lower.contains("gradle-wrapper")) return null;
+                if (n.startsWith("prefab/")) prefab = true;
+            }
+        }
+        return prefab ? "C++ (Prefab) package" : "no compiled code";
+    }
+
     public static String install(File archive, File libDir) throws IOException {
         if (!isZip(archive)) return "Not a .aar, .jar or .zip file.";
         List<String> names = new ArrayList<>();
@@ -214,6 +236,10 @@ public final class MavenFetcher {
                 }
             }
             if (inner == null) {
+                if (names.toString().contains("prefab/")) {
+                    return "This is a C++ (Prefab) package: headers and .so files for the NDK, no Java or Kotlin classes, "
+                            + "so a Sketchware project can't use it.";
+                }
                 return "This archive has no compiled library (no classes.jar, .aar or .jar inside). "
                         + "A GitHub \"Download ZIP\" is source code and can't be used directly: "
                         + "download the .aar/.jar (e.g. from JitPack or the project's Releases) instead.";

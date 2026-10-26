@@ -31,6 +31,8 @@ public final class LibraryInstaller {
         public final List<String> replaced = new ArrayList<>();
         /** v1.8.11: things the user should know (jars an .aar bundles that aren't built). */
         public final List<String> warnings = new ArrayList<>();
+        /** v1.8.12: archives without Android code (C++ Prefab packages, source zips): left out, listed in one line. */
+        public final List<String> skipped = new ArrayList<>();
 
         public boolean ok() {
             return failed.isEmpty();
@@ -58,6 +60,7 @@ public final class LibraryInstaller {
         int steps = 0, step = 0;
         for (MavenResolver.Artifact a : order) if (!"pom".equals(a.packaging)) steps++;
         for (MavenResolver.Artifact a : order) {
+            if (MavenResolver.cancelledHere()) break;   // v1.8.12: Cancel in the progress dialog
             if ("pom".equals(a.packaging)) continue;   // nothing to install, only what it needs
             String name = folderName(a);
             File dir = new File(root(), name);
@@ -71,6 +74,11 @@ public final class LibraryInstaller {
                     File archive = resolver.archive(a, plan);
                     if (archive == null) {
                         outcome.failed.add(a.coordinate() + ": no repository has its .aar or .jar" + hostLinks(a.group, a.name, a.version));
+                        continue;
+                    }
+                    String noCode = MavenFetcher.withoutAndroidCode(archive);
+                    if (noCode != null) {
+                        outcome.skipped.add(a.name + " " + a.version + " (" + noCode + ")");
                         continue;
                     }
                     if (progress != null) progress.status("Unpacking" + counter + "\n" + a.coordinate());

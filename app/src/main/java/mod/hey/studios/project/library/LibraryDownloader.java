@@ -469,40 +469,17 @@ public class LibraryDownloader {
     }
 
     /**
-     * Search order: Google Maven, Maven Central, JitPack, then the custom repositories from
-     * /.sketchware/libs/repositories.json (duplicates and dead hosts left out). The file itself
-     * is only read, never rewritten, because Sketchware Pro uses the same file.
+     * v1.8.12: Google Maven, Maven Central and JitPack only, as in the Library Resolver. repositories.json (shared with
+     * Sketchware Pro, with Hortonworks, Spring, Atlassian, JCenter …) is neither read nor rewritten any more: those hosts
+     * answered with TLS errors, HTTP 401 or not at all.
      */
     private void _getRepository() {
         repoUrls.clear();
         repoNames.clear();
         counter = 0;
-        java.util.Set<String> seen = new java.util.HashSet<>();
         for (String[] repo : BUILT_IN_REPOSITORIES) {
             repoNames.add(repo[0]);
             repoUrls.add(repo[1]);
-            seen.add(normalize(repo[1]));
-        }
-        ArrayList<HashMap<String, Object>> configured = null;
-        String json = CONFIGURED_REPOSITORIES_FILE.exists()
-                ? FileUtil.readFile(CONFIGURED_REPOSITORIES_FILE.getAbsolutePath()) : "";
-        if (json.trim().isEmpty()) json = DEFAULT_REPOSITORIES_FILE_CONTENT;
-        try {
-            configured = new Gson().fromJson(json, Helper.TYPE_MAP_LIST);
-        } catch (JsonParseException e) {
-            SketchwareUtil.toastError("repositories.json is invalid; using the built-in repositories");
-        }
-        if (configured == null) return;
-        for (HashMap<String, Object> configuration : configured) {
-            Object url = configuration.get("url");
-            if (!(url instanceof String) || ((String) url).trim().isEmpty()) continue;
-            String key = normalize((String) url);
-            boolean dead = false;
-            for (String host : DEAD_HOSTS) if (key.contains(host)) dead = true;
-            if (dead || !seen.add(key)) continue;
-            Object name = configuration.get("name");
-            repoNames.add(name instanceof String ? (String) name : (String) url);
-            repoUrls.add(((String) url).trim());
         }
     }
 

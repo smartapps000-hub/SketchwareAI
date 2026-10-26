@@ -22,6 +22,8 @@ public final class MavenSearch {
         public String name;
         public String latestVersion;
         public String packaging;
+        /** v1.8.12: the file endings the search service lists (".aar", ".pom", "-sources.jar" …), or null. */
+        public List<String> files;
 
         public String coordinate() {
             return group + ":" + name + ":" + latestVersion;
@@ -127,12 +129,31 @@ public final class MavenSearch {
      */
     static boolean usable(Hit hit) {
         if (hit.group == null || hit.name == null) return false;
-        if (hit.group.startsWith("org.webjars") || hit.group.contains(".npm") || hit.group.startsWith("org.mvnpm")) return false;
+        String g = hit.group.toLowerCase(java.util.Locale.ROOT);
+        if (g.startsWith("org.webjars") || g.contains(".npm") || g.startsWith("org.mvnpm")) return false;
         String p = hit.packaging == null ? "" : hit.packaging.toLowerCase(java.util.Locale.ROOT);
         if (!(p.isEmpty() || p.equals("aar") || p.equals("jar") || p.equals("bundle"))) return false;
+        // v1.8.12: the files the search service lists for it: none that is an .aar or .jar = nothing to install
+        if (hit.files != null && !hit.files.isEmpty() && !hit.files.contains(".aar") && !hit.files.contains(".jar")) return false;
         String n = hit.name.toLowerCase(java.util.Locale.ROOT);
-        return !n.matches(".*-(js|wasm|wasm-js|wasmjs|iosx64|iosarm64|iossimulatorarm64|macosx64|macosarm64|linuxx64|"
-                + "linuxarm64|mingwx64|tvos.*|watchos.*|native)$") && !n.endsWith("-parent") && !n.endsWith("-bom");
+        if (n.matches(".*-(js|wasm|wasm-js|wasmjs|iosx64|iosarm64|iossimulatorarm64|macosx64|macosarm64|linuxx64|"
+                + "linuxarm64|mingwx64|tvos.*|watchos.*|native)$") || n.endsWith("-parent") || n.endsWith("-bom")) return false;
+        // v1.8.12: C++ packages (Boost and other NDK "Prefab" .aar files have headers and .so files, no Java classes)
+        if (n.matches("^boost([_-].*)?$") || n.contains("prefab") || n.matches(".*(^|[_-])(ndk|cpp|cxx|cplusplus)([_-].*)?$")) return false;
+        // server and build-tool artifacts that can't run on Android
+        String id = g + ":" + n;
+        return !(id.contains("vaadin") || id.contains("jwebmp") || id.contains("spring-boot") || n.endsWith("-starter")
+                || g.startsWith("org.wso2") || n.matches(".*_(2\\.1[0-3]|3)$") || n.contains("testbench")
+                || n.endsWith("-maven-plugin") || n.endsWith("-gradle-plugin") || n.contains("servlet"));
+    }
+
+    /** v1.8.12: Android libraries (.aar) first, then the rest in the service's order. */
+    static void androidFirst(List<Hit> hits) {
+        List<Hit> aar = new ArrayList<>(), rest = new ArrayList<>();
+        for (Hit h : hits) ("aar".equalsIgnoreCase(h.packaging) ? aar : rest).add(h);
+        hits.clear();
+        hits.addAll(aar);
+        hits.addAll(rest);
     }
 
     static List<Hit> parse(String json) {
@@ -147,11 +168,17 @@ public final class MavenSearch {
                 hit.name = string(doc, "a");
                 hit.latestVersion = string(doc, "latestVersion");
                 hit.packaging = string(doc, "p");
+                JsonElement ec = doc.get("ec");
+                if (ec != null && ec.isJsonArray()) {
+                    hit.files = new ArrayList<>();
+                    for (JsonElement e : ec.getAsJsonArray()) if (!e.isJsonNull()) hit.files.add(e.getAsString());
+                }
                 if (hit.group != null && hit.name != null && hit.latestVersion != null && usable(hit)) hits.add(hit);
             }
         } catch (RuntimeException ignored) {
             // no results
         }
+        androidFirst(hits);
         return hits;
     }
 

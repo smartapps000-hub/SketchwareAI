@@ -87,6 +87,48 @@ public final class MavenResolver {
         public final List<String> problems = new ArrayList<>();
         /** Every request failed without an answer from a repository. */
         public boolean offline;
+        /** v1.8.12: every request and its answer ("GET url → 404"), for Copy log. */
+        public final List<String> log = new ArrayList<>();
+        /** v1.8.12: the user cancelled. */
+        public boolean cancelled;
+    }
+
+    /**
+     * v1.8.12: cancels the resolve or download running on the thread that set it ({@link #CANCEL}): no new request is
+     * made and the connection in progress is closed.
+     */
+    public static final class Cancel {
+        private volatile boolean cancelled;
+        private volatile HttpURLConnection connection;
+
+        /** From any thread; may block briefly while the socket closes, so not on the UI thread. */
+        public void cancel() {
+            cancelled = true;
+            HttpURLConnection c = connection;
+            if (c != null) {
+                try {
+                    c.disconnect();
+                } catch (RuntimeException ignored) {
+                    // closed already
+                }
+            }
+        }
+
+        public boolean isCancelled() {
+            return cancelled;
+        }
+    }
+
+    public static final ThreadLocal<Cancel> CANCEL = new ThreadLocal<>();
+
+    private static boolean cancelled() {
+        Cancel c = CANCEL.get();
+        return c != null && c.cancelled;
+    }
+
+    /** v1.8.12: the work on this thread was cancelled (installers check it between libraries). */
+    public static boolean cancelledHere() {
+        return cancelled();
     }
 
     private static final String USER_AGENT = "SketchwareAI/1.8.8 (Android; Library Resolver)";
@@ -104,6 +146,32 @@ public final class MavenResolver {
         this.repositories = repositories;
         this.cache = cache;
         this.source = source != null ? source : MavenResolver::download;
+    }
+
+    /**
+     * v1.8.12: the repositories in the order a group is looked up in: JitPack first for GitHub/GitLab/Bitbucket groups
+     * (it builds them; the others never have them), Google Maven first for androidx / Google Android groups, else the
+     * configured order (Google Maven, Maven Central, JitPack).
+     */
+    List<String> orderFor(String group) {
+        List<String> bases = new ArrayList<>();
+        for (String[] repo : repositories) bases.add(base(repo[1]));
+        String first = null;
+        if (group != null && (group.startsWith("com.github.") || group.startsWith("com.gitlab.") || group.startsWith("org.bitbucket."))) {
+            first = "jitpack.io";
+        } else if (group != null && (group.startsWith("androidx.") || group.startsWith("com.google.android.")
+                || group.startsWith("com.android.") || group.startsWith("com.google.firebase") || group.startsWith("com.google.gms"))) {
+            first = "dl.google.com";
+        }
+        if (first != null) {
+            for (int i = 0; i < bases.size(); i++) {
+                if (bases.get(i).contains("://" + first)) {
+                    bases.add(0, bases.remove(i));
+                    break;
+                }
+            }
+        }
+        return bases;
     }
 
     public static List<String[]> defaultRepositories() {
@@ -136,21 +204,61 @@ public final class MavenResolver {
     public Plan resolve(String coordinate) {
         Plan plan = resolveExactly(coordinate);
         String[] gav = MavenFetcher.parse(coordinate);
-        if (gav == null) return plan;
+        if (gav == null || plan.cancelled) return plan;
         String id = gav[0] + ":" + gav[1] + ":" + gav[2];
         // the root artifact is in plan.root even when no repository has it: missing = its POM wasn't found
         boolean rootMissing = plan.problems.contains("Not found in the repositories: " + id);
+        if (!rootMissing || plan.offline) return plan;   // offline: nothing else can be asked either
         boolean gitHosted = gav[0].startsWith("com.github.") || gav[0].startsWith("io.github.")
                 || gav[0].startsWith("com.gitlab.") || gav[0].startsWith("org.bitbucket.");
-        if (!rootMissing || !gitHosted || plan.offline) return plan;   // offline: the other spelling can't be asked either
-        String other = gav[2].startsWith("v") && gav[2].length() > 1 && Character.isDigit(gav[2].charAt(1))
-                ? gav[2].substring(1) : "v" + gav[2];
-        Plan retry = resolveExactly(gav[0] + ":" + gav[1] + ":" + other);
-        if (retry.root == null || retry.problems.contains("Not found in the repositories: " + gav[0] + ":" + gav[1] + ":" + other)) {
-            return plan;
+        if (gitHosted) {
+            String other = gav[2].startsWith("v") && gav[2].length() > 1 && Character.isDigit(gav[2].charAt(1))
+                    ? gav[2].substring(1) : "v" + gav[2];
+            Plan retry = resolveExactly(gav[0] + ":" + gav[1] + ":" + other);
+            retry.log.addAll(0, plan.log);
+            if (retry.root != null && !retry.problems.contains("Not found in the repositories: " + gav[0] + ":" + gav[1] + ":" + other)) {
+                retry.notes.add(0, "Found as " + gav[0] + ":" + gav[1] + ":" + other + " (the tag's spelling on JitPack)");
+                return retry;
+            }
+            plan.log.clear();
+            plan.log.addAll(retry.log);
+            if (retry.cancelled) {
+                plan.cancelled = true;
+                return plan;
+            }
         }
-        retry.notes.add(0, "Found as " + gav[0] + ":" + gav[1] + ":" + other + " (the tag's spelling on JitPack)");
-        return retry;
+        Plan direct = directArchive(gav, plan);
+        return direct != null ? direct : plan;
+    }
+
+    /**
+     * v1.8.12: the v1.8.2 – v1.8.5 way, when no repository has the POM: the .aar (then the .jar) at its Maven path.
+     * Found, it is installed alone: what it needs isn't known without its POM.
+     */
+    private Plan directArchive(String[] gav, Plan failed) {
+        for (String extension : new String[]{"aar", "jar"}) {
+            String relative = path(gav[0], gav[1], gav[2], extension);
+            for (String repo : orderFor(gav[0])) {
+                byte[] data = get(repo + "/" + relative, failed);
+                if (failed.cancelled) return null;
+                if (data == null) continue;
+                if (cache != null) write(new File(cache, relative), data);
+                Plan plan = new Plan();
+                plan.log.addAll(failed.log);
+                Artifact root = new Artifact();
+                root.group = gav[0];
+                root.name = gav[1];
+                root.version = gav[2];
+                root.packaging = extension;
+                root.repository = repo;
+                plan.root = root;
+                plan.artifacts.add(root);
+                plan.notes.add("No POM for " + root.coordinate() + ": its ." + extension + " was found on " + repo
+                        + " and is installed alone (what it needs can't be known without the POM).");
+                return plan;
+            }
+        }
+        return null;
     }
 
     /** True when the plan's root library was found (built in, or its POM read); false for "Not found". */
@@ -209,6 +317,10 @@ public final class MavenResolver {
         queue.add(new Request(gav[0], gav[1], gav[2], null, new HashSet<String>()));
         int guard = 0;
         while (!queue.isEmpty() && guard++ < 5000) {
+            if (cancelled()) {
+                plan.cancelled = true;
+                break;
+            }
             Request r = queue.poll();
             String key = r.group + ":" + r.name;
             String version = r.version;
@@ -512,8 +624,8 @@ public final class MavenResolver {
     /** Versions listed in the repository's maven-metadata.xml (first repository that has one). */
     public List<String> versions(String group, String name, Plan plan) {
         List<String> list = new ArrayList<>();
-        for (String[] repo : repositories) {
-            String url = base(repo[1]) + "/" + group.replace('.', '/') + "/" + name + "/maven-metadata.xml";
+        for (String repo : orderFor(group)) {
+            String url = repo + "/" + group.replace('.', '/') + "/" + name + "/maven-metadata.xml";
             byte[] data = get(url, plan);
             if (data == null) continue;
             Matcher m = Pattern.compile("<version>\\s*([^<\\s]+)\\s*</version>").matcher(new String(data));
@@ -655,16 +767,16 @@ public final class MavenResolver {
                 // read it again from the network
             }
         }
-        for (String[] repo : repositories) {
-            String url = base(repo[1]) + "/" + relative;
+        for (String repo : orderFor(group)) {
+            String url = repo + "/" + relative;
             byte[] data = get(url, plan);
             if (data == null) continue;
             if (cached != null) {
                 write(cached, data);
-                write(origin, base(repo[1]).getBytes());
+                write(origin, repo.getBytes());
             }
             try {
-                return new String[]{base(repo[1]), new String(data, "UTF-8")};
+                return new String[]{repo, new String(data, "UTF-8")};
             } catch (java.io.UnsupportedEncodingException e) {
                 return null;
             }
@@ -685,7 +797,7 @@ public final class MavenResolver {
             if (cached != null && cached.isFile() && cached.length() > 0) return cached;
             List<String> order = new ArrayList<>();
             if (a.repository != null && !a.repository.isEmpty()) order.add(a.repository);
-            for (String[] repo : repositories) if (!order.contains(base(repo[1]))) order.add(base(repo[1]));
+            for (String repo : orderFor(a.group)) if (!order.contains(repo)) order.add(repo);
             for (String repo : order) {
                 byte[] data = get(repo + "/" + relative, plan);
                 if (data == null) continue;
@@ -707,6 +819,10 @@ public final class MavenResolver {
     private final Map<String, String> deadRepositories = new HashMap<>();
 
     private byte[] get(String url, Plan plan) {
+        if (cancelled()) {
+            if (plan != null) plan.cancelled = true;
+            return null;
+        }
         String repository = repositoryOf(url);
         requests++;
         String dead = repository == null ? null : deadRepositories.get(repository);
@@ -714,11 +830,21 @@ public final class MavenResolver {
             failures++;
             String note = "No answer from " + repository + " (not asked again in this search): " + dead;
             if (plan != null && !plan.notes.contains(note) && plan.problems.size() < 40) plan.notes.add(note);
+            log(plan, url, "skipped (no answer earlier)");
             return null;
         }
+        RequestListener listener = REQUEST.get();
+        if (listener != null) listener.request(url);
         try {
-            return source.fetch(url);
+            byte[] data = source.fetch(url);
+            log(plan, url, data == null ? "404 not there" : "200, " + data.length + " bytes");
+            return data;
         } catch (IOException e) {
+            if (cancelled()) {
+                if (plan != null) plan.cancelled = true;
+                log(plan, url, "cancelled");
+                return null;
+            }
             failures++;
             String message = e.getMessage() != null ? e.getMessage() : e.toString();
             if (e instanceof java.net.UnknownHostException) message = "unknown host (no connection, or the address is wrong): " + message;
@@ -729,8 +855,13 @@ public final class MavenResolver {
                     || e instanceof java.net.SocketTimeoutException && String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT).contains("connect");
             if (unreachable && repository != null) deadRepositories.put(repository, message);
             if (plan != null && plan.problems.size() < 40) plan.notes.add("No answer from " + url + ": " + message);
+            log(plan, url, message);
             return null;
         }
+    }
+
+    private static void log(Plan plan, String url, String answer) {
+        if (plan != null && plan.log.size() < 400) plan.log.add("GET " + url + " → " + answer);
     }
 
     /** The configured repository a URL belongs to: the longest base it starts with. */
@@ -751,6 +882,13 @@ public final class MavenResolver {
 
     public static final ThreadLocal<ByteProgress> PROGRESS = new ThreadLocal<>();
 
+    /** v1.8.12: told before each request (the Add dialog's "Connecting to jitpack.io…"). */
+    public interface RequestListener {
+        void request(String url);
+    }
+
+    public static final ThreadLocal<RequestListener> REQUEST = new ThreadLocal<>();
+
     /**
      * Default source: HTTPS GET; null for 404/410. v1.8.11: redirects are followed across http/https too (Java's
      * client follows only same-protocol ones: Sonatype, JCenter and Atlassian answer 301/302 to another host), at most
@@ -763,9 +901,12 @@ public final class MavenResolver {
             if (!"https".equals(target.getProtocol()) && !"http".equals(target.getProtocol())) {
                 throw new IOException("redirected to a " + target.getProtocol() + ": address");
             }
+            Cancel cancel = CANCEL.get();
+            if (cancel != null && cancel.cancelled) throw new IOException("cancelled");
             HttpURLConnection connection = (HttpURLConnection) target.openConnection();
-            connection.setConnectTimeout(20000);
-            connection.setReadTimeout(60000);
+            if (cancel != null) cancel.connection = connection;
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
             connection.setInstanceFollowRedirects(false);
             connection.setRequestProperty("User-Agent", USER_AGENT);
             try {
@@ -802,6 +943,7 @@ public final class MavenResolver {
                     long done = 0, reported = 0;
                     int n;
                     while ((n = in.read(buffer)) > 0) {
+                        if (cancel != null && cancel.cancelled) throw new IOException("cancelled");
                         out.write(buffer, 0, n);
                         done += n;
                         if (progress != null && done - reported >= 32768) {
@@ -813,6 +955,7 @@ public final class MavenResolver {
                     return out.toByteArray();
                 }
             } finally {
+                if (cancel != null) cancel.connection = null;
                 connection.disconnect();
             }
         }

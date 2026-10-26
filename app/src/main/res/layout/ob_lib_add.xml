@@ -26,6 +26,34 @@
         android:text="With the libraries it needs"
         android:textColor="@color/ob_text" />
 
+    <!-- v1.8.12: shown while Find works: the step and a bar (bytes when the size is known, else moving) -->
+    <LinearLayout
+        android:id="@+id/la_progress_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/la_state"
+            style="@style/Ob.Text.Body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="3" />
+
+        <ProgressBar
+            android:id="@+id/la_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="14dp"
+            android:layout_marginTop="6dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/ob_amber"
+            android:max="1000"
+            android:progressTint="@color/ob_amber" />
+    </LinearLayout>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -37,6 +65,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:lineSpacingExtra="2dp"
-            android:text="Google Maven, Maven Central and JitPack are searched. Libraries Sketchware AI has built in (AndroidX, Material, Gson, OkHttp, Glide …) are not downloaded again." />
+            android:text="Only Google Maven, Maven Central and JitPack are asked. A GitHub link works too (github.com/user/repo). Libraries Sketchware AI has built in (AndroidX, Material, Gson, OkHttp, Glide …) are not downloaded again." />
     </ScrollView>
 </LinearLayout>
