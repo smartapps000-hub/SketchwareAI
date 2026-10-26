@@ -795,7 +795,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private void status(String text) {
         runOnUiThread(() -> {
             if (busyStep == null) return;
-            busyStep.setText(text);
+            busyStep.setText(breakable(text));   // a long coordinate wraps after a colon, not inside a word
             busyBar.setIndeterminate(true);
             busyBytes.setText("");
         });

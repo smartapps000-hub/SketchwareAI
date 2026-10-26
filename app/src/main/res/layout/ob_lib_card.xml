@@ -40,7 +40,7 @@
             android:gravity="center"
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
-            android:singleLine="true"
+            android:maxLines="1"
             android:textColor="@color/ob_accent"
             android:textSize="12sp"
             android:visibility="gone" />
