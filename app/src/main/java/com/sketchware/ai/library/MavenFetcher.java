@@ -180,18 +180,6 @@ public final class MavenFetcher {
     }
 
     /**
-     * Installs an archive into {@code libDir}:
-     * <ul>
-     *     <li>.aar (or a .zip laid out like one): extracted;</li>
-     *     <li>.jar: becomes classes.jar;</li>
-     *     <li>.zip holding a single .aar or .jar (release downloads): that file is installed;</li>
-     *     <li>anything else (e.g. GitHub "Download ZIP" source code): refused with a message,
-     *     since source can't be compiled into a library on the phone.</li>
-     * </ul>
-     *
-     * @return null on success, otherwise the reason it failed
-     */
-    /**
      * v1.8.12: what an archive holds for Android: null when it has Java/Kotlin classes (classes.jar, .class files, an
      * inner .aar/.jar), else why it can't be a library: "C++ (Prefab) package" for an NDK .aar with headers and .so
      * files only, "no compiled code" for anything else (a source zip, an empty archive).
@@ -213,6 +201,18 @@ public final class MavenFetcher {
         return prefab ? "C++ (Prefab) package" : "no compiled code";
     }
 
+    /**
+     * Installs an archive into {@code libDir}:
+     * <ul>
+     *     <li>.aar (or a .zip laid out like one): extracted;</li>
+     *     <li>.jar: becomes classes.jar;</li>
+     *     <li>.zip holding a single .aar or .jar (release downloads): that file is installed;</li>
+     *     <li>anything else (e.g. GitHub "Download ZIP" source code): refused with a message,
+     *     since source can't be compiled into a library on the phone.</li>
+     * </ul>
+     *
+     * @return null on success, otherwise the reason it failed
+     */
     public static String install(File archive, File libDir) throws IOException {
         if (!isZip(archive)) return "Not a .aar, .jar or .zip file.";
         List<String> names = new ArrayList<>();

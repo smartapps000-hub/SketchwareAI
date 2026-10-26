@@ -57,6 +57,7 @@ public final class LibraryInstaller {
         Outcome outcome = new Outcome();
         List<MavenResolver.Artifact> order = MavenResolver.installOrder(plan.artifacts);
         List<String> ready = new ArrayList<>();
+        java.util.Set<String> leftOut = new java.util.HashSet<>();   // v1.8.12: group:artifact without Android code
         int steps = 0, step = 0;
         for (MavenResolver.Artifact a : order) if (!"pom".equals(a.packaging)) steps++;
         for (MavenResolver.Artifact a : order) {
@@ -72,13 +73,19 @@ public final class LibraryInstaller {
                     if (progress != null) progress.status("Fetching the " + (a.packaging == null ? "archive" : "." + a.packaging)
                             + counter + "\n" + a.coordinate());
                     File archive = resolver.archive(a, plan);
+                    if (archive == null && MavenResolver.cancelledHere()) break;   // cut off by Cancel, not missing
                     if (archive == null) {
                         outcome.failed.add(a.coordinate() + ": no repository has its .aar or .jar" + hostLinks(a.group, a.name, a.version));
                         continue;
                     }
                     String noCode = MavenFetcher.withoutAndroidCode(archive);
+                    if ("not an archive".equals(noCode)) {
+                        outcome.failed.add(a.coordinate() + ": the download isn't an .aar or .jar (a web page?)");
+                        continue;
+                    }
                     if (noCode != null) {
                         outcome.skipped.add(a.name + " " + a.version + " (" + noCode + ")");
+                        leftOut.add(a.group + ":" + a.name);
                         continue;
                     }
                     if (progress != null) progress.status("Unpacking" + counter + "\n" + a.coordinate());
@@ -114,7 +121,7 @@ public final class LibraryInstaller {
                     String builtIn = BuiltInCoordinates.name(key);
                     if (builtIn != null) {
                         if (!needs.builtIn.contains(builtIn)) needs.builtIn.add(builtIn);
-                    } else {
+                    } else if (!leftOut.contains(key)) {   // a C++ / source-only dependency isn't asked for again
                         needs.requires.add(need);
                     }
                 }
@@ -126,6 +133,8 @@ public final class LibraryInstaller {
                 outcome.failed.add(a.coordinate() + ": " + (t.getMessage() != null ? t.getMessage() : t.toString()));
             }
         }
+        // v1.8.12: cancelled: what was installed stays installed, nothing is switched on half-way
+        if (MavenResolver.cancelledHere()) return outcome;
         if (scId != null && !ready.isEmpty()) enable(scId, ready, outcome);
         return outcome;
     }

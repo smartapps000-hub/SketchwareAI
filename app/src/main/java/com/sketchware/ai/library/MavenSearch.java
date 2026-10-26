@@ -138,22 +138,14 @@ public final class MavenSearch {
         String n = hit.name.toLowerCase(java.util.Locale.ROOT);
         if (n.matches(".*-(js|wasm|wasm-js|wasmjs|iosx64|iosarm64|iossimulatorarm64|macosx64|macosarm64|linuxx64|"
                 + "linuxarm64|mingwx64|tvos.*|watchos.*|native)$") || n.endsWith("-parent") || n.endsWith("-bom")) return false;
-        // v1.8.12: C++ packages (Boost and other NDK "Prefab" .aar files have headers and .so files, no Java classes)
-        if (n.matches("^boost([_-].*)?$") || n.contains("prefab") || n.matches(".*(^|[_-])(ndk|cpp|cxx|cplusplus)([_-].*)?$")) return false;
+        // v1.8.12: C++ packages (Boost and other NDK "Prefab" .aar files have headers and .so files, no Java classes);
+        // "-ndk" Android libraries (sentry-android-ndk …) have classes and stay: the installer checks the archive itself
+        if (n.matches("^boost([_-].*)?$") || n.contains("prefab")) return false;
         // server and build-tool artifacts that can't run on Android
         String id = g + ":" + n;
         return !(id.contains("vaadin") || id.contains("jwebmp") || id.contains("spring-boot") || n.endsWith("-starter")
                 || g.startsWith("org.wso2") || n.matches(".*_(2\\.1[0-3]|3)$") || n.contains("testbench")
                 || n.endsWith("-maven-plugin") || n.endsWith("-gradle-plugin") || n.contains("servlet"));
-    }
-
-    /** v1.8.12: Android libraries (.aar) first, then the rest in the service's order. */
-    static void androidFirst(List<Hit> hits) {
-        List<Hit> aar = new ArrayList<>(), rest = new ArrayList<>();
-        for (Hit h : hits) ("aar".equalsIgnoreCase(h.packaging) ? aar : rest).add(h);
-        hits.clear();
-        hits.addAll(aar);
-        hits.addAll(rest);
     }
 
     static List<Hit> parse(String json) {
@@ -178,7 +170,6 @@ public final class MavenSearch {
         } catch (RuntimeException ignored) {
             // no results
         }
-        androidFirst(hits);
         return hits;
     }
 

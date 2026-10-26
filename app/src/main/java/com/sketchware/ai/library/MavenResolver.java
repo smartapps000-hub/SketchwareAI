@@ -227,6 +227,12 @@ public final class MavenResolver {
                 return plan;
             }
         }
+        // only when every repository said the POM isn't there (404): a time-out or JitPack's "building" (202) on the POM
+        // must not install the library without what it needs
+        String pomPath = "/" + path(gav[0], gav[1], gav[2], "pom");
+        for (String line : plan.log) {
+            if (line.contains(pomPath + " →") && !line.endsWith("→ 404 not there")) return plan;
+        }
         Plan direct = directArchive(gav, plan);
         return direct != null ? direct : plan;
     }
@@ -245,6 +251,7 @@ public final class MavenResolver {
                 if (cache != null) write(new File(cache, relative), data);
                 Plan plan = new Plan();
                 plan.log.addAll(failed.log);
+                for (String note : failed.notes) if (note.startsWith("No answer")) plan.notes.add(note);
                 Artifact root = new Artifact();
                 root.group = gav[0];
                 root.name = gav[1];

@@ -15,8 +15,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.android.tools.r8.D8;
-import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
 import com.sketchware.remod.R;
 import com.sketchware.ai.library.MavenFetcher;
 
@@ -43,7 +41,6 @@ import mod.hey.studios.lib.JarCheck;
 import mod.hey.studios.lib.prdownloader.PRDownloader;
 import mod.hey.studios.lib.prdownloader.PRDownloader.OnDownloadListener;
 import mod.hey.studios.lib.prdownloader.PRDownloader.Status;
-import mod.hey.studios.util.Helper;
 import mod.jbk.build.BuildProgressReceiver;
 import mod.jbk.build.BuiltInLibraries;
 
@@ -53,10 +50,6 @@ public class LibraryDownloader {
 
     public static final File CONFIGURED_REPOSITORIES_FILE = new File(Environment.getExternalStorageDirectory(),
             ".sketchware" + File.separator + "libs" + File.separator + "repositories.json");
-    /** The upstream list: dead or auth-only hosts first, so a lookup could fail before reaching Google or Maven Central. */
-    private static final String OLD_DEFAULT_REPOSITORIES_FILE_CONTENT = "[{\"url\":\"https://repo.hortonworks.com/content/repositories/releases\",\"name\":\"HortanWorks\"},{\"url\":\"https://maven.atlassian.com/content/repositories/atlassian-public\",\"name\":\"Atlassian\"},{\"url\":\"https://jitpack.io\",\"name\":\"JitPack\"},{\"url\":\"https://jcenter.bintray.com\",\"name\":\"JCenter\"},{\"url\":\"https://oss.sonatype.org/content/repositories/releases\",\"name\":\"Sonatype\"},{\"url\":\"https://repo.spring.io/plugins-release\",\"name\":\"Spring Plugins\"},{\"url\":\"https://repo.spring.io/libs-milestone\",\"name\":\"Spring Milestone\"},{\"url\":\"https://repo.maven.apache.org/maven2\",\"name\":\"Apache Maven\"},{\"url\":\"https://dl.google.com/dl/android/maven2\",\"name\":\"Google Maven\"},{\"url\":\"https://repo1.maven.org/maven2\",\"name\":\"Maven Central\"}]";
-    /** Busiest repositories first; dead (HortonWorks) and login-only (Spring) hosts removed. */
-    private static final String DEFAULT_REPOSITORIES_FILE_CONTENT = "[{\"url\":\"https://dl.google.com/dl/android/maven2\",\"name\":\"Google Maven\"},{\"url\":\"https://repo1.maven.org/maven2\",\"name\":\"Maven Central\"},{\"url\":\"https://jitpack.io\",\"name\":\"JitPack\"},{\"url\":\"https://oss.sonatype.org/content/repositories/releases\",\"name\":\"Sonatype\"},{\"url\":\"https://maven.atlassian.com/content/repositories/atlassian-public\",\"name\":\"Atlassian\"},{\"url\":\"https://jcenter.bintray.com\",\"name\":\"JCenter\"}]";
     private final String downloadPath;
     private final ArrayList<String> repoUrls = new ArrayList<>();
     private final ArrayList<String> repoNames = new ArrayList<>();
@@ -453,20 +446,12 @@ public class LibraryDownloader {
         }
     }
 
-    /** Always searched first, whatever repositories.json says (it is shared with Sketchware Pro). */
+    /** v1.8.12: the only repositories asked (as in the Library Resolver). */
     private static final String[][] BUILT_IN_REPOSITORIES = {
             {"Google Maven", "https://dl.google.com/dl/android/maven2"},
             {"Maven Central", "https://repo1.maven.org/maven2"},
             {"JitPack", "https://jitpack.io"},
     };
-    /** Shut down or login-only hosts: they can only answer with SSL errors or 401. */
-    private static final String[] DEAD_HOSTS = {"repo.hortonworks.com", "repo.spring.io", "jcenter.bintray.com"};
-
-    private static String normalize(String url) {
-        String u = url.trim().toLowerCase(java.util.Locale.ROOT);
-        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
-        return u.replace("http://", "https://").replace("repo.maven.apache.org/maven2", "repo1.maven.org/maven2");
-    }
 
     /**
      * v1.8.12: Google Maven, Maven Central and JitPack only, as in the Library Resolver. repositories.json (shared with

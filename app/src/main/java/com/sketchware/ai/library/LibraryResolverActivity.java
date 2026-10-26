@@ -450,16 +450,19 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             if (!missing.isEmpty()) {
                 status2.setText("Add " + missing.size());
                 status2.setBackgroundResource(R.drawable.ob_amber_pill);
+                status2.setTextColor(0xFFF5F5F7);   // card() may have made it the green "Up to date"
                 status2.setVisibility(View.VISIBLE);
                 status2.setOnClickListener(v -> installCoordinates(missing));
             } else if (status.startsWith("Missing") && needs != null && needs.coordinate != null) {
                 status2.setText("Reinstall");
                 status2.setBackgroundResource(R.drawable.ob_amber_pill);
+                status2.setTextColor(0xFFF5F5F7);   // card() may have made it the green "Up to date"
                 status2.setVisibility(View.VISIBLE);
                 status2.setOnClickListener(v -> installCoordinates(Collections.singletonList(needs.coordinate)));
             } else if (status.startsWith("Not dexed")) {
                 status2.setText("Dex");
                 status2.setBackgroundResource(R.drawable.ob_amber_pill);
+                status2.setTextColor(0xFFF5F5F7);   // card() may have made it the green "Up to date"
                 status2.setVisibility(View.VISIBLE);
                 status2.setOnClickListener(v -> dexNow(dir));
             }
@@ -775,7 +778,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         new ObAlertBuilder(this)
                 .setTitle("Delete " + lib.name + "?")
                 .setMessage("It is removed from this phone. Projects that use it can't build until it is installed again.")
-                .setPositiveButton("Delete", (d, w) -> runBusy("Deleting " + lib.name + "…", () -> {
+                .setPositiveButton("Delete", (d, w) -> runBusy("Deleting " + lib.name + "…", false, () -> {
                     FileUtil.deleteFile(lib.dir.getAbsolutePath());
                     runOnUiThread(() -> {
                         updates.remove(lib.name);
@@ -798,14 +801,14 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     }
 
     private void dexNow(File dir) {
-        runBusy("Dexing " + dir.getName() + "…", () -> {
+        runBusy("Dexing " + dir.getName() + "…", false, () -> {
             LibraryInstaller.dex(new File(dir, "classes.jar"));
             return dir.getName() + " is ready";
         });
     }
 
     private void searchMaven(String query) {
-        runBusy("Searching…", () -> {
+        runBusy("Searching…", true, () -> {
             // the typed case is kept: JitPack paths are case-sensitive (com.github.DantSu)
             List<MavenSearch.Hit> found = MavenSearch.search(query, 40, null);
             hits = found;
@@ -815,7 +818,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     }
 
     private void checkUpdates(List<Installed> libs) {
-        runBusy("Checking " + libs.size() + " libraries…", () -> {
+        runBusy("Checking " + libs.size() + " libraries…", true, () -> {
             MavenResolver resolver = new MavenResolver(repositories(), cacheFolder(), null);
             HashMap<String, String> found = new HashMap<>();
             java.util.HashSet<String> current = new java.util.HashSet<>();
@@ -830,6 +833,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 else if (MavenResolver.compareVersions(latest, gav[2]) > 0) found.put(lib.name, latest);
                 else current.add(lib.name);
             }
+            if (MavenResolver.cancelledHere()) return "Cancelled. Nothing was changed: tap Check for updates to check again.";
             runOnUiThread(() -> {
                 updates.clear();
                 updates.putAll(found);
@@ -844,7 +848,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     }
 
     private void installCoordinates(List<String> coordinates) {
-        runBusy("Resolving…", () -> {
+        runBusy("Resolving…", true, () -> {
             MavenResolver resolver = new MavenResolver(repositories(), cacheFolder(), null);
             StringBuilder report = new StringBuilder();
             StringBuilder requests = new StringBuilder();
@@ -871,7 +875,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
 
     private void status(String text) {
         runOnUiThread(() -> {
-            if (busyStep == null) return;
+            if (busyStep == null || busyCancelling) return;
             busyStep.setText(breakable(text));   // a long coordinate wraps after a colon, not inside a word
             busyBar.setIndeterminate(true);
             busyBytes.setText("");
@@ -1016,7 +1020,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 MavenResolver.Plan plan = found[0];
                 MavenResolver r = resolver[0];
                 dialog.dismiss();
-                runBusy("Installing…", () -> {
+                runBusy("Installing…", true, () -> {
                     LibraryInstaller.Outcome outcome = LibraryInstaller.install(r, plan, scId, this::status);
                     setResult(RESULT_OK);
                     busyLog = outcomeLog(outcome) + requestLog(plan);
@@ -1242,7 +1246,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         for (int n = 2; new File(LibraryInstaller.root(), unique).exists(); n++) unique = base + "_" + n;
         final String name = unique;
         final String shown = display;
-        runBusy("Importing " + display + "…", () -> {
+        runBusy("Importing " + display + "…", false, () -> {
             File copy = new File(getCacheDir(), "import_" + System.currentTimeMillis());
             try (InputStream in = getContentResolver().openInputStream(uri); OutputStream out = new FileOutputStream(copy)) {
                 byte[] buffer = new byte[16384];
@@ -1295,13 +1299,16 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private long busyShownAt;
     /** v1.8.12: the requests of the work in progress, for the report's Copy log (set by the work). */
     private volatile String busyLog;
+    /** v1.8.12: Cancel was tapped: the step line keeps saying so. */
+    private boolean busyCancelling;
 
     /**
      * Runs work off the UI thread behind a dialog with the step it is on and (v1.8.11) a progress bar: the bytes of
      * the download in progress when the server gives its size, else a moving bar. Then shows the report (if any) and
      * the tab again.
      */
-    private void runBusy(String title, Work work) {
+    /** @param cancellable the work stops at a Cancel (network work); else no Cancel button (delete, dex, import) */
+    private void runBusy(String title, boolean cancellable, Work work) {
         if (busy) return;
         busy = true;
         LinearLayout box = new LinearLayout(this);
@@ -1323,15 +1330,20 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         box.addView(busyBytes);
         MavenResolver.Cancel cancel = new MavenResolver.Cancel();
         busyLog = null;
-        busyDialog = new ObAlertBuilder(this).setTitle(title).setView(box).setCancelable(false)
-                .setNegativeButton("Cancel", null).create();
+        AlertDialog.Builder builder = new ObAlertBuilder(this).setTitle(title).setView(box).setCancelable(false);
+        if (cancellable) builder.setNegativeButton("Cancel", null);
+        busyDialog = builder.create();
         busyDialog.show();
-        // v1.8.12: Cancel stops after the current step (a download is cut off; a dexing run finishes first)
-        busyDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
-            if (busyStep != null) busyStep.setText("Cancelling…");
-            v.setEnabled(false);
-            new Thread(cancel::cancel, "LibraryCancel").start();
-        });
+        if (cancellable) {
+            // v1.8.12: Cancel stops after the current step (a download is cut off; a dexing run finishes first)
+            busyDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+                busyCancelling = true;
+                if (busyStep != null) busyStep.setText("Cancelling…");
+                v.setEnabled(false);
+                new Thread(cancel::cancel, "LibraryCancel").start();
+            });
+        }
+        busyCancelling = false;
         new Thread(() -> {
             MavenResolver.PROGRESS.set(this::bytes);
             MavenResolver.CANCEL.set(cancel);
@@ -1344,7 +1356,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 MavenResolver.PROGRESS.remove();
                 MavenResolver.CANCEL.remove();
             }
-            if (cancel.isCancelled()) report = "Cancelled." + (report == null || report.isEmpty() ? "" : "\n\n" + report);
+            if (cancel.isCancelled()) {
+                // what was done before the Cancel is reported; a failure caused by the Cancel itself isn't
+                report = report == null || report.isEmpty() || report.startsWith("Failed: ") || report.equals("Cancelled.")
+                        ? "Cancelled." : "Cancelled.\n\n" + report;
+            }
             final String text = report;
             runOnUiThread(() -> {
                 busy = false;
