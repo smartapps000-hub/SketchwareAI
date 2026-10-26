@@ -227,8 +227,28 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
         }
     }
 
+    /**
+     * v1.8.11: the Activity behind this item's context (a ContextThemeWrapper around it is unwrapped instead of a
+     * ClassCastException), or null when there is none or it is closing (showing a dialog then threw BadTokenException).
+     */
+    private Activity hostActivity() {
+        Context c = getContext();
+        while (c instanceof android.content.ContextWrapper && !(c instanceof Activity)) {
+            c = ((android.content.ContextWrapper) c).getBaseContext();
+        }
+        if (!(c instanceof Activity)) return null;
+        Activity activity = (Activity) c;
+        return activity.isFinishing() || activity.isDestroyed() ? null : activity;
+    }
+
     private void showViewIdDialog() {
-        aB dialog = new aB((Activity) getContext());
+        // v1.8.11: the id check needs the screen's views; without them (panel not bound to a screen yet) say so
+        // instead of a NullPointerException in the dialog
+        if (hostActivity() == null || sc_id == null || projectFileBean == null) {
+            mod.SketchwareUtil.toast("Select the widget on the canvas again, then change its ID.");
+            return;
+        }
+        aB dialog = new aB(hostActivity());
         dialog.b(tvName.getText().toString());
         dialog.a(icon);
         View view = wB.a(getContext(), R.layout.property_popup_input_text);
@@ -257,7 +277,8 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
     }
 
     private void showNumberInputDialog() {
-        aB dialog = new aB((Activity) getContext());
+        if (hostActivity() == null) return;
+        aB dialog = new aB(hostActivity());
         dialog.b(tvName.getText().toString());
         dialog.a(icon);
         View view = wB.a(getContext(), R.layout.property_popup_input_text);
@@ -279,7 +300,8 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
     }
 
     private void showTextInputDialog(int minValue, int maxValue) {
-        aB dialog = new aB((Activity) getContext());
+        if (hostActivity() == null) return;
+        aB dialog = new aB(hostActivity());
         dialog.b(tvName.getText().toString());
         dialog.a(icon);
         View view = wB.a(getContext(), R.layout.property_popup_input_text);
@@ -299,7 +321,8 @@ public class PropertyInputItem extends RelativeLayout implements View.OnClickLis
     }
 
     private void showNumberDecimalInputDialog(int minValue, int maxValue) {
-        aB dialog = new aB((Activity) getContext());
+        if (hostActivity() == null) return;
+        aB dialog = new aB(hostActivity());
         dialog.b(tvName.getText().toString());
         dialog.a(icon);
         View view = wB.a(getContext(), R.layout.property_popup_input_text);

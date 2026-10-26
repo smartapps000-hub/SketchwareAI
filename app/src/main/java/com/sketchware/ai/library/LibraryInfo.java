@@ -72,6 +72,55 @@ public final class LibraryInfo {
         return info;
     }
 
+    /**
+     * v1.8.11: what a library card shows: {name, project link}. The name is the POM's &lt;name&gt; ("ESCPOS Thermal
+     * Printer"), else the artifact made readable ("ESCPOS-ThermalPrinter-Android" stays, "core" becomes "zxing core"
+     * from its group); the link is the GitHub page for com.github.user:repo, else the POM's &lt;url&gt; or &lt;scm&gt;,
+     * else the library's page on Maven Central (Google Maven libraries: maven.google.com). Files only, no network.
+     */
+    public static String[] summary(File dir, String coordinate, File cache) {
+        String[] gav = coordinate == null ? null : coordinate.split(":");
+        String pom = text(new File(dir, "pom.xml"));
+        if (pom == null && gav != null && gav.length >= 3 && cache != null) {
+            pom = text(new File(cache, MavenResolver.path(gav[0], gav[1], gav[2], "pom")));
+        }
+        String name = null, url = null;
+        if (pom != null) {
+            String own = withoutBlocks(pom);
+            name = tag(own, "name");
+            url = tag(own, "url");
+            if (url == null) {
+                String scm = block(pom, "scm");
+                if (scm != null) url = tag(scm, "url");
+            }
+        }
+        if (name != null) name = clean(name);
+        if (gav != null && gav.length >= 2) {
+            if (name == null || name.isEmpty() || name.equals(gav[1])) name = readable(gav[0], gav[1]);
+            if (gav[0].startsWith("com.github.") && gav[0].length() > 11) {
+                url = "https://github.com/" + gav[0].substring(11) + "/" + gav[1];
+            } else if (url == null || !url.startsWith("http")) {
+                url = gav[0].startsWith("androidx.") || gav[0].startsWith("com.google.android.")
+                        ? "https://maven.google.com/web/index.html#" + gav[0] + ":" + gav[1]
+                        : "https://central.sonatype.com/artifact/" + gav[0] + "/" + gav[1] + (gav.length > 2 ? "/" + gav[2] : "");
+            }
+        } else {
+            name = dir.getName();
+            url = null;
+        }
+        return new String[]{name, url};
+    }
+
+    /** "core" of com.google.zxing → "zxing core"; names with a capital or a dash stay as they are. */
+    static String readable(String group, String artifact) {
+        if (!artifact.equals(artifact.toLowerCase(java.util.Locale.ROOT)) || artifact.contains("-") || artifact.length() > 12) {
+            return artifact;
+        }
+        String[] parts = group.split("\\.");
+        String owner = parts[parts.length - 1];
+        return owner.equals(artifact) ? artifact : owner + " " + artifact;
+    }
+
     /** The text shown in the dialog. */
     public String describe(String folder, String size) {
         StringBuilder s = new StringBuilder();

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One installed library in the Library Resolver (v1.8.11): name (marquee) with a version badge, the Maven coordinate
+     (marquee), a status line, and one row of actions: (i), Share, Latest / Update, Delete, switched on in the project. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/ob_glass"
+    android:orientation="vertical"
+    android:paddingLeft="14dp"
+    android:paddingTop="12dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="10dp"
+    android:tag="obsidian">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/lc_name"
+            style="@style/Ob.Text.Title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:scrollHorizontally="true"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/lc_version"
+            style="@style/Ob.Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="24dp"
+            android:layout_marginLeft="8dp"
+            android:background="@drawable/ob_pill16"
+            android:gravity="center"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:singleLine="true"
+            android:textColor="@color/ob_accent"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/lc_coordinate"
+        style="@style/Ob.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="marquee"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:scrollHorizontally="true"
+        android:singleLine="true" />
+
+    <TextView
+        android:id="@+id/lc_meta"
+        style="@style/Ob.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/lc_info"
+            style="@style/Ob.Text.Button"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/ob_pill16_state"
+            android:contentDescription="Library info"
+            android:gravity="center"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="i"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/lc_share"
+            style="@style/Ob.Text.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginLeft="6dp"
+            android:background="@drawable/ob_pill16_state"
+            android:gravity="center"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Share"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/lc_status"
+            style="@style/Ob.Text.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginLeft="6dp"
+            android:gravity="center"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/lc_delete"
+            style="@style/Ob.Text.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginLeft="6dp"
+            android:background="@drawable/ob_pill16_state"
+            android:gravity="center"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:stateListAnimator="@animator/sw_press"
+            android:text="Delete"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <CheckBox
+            android:id="@+id/lc_check"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="4dp"
+            android:buttonTint="@color/ob_amber"
+            android:contentDescription="Switched on in this project"
+            android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

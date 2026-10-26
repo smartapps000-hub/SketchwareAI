@@ -435,6 +435,28 @@ public class JavaEdit {
         for (String t : typed2) allThere &= regenerated.contains(t);
         check("more statements to blocks: generated again, every line as typed", allThere, "");
 
+        // 17. v1.8.11: a statement typed in the class body (outside methods) is refused, not stored as a custom
+        // variable; an invalid custom variable stored by v1.8.8-v1.8.10 is removed by deleting its line
+        l = lines(code());
+        at = find(l, "public void onClick(", 0);
+        int fieldsAt = find(l, "private Intent intent1", 0);
+        l.add(fieldsAt + 1, "\tbutton1.setText(\"AiTechApp\");");
+        stateBefore = state();
+        r = save(join(l));
+        check("statement in the class body refused", !ok(r) && String.valueOf(get(r, "problems")).contains("isn't a field declaration"), report(r));
+        check("statement in the class body: project unchanged", stateBefore.equals(state()), "");
+        @SuppressWarnings("unchecked") List<Object> vars = ((HashMap<String, ArrayList<Object>>) get(proj, "e")).get(JAVA);
+        vars.add(neu("android.util.Pair", 6, "button1.setText(\"AiTechApp\")"));   // what v1.8.8-v1.8.10 could store
+        open();
+        String withBad = code();
+        check("invalid custom variable generated in the class body", withBad.contains("button1.setText(\"AiTechApp\");"), "");
+        l = lines(withBad);
+        l.remove(find(l, "button1.setText(\"AiTechApp\");", 0));
+        r = save(join(l));
+        boolean gone = true;
+        for (Object v : ((HashMap<String, ArrayList<Object>>) get(proj, "e")).get(JAVA)) gone &= !String.valueOf(get(v, "second")).contains("setText");
+        check("invalid custom variable removed by deleting its line", ok(r) && gone, report(r));
+
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());
         Main.OUT.println("AFTER " + state());

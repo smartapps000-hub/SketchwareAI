@@ -140,7 +140,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             List<MavenSearch.Hit> found = null;
             String failure = null;
             try {
-                found = MavenSearch.search(typed, 25, null);
+                found = MavenSearch.search(typed, 40, null);
             } catch (Throwable t) {
                 failure = t.getMessage() != null ? t.getMessage() : t.toString();
             }
@@ -201,6 +201,18 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         LibraryNeeds needs;
         boolean ready;
         long size;
+        /** v1.8.11: the card's title and project link (LibraryInfo.summary), the version, the install time. */
+        String title;
+        String link;
+        String version;
+        long installedAt;
+
+        /** group:artifact, or null for an imported file. */
+        String key() {
+            if (coordinate == null) return null;
+            String[] gav = coordinate.split(":");
+            return gav.length >= 3 ? gav[0] + ":" + gav[1] : null;
+        }
     }
 
     /** Installed libraries with their sizes, read off the UI thread; null until read (and after anything changed). */
@@ -216,7 +228,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 List<Installed> libs;
                 try {
                     libs = installed();
-                    for (Installed l : libs) l.size = folderSize(l.dir);
+                    for (Installed l : libs) {
+                        l.size = folderSize(l.dir);
+                        String[] summary = LibraryInfo.summary(l.dir, l.coordinate, cacheFolder());
+                        l.title = summary[0];
+                        l.link = summary[1];
+                    }
                 } catch (RuntimeException e) {
                     libs = new ArrayList<>();
                 }
@@ -247,10 +264,30 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 com.sketchware.ai.project.LibraryIntegrity.Source source = com.sketchware.ai.project.LibraryIntegrity.readSource(dir);
                 if (source != null) lib.coordinate = source.coordinate;
             }
+            if (lib.coordinate != null && lib.coordinate.split(":").length < 3) lib.coordinate = null;
+            lib.version = lib.coordinate != null ? lib.coordinate.split(":")[2] : null;
             lib.ready = LibraryInstaller.usable(dir);
+            File classes = new File(dir, "classes.jar");
+            lib.installedAt = classes.isFile() ? classes.lastModified() : dir.lastModified();
             out.add(lib);
         }
         return out;
+    }
+
+    /**
+     * v1.8.11: a library of which a newer version of the same group:artifact is installed too (after an update, the old
+     * folder stays for projects that still use it): it is not offered as an update again.
+     */
+    private static Installed newerInstalled(Installed lib, List<Installed> all) {
+        String key = lib.key();
+        if (key == null) return null;
+        Installed newest = null;
+        for (Installed other : all) {
+            if (other == lib || !key.equals(other.key()) || other.version == null) continue;
+            if (MavenResolver.compareVersions(other.version, lib.version) > 0
+                    && (newest == null || MavenResolver.compareVersions(other.version, newest.version) > 0)) newest = other;
+        }
+        return newest;
     }
 
     private List<String> enabledNames() {
@@ -262,6 +299,81 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         return names;
     }
 
+    // ------------------------------------------------------------------------------------------- cards
+
+    /** v1.8.11 card of an installed library: name + version badge, coordinate, a status line and the action row. */
+    private View card(Installed lib, String meta, boolean withCheck, boolean checked, boolean withDelete) {
+        View card = LayoutInflater.from(this).inflate(R.layout.ob_lib_card, list, false);
+        TextView name = card.findViewById(R.id.lc_name);
+        name.setText(lib.title != null ? lib.title : lib.name);
+        name.setSelected(true);   // starts the marquee when the name is longer than the card
+        TextView version = card.findViewById(R.id.lc_version);
+        if (lib.version != null) {
+            version.setText("v" + lib.version.replaceFirst("^v", ""));
+            version.setVisibility(View.VISIBLE);
+        }
+        TextView coordinate = card.findViewById(R.id.lc_coordinate);
+        coordinate.setText(lib.coordinate != null ? lib.key() : "imported file · " + lib.name);
+        coordinate.setSelected(true);
+        ((TextView) card.findViewById(R.id.lc_meta)).setText(meta);
+        card.findViewById(R.id.lc_info).setOnClickListener(v -> showInfo(lib.name, lib.dir, lib.coordinate));
+        if (lib.link != null) {
+            TextView share = card.findViewById(R.id.lc_share);
+            share.setVisibility(View.VISIBLE);
+            share.setOnClickListener(v -> shareLink(lib));
+        }
+        TextView status = card.findViewById(R.id.lc_status);
+        String latest = updates.get(lib.name);
+        Installed newer = installedCache == null ? null : newerInstalled(lib, installedCache);
+        if (newer != null) {
+            status.setText("Newer: v" + newer.version);
+            status.setVisibility(View.VISIBLE);
+        } else if (latest != null) {
+            status.setText("Update");
+            status.setBackgroundResource(R.drawable.ob_amber_pill);
+            status.setVisibility(View.VISIBLE);
+            String[] gav = lib.coordinate.split(":");
+            status.setOnClickListener(v -> installCoordinates(Collections.singletonList(gav[0] + ":" + gav[1] + ":" + latest)));
+        } else if (updatesChecked && lib.coordinate != null) {
+            status.setText("Latest");
+            status.setVisibility(View.VISIBLE);
+        }
+        if (withDelete) {
+            TextView delete = card.findViewById(R.id.lc_delete);
+            delete.setVisibility(View.VISIBLE);
+            delete.setOnClickListener(v -> confirmDelete(lib));
+        }
+        if (withCheck && scId != null) {
+            CheckBox check = card.findViewById(R.id.lc_check);
+            check.setVisibility(View.VISIBLE);
+            check.setChecked(checked);
+            check.setOnClickListener(v -> {
+                setEnabled(lib.name, check.isChecked());
+                if (tab == 0) show();
+            });
+        }
+        return card;
+    }
+
+    private void shareLink(Installed lib) {
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("text/plain");
+        send.putExtra(Intent.EXTRA_SUBJECT, lib.title != null ? lib.title : lib.name);
+        send.putExtra(Intent.EXTRA_TEXT, (lib.coordinate != null ? "implementation '" + lib.coordinate + "'\n" : "") + lib.link);
+        try {
+            startActivity(Intent.createChooser(send, "Share " + (lib.title != null ? lib.title : lib.name)));
+        } catch (RuntimeException e) {
+            Toast.makeText(this, lib.link, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private Installed find(List<Installed> libs, String name) {
+        if (libs != null) for (Installed l : libs) if (l.name.equals(name)) return l;
+        return null;
+    }
+
+    // ------------------------------------------------------------------------------------------- tabs
+
     private void showRequired() {
         if (LibraryInstaller.enabled(scId) == null) {
             note("This project's local library list (data/" + scId + "/local_library) can't be read. Nothing here changes it.");
@@ -270,6 +382,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         List<String> enabled = enabledNames();
         if (enabled.isEmpty()) {
             note("This project uses no local libraries. All shows the installed ones; + Add gets one from Maven or a file.");
+            return;
+        }
+        List<Installed> libs = installedList();
+        if (libs == null) {
+            note("Reading the installed libraries…");
             return;
         }
         for (String name : enabled) {
@@ -291,23 +408,30 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 }
             }
             if (!missing.isEmpty()) sub.append("\nNeeds, not switched on: ").append(join(missing));
-            View row = row(name, sub.toString());
-            CheckBox check = row.findViewById(R.id.lib_check);
-            check.setVisibility(View.VISIBLE);
-            check.setChecked(true);
-            check.setOnClickListener(v -> {
-                setEnabled(name, check.isChecked());
-                show();
-            });
-            if (dir.isDirectory()) infoButton(row, name, dir, needs != null ? needs.coordinate : null);
-            if (!missing.isEmpty()) {
-                actionButton(row, "Add " + missing.size(), v -> installCoordinates(missing));
-            } else if (status.startsWith("Not dexed")) {
-                actionButton(row, "Dex", v -> dexNow(dir));
-            } else if (status.startsWith("Missing") && needs != null && needs.coordinate != null) {
-                actionButton(row, "Reinstall", v -> installCoordinates(Collections.singletonList(needs.coordinate)));
+            Installed lib = find(libs, name);
+            if (lib == null) {
+                // switched on but not installed: the old row, with what can be done
+                View row = row(name, sub.toString());
+                if (needs != null && needs.coordinate != null) {
+                    actionButton(row, "Reinstall", v -> installCoordinates(Collections.singletonList(needs.coordinate)));
+                }
+                list.addView(row);
+                continue;
             }
-            list.addView(row);
+            View card = card(lib, sub.toString(), true, true, false);
+            TextView status2 = card.findViewById(R.id.lc_status);
+            if (!missing.isEmpty()) {
+                status2.setText("Add " + missing.size());
+                status2.setBackgroundResource(R.drawable.ob_amber_pill);
+                status2.setVisibility(View.VISIBLE);
+                status2.setOnClickListener(v -> installCoordinates(missing));
+            } else if (status.startsWith("Not dexed")) {
+                status2.setText("Dex");
+                status2.setBackgroundResource(R.drawable.ob_amber_pill);
+                status2.setVisibility(View.VISIBLE);
+                status2.setOnClickListener(v -> dexNow(dir));
+            }
+            list.addView(card);
         }
     }
 
@@ -326,6 +450,52 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         return LibraryInstaller.folderName(a);
     }
 
+    /** v1.8.11: All tab order: A to Z by name, or updates first then the newest installs. Kept per phone. */
+    private boolean sortNewest() {
+        try {
+            return getPreferences(MODE_PRIVATE).getBoolean("sort_newest", false);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private void setSortNewest(boolean newest) {
+        try {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("sort_newest", newest).apply();
+        } catch (RuntimeException ignored) {
+            // this session only
+        }
+        show();
+    }
+
+    private void sortBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        bar.setPadding(0, dp(2), 0, dp(2));
+        TextView label = new TextView(this, null, 0, R.style.Ob_Text_Caption);
+        label.setText("Sort");
+        bar.addView(label);
+        boolean newest = sortNewest();
+        bar.addView(sortPill("A to Z", !newest, v -> setSortNewest(false)));
+        bar.addView(sortPill("Updates & newest first", newest, v -> setSortNewest(true)));
+        list.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    private TextView sortPill(String text, boolean selected, View.OnClickListener click) {
+        TextView pill = new TextView(this, null, 0, R.style.Ob_Text_Button);
+        pill.setText(text);
+        pill.setTextSize(12);
+        pill.setGravity(android.view.Gravity.CENTER);
+        pill.setPadding(dp(12), 0, dp(12), 0);
+        pill.setBackgroundResource(selected ? R.drawable.ob_amber_pill : R.drawable.ob_pill16_state);
+        pill.setOnClickListener(click);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32));
+        lp.leftMargin = dp(8);
+        pill.setLayoutParams(lp);
+        return pill;
+    }
+
     private void showAll() {
         String query = search.getText().toString().trim().toLowerCase(Locale.ROOT);
         List<String> enabled = enabledNames();
@@ -334,31 +504,38 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             note("Reading the installed libraries…");
             return;
         }
-        int shown = 0;
+        List<Installed> shownLibs = new ArrayList<>();
         for (Installed lib : libs) {
             if (!query.isEmpty() && !lib.name.toLowerCase(Locale.ROOT).contains(query)
-                    && (lib.coordinate == null || !lib.coordinate.toLowerCase(Locale.ROOT).contains(query))) continue;
-            shown++;
-            String sub = (lib.coordinate != null ? lib.coordinate : "imported file") + " · " + size(lib.size)
-                    + (lib.ready ? "" : " · not ready to build");
-            View row = row(lib.name, sub);
-            if (scId != null) {
-                CheckBox check = row.findViewById(R.id.lib_check);
-                check.setVisibility(View.VISIBLE);
-                check.setChecked(enabled.contains(lib.name));
-                check.setOnClickListener(v -> setEnabled(lib.name, check.isChecked()));
-            }
-            infoButton(row, lib.name, lib.dir, lib.coordinate);
-            actionButton(row, "Delete", v -> confirmDelete(lib));
-            list.addView(row);
+                    && (lib.coordinate == null || !lib.coordinate.toLowerCase(Locale.ROOT).contains(query))
+                    && (lib.title == null || !lib.title.toLowerCase(Locale.ROOT).contains(query))) continue;
+            shownLibs.add(lib);
         }
-        if (shown == 0) note(query.isEmpty() ? "No local libraries installed yet: + Add gets one." : "None installed matches \"" + query + "\".");
+        if (sortNewest()) {
+            Collections.sort(shownLibs, (a, b) -> {
+                boolean ua = updates.containsKey(a.name), ub = updates.containsKey(b.name);
+                if (ua != ub) return ua ? -1 : 1;
+                return Long.compare(b.installedAt, a.installedAt);
+            });
+        } else {
+            Collections.sort(shownLibs, (a, b) -> String.valueOf(a.title).compareToIgnoreCase(String.valueOf(b.title)));
+        }
+        if (shownLibs.size() > 1) sortBar();
+        for (Installed lib : shownLibs) {
+            String meta = size(lib.size) + (lib.ready ? "" : " · not ready to build");
+            list.addView(card(lib, meta, true, enabled.contains(lib.name), true));
+        }
+        if (shownLibs.isEmpty()) note(query.isEmpty() ? "No local libraries installed yet: + Add gets one." : "None installed matches \"" + query + "\".");
         if (query.length() >= 2) {
             if (hits != null && query.equals(hitsQuery)) {
                 header("Search results");
-                if (hits.isEmpty()) note("Nothing found.");
+                if (hits.isEmpty()) note("Nothing found (web and POM-only artifacts are left out: only .aar / .jar libraries).");
                 for (MavenSearch.Hit hit : hits) {
-                    View row = row(hit.group + ":" + hit.name, hit.latestVersion + " · " + (hit.packaging == null ? "" : hit.packaging));
+                    View row = row(hit.group + ":" + hit.name, hit.latestVersion + (hit.packaging == null ? "" : " · " + hit.packaging));
+                    TextView title = row.findViewById(R.id.lib_title);
+                    title.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
+                    title.setMarqueeRepeatLimit(-1);
+                    title.setSelected(true);
                     actionButton(row, "Add", v -> showAddDialog(hit.coordinate()));
                     list.addView(row);
                 }
@@ -383,8 +560,13 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             return;
         }
         List<Installed> fromMaven = new ArrayList<>();
-        for (Installed lib : libs) if (lib.coordinate != null && lib.coordinate.split(":").length >= 3) fromMaven.add(lib);
-        if (fromMaven.isEmpty()) {
+        List<Installed> older = new ArrayList<>();
+        for (Installed lib : libs) {
+            if (lib.coordinate == null) continue;
+            if (newerInstalled(lib, libs) != null) older.add(lib);   // v1.8.11: updated already, the old copy stays
+            else fromMaven.add(lib);
+        }
+        if (fromMaven.isEmpty() && older.isEmpty()) {
             note("No installed library came from Maven (downloaded with + Add or the old downloader).");
             return;
         }
@@ -392,17 +574,20 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         int newer = 0;
         for (Installed lib : fromMaven) {
             String latest = updates.get(lib.name);
-            String version = lib.coordinate.split(":")[2];
             if (updatesChecked && latest == null) continue;
             newer++;
-            View row = row(lib.name, latest == null ? lib.coordinate : version + " → " + latest);
-            if (latest != null) {
-                String[] gav = lib.coordinate.split(":");
-                actionButton(row, "Update", v -> installCoordinates(Collections.singletonList(gav[0] + ":" + gav[1] + ":" + latest)));
-            }
-            list.addView(row);
+            list.addView(card(lib, latest == null ? size(lib.size) : "v" + lib.version + " → v" + latest, false, false, false));
         }
         if (updatesChecked && newer == 0) note("Every library from Maven is at its newest stable version.");
+        if (!older.isEmpty()) {
+            header("Older versions (a newer one is installed)");
+            note("Projects that still use them keep working; Delete removes the old copy.");
+            List<String> enabled = enabledNames();
+            for (Installed lib : older) {
+                list.addView(card(lib, size(lib.size) + (enabled.contains(lib.name) ? " · used by this project" : ""),
+                        false, false, true));
+            }
+        }
         action.setVisibility(View.VISIBLE);
         action.setText(updatesChecked ? "Check again" : "Check for updates");
         action.setOnClickListener(v -> checkUpdates(fromMaven));
@@ -562,7 +747,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private void searchMaven(String query) {
         runBusy("Searching…", () -> {
             // the typed case is kept: JitPack paths are case-sensitive (com.github.DantSu)
-            List<MavenSearch.Hit> found = MavenSearch.search(query, 25, null);
+            List<MavenSearch.Hit> found = MavenSearch.search(query, 40, null);
             hits = found;
             hitsQuery = query.toLowerCase(Locale.ROOT);
             return null;

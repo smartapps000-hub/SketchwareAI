@@ -198,13 +198,15 @@ public final class LibraryInstaller {
             return;
         }
         for (String name : names) {
-            String artifactPrefix = name.substring(0, name.lastIndexOf("_V_") + 3);
+            String key = artifactKey(name);
             boolean present = false;
             for (int i = libraries.size() - 1; i >= 0; i--) {
                 String other = String.valueOf(libraries.get(i).get("name"));
                 if (other.equals(name)) {
                     present = true;
-                } else if (other.startsWith(artifactPrefix) && sameGroup(other, name)) {
+                } else if (key != null && key.equals(artifactKey(other))) {
+                    // v1.8.11: another version of the same group:artifact, whatever its folder is called (the old
+                    // downloader named folders "core-v3.4.1"): the project switches to the new one
                     libraries.remove(i);
                     outcome.replaced.add(other);
                 }
@@ -217,20 +219,23 @@ public final class LibraryInstaller {
         save(scId, libraries);
     }
 
-    /** Two folders of the same artifact name are the same library only when both recorded groups are known and agree. */
-    private static boolean sameGroup(String a, String b) {
-        String ga = group(a), gb = group(b);
-        return ga != null && ga.equals(gb);
+    /** "group:artifact" recorded for a library folder (needs.json, else source.json), or null when unknown. */
+    public static String artifactKey(String folder) {
+        String coordinate = coordinateOf(folder);
+        if (coordinate == null) return null;
+        String[] gav = coordinate.split(":");
+        return gav.length >= 2 ? gav[0] + ":" + gav[1] : null;
     }
 
-    private static String group(String folder) {
-        LibraryNeeds needs = LibraryNeeds.read(new File(root(), folder));
+    /** The Maven coordinate recorded for a library folder, or null. */
+    public static String coordinateOf(String folder) {
+        File dir = new File(root(), folder);
+        LibraryNeeds needs = LibraryNeeds.read(dir);
         String coordinate = needs != null ? needs.coordinate : null;
         if (coordinate == null) {
-            com.sketchware.ai.project.LibraryIntegrity.Source source = com.sketchware.ai.project.LibraryIntegrity.readSource(new File(root(), folder));
+            com.sketchware.ai.project.LibraryIntegrity.Source source = com.sketchware.ai.project.LibraryIntegrity.readSource(dir);
             coordinate = source == null ? null : source.coordinate;
         }
-        if (coordinate == null || coordinate.indexOf(':') < 0) return null;
-        return coordinate.substring(0, coordinate.indexOf(':'));
+        return coordinate == null || coordinate.split(":").length < 3 ? null : coordinate;
     }
 }

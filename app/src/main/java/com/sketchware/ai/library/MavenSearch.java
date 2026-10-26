@@ -117,6 +117,21 @@ public final class MavenSearch {
         return best;
     }
 
+    /**
+     * v1.8.11: only what can be an Android library: packaging aar, jar or bundle (or not stated), not a web jar
+     * (org.webjars: JavaScript packaged for Java servers, no classes.jar), not a POM-only parent or BOM, not a Kotlin/
+     * Native or JS target (klib, js, wasm, ios, macos, linux, mingw).
+     */
+    static boolean usable(Hit hit) {
+        if (hit.group == null || hit.name == null) return false;
+        if (hit.group.startsWith("org.webjars") || hit.group.contains(".npm") || hit.group.startsWith("org.mvnpm")) return false;
+        String p = hit.packaging == null ? "" : hit.packaging.toLowerCase(java.util.Locale.ROOT);
+        if (!(p.isEmpty() || p.equals("aar") || p.equals("jar") || p.equals("bundle"))) return false;
+        String n = hit.name.toLowerCase(java.util.Locale.ROOT);
+        return !n.matches(".*-(js|wasm|wasm-js|wasmjs|iosx64|iosarm64|iossimulatorarm64|macosx64|macosarm64|linuxx64|"
+                + "linuxarm64|mingwx64|tvos.*|watchos.*|native)$") && !n.endsWith("-parent") && !n.endsWith("-bom");
+    }
+
     static List<Hit> parse(String json) {
         List<Hit> hits = new ArrayList<>();
         try {
@@ -129,7 +144,7 @@ public final class MavenSearch {
                 hit.name = string(doc, "a");
                 hit.latestVersion = string(doc, "latestVersion");
                 hit.packaging = string(doc, "p");
-                if (hit.group != null && hit.name != null && hit.latestVersion != null) hits.add(hit);
+                if (hit.group != null && hit.name != null && hit.latestVersion != null && usable(hit)) hits.add(hit);
             }
         } catch (RuntimeException ignored) {
             // no results

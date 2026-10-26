@@ -129,7 +129,28 @@ public final class MavenResolver {
         }
     }
 
+    /**
+     * v1.8.11: a GitHub library on JitPack is named by its git tag, which may carry a "v" ("v3.4.0") or not: when the
+     * library itself isn't found with the version as typed, the other spelling is tried once.
+     */
     public Plan resolve(String coordinate) {
+        Plan plan = resolveExactly(coordinate);
+        String[] gav = MavenFetcher.parse(coordinate);
+        if (plan.root != null || gav == null) return plan;
+        String id = gav[0] + ":" + gav[1] + ":" + gav[2];
+        boolean rootMissing = plan.problems.contains("Not found in the repositories: " + id);
+        boolean gitHosted = gav[0].startsWith("com.github.") || gav[0].startsWith("io.github.")
+                || gav[0].startsWith("com.gitlab.") || gav[0].startsWith("org.bitbucket.");
+        if (!rootMissing || !gitHosted) return plan;
+        String other = gav[2].startsWith("v") && gav[2].length() > 1 && Character.isDigit(gav[2].charAt(1))
+                ? gav[2].substring(1) : "v" + gav[2];
+        Plan retry = resolveExactly(gav[0] + ":" + gav[1] + ":" + other);
+        if (retry.root == null) return plan;
+        retry.notes.add(0, "Found as " + gav[0] + ":" + gav[1] + ":" + other + " (the tag's spelling on JitPack)");
+        return retry;
+    }
+
+    private Plan resolveExactly(String coordinate) {
         Plan plan = new Plan();
         String[] gav = MavenFetcher.parse(coordinate);
         if (gav == null) {
@@ -637,27 +658,61 @@ public final class MavenResolver {
         }
     }
 
-    /** Default source: HTTPS GET; null for 404/410. */
+    /** v1.8.11: bytes of the current download (set per worker thread by the Library Resolver's progress dialog). */
+    public interface ByteProgress {
+        /** @param total the size the server announced, or -1 */
+        void bytes(String url, long done, long total);
+    }
+
+    public static final ThreadLocal<ByteProgress> PROGRESS = new ThreadLocal<>();
+
+    /**
+     * Default source: HTTPS GET; null for 404/410. v1.8.11: redirects are followed across http/https too (Java's
+     * client follows only same-protocol ones: Sonatype, JCenter and Atlassian answer 301/302 to another host), at most
+     * five; JitPack's 202 ("building") is reported as such.
+     */
     public static byte[] download(String url) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(60000);
-        connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("User-Agent", USER_AGENT);
-        try {
-            int code = connection.getResponseCode();
-            if (code == 404 || code == 410) return null;
-            if (code >= 300) throw new IOException("HTTP " + code);
-            try (InputStream in = connection.getInputStream()) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] buffer = new byte[16384];
-                int n;
-                while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
-                return out.toByteArray();
+        String current = url;
+        for (int hop = 0; hop < 6; hop++) {
+            HttpURLConnection connection = (HttpURLConnection) new URL(current).openConnection();
+            connection.setConnectTimeout(20000);
+            connection.setReadTimeout(60000);
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestProperty("User-Agent", USER_AGENT);
+            try {
+                int code = connection.getResponseCode();
+                if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+                    String location = connection.getHeaderField("Location");
+                    if (location == null || location.isEmpty()) throw new IOException("HTTP " + code + " without a Location");
+                    current = new URL(new URL(current), location).toString();
+                    continue;
+                }
+                if (code == 404 || code == 410) return null;
+                if (code == 202) throw new IOException("JitPack is still building this version (HTTP 202): try again in a minute");
+                if (code >= 300) throw new IOException("HTTP " + code);
+                long total = connection.getContentLengthLong();
+                ByteProgress progress = PROGRESS.get();
+                try (InputStream in = connection.getInputStream()) {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream(total > 0 && total < Integer.MAX_VALUE ? (int) total : 16384);
+                    byte[] buffer = new byte[16384];
+                    long done = 0, reported = 0;
+                    int n;
+                    while ((n = in.read(buffer)) > 0) {
+                        out.write(buffer, 0, n);
+                        done += n;
+                        if (progress != null && done - reported >= 32768) {
+                            reported = done;
+                            progress.bytes(url, done, total);
+                        }
+                    }
+                    if (progress != null) progress.bytes(url, done, total);
+                    return out.toByteArray();
+                }
+            } finally {
+                connection.disconnect();
             }
-        } finally {
-            connection.disconnect();
         }
+        throw new IOException("too many redirects");
     }
 
     static byte[] read(File file) throws IOException {

@@ -356,6 +356,10 @@ public final class JavaToBlocks {
                             + "or annotations in it or in front of it: remove them (comments can go inside a method)."));
                     return;
                 }
+                if (!isFieldDeclaration(declaration)) {
+                    result.problems.add(new Problem(em.start, notAField(declaration)));
+                    return;
+                }
                 Pair<Integer, String> old = data.variables(javaName).get(variable);
                 variableChanges.put(variable, new Pair<>(VAR_CUSTOM, declaration));
                 if (old.first != VAR_CUSTOM) {
@@ -413,6 +417,10 @@ public final class JavaToBlocks {
             if (declaration == null) {
                 result.problems.add(new Problem(em.start, "The field " + declared + " can't be stored with a comment "
                         + "or annotation in it: remove it (comments can go inside a method)."));
+                return;
+            }
+            if (!isFieldDeclaration(declaration)) {
+                result.problems.add(new Problem(em.start, notAField(declaration)));
                 return;
             }
             variableAdditions.add(new Pair<>(VAR_CUSTOM, declaration));
@@ -1192,6 +1200,54 @@ public final class JavaToBlocks {
         String text = s.toString().replaceAll("\\s+", " ");
         if (text.endsWith(";")) text = text.substring(0, text.length() - 1).trim();
         return text.isEmpty() || text.contains("\n") ? null : text;
+    }
+
+    private static final java.util.Set<String> KEYWORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue",
+            "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "goto", "if",
+            "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private",
+            "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
+            "throw", "throws", "transient", "try", "void", "volatile", "while", "true", "false", "null", "var"));
+    private static final Pattern FIELD_HEAD = Pattern.compile(
+            "((?:(?:public|protected|private|static|final|transient|volatile)\\s+)*)"   // modifiers
+            + "([A-Za-z_$][\\w$]*(?:\\s*\\.\\s*[A-Za-z_$][\\w$]*)*"                       // type name
+            + "(?:\\s*<[\\w$\\s,.?<>\\[\\]&]*>)?(?:\\s*\\[\\s*\\])*)"                      // generics, arrays
+            + "\\s+([A-Za-z_$][\\w$]*)(?:\\s*\\[\\s*\\])*");                                   // name
+
+    /**
+     * v1.8.11: whether a stored declaration (no ';') is one field the logic editor can read: modifiers, a type and one
+     * name, optionally "= value". A statement such as {@code button1.setText("x")} that ended up in the class body is
+     * not: stored as a custom variable it broke the logic editor ("Found invalid data of Custom Variable") and the build.
+     */
+    static boolean isFieldDeclaration(String declaration) {
+        if (declaration == null) return false;
+        String text = declaration.trim();
+        int equals = -1, depth = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '<') depth++;
+            else if (c == '>') depth--;
+            else if (c == '=' && depth == 0) {
+                equals = i;
+                break;
+            } else if ((c == '(' || c == '"' || c == '\'' || c == '{' || c == ';') && depth == 0) {
+                return false;   // a call, a literal or a block before any '=': not a declaration
+            }
+        }
+        String head = (equals < 0 ? text : text.substring(0, equals)).trim();
+        if (equals >= 0 && text.substring(equals + 1).trim().isEmpty()) return false;
+        Matcher m = FIELD_HEAD.matcher(head);
+        if (!m.matches()) return false;
+        String type = m.group(2).replaceAll("\\s+", "");
+        String name = m.group(3);
+        if (KEYWORDS.contains(name)) return false;
+        String bare = type.contains("<") ? type.substring(0, type.indexOf('<')) : type.replace("[]", "");
+        return !KEYWORDS.contains(bare) || bare.matches("boolean|byte|char|short|int|long|float|double");
+    }
+
+    private static String notAField(String text) {
+        return "This isn't a field declaration (type, name, optionally = value): " + text.trim()
+                + ". Statements go inside a method: an event (onCreate, a click) or a MoreBlock.";
     }
 
     private static List<String> trimmedLines(JavaMembers f, int from, int to) {

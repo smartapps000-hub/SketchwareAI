@@ -207,7 +207,7 @@ public class ExtraPaletteBlock {
             if (split.length > 1) {
                 logicEditor.a(split[1], "v", split[0], "getVar").setTag(customVariables.get(i));
             } else {
-                SketchwareUtil.toastError("Found invalid data of Custom Variable #" + (i + 1) + ": \"" + customVariables.get(i) + "\"");
+                SketchwareUtil.toastError("Custom Variable #" + (i + 1) + " \"" + customVariables.get(i) + "\" isn't a declaration (type name = value): open Edit Java code, delete that line and tap Save as blocks to remove it.");
             }
         }
 
@@ -221,7 +221,7 @@ public class ExtraPaletteBlock {
             } else if (split.length > 2) {
                 logicEditor.a(split[2], "v", split[1], "getVar").setTag(customVariables2.get(i));
             } else {
-                SketchwareUtil.toastError("Found invalid data of Custom Variable #" + (i + 1) + ": \"" + customVariables2.get(i) + "\"");
+                SketchwareUtil.toastError("Custom Variable #" + (i + 1) + " \"" + customVariables2.get(i) + "\" isn't a declaration (type name = value): open Edit Java code, delete that line and tap Save as blocks to remove it.");
             }
         }
         BlocksHandler.primaryBlocksA(
