@@ -28,26 +28,33 @@ The file is SIZE bytes; anything a few hundred bytes long is the pointer.
   `…/tree/v1.2`) or a JitPack page (`jitpack.io/#User/Repo/1.0`) becomes the JitPack coordinate: the tag in the link,
   or the newest version JitPack has built. `com.github.User:Repo` without a version works too. Typing words in the
   search field still searches Maven Central (JitPack has no search).
-- **"Not found in the repositories"** now says why when a repository gave no answer (time-out, HTTP 401, no
-  connection), and for GitHub libraries gives the JitPack build log and Releases links. Repositories that redirect to
-  another address (JCenter, Sonatype, Atlassian) are followed; JitPack's "still building" is reported as such; a GitHub
-  version is also tried with/without its leading `v` (`v3.4.0` / `3.4.0`).
+- **"Not found in the repositories"** now says why when a repository gave no answer (time-out, no connection,
+  unknown host, HTTP 401: for JitPack that means no such GitHub repository), and for GitHub libraries gives the JitPack
+  build log and Releases links. Repositories that redirect to another address (JCenter, Sonatype, Atlassian) are
+  followed (never from https down to http); JitPack's "still building" is reported as such; a GitHub version is also
+  tried with/without its leading `v` (`v3.4.0` / `3.4.0`). A repository in your list that can't be reached at all is
+  asked once per search instead of once per POM (it cost 20 seconds each time).
+- **Old version still used by this project:** its card says *Use v3.5.4* when a newer version is installed; one tap
+  switches the project over.
 - **Search** lists only libraries that can be installed (.aar / .jar): WebJars, npm packages, Kotlin/JS and native
   artifacts, BOMs and parent POMs are left out. Characters the search service treats as operators are ignored.
 - **Update offered again after updating (fixed).** The old version stays installed for projects that still use it;
   it is now listed under *Updates → Older versions* (with Delete) instead of offering the same update again, and the
   update disappears as soon as a version at least as new is installed. Updating switches the project from the old
   version to the new one.
-- **Archives.** An .aar's bundled `libs/*.jar` are merged into its classes.jar (they were left out: missing classes);
-  a release zip with several files installs its .aar; a POM-only coordinate (a BOM, the root of a multi-module build)
-  says so and how JitPack names modules.
+- **Archives.** Jars an .aar bundles in `libs/` are not part of the build (as before); the install now names them and
+  says how to add them (+ Add → Import file, or their Maven coordinate). Merging them automatically was tried and left
+  out of this release: their classes and resources clash with the libraries Sketchware AI has built in (Gson, OkHttp,
+  Kotlin …). A release zip with several files installs its .aar; a POM-only coordinate (a BOM, the root of a
+  multi-module build) says so and how JitPack names modules.
 
 ## Java editor: statements outside methods
 
 A statement typed in the class body (outside every method), like `button1.setText("AiTechApp");`, was stored as a
 custom variable, then generated back into the class body: the build failed and the editor showed *Found invalid data of
 Custom Variable #1* (project #659). Saving now refuses it with the line and where it belongs (an event such as onCreate
-or a click, or a MoreBlock). **To repair a project that already has one:** open *Edit Java code*, delete that line from
+or a click, or a MoreBlock). Several names in one line (`int a, b;`) are refused too: the logic editor shows one block
+per custom variable, so write one field per line. **To repair a project that already has one:** open *Edit Java code*, delete that line from
 the class body and tap *Save as blocks*: the custom variable is removed.
 
 ## Design editor: ID in the property bar
@@ -60,15 +67,18 @@ closes the app, please send the crash report (Copy on the crash screen).**
 
 ## Crash screen
 
-Known causes are named on the crash screen (rule-based, offline): the v1.8.10 canvas ClassCastException, a dialog
-opened for a closing screen (BadTokenException), a property-dialog NullPointerException, invalid custom variables. All
-issues of this release are recorded in `engineering/known-errors.json` with cause, repair and how they were checked.
+Known causes are named on the crash screen (rule-based, offline, no AI): the v1.8.10 canvas ClassCastException, a
+dialog opened for a closing screen (BadTokenException), a property-dialog NullPointerException. All issues of this
+release (LFS download, canvas crash, custom variables, ID dialog, WebJars, JitPack, update loop, bundled jars) are
+recorded in `engineering/known-errors.json` with cause, repair and how they were checked.
 
 ## Checked
 
 CHECKED
 
-**Not run here:** the Library Resolver and design editor screens (Activities), downloads on the phone's network.
+**Not run here:** the Library Resolver and design editor screens (Activities), downloads on the phone's network, the
+minApi21 flavour. Please check on the phone: + Add with `https://github.com/DantSu/ESCPOS-ThermalPrinter-Android`,
+the Updates tab after an update, and the ID button on a CardView.
 
 ## Files
 

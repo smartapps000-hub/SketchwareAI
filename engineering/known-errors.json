@@ -434,10 +434,10 @@
     {
       "fingerprint": "Library from an .aar with libs/*.jar inside: classes of those jars missing at compile time / NoClassDefFoundError at run time",
       "rootCause": "a local library is its classes.jar + classes.dex; the jars an .aar bundles in libs/ were extracted but never used",
-      "repair": "v1.8.11: MavenFetcher merges libs/*.jar into classes.jar at install (the library's own class wins; signatures and module-info left out; META-INF/services joined); classes of a library Sketchware AI has built in (Gson, OkHttp, Okio, Kotlin, coroutines, Glide, Material, androidx.annotation) are left out and that library is written to needs.json so the build adds the built-in copy; a release zip with several archives installs its .aar; a source zip or POM-only artifact gets a message with JitPack/Releases links",
+      "repair": "v1.8.11: the install names the bundled jars and how to add them (+ Add → Import file, or the Maven coordinate); they stay out of the build as before. A merge into classes.jar was built and dropped after review: classes and resources (okhttp publicsuffixes, kotlin_builtins, DebugProbesKt.bin, org.jetbrains.annotations) of built-in libraries clashed at the app's build, and export to Android Studio would have listed them twice. A release zip with several archives installs its .aar; a source zip or POM-only artifact gets a message with JitPack/Releases links",
       "scope": "Library Resolver installs and imports from v1.8.11 on (earlier installs unchanged)",
       "verifiedOn": "JVM unit test",
-      "permanent": true
+      "permanent": false
     }
   ]
 }
