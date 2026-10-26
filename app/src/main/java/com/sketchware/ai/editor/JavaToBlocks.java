@@ -1287,20 +1287,28 @@ public final class JavaToBlocks {
                 + ". Statements go inside a method: an event (onCreate, a click) or a MoreBlock.";
     }
 
+    /** After a top-level comma of a value: another declarator (", b = 2", ", b", ", b[]", ", b, c"). */
+    private static final Pattern NEXT_DECLARATOR = Pattern.compile("\\s*" + ID + "\\s*(?:\\[|,|=(?!=)|$)");
+
     /**
-     * v1.8.11: int a, b / int a = 1, b = 2: a comma between names (outside &lt;&gt;) or ", name =" outside brackets,
-     * strings and generics in the value.
+     * v1.8.11: int a, b / int a = 1, b = 2 / int a = 1, b: a comma between names in the head, or a top-level comma in
+     * the value followed by another declarator. Commas inside brackets, strings, chars and generic type arguments
+     * (new HashMap&lt;String, Integer&gt;()) don't count. Text that isn't a declaration head (a call, a literal, a
+     * block) has no several names.
      */
     private static boolean severalNames(String head, String value) {
         int angle = 0;
         for (int i = 0; i < head.length(); i++) {
             char c = head.charAt(i);
+            if (c == '(' || c == '"' || c == '\'' || c == '{') return false;   // a statement: the other message fits
             if (c == '<') angle++;
             else if (c == '>') angle--;
             else if (c == ',' && angle == 0) return true;
         }
         int depth = 0;
+        angle = 0;
         boolean inString = false, inChar = false;
+        Matcher next = NEXT_DECLARATOR.matcher(value);
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
             if (inString || inChar) {
@@ -1313,7 +1321,11 @@ public final class JavaToBlocks {
             else if (c == '\'') inChar = true;
             else if (c == '(' || c == '{' || c == '[') depth++;
             else if (c == ')' || c == '}' || c == ']') depth--;
-            else if (c == ',' && depth == 0 && value.substring(i + 1).matches("\\s*" + ID + "\\s*=(?!=)[\\s\\S]*")) return true;
+            else if (c == '<' && i > 0 && Character.isJavaIdentifierPart(value.charAt(i - 1)) && i + 1 < value.length()
+                    && (Character.isUpperCase(value.charAt(i + 1)) || value.charAt(i + 1) == '?' || value.charAt(i + 1) == '>')) {
+                angle++;   // type arguments: new HashMap<String, Integer>()
+            } else if (c == '>' && angle > 0) angle--;
+            else if (c == ',' && depth == 0 && angle == 0 && next.region(i + 1, value.length()).lookingAt()) return true;
         }
         return false;
     }

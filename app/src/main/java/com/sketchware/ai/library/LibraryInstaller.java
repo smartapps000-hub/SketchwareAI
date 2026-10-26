@@ -29,6 +29,8 @@ public final class LibraryInstaller {
         public final List<String> enabled = new ArrayList<>();
         /** Other versions of the same libraries switched off in the project. */
         public final List<String> replaced = new ArrayList<>();
+        /** v1.8.11: things the user should know (jars an .aar bundles that aren't built). */
+        public final List<String> warnings = new ArrayList<>();
 
         public boolean ok() {
             return failed.isEmpty();
@@ -94,10 +96,10 @@ public final class LibraryInstaller {
                         continue;
                     }
                     outcome.installed.add(name);
+                    String bundled = MavenFetcher.bundledJarsWarning(a.coordinate(), dir);
+                    if (bundled != null) outcome.warnings.add(bundled);
                 }
                 LibraryNeeds needs = LibraryNeeds.create(a.coordinate());
-                LibraryNeeds unpacked = LibraryNeeds.read(dir);   // v1.8.11: built-in libraries its bundled jars needed
-                if (unpacked != null) needs.builtIn.addAll(unpacked.builtIn);
                 for (String need : a.needs) {
                     String[] gav = need.split(":");
                     String key = gav[0] + ":" + gav[1];

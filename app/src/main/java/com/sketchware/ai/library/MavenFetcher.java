@@ -201,7 +201,6 @@ public final class MavenFetcher {
         libDir.mkdirs();
         if (names.contains("classes.jar")) {
             unzip(archive, libDir, "");
-            mergeNestedJars(libDir);
         } else if (hasClasses(names)) {
             copy(archive, new File(libDir, "classes.jar"));
         } else {
@@ -229,98 +228,25 @@ public final class MavenFetcher {
     }
 
     /**
-     * v1.8.11: an .aar's libs/*.jar are part of the library (classes it bundles), but a local library is only its
-     * classes.jar + classes.dex: they are merged into classes.jar (the library's own class wins over a bundled copy;
-     * service files are joined), so they compile and are dexed with it. Classes of a library Sketchware AI has built in
-     * (Gson, OkHttp, Okio, Kotlin, coroutines, Glide, Material, androidx.annotation) are left out and that built-in
-     * library is recorded in needs.json instead: the build adds it, and the classes aren't there twice ("defined
-     * multiple times").
+     * v1.8.11: the jars an .aar bundles in libs/ (they are not part of the build: a local library is its classes.jar
+     * and classes.dex). Merging them was tried and dropped: their classes and resources collide with the built-in
+     * libraries (Gson, OkHttp, Kotlin …) in ways that only fail at the app's build. The install names them instead.
      */
-    static void mergeNestedJars(File libDir) throws IOException {
-        File libs = new File(libDir, "libs");
-        File[] jars = libs.listFiles((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".jar"));
-        if (jars == null || jars.length == 0) return;
-        java.util.Arrays.sort(jars);
-        File classes = new File(libDir, "classes.jar");
-        File merged = new File(libDir, "classes.jar.merging");
-        Set<String> seen = new HashSet<>();
-        Set<String> builtIn = new java.util.LinkedHashSet<>();
-        java.util.Map<String, java.io.ByteArrayOutputStream> services = new java.util.LinkedHashMap<>();
-        byte[] buffer = new byte[16384];
-        try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(merged))) {
-            copyEntries(classes, out, seen, services, null, buffer);
-            for (File jar : jars) if (isZip(jar)) copyEntries(jar, out, seen, services, builtIn, buffer);
-            for (java.util.Map.Entry<String, java.io.ByteArrayOutputStream> service : services.entrySet()) {
-                out.putNextEntry(new ZipEntry(service.getKey()));
-                service.getValue().writeTo(out);
-                out.closeEntry();
-            }
-        } catch (IOException | RuntimeException e) {
-            merged.delete();
-            throw e instanceof IOException ? (IOException) e : new IOException(e);
-        }
-        if (!classes.delete() || !merged.renameTo(classes)) {
-            merged.delete();
-            throw new IOException("couldn't merge " + libs + " into classes.jar");
-        }
-        for (File jar : jars) jar.delete();
-        libs.delete();   // only when empty
-        if (!builtIn.isEmpty()) {
-            LibraryNeeds needs = LibraryNeeds.read(libDir);
-            if (needs == null) needs = LibraryNeeds.create(null);
-            for (String constant : builtIn) if (!needs.builtIn.contains(constant)) needs.builtIn.add(constant);
-            needs.write(libDir);
-        }
+    public static List<String> bundledJars(File libDir) {
+        List<String> names = new ArrayList<>();
+        File[] jars = new File(libDir, "libs").listFiles((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".jar"));
+        if (jars != null) for (File jar : jars) names.add(jar.getName());
+        java.util.Collections.sort(names);
+        return names;
     }
 
-    /** Package → built-in library (BuiltInCoordinates names); kotlinx/coroutines before kotlin/. */
-    private static final String[][] BUILT_IN_PACKAGES = {
-            {"com/google/gson/", "GSON"}, {"okhttp3/", "OKHTTP"}, {"okio/", "OKIO"},
-            {"kotlinx/coroutines/", "KOTLINX_COROUTINES_CORE"}, {"kotlin/", "KOTLIN_STDLIB"},
-            {"com/bumptech/glide/", "GLIDE"}, {"com/google/android/material/", "MATERIAL"},
-            {"androidx/annotation/", "ANDROIDX_ANNOTATION"}};
-
-    /** The built-in library that has this class, or null. */
-    static String builtInFor(String entry) {
-        for (String[] row : BUILT_IN_PACKAGES) if (entry.startsWith(row[0])) return row[1];
-        return null;
-    }
-
-    /** @param builtIn null for the library's own classes.jar; else collects the built-in libraries whose classes were left out */
-    private static void copyEntries(File jar, ZipOutputStream out, Set<String> seen,
-                                    java.util.Map<String, java.io.ByteArrayOutputStream> services, Set<String> builtIn,
-                                    byte[] buffer) throws IOException {
-        try (ZipInputStream zip = new ZipInputStream(new FileInputStream(jar))) {
-            ZipEntry e;
-            while ((e = zip.getNextEntry()) != null) {
-                String name = e.getName();
-                String upper = name.toUpperCase(Locale.ROOT);
-                if (e.isDirectory() || name.endsWith("module-info.class") || upper.equals("META-INF/MANIFEST.MF")
-                        || upper.startsWith("META-INF/") && (upper.endsWith(".SF") || upper.endsWith(".RSA")
-                        || upper.endsWith(".DSA") || upper.endsWith(".EC"))) continue;
-                if (name.startsWith("META-INF/services/")) {
-                    // ServiceLoader files of every jar are kept, joined
-                    java.io.ByteArrayOutputStream joined = services.get(name);
-                    if (joined == null) services.put(name, joined = new java.io.ByteArrayOutputStream());
-                    else joined.write('\n');
-                    int r;
-                    while ((r = zip.read(buffer)) != -1) joined.write(buffer, 0, r);
-                    continue;
-                }
-                if (builtIn != null && name.endsWith(".class")) {
-                    String constant = builtInFor(name);
-                    if (constant != null) {
-                        builtIn.add(constant);
-                        continue;
-                    }
-                }
-                if (!seen.add(name)) continue;
-                out.putNextEntry(new ZipEntry(name));
-                int r;
-                while ((r = zip.read(buffer)) != -1) out.write(buffer, 0, r);
-                out.closeEntry();
-            }
-        }
+    /** The warning for {@link #bundledJars}, or null when there are none. */
+    public static String bundledJarsWarning(String library, File libDir) {
+        List<String> jars = bundledJars(libDir);
+        if (jars.isEmpty()) return null;
+        return library + " bundles " + String.join(", ", jars) + " in its .aar (libs/). They aren't part "
+                + "of the build: if the app needs them, add each as a library of its own (+ Add → Import file, or its "
+                + "Maven coordinate). Many are copies of libraries Sketchware AI already has built in.";
     }
 
     private static boolean hasClasses(List<String> names) {

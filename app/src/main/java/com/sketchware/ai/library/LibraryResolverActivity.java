@@ -890,6 +890,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         if (!outcome.enabled.isEmpty()) s.append("Switched on in this project: ").append(join(outcome.enabled)).append('\n');
         if (!outcome.replaced.isEmpty()) s.append("Switched off (other version): ").append(join(outcome.replaced)).append('\n');
         if (!outcome.failed.isEmpty()) s.append("Failed: ").append(join(outcome.failed)).append('\n');
+        for (String warning : outcome.warnings) s.append(warning).append('\n');
         for (String note : plan.notes) if (!note.startsWith("No answer")) s.append(note).append('\n');
         for (String problem : plan.problems) s.append(problem).append('\n');
         return s.toString();
@@ -1153,15 +1154,17 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 FileUtil.deleteFile(staging.getAbsolutePath());
                 return shown + ": couldn't move it into " + dir;
             }
+            String bundled = MavenFetcher.bundledJarsWarning(name, dir);
+            String warning = bundled == null ? "" : "\n\n" + bundled;
             if (scId != null) {
                 ArrayList<HashMap<String, Object>> libraries = LibraryInstaller.enabled(scId);
-                if (libraries == null) return name + " installed; the project's local library list can't be read, so it isn't switched on";
+                if (libraries == null) return name + " installed; the project's local library list can't be read, so it isn't switched on" + warning;
                 if (!contains(libraries, name)) libraries.add(LibraryInstaller.entry(name));
                 LibraryInstaller.save(scId, libraries);
                 setResult(RESULT_OK);
-                return name + " installed and switched on in this project";
+                return name + " installed and switched on in this project" + warning;
             }
-            return name + " installed";
+            return name + " installed" + warning;
         });
     }
 
