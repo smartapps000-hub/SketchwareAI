@@ -833,7 +833,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 else if (MavenResolver.compareVersions(latest, gav[2]) > 0) found.put(lib.name, latest);
                 else current.add(lib.name);
             }
-            if (MavenResolver.cancelledHere()) return "Cancelled. Nothing was changed: tap Check for updates to check again.";
+            if (MavenResolver.cancelledHere()) return "Nothing was changed: tap Check for updates to check again.";
             runOnUiThread(() -> {
                 updates.clear();
                 updates.putAll(found);

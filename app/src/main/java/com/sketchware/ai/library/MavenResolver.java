@@ -211,9 +211,12 @@ public final class MavenResolver {
         if (!rootMissing || plan.offline) return plan;   // offline: nothing else can be asked either
         boolean gitHosted = gav[0].startsWith("com.github.") || gav[0].startsWith("io.github.")
                 || gav[0].startsWith("com.gitlab.") || gav[0].startsWith("org.bitbucket.");
+        List<String> pomPaths = new ArrayList<>();
+        pomPaths.add("/" + path(gav[0], gav[1], gav[2], "pom"));
         if (gitHosted) {
             String other = gav[2].startsWith("v") && gav[2].length() > 1 && Character.isDigit(gav[2].charAt(1))
                     ? gav[2].substring(1) : "v" + gav[2];
+            pomPaths.add("/" + path(gav[0], gav[1], other, "pom"));
             Plan retry = resolveExactly(gav[0] + ":" + gav[1] + ":" + other);
             retry.log.addAll(0, plan.log);
             if (retry.root != null && !retry.problems.contains("Not found in the repositories: " + gav[0] + ":" + gav[1] + ":" + other)) {
@@ -222,6 +225,8 @@ public final class MavenResolver {
             }
             plan.log.clear();
             plan.log.addAll(retry.log);
+            // why the other spelling wasn't found either (JitPack building it, a time-out) belongs in the report too
+            for (String note : retry.notes) if (note.startsWith("No answer") && !plan.notes.contains(note)) plan.notes.add(note);
             if (retry.cancelled) {
                 plan.cancelled = true;
                 return plan;
@@ -229,10 +234,12 @@ public final class MavenResolver {
         }
         // only when every repository said the POM isn't there (404): a time-out or JitPack's "building" (202) on the POM
         // must not install the library without what it needs
-        String pomPath = "/" + path(gav[0], gav[1], gav[2], "pom");
         for (String line : plan.log) {
-            if (line.contains(pomPath + " →") && !line.endsWith("→ 404 not there")) return plan;
+            for (String pomPath : pomPaths) {
+                if (line.contains(pomPath + " →") && !line.endsWith("→ 404 not there")) return plan;
+            }
         }
+        for (String problem : plan.problems) if (problem.startsWith("Unreadable POM of " + gav[0] + ":" + gav[1] + ":")) return plan;
         Plan direct = directArchive(gav, plan);
         return direct != null ? direct : plan;
     }
