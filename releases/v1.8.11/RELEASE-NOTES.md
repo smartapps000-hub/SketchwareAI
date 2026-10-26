@@ -74,7 +74,19 @@ recorded in `engineering/known-errors.json` with cause, repair and how they were
 
 ## Checked
 
-CHECKED
+On this APK's own classes on the Android 12 (API 31) ART runtime, on the PC's JVM against the real repositories, and
+with layoutlib (no phone; details: `engineering/v1.8.11-verification.md`):
+- the #659 shape: a statement in the class body is refused; one stored the old way (it made the build fail with the
+  same ECJ errors as the owner's project) is removed by deleting its line, and the project builds again (fixture 919,
+  58/58 checks, Run build ok);
+- Library Resolver install + Run build (920), the ESCPOS library (922), Run build of the Material 3 projects and the
+  five templates (908, 913-918): 14 steps, 0 warnings each; every class of every built app loads (LoadAll); the Java
+  editor opens and saves 10 projects unchanged;
+- DantSu 3.4.0 and `v3.4.0` resolved from JitPack; a JCenter-only search through its redirect; an unreachable
+  repository asked once; GitHub/JitPack links; search filter; card names and links; the APK download links (curl);
+- the cards, Updates tab and progress dialog rendered with layoutlib;
+- four separate reviews of the code; their findings fixed (among them: every download failing on the minApi21 flavour
+  on Android 5-6, and an automatic merge of an .aar's bundled jars that would have broken builds; it was dropped).
 
 **Not run here:** the Library Resolver and design editor screens (Activities), downloads on the phone's network, the
 minApi21 flavour. Please check on the phone: + Add with `https://github.com/DantSu/ESCPOS-ThermalPrinter-Android`,
