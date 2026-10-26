@@ -1,6 +1,6 @@
 # Sketchware AI v1.8.11
 
-versionCode 181, versionName `v1.8.11-COMMIT-minApi26`. Installs over v1.8.10 (same test key). A fix release.
+versionCode 181, versionName `v1.8.11-48736e1-minApi26`. Installs over v1.8.10 (same test key). A fix release.
 
 ## Download (read this if the last APK "appears to be invalid")
 
@@ -12,7 +12,7 @@ to give the full file:
 - https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.11.apk (the *Download raw
   file* button on the file's GitHub page goes there too)
 
-The file is SIZE bytes; anything a few hundred bytes long is the pointer.
+The file is 138,494,517 bytes; anything a few hundred bytes long is the pointer.
 
 ## Library Resolver
 
@@ -82,4 +82,4 @@ the Updates tab after an update, and the ID button on a CardView.
 
 ## Files
 
-`apk/Sketchware_AI_v1.8.11.apk` (SIZE bytes, sha256 `SHA`) on the repository's `binaries` branch (one file, Git LFS).
+`apk/Sketchware_AI_v1.8.11.apk` (138494517 bytes, sha256 `e95e22ec…2344ce27`) on the repository's `binaries` branch (one file, Git LFS).
