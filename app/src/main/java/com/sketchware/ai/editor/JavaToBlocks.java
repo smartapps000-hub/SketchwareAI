@@ -1322,7 +1322,8 @@ public final class JavaToBlocks {
             else if (c == '(' || c == '{' || c == '[') depth++;
             else if (c == ')' || c == '}' || c == ']') depth--;
             else if (c == '<' && i > 0 && Character.isJavaIdentifierPart(value.charAt(i - 1)) && i + 1 < value.length()
-                    && (Character.isUpperCase(value.charAt(i + 1)) || value.charAt(i + 1) == '?' || value.charAt(i + 1) == '>')) {
+                    && (Character.isJavaIdentifierStart(value.charAt(i + 1)) || value.charAt(i + 1) == '?'
+                    || value.charAt(i + 1) == '>' || value.charAt(i + 1) == '[')) {
                 angle++;   // type arguments: new HashMap<String, Integer>()
             } else if (c == '>' && angle > 0) angle--;
             else if (c == ',' && depth == 0 && angle == 0 && next.region(i + 1, value.length()).lookingAt()) return true;
