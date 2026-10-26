@@ -178,7 +178,8 @@ public final class MavenResolver {
         if (!m.matches()) m = JITPACK_LINK.matcher(t);
         if (m.matches()) {
             String version = m.group(3);
-            if (version != null && !version.isEmpty() && !version.matches(".*\\d.*") && !version.matches("[0-9a-f]{7,40}")) {
+            if (version != null && !version.isEmpty() && t.matches("(?i).*github\\.com/[^/]+/[^/]+/tree/.*")
+                    && !version.matches(".*\\d.*") && !version.endsWith("-SNAPSHOT")) {
                 version += "-SNAPSHOT";   // a branch (tree/main): JitPack builds it as main-SNAPSHOT
             }
             return new String[]{"com.github." + m.group(1), m.group(2), version == null || version.isEmpty() ? null : version};
@@ -195,6 +196,7 @@ public final class MavenResolver {
 
     private Plan resolveExactly(String coordinate) {
         Plan plan = new Plan();
+        requests = failures = 0;   // offline is about this plan's requests
         String[] gav = MavenFetcher.parse(coordinate);
         if (gav == null) {
             plan.problems.add("Not a Maven coordinate: " + coordinate + " (use group:artifact:version)");
@@ -696,20 +698,24 @@ public final class MavenResolver {
     }
 
     /**
-     * v1.8.11: repositories that didn't answer at all (time-out, unknown host, refused, TLS) or refuse every request
-     * (HTTP 401/403) are not asked again by this resolver: one dead repository in the list no longer costs 20 seconds
-     * per POM.
+     * v1.8.11: a repository that can't be reached at all (unknown host, connection refused, connect time-out, TLS
+     * handshake) is not asked again by this resolver (one action of the Library Resolver): one dead repository in the
+     * list no longer costs 20 seconds per POM. Answers about one artifact (HTTP 401/403, which JitPack gives for a
+     * missing repository, a read time-out while JitPack builds, 202) don't count: they say nothing about the others.
+     * Each plan that skips it says so once.
      */
-    private final Set<String> deadRepositories = new HashSet<>();
+    private final Map<String, String> deadRepositories = new HashMap<>();
 
     private byte[] get(String url, Plan plan) {
         String repository = repositoryOf(url);
-        if (repository != null && deadRepositories.contains(repository)) {
-            requests++;
+        requests++;
+        String dead = repository == null ? null : deadRepositories.get(repository);
+        if (dead != null) {
             failures++;
+            String note = "No answer from " + repository + " (not asked again in this search): " + dead;
+            if (plan != null && !plan.notes.contains(note) && plan.problems.size() < 40) plan.notes.add(note);
             return null;
         }
-        requests++;
         try {
             return source.fetch(url);
         } catch (IOException e) {
@@ -718,24 +724,23 @@ public final class MavenResolver {
             if (e instanceof java.net.UnknownHostException) message = "unknown host (no connection, or the address is wrong): " + message;
             else if (e instanceof java.net.SocketTimeoutException) message = "timed out: " + message;
             else if (e instanceof java.net.ConnectException) message = "connection refused: " + message;
-            boolean dead = e instanceof java.net.SocketTimeoutException || e instanceof java.net.UnknownHostException
-                    || e instanceof java.net.ConnectException || e instanceof javax.net.ssl.SSLException
-                    || message.startsWith("HTTP 401") || message.startsWith("HTTP 403");
-            if (dead && repository != null) {
-                deadRepositories.add(repository);
-                message += " (not asked again in this search)";
-            }
+            boolean unreachable = e instanceof java.net.UnknownHostException || e instanceof java.net.ConnectException
+                    || e instanceof javax.net.ssl.SSLHandshakeException
+                    || e instanceof java.net.SocketTimeoutException && String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT).contains("connect");
+            if (unreachable && repository != null) deadRepositories.put(repository, message);
             if (plan != null && plan.problems.size() < 40) plan.notes.add("No answer from " + url + ": " + message);
             return null;
         }
     }
 
+    /** The configured repository a URL belongs to: the longest base it starts with. */
     private String repositoryOf(String url) {
+        String best = null;
         for (String[] repo : repositories) {
             String b = base(repo[1]);
-            if (url.startsWith(b + "/")) return b;
+            if (url.startsWith(b + "/") && (best == null || b.length() > best.length())) best = b;
         }
-        return null;
+        return best;
     }
 
     /** v1.8.11: bytes of the current download (set per worker thread by the Library Resolver's progress dialog). */
@@ -778,6 +783,9 @@ public final class MavenResolver {
                 }
                 if (code == 404 || code == 410) return null;
                 if (code == 202) throw new IOException("JitPack is still building this version (HTTP 202): try again in a minute");
+                if (code == 401 && target.getHost().endsWith("jitpack.io")) {
+                    throw new IOException("HTTP 401: JitPack has no such GitHub repository (deleted, private or renamed)");
+                }
                 if (code >= 300) throw new IOException("HTTP " + code);
                 // Content-Length read by hand: getContentLengthLong() is API 24 (the minApi21 flavour runs on 5.0+)
                 long total = -1;

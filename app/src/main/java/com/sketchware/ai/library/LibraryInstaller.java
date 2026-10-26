@@ -96,6 +96,8 @@ public final class LibraryInstaller {
                     outcome.installed.add(name);
                 }
                 LibraryNeeds needs = LibraryNeeds.create(a.coordinate());
+                LibraryNeeds unpacked = LibraryNeeds.read(dir);   // v1.8.11: built-in libraries its bundled jars needed
+                if (unpacked != null) needs.builtIn.addAll(unpacked.builtIn);
                 for (String need : a.needs) {
                     String[] gav = need.split(":");
                     String key = gav[0] + ":" + gav[1];

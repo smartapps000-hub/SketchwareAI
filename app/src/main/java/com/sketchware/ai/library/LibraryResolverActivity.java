@@ -824,7 +824,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 checkedLatest.addAll(current);
                 updatesChecked = true;
             });
-            if (unanswered > 0) return unanswered + " of " + libs.size() + " libraries couldn't be checked (no repository listed their versions).";
+            if (unanswered > 0) return unanswered + " of " + libs.size() + " libraries couldn't be checked: no repository "
+                    + "listed a stable version of them (no answer, or only alpha / beta / rc versions).";
             return null;
         });
     }

@@ -231,38 +231,25 @@ public final class MavenFetcher {
     /**
      * v1.8.11: an .aar's libs/*.jar are part of the library (classes it bundles), but a local library is only its
      * classes.jar + classes.dex: they are merged into classes.jar (the library's own class wins over a bundled copy;
-     * service files are joined), so they compile and are dexed with it. A bundled jar with classes of a library that
-     * Sketchware AI has built in or that is usually its own library (support/androidx, Gson, OkHttp/Okio, Kotlin,
-     * Material, Firebase, Play services) is not merged: the build would see those classes twice ("defined multiple
-     * times"). It stays in libs/ and is named in libs/NOT_MERGED.txt.
+     * service files are joined), so they compile and are dexed with it. Classes of a library Sketchware AI has built in
+     * (Gson, OkHttp, Okio, Kotlin, coroutines, Glide, Material, androidx.annotation) are left out and that built-in
+     * library is recorded in needs.json instead: the build adds it, and the classes aren't there twice ("defined
+     * multiple times").
      */
     static void mergeNestedJars(File libDir) throws IOException {
         File libs = new File(libDir, "libs");
         File[] jars = libs.listFiles((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".jar"));
         if (jars == null || jars.length == 0) return;
         java.util.Arrays.sort(jars);
-        List<File> merge = new ArrayList<>();
-        StringBuilder skipped = new StringBuilder();
-        for (File jar : jars) {
-            String shared = isZip(jar) ? sharedPackage(jar) : "not a jar";
-            if (shared == null) merge.add(jar);
-            else skipped.append(jar.getName()).append(": ").append(shared).append('\n');
-        }
-        if (skipped.length() > 0) {
-            try (OutputStream out = new FileOutputStream(new File(libs, "NOT_MERGED.txt"))) {
-                out.write(("Bundled jars left out of classes.jar (their classes come from another library):\n" + skipped)
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            }
-        }
-        if (merge.isEmpty()) return;
         File classes = new File(libDir, "classes.jar");
         File merged = new File(libDir, "classes.jar.merging");
         Set<String> seen = new HashSet<>();
+        Set<String> builtIn = new java.util.LinkedHashSet<>();
         java.util.Map<String, java.io.ByteArrayOutputStream> services = new java.util.LinkedHashMap<>();
         byte[] buffer = new byte[16384];
         try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(merged))) {
-            copyEntries(classes, out, seen, services, buffer);
-            for (File jar : merge) copyEntries(jar, out, seen, services, buffer);
+            copyEntries(classes, out, seen, services, null, buffer);
+            for (File jar : jars) if (isZip(jar)) copyEntries(jar, out, seen, services, builtIn, buffer);
             for (java.util.Map.Entry<String, java.io.ByteArrayOutputStream> service : services.entrySet()) {
                 out.putNextEntry(new ZipEntry(service.getKey()));
                 service.getValue().writeTo(out);
@@ -276,30 +263,33 @@ public final class MavenFetcher {
             merged.delete();
             throw new IOException("couldn't merge " + libs + " into classes.jar");
         }
-        for (File jar : merge) jar.delete();
+        for (File jar : jars) jar.delete();
         libs.delete();   // only when empty
+        if (!builtIn.isEmpty()) {
+            LibraryNeeds needs = LibraryNeeds.read(libDir);
+            if (needs == null) needs = LibraryNeeds.create(null);
+            for (String constant : builtIn) if (!needs.builtIn.contains(constant)) needs.builtIn.add(constant);
+            needs.write(libDir);
+        }
     }
 
-    /** Packages whose classes come with Sketchware AI's built-in libraries or are their own Maven libraries. */
-    private static final String[] SHARED_PACKAGES = {"android/support/", "androidx/", "com/google/gson/", "okhttp3/",
-            "okio/", "com/squareup/okhttp/", "kotlin/", "kotlinx/", "org/jetbrains/annotations/", "org/intellij/",
-            "com/google/android/material/", "com/google/firebase/", "com/google/android/gms/", "com/bumptech/glide/",
-            "javax/annotation/", "com/google/errorprone/", "com/google/common/"};
+    /** Package → built-in library (BuiltInCoordinates names); kotlinx/coroutines before kotlin/. */
+    private static final String[][] BUILT_IN_PACKAGES = {
+            {"com/google/gson/", "GSON"}, {"okhttp3/", "OKHTTP"}, {"okio/", "OKIO"},
+            {"kotlinx/coroutines/", "KOTLINX_COROUTINES_CORE"}, {"kotlin/", "KOTLIN_STDLIB"},
+            {"com/bumptech/glide/", "GLIDE"}, {"com/google/android/material/", "MATERIAL"},
+            {"androidx/annotation/", "ANDROIDX_ANNOTATION"}};
 
-    /** The first shared package a jar has classes in, or null. */
-    private static String sharedPackage(File jar) throws IOException {
-        try (ZipInputStream zip = new ZipInputStream(new FileInputStream(jar))) {
-            ZipEntry e;
-            while ((e = zip.getNextEntry()) != null) {
-                if (!e.getName().endsWith(".class")) continue;
-                for (String p : SHARED_PACKAGES) if (e.getName().startsWith(p)) return p.replace('/', '.') + "*";
-            }
-        }
+    /** The built-in library that has this class, or null. */
+    static String builtInFor(String entry) {
+        for (String[] row : BUILT_IN_PACKAGES) if (entry.startsWith(row[0])) return row[1];
         return null;
     }
 
+    /** @param builtIn null for the library's own classes.jar; else collects the built-in libraries whose classes were left out */
     private static void copyEntries(File jar, ZipOutputStream out, Set<String> seen,
-                                    java.util.Map<String, java.io.ByteArrayOutputStream> services, byte[] buffer) throws IOException {
+                                    java.util.Map<String, java.io.ByteArrayOutputStream> services, Set<String> builtIn,
+                                    byte[] buffer) throws IOException {
         try (ZipInputStream zip = new ZipInputStream(new FileInputStream(jar))) {
             ZipEntry e;
             while ((e = zip.getNextEntry()) != null) {
@@ -316,6 +306,13 @@ public final class MavenFetcher {
                     int r;
                     while ((r = zip.read(buffer)) != -1) joined.write(buffer, 0, r);
                     continue;
+                }
+                if (builtIn != null && name.endsWith(".class")) {
+                    String constant = builtInFor(name);
+                    if (constant != null) {
+                        builtIn.add(constant);
+                        continue;
+                    }
                 }
                 if (!seen.add(name)) continue;
                 out.putNextEntry(new ZipEntry(name));

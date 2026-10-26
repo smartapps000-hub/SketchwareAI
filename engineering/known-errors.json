@@ -394,9 +394,9 @@
     {
       "fingerprint": "Design editor / Java editor: toast 'Found invalid data of Custom Variable #1: \"button1.setText(\"AiTechApp\")\"' (project #659)",
       "rootCause": "JavaToBlocks classified any class-body line ending in ';' as a field: a statement typed outside a method was stored as a type-6 custom variable and generated back into the class body (ECJ syntax error, editor toast)",
-      "repair": "v1.8.11: JavaToBlocks.isFieldDeclaration refuses class-body text that isn't type name [= value] (calls, a keyword as name, nothing after '='), with a message saying statements go inside an event or MoreBlock; the editor toast says how to remove an old one (Edit Java code, delete the line, Save as blocks); the crash screen knows the text",
+      "repair": "v1.8.11: JavaToBlocks.isFieldDeclaration refuses class-body text that isn't one declaration (type name [= value]): calls, keywords as names, nothing after '=', several names (int a, b: one field per line, the logic editor shows one block per custom variable), with a message saying statements go inside an event or MoreBlock; deleting the line of an invalid one in Edit Java code and saving removes it (found by its generated line); the logic editor's toast says so",
       "scope": "Java editor save; projects saved with v1.8.8-v1.8.10",
-      "verifiedOn": "JVM unit test (13 declarations kept, 10 statements refused); ART fixture 919 section 17",
+      "verifiedOn": "JVM unit tests (declarations incl. Telugu/Hindi names kept, statements and several names refused); ART fixture 919 section 17 (refused, then an invalid stored one removed and the project builds)",
       "permanent": true
     },
     {
@@ -418,7 +418,7 @@
     {
       "fingerprint": "Library Resolver + Add: 'Not found in the repositories: com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.4.0' on the phone",
       "rootCause": "found from the PC (JitPack 200, exact and lower case). On the phone the reason was hidden: repository errors were kept as notes starting 'No answer' and the dialog filtered them out; HttpURLConnection doesn't follow redirects to another protocol/host (JCenter 301, Sonatype 302, Atlassian 301); a tag spelled v3.4.0 vs 3.4.0 is another JitPack version",
-      "repair": "v1.8.11: redirects followed by hand (6 hops), JitPack 202 reported as 'still building', a com.github version retried with/without 'v', the not-found message lists the repositories that didn't answer and why plus JitPack build log and Releases links; + Add takes GitHub and JitPack links",
+      "repair": "v1.8.11: redirects followed by hand (6 hops), JitPack 202 reported as 'still building', a com.github version retried with/without 'v', the not-found message lists the repositories that didn't answer and why plus JitPack build log and Releases links; + Add takes GitHub and JitPack links; a repository that can't be reached (unknown host, refused, connect time-out, TLS handshake) is asked once per search, not once per POM; JitPack's HTTP 401 is explained (no such GitHub repository); https never redirected down to http",
       "scope": "Library Resolver",
       "verifiedOn": "JVM against the real repositories (DantSu 3.4.0 and v3.4.0, JCenter-only resolve through its redirect); the phone's network: not run",
       "permanent": true
@@ -434,7 +434,7 @@
     {
       "fingerprint": "Library from an .aar with libs/*.jar inside: classes of those jars missing at compile time / NoClassDefFoundError at run time",
       "rootCause": "a local library is its classes.jar + classes.dex; the jars an .aar bundles in libs/ were extracted but never used",
-      "repair": "v1.8.11: MavenFetcher merges libs/*.jar into classes.jar at install (the library's own class wins, signatures and module-info left out), as Gradle packages them; a release zip with several archives installs its .aar; a source zip or POM-only artifact gets a message with JitPack/Releases links",
+      "repair": "v1.8.11: MavenFetcher merges libs/*.jar into classes.jar at install (the library's own class wins; signatures and module-info left out; META-INF/services joined); classes of a library Sketchware AI has built in (Gson, OkHttp, Okio, Kotlin, coroutines, Glide, Material, androidx.annotation) are left out and that library is written to needs.json so the build adds the built-in copy; a release zip with several archives installs its .aar; a source zip or POM-only artifact gets a message with JitPack/Releases links",
       "scope": "Library Resolver installs and imports from v1.8.11 on (earlier installs unchanged)",
       "verifiedOn": "JVM unit test",
       "permanent": true

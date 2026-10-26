@@ -1236,13 +1236,13 @@ public final class JavaToBlocks {
             "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private",
             "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
             "throw", "throws", "transient", "try", "void", "volatile", "while", "true", "false", "null", "var"));
-    private static final String ID = "[\\p{L}_$][\\p{L}\\p{N}_$]*";   // Java identifiers, not only ASCII
+    // Java identifiers, not only ASCII: Telugu/Hindi vowel signs are combining marks (\p{M})
+    private static final String ID = "[\\p{L}\\p{Nl}_$][\\p{L}\\p{M}\\p{N}\\p{Pc}_$]*";
     private static final Pattern FIELD_HEAD = Pattern.compile(
             "((?:(?:public|protected|private|static|final|transient|volatile)\\s+)*)"   // modifiers
             + "(" + ID + "(?:\\s*\\.\\s*" + ID + ")*"                                     // type name
-            + "(?:\\s*<[\\p{L}\\p{N}_$\\s,.?<>\\[\\]&]*>)?(?:\\s*\\[\\s*\\])*)"          // generics, arrays
-            + "\\s+(" + ID + ")(?:\\s*\\[\\s*\\])*"                                         // name
-            + "(?:\\s*,\\s*" + ID + "(?:\\s*\\[\\s*\\])*)*");                                // int a, b (= 0)
+            + "(?:\\s*<[\\p{L}\\p{M}\\p{N}_$\\s,.?<>\\[\\]&]*>)?(?:\\s*\\[\\s*\\])*)"          // generics, arrays
+            + "\\s+(" + ID + ")(?:\\s*\\[\\s*\\])*");                                       // name
 
     /**
      * v1.8.11: whether a stored declaration (no ';') is one field the logic editor can read: modifiers, a type and one
@@ -1266,6 +1266,7 @@ public final class JavaToBlocks {
         }
         String head = (equals < 0 ? text : text.substring(0, equals)).trim();
         if (equals >= 0 && text.substring(equals + 1).trim().isEmpty()) return false;
+        if (severalNames(head, equals < 0 ? "" : text.substring(equals + 1))) return false;
         Matcher m = FIELD_HEAD.matcher(head);
         if (!m.matches()) return false;
         String type = m.group(2).replaceAll("\\s+", "");
@@ -1276,8 +1277,45 @@ public final class JavaToBlocks {
     }
 
     private static String notAField(String text) {
+        String head = text.trim();
+        int eq = head.indexOf('=');
+        if (severalNames(eq < 0 ? head : head.substring(0, eq), eq < 0 ? "" : head.substring(eq + 1))) {
+            return "Declare one field per line (" + head + "): the logic editor shows each custom variable as one "
+                    + "block, so int a, b; is written int a; and int b; on two lines.";
+        }
         return "This isn't a field declaration (type, name, optionally = value): " + text.trim()
                 + ". Statements go inside a method: an event (onCreate, a click) or a MoreBlock.";
+    }
+
+    /**
+     * v1.8.11: int a, b / int a = 1, b = 2: a comma between names (outside &lt;&gt;) or ", name =" outside brackets,
+     * strings and generics in the value.
+     */
+    private static boolean severalNames(String head, String value) {
+        int angle = 0;
+        for (int i = 0; i < head.length(); i++) {
+            char c = head.charAt(i);
+            if (c == '<') angle++;
+            else if (c == '>') angle--;
+            else if (c == ',' && angle == 0) return true;
+        }
+        int depth = 0;
+        boolean inString = false, inChar = false;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (inString || inChar) {
+                if (c == '\\') i++;
+                else if (inString && c == '"') inString = false;
+                else if (inChar && c == '\'') inChar = false;
+                continue;
+            }
+            if (c == '"') inString = true;
+            else if (c == '\'') inChar = true;
+            else if (c == '(' || c == '{' || c == '[') depth++;
+            else if (c == ')' || c == '}' || c == ']') depth--;
+            else if (c == ',' && depth == 0 && value.substring(i + 1).matches("\\s*" + ID + "\\s*=(?!=)[\\s\\S]*")) return true;
+        }
+        return false;
     }
 
     private static List<String> trimmedLines(JavaMembers f, int from, int to) {
