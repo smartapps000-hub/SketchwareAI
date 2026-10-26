@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.8.10** (versionCode 180). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.8.11** (versionCode 181). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,7 +27,7 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.8.9)
+## Shipped (v1.0 – v1.8.11)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -47,6 +47,7 @@ Everything in this section is in the released APK and was exercised as described
 | Export of local libraries | Export to Android Studio includes the project's local libraries: by Maven coordinate in `build.gradle` when known, else as `.jar` / `.aar` files in `app/libs` | v1.8.8 |
 | Java statements to blocks | Saving the Java editor turns statements a block writes (setText, setVisible, setEnabled/Clickable/Checked, requestFocus, Toast, setTitle, set/increase/decrease variables, Intent setScreen/putExtra, StartActivity, Finish) into those blocks instead of add-source blocks, when the block generates exactly the typed line | v1.8.9 |
 | Library Resolver 2 | Search as you type; `group:artifact` queries Maven Central by field (no HTTP 400) and Google Maven / JitPack by coordinate; `import pkg.*;` added to generated activities for local-library classes the code uses (skipped when it would make a name ambiguous); (i) per library: POM description, licence, project page, manifest permissions, packages, Copy import (offline) | v1.8.9 |
+| Library Resolver 3 | One card per library: readable name (POM name, or the artifact made readable) with a version badge, the coordinate, (i), Share (GitHub / project page), Latest / Update, Delete, switched on; long names scroll. Sort A to Z or updates & newest first. + Add also takes a GitHub or JitPack link (newest version JitPack built, or the tag in the link); a com.github version is tried with and without a leading `v`; repositories that redirect (301/302 to another host) are followed; when nothing is found the dialog lists the repositories that didn't answer and why. Progress dialog with the step (POM, archive, D8) and the bytes of the download. Search shows only .aar / .jar libraries (no WebJars, npm, Kotlin/JS or native, BOMs). An .aar's bundled `libs/*.jar` are merged into its classes.jar. After an update, the old version is listed under *Older versions* instead of offering the same update again | v1.8.11 |
 | Material 3 tags | MaterialCardView (elevated) and MaterialToolbar in Material 3 projects; Project Configuration → *Convert to Material 3 & Modern Stack* for older projects (target 37, min 21, AppCompat, Material 3, D8 + Java 11) | v1.8.9 |
 | Code tab | Fourth design editor tab: the project's activities (→ Java editor) and its own Java/Kotlin files; + New class | v1.8.8 |
 | Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |
@@ -139,7 +140,7 @@ Output: `app/build/outputs/apk/minApi26/debug/app-minApi26-debug.apk`.
 | `kotlinc/` | the embedded Kotlin compiler module (GPL-3.0, from CodeAssist) |
 | `engineering/` | verified state of the fork, per-release verification records, test fixtures, compatibility matrix, known errors |
 | `tools/` | Android runtime harness, layoutlib renders, static aapt2 build, built-in library packaging, APK scans, JVM tests |
-| `releases/` | release notes and SHA-256 sums per release. The APKs (about 138 MB) are not in this branch: they are on the `binaries` branch (up to v1.8.8 as 7z parts; since v1.8.9 one full APK in `apk/`, stored with Git LFS because GitHub refuses normal files over 100 MB) |
+| `releases/` | release notes and SHA-256 sums per release. The APKs (about 138 MB) are not in this branch: they are on the `binaries` branch (up to v1.8.8 as 7z parts; since v1.8.9 one full APK in `apk/`, stored with Git LFS because GitHub refuses normal files over 100 MB). Download them with the *Download raw file* button or `https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/<file>`: a `raw.githubusercontent.com` link gives the 134-byte LFS pointer text, which Android reports as "package appears to be invalid" |
 
 ## Credits
 

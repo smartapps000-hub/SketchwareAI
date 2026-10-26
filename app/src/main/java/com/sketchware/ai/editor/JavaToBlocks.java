@@ -380,6 +380,16 @@ public final class JavaToBlocks {
     private void planRemoved(JavaMembers g, JavaMembers.Member gm, JavaMembers e, Result result) {
         if (gm.kind == JavaMembers.FIELD) {
             int variable = variableFor(gm.name);
+            if (variable < 0) {
+                // v1.8.11: a custom variable that isn't a declaration (a statement stored by v1.8.8-v1.8.10, e.g.
+                // button1.setText("AiTechApp")) has no name to find it by: it is found by its generated line
+                variable = customVariableWithText(String.join(" ", g.canonical(gm)));
+                if (variable >= 0) {
+                    variableRemovals.add(variable);
+                    result.changes.add("Custom variable removed: " + data.variables(javaName).get(variable).second);
+                    return;
+                }
+            }
             if (variable >= 0) {
                 variableRemovals.add(variable);
                 removedNames.add(gm.name);
@@ -1137,6 +1147,21 @@ public final class JavaToBlocks {
             Pair<Integer, String> v = variables.get(k);
             if (v.first == VAR_IMPORT) continue;
             if (name.equals(variableName(v))) return k;
+        }
+        return -1;
+    }
+
+    /** The custom variable (type 6) the class body shows as this text (the stored text + ";"), or -1. */
+    private int customVariableWithText(String generated) {
+        String text = generated.trim().replaceAll("\\s+", " ");
+        if (text.endsWith(";")) text = text.substring(0, text.length() - 1).trim();
+        ArrayList<Pair<Integer, String>> variables = data.variables(javaName);
+        for (int k = 0; k < variables.size(); k++) {
+            Pair<Integer, String> v = variables.get(k);
+            if (v.first != VAR_CUSTOM || v.second == null) continue;
+            String stored = v.second.trim().replaceAll("\\s+", " ");
+            if (stored.endsWith(";")) stored = stored.substring(0, stored.length() - 1).trim();
+            if (stored.equals(text)) return k;
         }
         return -1;
     }

@@ -454,7 +454,7 @@ public class JavaEdit {
         l.remove(find(l, "button1.setText(\"AiTechApp\");", 0));
         r = save(join(l));
         boolean gone = true;
-        for (Object v : ((HashMap<String, ArrayList<Object>>) get(proj, "e")).get(JAVA)) gone &= !String.valueOf(get(v, "second")).contains("setText");
+        for (Object variable : ((HashMap<String, ArrayList<Object>>) get(proj, "e")).get(JAVA)) gone &= !String.valueOf(get(variable, "second")).contains("setText");
         check("invalid custom variable removed by deleting its line", ok(r) && gone, report(r));
 
         // 9. the generated code is now what was saved; an edit to it saves again

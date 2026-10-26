@@ -382,6 +382,62 @@
       "scope": "generated layouts of Material 3 projects",
       "verifiedOn": "ART fixture 913 (textinputlayout9/edittext9)",
       "permanent": true
+    },
+    {
+      "fingerprint": "Release download: \"App not installed as package appears to be invalid\" for apk/Sketchware_AI_v<ver>.apk",
+      "rootCause": "the APK is stored with Git LFS on the binaries branch; raw.githubusercontent.com/<owner>/<repo>/binaries/apk/<file> serves the 134-byte LFS pointer text, not the APK",
+      "repair": "v1.8.11: README, binaries README and release notes give the media.githubusercontent.com link (and github.com/<owner>/<repo>/raw/binaries/...), which redirect to the 138 MB binary; checked with curl: PK header from both, pointer text from raw.githubusercontent.com",
+      "scope": "delivery only; nothing in the app can detect it (the file never installs)",
+      "verifiedOn": "curl against GitHub, 26 Oct 2026 (v1.8.10 file)",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Design editor / Java editor: toast 'Found invalid data of Custom Variable #1: \"button1.setText(\"AiTechApp\")\"' (project #659)",
+      "rootCause": "JavaToBlocks classified any class-body line ending in ';' as a field: a statement typed outside a method was stored as a type-6 custom variable and generated back into the class body (ECJ syntax error, editor toast)",
+      "repair": "v1.8.11: JavaToBlocks.isFieldDeclaration refuses class-body text that isn't type name [= value] (calls, a keyword as name, nothing after '='), with a message saying statements go inside an event or MoreBlock; the editor toast says how to remove an old one (Edit Java code, delete the line, Save as blocks); the crash screen knows the text",
+      "scope": "Java editor save; projects saved with v1.8.8-v1.8.10",
+      "verifiedOn": "JVM unit test (13 declarations kept, 10 statements refused); ART fixture 919 section 17",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Design editor property bar: tapping ID (rename) closes the app on CardView / LinearLayout / custom widgets (NPE or WindowManager reported; no crash log supplied)",
+      "rootCause": "not confirmed (no log). Read from the code: the ID dialog took its screen from the property items, which ViewProperty only refreshed when the widget spinner changed (another screen's ids after a screen switch), cast the context to Activity and used project data that could be unbound",
+      "repair": "v1.8.11: ViewProperty hands the current screen to the items on every refresh; the ID dialog takes project and screen from the property bar, unwraps the Activity, and when there is nothing to check against shows a toast instead of failing; the crash screen names BadTokenException and a PropertyInputItem NPE as known causes",
+      "scope": "design editor (Activity, not run here)",
+      "verifiedOn": "compiled; not reproduced (no log)",
+      "permanent": false
+    },
+    {
+      "fingerprint": "Library Resolver search: WebJars / npm / Kotlin-JS results (org.webjars.npm:…) that can't be installed",
+      "rootCause": "Maven Central search returns every packaging; web and POM-only artifacts have no classes.jar",
+      "repair": "v1.8.11: MavenSearch.usable keeps only empty/aar/jar/bundle packaging and drops org.webjars*, *.npm*, org.mvnpm, -js/-wasm/native/ios/macos/linux/mingw/tvos/watchos, -parent and -bom; keywords lose search operators",
+      "scope": "Library Resolver search",
+      "verifiedOn": "JVM unit test",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Library Resolver + Add: 'Not found in the repositories: com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.4.0' on the phone",
+      "rootCause": "found from the PC (JitPack 200, exact and lower case). On the phone the reason was hidden: repository errors were kept as notes starting 'No answer' and the dialog filtered them out; HttpURLConnection doesn't follow redirects to another protocol/host (JCenter 301, Sonatype 302, Atlassian 301); a tag spelled v3.4.0 vs 3.4.0 is another JitPack version",
+      "repair": "v1.8.11: redirects followed by hand (6 hops), JitPack 202 reported as 'still building', a com.github version retried with/without 'v', the not-found message lists the repositories that didn't answer and why plus JitPack build log and Releases links; + Add takes GitHub and JitPack links",
+      "scope": "Library Resolver",
+      "verifiedOn": "JVM against the real repositories (DantSu 3.4.0 and v3.4.0, JCenter-only resolve through its redirect); the phone's network: not run",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Library Resolver Updates: 'core-v3.4.1 → 3.5.4' offered again after the update installed ('Already installed: core_V_3.5.4')",
+      "rootCause": "an update installs the new version in a new folder and leaves the old one (other projects may use it); the old folder (old downloader naming) still had an older coordinate, so every check offered the same update; enable() matched other versions by folder prefix, which the old naming didn't share",
+      "repair": "v1.8.11: a library of which a newer version of the same group:artifact is installed is listed under 'Older versions' (Delete), not checked or offered again; the update entry is dropped once a version at least as new is installed; enable() switches off other versions by group:artifact",
+      "scope": "Library Resolver",
+      "verifiedOn": "layoutlib render of the tab; logic read; Activity not run",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Library from an .aar with libs/*.jar inside: classes of those jars missing at compile time / NoClassDefFoundError at run time",
+      "rootCause": "a local library is its classes.jar + classes.dex; the jars an .aar bundles in libs/ were extracted but never used",
+      "repair": "v1.8.11: MavenFetcher merges libs/*.jar into classes.jar at install (the library's own class wins, signatures and module-info left out), as Gradle packages them; a release zip with several archives installs its .aar; a source zip or POM-only artifact gets a message with JitPack/Releases links",
+      "scope": "Library Resolver installs and imports from v1.8.11 on (earlier installs unchanged)",
+      "verifiedOn": "JVM unit test",
+      "permanent": true
     }
   ]
 }
