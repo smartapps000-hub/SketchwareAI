@@ -454,6 +454,24 @@
       "checks": [
         "ESCPOS: description, MIT License, project URL, permissions none, 35 classes, 8 package imports"
       ]
+    },
+    {
+      "id": "919 (v1.8.11)",
+      "kind": "javaedit section 17 (JavaEdit.java)",
+      "content": "button1.setText(\"AiTechApp\"); typed into the class body; then a type-6 custom variable holding that statement (what v1.8.8-v1.8.10 stored, project #659) put into the project and the editor reopened",
+      "checks": [
+        "save refused: 'This isn't a field declaration … Statements go inside a method', project unchanged",
+        "the stored statement is generated in the class body (the #659 build failure: ECJ Syntax error on token '.')",
+        "deleting that line and saving removes the custom variable; 58/58 checks; Run build 14 steps"
+      ]
+    },
+    {
+      "id": "render-v1811",
+      "kind": "layoutlib (tools/layoutlib-renders V1811CardTest.kt)",
+      "content": "Library Resolver card (ob_lib_card) in the All tab with the sort bar, the Updates tab with Older versions, the progress dialog's content",
+      "checks": [
+        "image out/lr1811_*.png: name, version badge, coordinate, (i) / Share / status / Delete / switch in one row"
+      ]
     }
   ]
 }
