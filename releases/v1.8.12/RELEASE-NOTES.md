@@ -1,6 +1,6 @@
 # Sketchware AI v1.8.12
 
-versionCode 182, versionName `v1.8.12-COMMIT-minApi26`. Installs over v1.8.11 (same test key). A fix release for the
+versionCode 182, versionName `v1.8.12-1ac854e-minApi26`. Installs over v1.8.11 (same test key). A fix release for the
 Library Resolver.
 
 ## Download
@@ -8,7 +8,7 @@ Library Resolver.
 - https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.8.12.apk
 - https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.12.apk
 
-SIZE bytes. Not a `raw.githubusercontent.com` link: that one gives the 134-byte Git LFS pointer.
+138,500,041 bytes. Not a `raw.githubusercontent.com` link: that one gives the 134-byte Git LFS pointer.
 
 ## Only Google Maven, Maven Central and JitPack
 
@@ -38,10 +38,11 @@ HTTP 401 or not at all, each one with a time-out per POM, which is why Find seem
 Searching "date time" showed `com.github.brunotl:boost_date_time`. That is Boost for the Android NDK: "Prefab" `.aar`
 files with C++ headers and `.so` files, no Java classes. Installing it gave one long paragraph per dependency.
 
-- Search hides results without an `.aar`/`.jar` file, Boost, Prefab, NDK/C++ packages and server artifacts (Vaadin,
-  Spring Boot …), and lists Android libraries (`.aar`) first.
+- Search hides results without an `.aar`/`.jar` file, Boost and Prefab (C++) packages and server artifacts (Vaadin,
+  Spring Boot …). Android libraries named "-ndk" (Sentry, Bugsnag) stay: they have Java classes too.
 - An archive without Android code is left out of an install in **one line**: "Left out, no Android code in them (13):
-  …". At most five failures are shown in full; all of them are in Copy log.
+  …". At most five failures are shown in full; all of them are in Copy log. Such a C++ dependency isn't
+  asked for again in the Required tab.
 
 ## Cards
 
@@ -59,4 +60,4 @@ CHECKED
 
 ## Files
 
-`apk/Sketchware_AI_v1.8.12.apk` (SIZE bytes, sha256 `SHA`) on the repository's `binaries` branch (one file, Git LFS).
+`apk/Sketchware_AI_v1.8.12.apk` (138500041 bytes, sha256 `6acae67c…de03940f`) on the repository's `binaries` branch (one file, Git LFS).
