@@ -2,6 +2,25 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.8.12 (versionCode 182, `v1.8.12-1ac854e-minApi26`)
+
+Library Resolver fix release: only Google Maven, Maven Central and JitPack (JitPack first for GitHub libraries), Find
+with progress, Cancel, Try again and Copy log, Boost / C++ packages left out, GitHub button, green Up to date.
+Release notes: `releases/v1.8.12/RELEASE-NOTES.md` on `main`.
+
+**Download the APK with one of these links** (both give the full 138 MB file):
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.8.12.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.12.apk
+
+Not `raw.githubusercontent.com/…`: that address gives the 134-byte Git LFS pointer text.
+
+| File | sha256 |
+|---|---|
+| `apk/Sketchware_AI_v1.8.12.apk` (138,500,041 bytes) | `6acae67c6e1e447b6f50bd70e7158fe01fb9ca66a306c3b80a4448e9de03940f` |
+| `v1.8.12/SketchwareAI-v1.8.12-patches.zip` (139,805,571 bytes; 88 patches against the upstream zip, `main` at 3119133) | `88d9398ab5be4e3d49600122193d0f1880b3575543d4ed581353a648aff62b97` |
+
+Signed with the public test key, so it installs over v1.8.11.
+
 ## v1.8.11 (versionCode 181, `v1.8.11-48736e1-minApi26`)
 
 Fix release: Library Resolver (cards, sort, progress, GitHub/JitPack links, JitPack "Not found" reasons, update offered
