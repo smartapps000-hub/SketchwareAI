@@ -55,6 +55,9 @@ It is not a device and not ART. Used for:
   `ob_lib_add`), the Java editor (`ob_java_editor`, convertible and read-only; a monospace TextView stands for sora's
   CodeEditor) and the design editor's Code tab (rows as CodeTabFragment builds them). `setup_v188.sh <repo root>` copies
   the layouts and drawables (after `setup_newproject.sh`). Writes `out/lr_*.png`, `out/je_*.png`, `out/code_tab.png`.
+- `V1811CardTest.kt` (v1.8.11): the Library Resolver's library card (`ob_lib_card`) in the All tab with the sort bar,
+  the Updates tab with *Older versions*, and the progress dialog's content (`setup_v188.sh` copies the card layout).
+  A `singleLine` version badge rendered empty here; the badge uses `maxLines=1`.
 
 Setup: `echo sdk.dir=/opt/android-sdk > local.properties`; fonts: `python3 ../art-harness/make-test-fonts.py
 render/src/main/assets/fonts`; helpers: the generated `SketchFonts.java` (FontCode.helperClass("pz.render")), `SketchTextField.java` and
