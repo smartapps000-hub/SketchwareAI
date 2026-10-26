@@ -2,6 +2,27 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.8.11 (versionCode 181, `v1.8.11-48736e1-minApi26`)
+
+Fix release: Library Resolver (cards, sort, progress, GitHub/JitPack links, JitPack "Not found" reasons, update offered
+again after updating), Java editor (statements outside methods stored as custom variables, project #659), ID dialog
+guards. Release notes: `releases/v1.8.11/RELEASE-NOTES.md` on `main`.
+
+**Download the APK with one of these links** (both give the full 138 MB file):
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.8.11.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.11.apk (or open the file on
+  GitHub and tap **Download raw file**)
+
+Not `raw.githubusercontent.com/…`: that address gives the 134-byte Git LFS pointer text, and Android then says
+"App not installed as package appears to be invalid".
+
+| File | sha256 |
+|---|---|
+| `apk/Sketchware_AI_v1.8.11.apk` (138,494,517 bytes) | `e95e22ecb600df57653578e80bc3da91a405fa9d1324d23d509e506c2344ce27` |
+| `v1.8.11/SketchwareAI-v1.8.11-patches.zip` (139,761,426 bytes; 82 patches against the upstream zip, `main` at 38a622a) | `72757c5d03a4013a4ce88057451716406e780d7819aa104d1993b947f38257ae` |
+
+Signed with the public test key, so it installs over v1.8.10.
+
 ## v1.8.10 (versionCode 180, `v1.8.10-23820dd-minApi26`)
 
 Fix release: the design editor crash in projects made from the Material 3 Scaffold template (ClassCastException
