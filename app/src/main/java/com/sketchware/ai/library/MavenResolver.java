@@ -142,7 +142,7 @@ public final class MavenResolver {
         boolean rootMissing = plan.problems.contains("Not found in the repositories: " + id);
         boolean gitHosted = gav[0].startsWith("com.github.") || gav[0].startsWith("io.github.")
                 || gav[0].startsWith("com.gitlab.") || gav[0].startsWith("org.bitbucket.");
-        if (!rootMissing || !gitHosted) return plan;
+        if (!rootMissing || !gitHosted || plan.offline) return plan;   // offline: the other spelling can't be asked either
         String other = gav[2].startsWith("v") && gav[2].length() > 1 && Character.isDigit(gav[2].charAt(1))
                 ? gav[2].substring(1) : "v" + gav[2];
         Plan retry = resolveExactly(gav[0] + ":" + gav[1] + ":" + other);
@@ -160,7 +160,7 @@ public final class MavenResolver {
 
     private static final Pattern GITHUB_LINK = Pattern.compile(
             "(?i)^(?:https?://)?(?:www\\.)?github\\.com/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\\.git)?"
-                    + "(?:/(?:releases/tag|tree|commit)/([^/?#\\s]+))?(?:[/?#].*)?$");
+                    + "(?:/(?:releases/tag|releases/download|tree|commit)/([^/?#\\s]+))?(?:[/?#].*)?$");
     private static final Pattern JITPACK_LINK = Pattern.compile(
             "(?i)^(?:https?://)?(?:www\\.)?jitpack\\.io/#([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:/([^/?#\\s]+))?/?$");
 
@@ -178,6 +178,9 @@ public final class MavenResolver {
         if (!m.matches()) m = JITPACK_LINK.matcher(t);
         if (m.matches()) {
             String version = m.group(3);
+            if (version != null && !version.isEmpty() && !version.matches(".*\\d.*") && !version.matches("[0-9a-f]{7,40}")) {
+                version += "-SNAPSHOT";   // a branch (tree/main): JitPack builds it as main-SNAPSHOT
+            }
             return new String[]{"com.github." + m.group(1), m.group(2), version == null || version.isEmpty() ? null : version};
         }
         String d = t.replaceFirst("^(implementation|api|compile|compileOnly)\\s*\\(?", "")
@@ -509,7 +512,7 @@ public final class MavenResolver {
         List<String> list = new ArrayList<>();
         for (String[] repo : repositories) {
             String url = base(repo[1]) + "/" + group.replace('.', '/') + "/" + name + "/maven-metadata.xml";
-            byte[] data = get(url, null);
+            byte[] data = get(url, plan);
             if (data == null) continue;
             Matcher m = Pattern.compile("<version>\\s*([^<\\s]+)\\s*</version>").matcher(new String(data));
             while (m.find()) list.add(m.group(1));
@@ -520,8 +523,13 @@ public final class MavenResolver {
 
     /** Newest stable version (no alpha/beta/rc/SNAPSHOT/milestone), or null. */
     public String latestStable(String group, String name) {
+        return latestStable(group, name, null);
+    }
+
+    /** @param plan collects "No answer from …" notes, or null */
+    public String latestStable(String group, String name, Plan plan) {
         String best = null;
-        for (String v : versions(group, name, null)) {
+        for (String v : versions(group, name, plan)) {
             if (!stable(v)) continue;
             if (best == null || compareVersions(v, best) > 0) best = v;
         }
@@ -687,15 +695,47 @@ public final class MavenResolver {
         return null;
     }
 
+    /**
+     * v1.8.11: repositories that didn't answer at all (time-out, unknown host, refused, TLS) or refuse every request
+     * (HTTP 401/403) are not asked again by this resolver: one dead repository in the list no longer costs 20 seconds
+     * per POM.
+     */
+    private final Set<String> deadRepositories = new HashSet<>();
+
     private byte[] get(String url, Plan plan) {
+        String repository = repositoryOf(url);
+        if (repository != null && deadRepositories.contains(repository)) {
+            requests++;
+            failures++;
+            return null;
+        }
         requests++;
         try {
             return source.fetch(url);
         } catch (IOException e) {
             failures++;
-            if (plan != null && plan.problems.size() < 40) plan.notes.add("No answer from " + url + ": " + e.getMessage());
+            String message = e.getMessage() != null ? e.getMessage() : e.toString();
+            if (e instanceof java.net.UnknownHostException) message = "unknown host (no connection, or the address is wrong): " + message;
+            else if (e instanceof java.net.SocketTimeoutException) message = "timed out: " + message;
+            else if (e instanceof java.net.ConnectException) message = "connection refused: " + message;
+            boolean dead = e instanceof java.net.SocketTimeoutException || e instanceof java.net.UnknownHostException
+                    || e instanceof java.net.ConnectException || e instanceof javax.net.ssl.SSLException
+                    || message.startsWith("HTTP 401") || message.startsWith("HTTP 403");
+            if (dead && repository != null) {
+                deadRepositories.add(repository);
+                message += " (not asked again in this search)";
+            }
+            if (plan != null && plan.problems.size() < 40) plan.notes.add("No answer from " + url + ": " + message);
             return null;
         }
+    }
+
+    private String repositoryOf(String url) {
+        for (String[] repo : repositories) {
+            String b = base(repo[1]);
+            if (url.startsWith(b + "/")) return b;
+        }
+        return null;
     }
 
     /** v1.8.11: bytes of the current download (set per worker thread by the Library Resolver's progress dialog). */
@@ -714,7 +754,11 @@ public final class MavenResolver {
     public static byte[] download(String url) throws IOException {
         String current = url;
         for (int hop = 0; hop < 6; hop++) {
-            HttpURLConnection connection = (HttpURLConnection) new URL(current).openConnection();
+            URL target = new URL(current);
+            if (!"https".equals(target.getProtocol()) && !"http".equals(target.getProtocol())) {
+                throw new IOException("redirected to a " + target.getProtocol() + ": address");
+            }
+            HttpURLConnection connection = (HttpURLConnection) target.openConnection();
             connection.setConnectTimeout(20000);
             connection.setReadTimeout(60000);
             connection.setInstanceFollowRedirects(false);
@@ -724,13 +768,25 @@ public final class MavenResolver {
                 if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
                     String location = connection.getHeaderField("Location");
                     if (location == null || location.isEmpty()) throw new IOException("HTTP " + code + " without a Location");
-                    current = new URL(new URL(current), location).toString();
+                    String next = new URL(new URL(current), location).toString();
+                    // never from https down to plain http: the archive could be changed on the way
+                    if (current.startsWith("https:") && next.startsWith("http:")) {
+                        throw new IOException("HTTP " + code + " to an http:// address (not followed)");
+                    }
+                    current = next;
                     continue;
                 }
                 if (code == 404 || code == 410) return null;
                 if (code == 202) throw new IOException("JitPack is still building this version (HTTP 202): try again in a minute");
                 if (code >= 300) throw new IOException("HTTP " + code);
-                long total = connection.getContentLengthLong();
+                // Content-Length read by hand: getContentLengthLong() is API 24 (the minApi21 flavour runs on 5.0+)
+                long total = -1;
+                try {
+                    String length = connection.getHeaderField("Content-Length");
+                    if (length != null) total = Long.parseLong(length.trim());
+                } catch (NumberFormatException ignored) {
+                    // size unknown: the bar moves without a percentage
+                }
                 ByteProgress progress = PROGRESS.get();
                 try (InputStream in = connection.getInputStream()) {
                     ByteArrayOutputStream out = new ByteArrayOutputStream(total > 0 && total < Integer.MAX_VALUE ? (int) total : 16384);

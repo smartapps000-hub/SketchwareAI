@@ -77,16 +77,13 @@ public final class CrashDiagnostics {
                             + "type, and the design canvas measured it as a LinearLayout child. The project isn't damaged: "
                             + "with v1.8.10 or newer the canvas converts the layout values and opens it."},
             {"(?s)WindowManager\\$BadTokenException|Unable to add window.*is your activity running",
-                    "Known cause (guarded since v1.8.11): a dialog was opened for a screen that was already closing, e.g. the "
-                            + "ID dialog of the property bar right after leaving the editor. Open the screen again and select "
-                            + "the widget before changing its ID. If it still happens, copy this report."},
+                    "A dialog was opened for a screen that was already closing (Android refuses that). Open the screen "
+                            + "again and repeat the step; the design editor's property dialogs check for this since v1.8.11. "
+                            + "If it happens again, copy this report."},
             {"(?s)NullPointerException.*at com\\.besome\\.sketch\\.editor\\.property\\.PropertyInputItem\\.",
                     "Known cause (guarded since v1.8.11): a property dialog (ID, text, …) opened before the widget's project data "
                             + "was loaded. Select the widget on the canvas again, then change the property. If it still "
                             + "happens, copy this report."},
-            {"(?s)Found invalid data of Custom Variable",
-                    "Known cause (fixed in v1.8.11): a statement was saved as a custom variable by Java to blocks. Open Edit "
-                            + "Java code, delete that line from the class body and tap Save as blocks to remove it."},
     };
 
     private static String known(String trace) {

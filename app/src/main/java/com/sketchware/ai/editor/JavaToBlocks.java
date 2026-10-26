@@ -386,6 +386,9 @@ public final class JavaToBlocks {
                 variable = customVariableWithText(String.join(" ", g.canonical(gm)));
                 if (variable >= 0) {
                     variableRemovals.add(variable);
+                    // a name it does declare (int arr[] = …: arr) is still checked against the blocks that use it
+                    String declared = variableName(data.variables(javaName).get(variable)).replaceAll("\\s*\\[\\s*\\]", "");
+                    if (declared.matches(ID)) removedNames.add(declared);
                     result.changes.add("Custom variable removed: " + data.variables(javaName).get(variable).second);
                     return;
                 }
@@ -1233,11 +1236,13 @@ public final class JavaToBlocks {
             "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private",
             "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
             "throw", "throws", "transient", "try", "void", "volatile", "while", "true", "false", "null", "var"));
+    private static final String ID = "[\\p{L}_$][\\p{L}\\p{N}_$]*";   // Java identifiers, not only ASCII
     private static final Pattern FIELD_HEAD = Pattern.compile(
             "((?:(?:public|protected|private|static|final|transient|volatile)\\s+)*)"   // modifiers
-            + "([A-Za-z_$][\\w$]*(?:\\s*\\.\\s*[A-Za-z_$][\\w$]*)*"                       // type name
-            + "(?:\\s*<[\\w$\\s,.?<>\\[\\]&]*>)?(?:\\s*\\[\\s*\\])*)"                      // generics, arrays
-            + "\\s+([A-Za-z_$][\\w$]*)(?:\\s*\\[\\s*\\])*");                                   // name
+            + "(" + ID + "(?:\\s*\\.\\s*" + ID + ")*"                                     // type name
+            + "(?:\\s*<[\\p{L}\\p{N}_$\\s,.?<>\\[\\]&]*>)?(?:\\s*\\[\\s*\\])*)"          // generics, arrays
+            + "\\s+(" + ID + ")(?:\\s*\\[\\s*\\])*"                                         // name
+            + "(?:\\s*,\\s*" + ID + "(?:\\s*\\[\\s*\\])*)*");                                // int a, b (= 0)
 
     /**
      * v1.8.11: whether a stored declaration (no ';') is one field the logic editor can read: modifiers, a type and one

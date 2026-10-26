@@ -61,6 +61,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     /** Updates found by the last check: folder → newer version. */
     private final HashMap<String, String> updates = new HashMap<>();
     private boolean updatesChecked;
+    /** v1.8.11: libraries the last check found at their newest stable version (only those show "Latest"). */
+    private final java.util.HashSet<String> checkedLatest = new java.util.HashSet<>();
     private List<MavenSearch.Hit> hits;
     private String hitsQuery;
 
@@ -218,12 +220,15 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     /** Installed libraries with their sizes, read off the UI thread; null until read (and after anything changed). */
     private List<Installed> installedCache;
     private boolean loadingInstalled;
+    /** Raised when the cache is dropped: a read that started before is thrown away (it may miss a change). */
+    private int installedGeneration;
 
     /** The installed libraries, or null while they are being read off the UI thread (the tab is drawn again then). */
     private List<Installed> installedList() {
         if (installedCache != null) return installedCache;
         if (!loadingInstalled) {
             loadingInstalled = true;
+            final int generation = installedGeneration;
             new Thread(() -> {
                 List<Installed> libs;
                 try {
@@ -239,8 +244,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 }
                 final List<Installed> read = libs;
                 runOnUiThread(() -> {
-                    installedCache = read;
                     loadingInstalled = false;
+                    if (generation != installedGeneration) {
+                        if (!isFinishing()) show();   // read again: something changed while this read ran
+                        return;
+                    }
+                    installedCache = read;
                     for (Installed l : read) {
                         String latest = updates.get(l.name);
                         Installed newer = latest == null ? null : newerInstalled(l, read);
@@ -331,15 +340,23 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         String latest = updates.get(lib.name);
         Installed newer = installedCache == null ? null : newerInstalled(lib, installedCache);
         if (newer != null) {
-            status.setText("Newer: v" + newer.version);
+            String newerVersion = "v" + newer.version.replaceFirst("^v", "");
             status.setVisibility(View.VISIBLE);
-        } else if (latest != null) {
+            if (scId != null && enabledNames().contains(lib.name)) {
+                // this project still uses the old copy: one tap switches it to the installed newer one
+                status.setText("Use " + newerVersion);
+                status.setBackgroundResource(R.drawable.ob_amber_pill);
+                status.setOnClickListener(v -> switchVersion(lib.name, newer.name));
+            } else {
+                status.setText("Newer: " + newerVersion);
+            }
+        } else if (latest != null && lib.coordinate != null) {
             status.setText("Update");
             status.setBackgroundResource(R.drawable.ob_amber_pill);
             status.setVisibility(View.VISIBLE);
             String[] gav = lib.coordinate.split(":");
             status.setOnClickListener(v -> installCoordinates(Collections.singletonList(gav[0] + ":" + gav[1] + ":" + latest)));
-        } else if (updatesChecked && lib.coordinate != null) {
+        } else if (checkedLatest.contains(lib.name)) {
             status.setText("Latest");
             status.setVisibility(View.VISIBLE);
         }
@@ -417,6 +434,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 if (needs != null && needs.coordinate != null) {
                     actionButton(row, "Reinstall", v -> installCoordinates(Collections.singletonList(needs.coordinate)));
                 }
+                CheckBox off = row.findViewById(R.id.lib_check);   // it can still be switched off here
+                off.setVisibility(View.VISIBLE);
+                off.setChecked(true);
+                off.setOnClickListener(v -> setEnabled(name, off.isChecked()));
                 list.addView(row);
                 continue;
             }
@@ -427,6 +448,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 status2.setBackgroundResource(R.drawable.ob_amber_pill);
                 status2.setVisibility(View.VISIBLE);
                 status2.setOnClickListener(v -> installCoordinates(missing));
+            } else if (status.startsWith("Missing") && needs != null && needs.coordinate != null) {
+                status2.setText("Reinstall");
+                status2.setBackgroundResource(R.drawable.ob_amber_pill);
+                status2.setVisibility(View.VISIBLE);
+                status2.setOnClickListener(v -> installCoordinates(Collections.singletonList(needs.coordinate)));
             } else if (status.startsWith("Not dexed")) {
                 status2.setText("Dex");
                 status2.setBackgroundResource(R.drawable.ob_amber_pill);
@@ -581,7 +607,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             String latest = updates.get(lib.name);
             if (updatesChecked && latest == null) continue;
             newer++;
-            list.addView(card(lib, latest == null ? size(lib.size) : "v" + lib.version + " → v" + latest, false, false, false));
+            list.addView(card(lib, latest == null ? size(lib.size)
+                    : "v" + lib.version.replaceFirst("^v", "") + " → v" + latest.replaceFirst("^v", ""), false, false, false));
         }
         if (updatesChecked && newer == 0) note("Every library from Maven is at its newest stable version.");
         if (!older.isEmpty()) {
@@ -667,8 +694,18 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
 
     // ------------------------------------------------------------------------------------------- actions
 
+    /** v1.8.11: the project uses the installed newer version instead of the old one (one write). */
+    private void switchVersion(String oldName, String newName) {
+        setEnabled(newName, true, oldName);
+    }
+
     /** Switches a library on or off for the project (off the UI thread: switching on reads its classes). */
     private void setEnabled(String name, boolean on) {
+        setEnabled(name, on, null);
+    }
+
+    /** @param alsoOff a library switched off in the same write (the old version, when switching versions), or null */
+    private void setEnabled(String name, boolean on, String alsoOff) {
         if (scId == null) return;
         setResult(RESULT_OK);
         new Thread(() -> {
@@ -678,7 +715,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 message = "The project's local library list can't be read: nothing was changed.";
             } else {
                 for (int i = libraries.size() - 1; i >= 0; i--) {
-                    if (name.equals(String.valueOf(libraries.get(i).get("name")))) libraries.remove(i);
+                    String n = String.valueOf(libraries.get(i).get("name"));
+                    if (name.equals(n) || n.equals(alsoOff)) libraries.remove(i);
                 }
                 if (on) libraries.add(LibraryInstaller.entry(name));
                 List<String> linked = new ArrayList<>();
@@ -705,12 +743,14 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 }
                 LibraryInstaller.save(scId, libraries);
                 if (!linked.isEmpty()) message = "Also on (needed by " + name + "): " + join(linked);
+                if (alsoOff != null) message = "This project now uses " + name + " instead of " + alsoOff
+                        + (linked.isEmpty() ? "" : ". Also on: " + join(linked));
             }
             final String text = message;
             runOnUiThread(() -> {
                 if (isFinishing()) return;
                 if (text != null) Toast.makeText(this, text, Toast.LENGTH_LONG).show();
-                if (tab == 0 || text != null) show();
+                if (tab == 0 || text != null || alsoOff != null) show();
             });
         }, "LibrarySwitch").start();
     }
@@ -726,6 +766,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 .setMessage("It is removed from this phone. Projects that use it can't build until it is installed again.")
                 .setPositiveButton("Delete", (d, w) -> runBusy("Deleting " + lib.name + "…", () -> {
                     FileUtil.deleteFile(lib.dir.getAbsolutePath());
+                    runOnUiThread(() -> {
+                        updates.remove(lib.name);
+                        checkedLatest.remove(lib.name);
+                    });
                     if (scId != null) {
                         ArrayList<HashMap<String, Object>> libraries = LibraryInstaller.enabled(scId);
                         if (libraries != null && contains(libraries, lib.name)) {
@@ -762,13 +806,25 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private void checkUpdates(List<Installed> libs) {
         runBusy("Checking " + libs.size() + " libraries…", () -> {
             MavenResolver resolver = new MavenResolver(repositories(), cacheFolder(), null);
-            updates.clear();
+            HashMap<String, String> found = new HashMap<>();
+            java.util.HashSet<String> current = new java.util.HashSet<>();
+            int unanswered = 0;
             for (Installed lib : libs) {
                 String[] gav = lib.coordinate.split(":");
+                status("Checking " + lib.key());
                 String latest = resolver.latestStable(gav[0], gav[1]);
-                if (latest != null && MavenResolver.compareVersions(latest, gav[2]) > 0) updates.put(lib.name, latest);
+                if (latest == null) unanswered++;
+                else if (MavenResolver.compareVersions(latest, gav[2]) > 0) found.put(lib.name, latest);
+                else current.add(lib.name);
             }
-            updatesChecked = true;
+            runOnUiThread(() -> {
+                updates.clear();
+                updates.putAll(found);
+                checkedLatest.clear();
+                checkedLatest.addAll(current);
+                updatesChecked = true;
+            });
+            if (unanswered > 0) return unanswered + " of " + libs.size() + " libraries couldn't be checked (no repository listed their versions).";
             return null;
         });
     }
@@ -807,7 +863,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         boolean last = total > 0 && done >= total;
         if (!last && now - busyShownAt < 200) return;
         busyShownAt = now;
-        String file = url.substring(url.lastIndexOf('/') + 1);
+        String file = url.contains("?") ? Uri.parse(url).getHost() : url.substring(url.lastIndexOf('/') + 1);
         runOnUiThread(() -> {
             if (busyBar == null) return;
             if (total > 0) {
@@ -904,7 +960,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             if (MavenFetcher.parse(typed) == null && link == null) {
                 message.setText("Write it as group:artifact:version, e.g. com.squareup.retrofit2:converter-gson:2.9.0 "
                         + "(a Gradle line like implementation 'g:a:v' or a GitHub link github.com/user/repo works too). "
-                        + "To find a library by name, type in the search field instead.");
+                        + "To find a library by name, type it in the search field of the All tab instead.");
                 return;
             }
             if (found[0] == null) {
@@ -926,10 +982,13 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                     MavenResolver.Plan resolved;
                     String text = typed;
                     try {
-                        String version = link == null ? null : link[2] != null ? link[2] : r.latestStable(link[0], link[1]);
+                        MavenResolver.Plan asking = new MavenResolver.Plan();
+                        String version = link == null ? null : link[2] != null ? link[2] : r.latestStable(link[0], link[1], asking);
                         if (link != null && version == null) {
-                            resolved = new MavenResolver.Plan();
-                            resolved.problems.add("JitPack has no built version of " + link[0] + ":" + link[1]
+                            resolved = asking;
+                            boolean noAnswer = !networkNotes(asking).isEmpty();
+                            resolved.problems.add((noAnswer ? "Couldn't ask the repositories for the versions of "
+                                    : "No repository lists a built version of ") + link[0] + ":" + link[1]
                                     + ". Add the version (a tag from the repository's Releases page), e.g. "
                                     + link[0] + ":" + link[1] + ":1.0.0" + LibraryInstaller.hostLinks(link[0], link[1], null));
                         } else {
@@ -1022,10 +1081,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         }
         List<String> install = new ArrayList<>();
         for (MavenResolver.Artifact a : plan.artifacts) {
+            if ("pom".equals(a.packaging)) continue;   // nothing of its own to install
             boolean there = LibraryInstaller.usable(new File(LibraryInstaller.root(), LibraryInstaller.folderName(a)));
             install.add(a.coordinate() + " (" + a.packaging + (there ? ", installed" : "") + ")");
         }
-        s.append("To install:\n• ").append(join(install).replace(", ", "\n• "));
+        if (!install.isEmpty()) s.append("To install:\n• ").append(join(install).replace(", ", "\n• "));
         if (!plan.builtIn.isEmpty()) {
             List<String> names = new ArrayList<>();
             for (MavenResolver.Artifact a : plan.builtIn) names.add(a.key() + " " + a.builtInVersion);
@@ -1161,6 +1221,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 busyBar = null;
                 if (isFinishing()) return;
                 installedCache = null;
+                installedGeneration++;
                 show();
                 if (text != null && !text.isEmpty()) {
                     new ObAlertBuilder(this).setTitle("Library Resolver").setMessage(text).setPositiveButton("OK", null).show();
