@@ -482,7 +482,7 @@
     {
       "fingerprint": "Build repair inside an add-source block not offered for the block ('the code of block … and the lines generated from it don't match one for one') in a Material 3 project whose block calls setHint on an outlined field",
       "rootCause": "the generator writes edittext1.setHint( as SketchTextField.hint(edittext1, (M3Widgets.routeHints), so the block's line and its generated line differed (since v1.8.5)",
-      "repair": "v1.8.13: BlockWriteBack compares the block's line with the views it calls setHint on routed the way the generated line shows them, and stores the repaired line back with setHint; a SketchTextField.hint typed by the user stays as typed",
+      "repair": "v1.8.13: BlockWriteBack compares the block's line with the views it calls setHint on routed the way the generated line shows them, and stores the repaired line back with setHint; a SketchTextField.hint typed for a view the generator doesn't route stays as typed (on a line that also calls setHint on the same routed field, it is stored as setHint, which generates the same code)",
       "scope": "build repairs written back into add-source blocks",
       "verifiedOn": "ART fixture 923 (autofixm3): unreachable-code repair proposed for block 10 with the setHint line kept; JVM: 10 line shapes",
       "permanent": true
