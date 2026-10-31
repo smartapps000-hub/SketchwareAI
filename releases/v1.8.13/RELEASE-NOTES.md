@@ -1,6 +1,6 @@
 # Sketchware AI v1.8.13
 
-versionCode 183, versionName `VERSIONNAME`. Installs over v1.8.12 (same test key). Library Resolver without popups, no
+versionCode 183, versionName `v1.8.13-0dab18a-minApi26`. Installs over v1.8.12 (same test key). Library Resolver without popups, no
 version flip-flops, and two Java editor fixes.
 
 ## Download
@@ -8,7 +8,7 @@ version flip-flops, and two Java editor fixes.
 - https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.8.13.apk
 - https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.13.apk
 
-APKSIZE bytes. Not a `raw.githubusercontent.com` link: that one gives the 134-byte Git LFS pointer.
+138,506,845 bytes. Not a `raw.githubusercontent.com` link: that one gives the 134-byte Git LFS pointer.
 
 ## Library Resolver: no popup when it worked
 
@@ -48,7 +48,16 @@ version)"), and back again on the next install.
 
 ## Checked
 
-CHECKED
+On this APK's own classes on the Android 12 (API 31) ART runtime (no phone; details: `engineering/v1.8.13-verification.md`):
+- your MainActivity lines typed unindented into a Material 3 project: saved, setHint and getText become blocks, a
+  setHint inside an if is stored as typed, saving again changes nothing, the project builds (8/8 checks, 14 steps);
+- the Java editor fixture 919 with the nested getText: 61/61 checks; 10 projects open and save unchanged;
+- highest version wins (no downgrade, the higher version on reused, a lower root switched nothing on, a higher
+  replaces the lower): 9/9 checks with library folders made for the test;
+- Library Resolver install + Run build (920), ESCPOS (922), Material 3 (908): 14 steps, 0 warnings each;
+- a build repair is still offered for an add source block that sets an outlined field's hint (923);
+- the notice line and the green ✓ Installed card rendered with layoutlib;
+- four separate reviews of the code; all their findings fixed or recorded.
 
 **Not run here:** the Library Resolver and Java editor screens themselves (Activities) and your phone's network.
 Please try on the phone:
@@ -60,4 +69,4 @@ Please try on the phone:
 
 ## Files
 
-`apk/Sketchware_AI_v1.8.13.apk` (APKSIZE bytes, sha256 `APKSHORT`) on the repository's `binaries` branch (one file, Git LFS).
+`apk/Sketchware_AI_v1.8.13.apk` (138506845 bytes, sha256 `7e5e0120…698ad746`) on the repository's `binaries` branch (one file, Git LFS).
