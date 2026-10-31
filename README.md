@@ -2,6 +2,26 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.8.13 (versionCode 183, `v1.8.13-0dab18a-minApi26`)
+
+Library Resolver without popups when an install worked (Toast, green ✓ Installed, one line with Copy log when something
+needs a word, a dialog only when the library itself couldn't be installed), readable names, the highest version of a
+library wins; Java editor: `X.getText().toString()` becomes the getText block, setHint in Material 3 projects saves.
+Release notes: `releases/v1.8.13/RELEASE-NOTES.md` on `main`.
+
+**Download the APK with one of these links** (both give the full 138 MB file):
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.8.13.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.13.apk
+
+Not `raw.githubusercontent.com/…`: that address gives the 134-byte Git LFS pointer text.
+
+| File | sha256 |
+|---|---|
+| `apk/Sketchware_AI_v1.8.13.apk` (138,506,845 bytes) | `7e5e0120d6c73e9f2148af4fe1d4ac1e81ce6c09c45a2fcb0546f8ed698ad746` |
+| `v1.8.13/SketchwareAI-v1.8.13-patches.zip` (139,864,651 bytes; 98 patches against the upstream zip, `main` at c2eb956) | `69bcd4dcc0964676a5ea57d73c8015b0d4b2acd94ad5c129e8f939ef51bf65d4` |
+
+Signed with the public test key, so it installs over v1.8.12.
+
 ## v1.8.12 (versionCode 182, `v1.8.12-1ac854e-minApi26`)
 
 Library Resolver fix release: only Google Maven, Maven Central and JitPack (JitPack first for GitHub libraries), Find
