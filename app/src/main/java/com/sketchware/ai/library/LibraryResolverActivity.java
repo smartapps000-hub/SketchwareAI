@@ -769,6 +769,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             if (libraries == null) {
                 message = "The project's local library list can't be read: nothing was changed.";
             } else {
+                java.util.Set<String> wasOn = new java.util.HashSet<>();
+                for (HashMap<String, Object> l : libraries) wasOn.add(String.valueOf(l.get("name")));
                 // v1.8.13: one version per library: switching one on switches its other versions off
                 String key = on ? LibraryInstaller.artifactKey(name) : null;
                 List<String> others = new ArrayList<>();
@@ -783,6 +785,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 }
                 if (on) libraries.add(LibraryInstaller.entry(name));
                 List<String> linked = new ArrayList<>();
+                java.util.Map<String, String> insteadOf = new HashMap<>();   // linked folder -> the versions it replaced
                 if (on) {
                     // what it needs and is installed goes on with it (as the local library manager does)
                     try {
@@ -803,11 +806,18 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                             if (onNow != null && MavenResolver.compareVersions(onNow[1], gav[2]) >= 0) continue;   // a version as high is on
                             if (new File(LibraryInstaller.root(), folder).isDirectory() && !contains(libraries, folder)) {
                                 if (onNow != null) {
-                                    // a lower version of it is on: the needed one replaces it (one version per library)
+                                    // lower versions of it are on: the needed one replaces them (one version per library)
+                                    String needKey = gav[0] + ":" + gav[1];
+                                    List<String> replacedNow = new ArrayList<>();
                                     for (int i = libraries.size() - 1; i >= 0; i--) {
-                                        if (onNow[0].equals(String.valueOf(libraries.get(i).get("name")))) libraries.remove(i);
+                                        String n = String.valueOf(libraries.get(i).get("name"));
+                                        if (needKey.equals(LibraryInstaller.artifactKey(n))) {
+                                            libraries.remove(i);
+                                            linked.remove(n);   // linked by classes a moment ago: not on after all
+                                            if (wasOn.contains(n)) replacedNow.add(n);
+                                        }
                                     }
-                                    others.add(onNow[0]);
+                                    if (!replacedNow.isEmpty()) insteadOf.put(folder, join(prettyAll(replacedNow)));
                                 }
                                 libraries.add(LibraryInstaller.entry(folder));
                                 linked.add(folder);
@@ -816,10 +826,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                     }
                 }
                 LibraryInstaller.save(scId, libraries);
-                String off = alsoOff != null ? alsoOff : others.isEmpty() ? null : join(prettyAll(others));
-                if (!linked.isEmpty()) message = "Also on (needed by " + pretty(name) + "): " + join(prettyAll(linked));
-                if (off != null) message = "This project now uses " + pretty(name) + " instead of " + (alsoOff != null ? pretty(off) : off)
-                        + (linked.isEmpty() ? "" : ". Also on: " + join(prettyAll(linked)));
+                List<String> shown = new ArrayList<>();
+                for (String f : linked) shown.add(pretty(f) + (insteadOf.containsKey(f) ? " (instead of " + insteadOf.get(f) + ")" : ""));
+                String off = alsoOff != null ? pretty(alsoOff) : others.isEmpty() ? null : join(prettyAll(others));
+                if (!linked.isEmpty()) message = "Also on (needed by " + pretty(name) + "): " + join(shown);
+                if (off != null) message = "This project now uses " + pretty(name) + " instead of " + off
+                        + (linked.isEmpty() ? "" : ". Also on: " + join(shown));
             }
             final String text = message;
             runOnUiThread(() -> {
@@ -1019,7 +1031,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         boolean on = false;
         if (scId == null || outcome.notSwitchedOn != null) {
             toast = name + " installed";
-        } else if (outcome.rootKeptBack || (pomOnly && outcome.enabled.isEmpty() && !outcome.keptNewer.isEmpty())) {
+        } else if (outcome.rootKeptBack || (pomOnly && !outcome.keptNewer.isEmpty() && noneOn(plan.root.needs))) {
             toast = name + " installed; the newer version on in this project stays on";
         } else {
             toast = name + " enabled for this project";
@@ -1035,6 +1047,14 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 : !outcome.skipped.isEmpty() ? outcome.skipped.size() + " left out (no Android code in them)"
                 : "Its .aar bundles jars that aren't built";
         return Report.warning(toast, name + ": " + notice, details).switchedOn(on);
+    }
+
+    /** v1.8.13: none of these coordinates' folders is switched on in the project (a POM root's modules). */
+    private boolean noneOn(List<String> coordinates) {
+        ArrayList<HashMap<String, Object>> libraries = LibraryInstaller.enabled(scId);
+        if (libraries == null) return false;
+        for (String coordinate : coordinates) if (contains(libraries, folderOf(coordinate))) return false;
+        return true;
     }
 
     /** Several installs (Update, Add N): one Toast, a line when any had trouble, a dialog only when none worked. */
@@ -1310,7 +1330,6 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         StringBuilder s = new StringBuilder();
         for (String f : outcome.failed) s.append("Failed: ").append(f).append('\n');
         for (String k : outcome.skipped) s.append("Left out (no Android code): ").append(k).append('\n');
-        if (outcome.notSwitchedOn != null) s.append("Not switched on in this project: ").append(outcome.notSwitchedOn).append('\n');
         return s.length() == 0 ? "" : s.append('\n').toString();
     }
 

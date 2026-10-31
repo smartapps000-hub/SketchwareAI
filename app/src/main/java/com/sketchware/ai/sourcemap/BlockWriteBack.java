@@ -244,11 +244,18 @@ public final class BlockWriteBack {
             int count = block.end - block.start + 1;
             // The block's generated lines must be its code's lines, one for one.
             boolean sameLines = lines.length == count;
+            // v1.8.13: per line, the fields whose setHint( in the block the generator wrote as SketchTextField.hint(
+            List<java.util.Set<String>> routed = new ArrayList<>();
             for (int i = 0; i < count && sameLines; i++) {
-                // v1.8.13: in a Material 3 project the generator writes edittext1.setHint( as SketchTextField.hint(
                 String generatedLine = was[block.start - 1 + i];
-                sameLines = essence(generatedLine).equals(essence(
-                        com.sketchware.ai.project.M3Widgets.routeHints(lines[i], routedFields(generatedLine))));
+                java.util.Set<String> ids = new java.util.HashSet<>();
+                if (!essence(generatedLine).equals(essence(lines[i]))) {
+                    ids.addAll(routedFields(generatedLine));
+                    ids.retainAll(hintCalls(lines[i]));
+                    sameLines = !ids.isEmpty() && essence(generatedLine).equals(essence(
+                            com.sketchware.ai.project.M3Widgets.routeHints(lines[i], ids)));
+                }
+                routed.add(ids);
             }
             if (!sameLines) {
                 skip(collected, fileName, block.start, block.end, "the code of " + where + " and the lines generated "
@@ -271,14 +278,14 @@ public final class BlockWriteBack {
                 int indent = 0;
                 while (indent < line.length() && (line.charAt(indent) == ' ' || line.charAt(indent) == '\t')) indent++;
                 // a routed hint goes back into the block as the block has it (setHint)
-                String body = com.sketchware.ai.project.M3Widgets.unrouteHints(stripLineEnd(fresh), routedFields(old));
+                String body = com.sketchware.ai.project.M3Widgets.unrouteHints(stripLineEnd(fresh), routed.get(i));
                 int skip = 0;
                 while (skip < body.length() && (body.charAt(skip) == ' ' || body.charAt(skip) == '\t')) skip++;
                 after.append(line, 0, indent).append(body, skip, body.length());
                 if (line.endsWith("\r")) after.append('\r');
                 if (proposal.firstChangedLine == 0) proposal.firstChangedLine = i + 1;
-                proposal.removed.add(old.trim());
-                proposal.added.add(fresh.trim());
+                proposal.removed.add(line.trim());
+                proposal.added.add(body.trim());
             }
             if (proposal.firstChangedLine == 0) continue;
             proposal.after = after.toString();
@@ -647,6 +654,16 @@ public final class BlockWriteBack {
     static java.util.Set<String> routedFields(String generatedLine) {
         java.util.Set<String> ids = new java.util.HashSet<>();
         java.util.regex.Matcher m = ROUTED_HINT.matcher(generatedLine);
+        while (m.find()) ids.add(m.group(1));
+        return ids;
+    }
+
+    private static final Pattern HINT_CALL = Pattern.compile("(?<![\\w.$])([\\w$]+)\\.setHint\\(");
+
+    /** v1.8.13: the views a block's line calls setHint( on. */
+    static java.util.Set<String> hintCalls(String line) {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        java.util.regex.Matcher m = HINT_CALL.matcher(line);
         while (m.find()) ids.add(m.group(1));
         return ids;
     }
