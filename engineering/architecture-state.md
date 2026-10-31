@@ -255,6 +255,11 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
 
 ## v1.8.8 additions
 
+- **Java editor, v1.8.13**: a `%s` slot of a mapped statement takes `X.getText().toString()` as a nested getText block
+  (`@id`, like getVar). In Material 3 projects the edited text is routed (`M3Widgets.routeHints`) before comparing, the
+  statement generator routes too, `SketchTextField.hint(field, text)` maps to the setHint block, and add-source text is
+  stored un-routed (`JavaToBlocks.useStoredText` + `M3Widgets.unrouteHints`). `BlockWriteBack` compares a block's
+  setHint lines routed the way the generated line shows them.
 - **Java editor** (`editor.JavaEditorActivity`, `res/layout/ob_java_editor.xml`; design editor build options menu item 6
   "Edit Java code" and the Code tab, request code 241, RESULT_OK when blocks changed): one activity's generated Java in
   sora-editor (JavaLanguage, the user's code editor settings). Opened with the design editor's live project data
@@ -303,7 +308,14 @@ Verified facts about this fork, kept so they don't have to be rediscovered. Last
   them, staged in `.<name>.installing` and renamed; D8 on Android 8+, Dx (class files up to Java 7) below; `config`,
   `source.json`, and `needs.json` (`library.LibraryNeeds`: coordinate, required local libraries, built-in libraries).
   Enabling replaces another version of the same artifact only when both groups are known and equal; an unreadable
-  `local_library` list is never overwritten.
+  `local_library` list is never overwritten. v1.8.13: one version per group:artifact and the highest wins (`enable`):
+  a lower version is never switched on over a higher one that is on (`Outcome.keptNewer`); a root lower than the
+  version on switches nothing on (`rootKeptBack`); a needed library reuses the higher version on in the project
+  (`highestOn`, read once per install) instead of downloading the lower one; an unreadable list sets `notSwitchedOn`.
+- **Resolver reports** (v1.8.13, `LibraryResolverActivity.Report`): a finished task is a Toast (`quiet`), a Toast plus a
+  notice line above the list with Copy log and × (`warning`), or the only dialog (`fatal`: the library itself not
+  installed). Installed libraries get a green "✓ Installed" on their card for the session. User-facing names come from
+  `readableName` / `pretty` (coordinate made readable), not folder names.
 - **Build**: `Dp` adds the built-in libraries every enabled local library's `needs.json` names
   (`LibraryNeeds.addBuiltIns`), so e.g. Retrofit gets the built-in OkHttp and Gson with no block using them;
   `GradleExport` writes those libraries' Maven coordinates (`LibraryNeeds.exportCoordinates`).
