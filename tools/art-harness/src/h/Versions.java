@@ -66,6 +66,7 @@ public class Versions {
     static List<String> onNow() throws Throwable {
         List<String> names = new ArrayList<>();
         Object list = call(c("com.sketchware.ai.library.LibraryInstaller"), "enabled", sc);
+        if (list == null) return Collections.singletonList("(unreadable list)");
         for (Object e : (List<?>) list) names.add(String.valueOf(((Map<?, ?>) e).get("name")));
         return names;
     }
@@ -134,6 +135,20 @@ public class Versions {
         sc = keep;
         check("E: without a project, no other version is reused (1.0 has to be fetched: fails offline)",
                 !has(outcome, "reused", "hwx_V_2.0") && !((List<?>) get(outcome, "failed")).isEmpty(), String.valueOf(get(outcome, "failed")));
+
+        // F. a higher version installed but not on in this project is not used: the needed version is fetched
+        on("hwroot_V_1.0");
+        o = install(plan(artifact("hwroot", "1.0", "h.test:hwx:1.0"), artifact("hwx", "1.0")));
+        check("F: higher version installed but off isn't reused", !has(o, "reused", "hwx_V_2.0")
+                && !((List<?>) get(o, "failed")).isEmpty() && !onNow().contains("hwx_V_2.0"), String.valueOf(get(o, "failed")));
+
+        // G. the project's library list can't be read: nothing switched on, said as such (not as a failed library)
+        File list = (File) call(c("com.sketchware.ai.library.LibraryInstaller"), "listFile", sc);
+        java.nio.file.Files.write(list.toPath(), "{not a list".getBytes("UTF-8"));
+        o = install(plan(artifact("hwx", "2.0")));
+        check("G: unreadable list: notSwitchedOn, no failure", get(o, "notSwitchedOn") != null
+                && ((List<?>) get(o, "failed")).isEmpty() && ((List<?>) get(o, "enabled")).isEmpty(), String.valueOf(get(o, "notSwitchedOn")));
+        list.delete();
 
         for (String f : new String[]{"hwx_V_1.0", "hwx_V_2.0", "hwroot_V_1.0", "hwroot_V_0.9", "hwdep_V_0.9"}) Fixtures.deleteTree(new File(root, f));
         Main.OUT.println("VERSIONS " + (checks - fails) + "/" + checks + " ok");

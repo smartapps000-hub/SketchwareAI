@@ -257,7 +257,7 @@ public final class LibraryInstaller {
     private static void enable(String scId, String rootName, List<String> names, Outcome outcome) {
         ArrayList<HashMap<String, Object>> libraries = enabled(scId);
         if (libraries == null) {
-            outcome.notSwitchedOn = "the project's local library list can't be read, so nothing was switched on";
+            outcome.notSwitchedOn = "the project's local library list can't be read";
             return;
         }
         HashMap<String, String> coordinates = new HashMap<>();   // folder -> coordinate, each needs.json read once

@@ -264,9 +264,11 @@ public class Fixtures {
                     + "        names.filter { it.isNotBlank() }.joinToString(\", \") { it.uppercase() }\n"
                     + "}\n").getBytes("UTF-8"));
             source = "String greeting = com.fixture.kotlin.KtHelper.INSTANCE.greet(java.util.Arrays.asList(\"a\", \" \", \"b\"));\nandroid.util.Log.d(\"kt\", greeting);";
-        } else if (spec.equals("autofix")) {
-            // the #639 shape: a statement after a try/catch that leaves the method on every path (ECJ: Unreachable code)
-            source = "try {\n    android.util.Log.d(\"fixture\", \"try\");\n    return;\n} catch (Exception e) {\n    return;\n}\nandroid.util.Log.d(\"fixture\", \"after\");";
+        } else if (spec.equals("autofix") || spec.equals("autofixm3")) {
+            // the #639 shape: a statement after a try/catch that leaves the method on every path (ECJ: Unreachable code);
+            // v1.8.13 autofixm3: the block also sets the outlined field's hint, which the generator writes as
+            // SketchTextField.hint(edittext1, ...): the repair must still be offered for the block
+            source = (spec.equals("autofixm3") ? "edittext1.setHint(\"Name\");\n" : "") + "try {\n    android.util.Log.d(\"fixture\", \"try\");\n    return;\n} catch (Exception e) {\n    return;\n}\nandroid.util.Log.d(\"fixture\", \"after\");";
         } else if (spec.equals("typo")) {
             source = "String label = \"abc\";\nint n = label.lenght();";
         } else if (spec.equals("jni")) {

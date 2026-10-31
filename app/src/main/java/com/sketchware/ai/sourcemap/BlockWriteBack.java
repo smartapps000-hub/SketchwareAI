@@ -245,7 +245,10 @@ public final class BlockWriteBack {
             // The block's generated lines must be its code's lines, one for one.
             boolean sameLines = lines.length == count;
             for (int i = 0; i < count && sameLines; i++) {
-                sameLines = essence(was[block.start - 1 + i]).equals(essence(lines[i]));
+                // v1.8.13: in a Material 3 project the generator writes edittext1.setHint( as SketchTextField.hint(
+                String generatedLine = was[block.start - 1 + i];
+                sameLines = essence(generatedLine).equals(essence(
+                        com.sketchware.ai.project.M3Widgets.routeHints(lines[i], routedFields(generatedLine))));
             }
             if (!sameLines) {
                 skip(collected, fileName, block.start, block.end, "the code of " + where + " and the lines generated "
@@ -267,7 +270,8 @@ public final class BlockWriteBack {
                 String line = lines[i];
                 int indent = 0;
                 while (indent < line.length() && (line.charAt(indent) == ' ' || line.charAt(indent) == '\t')) indent++;
-                String body = stripLineEnd(fresh);
+                // a routed hint goes back into the block as the block has it (setHint)
+                String body = com.sketchware.ai.project.M3Widgets.unrouteHints(stripLineEnd(fresh), routedFields(old));
                 int skip = 0;
                 while (skip < body.length() && (body.charAt(skip) == ' ' || body.charAt(skip) == '\t')) skip++;
                 after.append(line, 0, indent).append(body, skip, body.length());
@@ -635,6 +639,16 @@ public final class BlockWriteBack {
 
     private static String stripLineEnd(String line) {
         return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
+    }
+
+    private static final Pattern ROUTED_HINT = Pattern.compile("(?<![\\w.$])SketchTextField\\.hint\\(([\\w$]+), ");
+
+    /** v1.8.13: the fields whose setHint the generator wrote as SketchTextField.hint(field, …) on this generated line. */
+    static java.util.Set<String> routedFields(String generatedLine) {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        java.util.regex.Matcher m = ROUTED_HINT.matcher(generatedLine);
+        while (m.find()) ids.add(m.group(1));
+        return ids;
     }
 
     /** A line without any whitespace: what has to be equal between a block's line and its generated line. */

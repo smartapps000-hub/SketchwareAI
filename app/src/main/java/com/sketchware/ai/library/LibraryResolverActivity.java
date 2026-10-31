@@ -802,6 +802,13 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                             String[] onNow = gav.length < 3 ? null : higher.get(gav[0] + ":" + gav[1]);
                             if (onNow != null && MavenResolver.compareVersions(onNow[1], gav[2]) >= 0) continue;   // a version as high is on
                             if (new File(LibraryInstaller.root(), folder).isDirectory() && !contains(libraries, folder)) {
+                                if (onNow != null) {
+                                    // a lower version of it is on: the needed one replaces it (one version per library)
+                                    for (int i = libraries.size() - 1; i >= 0; i--) {
+                                        if (onNow[0].equals(String.valueOf(libraries.get(i).get("name")))) libraries.remove(i);
+                                    }
+                                    others.add(onNow[0]);
+                                }
                                 libraries.add(LibraryInstaller.entry(folder));
                                 linked.add(folder);
                             }
@@ -809,9 +816,9 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                     }
                 }
                 LibraryInstaller.save(scId, libraries);
-                String off = alsoOff != null ? alsoOff : others.isEmpty() ? null : others.get(0);
+                String off = alsoOff != null ? alsoOff : others.isEmpty() ? null : join(prettyAll(others));
                 if (!linked.isEmpty()) message = "Also on (needed by " + pretty(name) + "): " + join(prettyAll(linked));
-                if (off != null) message = "This project now uses " + pretty(name) + " instead of " + pretty(off)
+                if (off != null) message = "This project now uses " + pretty(name) + " instead of " + (alsoOff != null ? pretty(off) : off)
                         + (linked.isEmpty() ? "" : ". Also on: " + join(prettyAll(linked)));
             }
             final String text = message;
@@ -1009,23 +1016,25 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         if (there.isEmpty()) return Report.fatal("Couldn't install " + name, details);
         runOnUiThread(() -> justInstalled.addAll(there));
         String toast;
+        boolean on = false;
         if (scId == null || outcome.notSwitchedOn != null) {
             toast = name + " installed";
-        } else if (outcome.rootKeptBack) {
+        } else if (outcome.rootKeptBack || (pomOnly && outcome.enabled.isEmpty() && !outcome.keptNewer.isEmpty())) {
             toast = name + " installed; the newer version on in this project stays on";
         } else {
             toast = name + " enabled for this project";
+            on = true;
         }
         int problems = outcome.failed.size() + outcome.skipped.size() + outcome.warnings.size()
                 + (outcome.notSwitchedOn != null ? 1 : 0);
-        if (problems == 0) return Report.quiet(toast);
+        if (problems == 0) return Report.quiet(toast).switchedOn(on);
         String needs = pomOnly ? " it lists" : " it needs";
         String notice = outcome.notSwitchedOn != null ? "not switched on: " + outcome.notSwitchedOn
                 : !outcome.failed.isEmpty()
                 ? outcome.failed.size() + (outcome.failed.size() == 1 ? " library" : " libraries") + needs + " couldn't be installed"
                 : !outcome.skipped.isEmpty() ? outcome.skipped.size() + " left out (no Android code in them)"
                 : "Its .aar bundles jars that aren't built";
-        return Report.warning(toast, name + ": " + notice, details);
+        return Report.warning(toast, name + ": " + notice, details).switchedOn(on);
     }
 
     /** Several installs (Update, Add N): one Toast, a line when any had trouble, a dialog only when none worked. */
@@ -1037,9 +1046,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             if (r.fatalTitle != null) fatal++;
             else if (r.notice != null) warn++;
         }
-        int ok = reports.size() - fatal;
+        int ok = reports.size() - fatal, on = 0;
+        for (Report r : reports) if (r.fatalTitle == null && r.on) on++;
         if (ok == 0) return Report.fatal("Couldn't install the libraries", details);
-        String toast = ok + (ok == 1 ? " library" : " libraries") + (projectOpen ? " enabled" : " installed");
+        String toast = ok + (ok == 1 ? " library" : " libraries") + (projectOpen && on == ok ? " enabled" : " installed");
         if (fatal + warn == 0) return Report.quiet(toast);
         return Report.warning(toast, (fatal > 0 ? fatal + " couldn't be installed" : warn + " with something to check"), details);
     }
@@ -1056,7 +1066,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         if (!outcome.enabled.isEmpty()) s.append("Switched on in this project: ").append(join(displayAll(outcome.enabled))).append('\n');
         if (!outcome.replaced.isEmpty()) s.append("Replaced by the newer version: ").append(join(displayAll(outcome.replaced))).append('\n');
         if (!outcome.keptNewer.isEmpty()) s.append("Newer version kept on: ").append(join(displayAll(outcome.keptNewer))).append('\n');
-        if (outcome.notSwitchedOn != null) s.append("Not switched on: ").append(outcome.notSwitchedOn).append('\n');
+        if (outcome.notSwitchedOn != null) s.append("Not switched on in this project: ").append(outcome.notSwitchedOn).append('\n');
         if (!outcome.failed.isEmpty()) {
             // v1.8.12: at most five failures in full, the rest counted
             List<String> shown = outcome.failed.size() > 5 ? outcome.failed.subList(0, 5) : outcome.failed;
@@ -1300,6 +1310,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         StringBuilder s = new StringBuilder();
         for (String f : outcome.failed) s.append("Failed: ").append(f).append('\n');
         for (String k : outcome.skipped) s.append("Left out (no Android code): ").append(k).append('\n');
+        if (outcome.notSwitchedOn != null) s.append("Not switched on in this project: ").append(outcome.notSwitchedOn).append('\n');
         return s.length() == 0 ? "" : s.append('\n').toString();
     }
 
@@ -1469,6 +1480,14 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
 
         static Report fatal(String title, String details) {
             return new Report(null, null, title, details);
+        }
+
+        /** v1.8.13: the library is on in the project (false: only installed, or a newer version stays on). */
+        boolean on = true;
+
+        Report switchedOn(boolean value) {
+            on = value;
+            return this;
         }
     }
 
