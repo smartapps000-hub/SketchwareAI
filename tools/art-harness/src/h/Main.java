@@ -45,6 +45,10 @@ public class Main {
                 case "javaedit-m3":
                     JavaEdit.m3(args[1]);
                     break;
+                case "versions":
+                    // v1.8.13: highest version wins (LibraryInstaller.install / enable), offline, fake library folders
+                    Versions.run(args[1]);
+                    break;
                 case "javaedit":
                     JavaEdit.run(args[1], args.length < 3 || !args[2].equals("nobuild"));
                     break;

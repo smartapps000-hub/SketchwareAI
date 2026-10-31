@@ -141,6 +141,23 @@ public class JavaEdit {
             nestedGetText |= "getText".equals(get(b, "opCode")) && String.valueOf(get(b, "parameters")).equals("[edittext1]");
         }
         check("m3: setHint block and nested getText block", ops.toString().contains("setHint") && nestedGetText, ops.toString());
+        // setHint inside braces stays add source: stored as typed (builds with Material 3 off too), generated as the hint
+        l = lines(again);
+        at = find(l, "textview1.setText(edittext1.getText().toString());", find(l, "private void initializeLogic() {", 0));
+        l.add(at + 1, "if (userNotes.isEmpty()) {");
+        l.add(at + 2, "edittext1.setHint(\"Type here\");");
+        l.add(at + 3, "}");
+        r = save(join(l));
+        check("m3: setHint inside an if saved", ok(r), report(r));
+        String stored = null;
+        for (Object b : blocks("onCreate_initializeLogic")) {
+            if ("addSourceDirectly".equals(get(b, "opCode")) && sourceOf(b).contains("Type here")) stored = sourceOf(b);
+        }
+        check("m3: add source stores edittext1.setHint as typed", stored != null && stored.contains("edittext1.setHint(\"Type here\");")
+                && !stored.contains("SketchTextField"), String.valueOf(stored));
+        again = code();
+        write("javaedit-m3-saved.java", again);
+        check("m3: generated as the field's hint", again.contains("SketchTextField.hint(edittext1, \"Type here\");"), "");
         // saving the shown code again changes nothing
         Object r2 = save(again);
         check("m3: saved code saves unchanged", ok(r2) && (Boolean) get(r2, "unchanged"), report(r2));

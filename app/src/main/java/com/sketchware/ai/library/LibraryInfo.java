@@ -132,6 +132,7 @@ public final class LibraryInfo {
             return artifact;
         }
         String[] parts = group.split("\\.");
+        if (parts.length == 0) return artifact;   // a group of dots only
         // com.airbnb.android:lottie → "airbnb lottie": words like android / library say nothing about whose it is
         String owner = parts[parts.length - 1];
         for (int i = parts.length - 1; i > 0 && java.util.Arrays.asList("android", "library", "lib", "libs", "sdk", "core", "java")

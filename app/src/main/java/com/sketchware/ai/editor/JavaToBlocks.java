@@ -116,6 +116,19 @@ public final class JavaToBlocks {
         return this;
     }
 
+    /** v1.8.13: what code typed by the user is stored as in add-source blocks (custom variables are stored as typed:
+     * the class body finds them by their text). */
+    public interface StoredText {
+        String of(String code);
+    }
+
+    private StoredText storedText = code -> code;
+
+    public JavaToBlocks useStoredText(StoredText storedText) {
+        if (storedText != null) this.storedText = storedText;
+        return this;
+    }
+
     // ------------------------------------------------------------------------------------------------ planning
 
     /** One run of changed lines inside an event body. */
@@ -953,13 +966,13 @@ public final class JavaToBlocks {
                 pending.append(line);
                 continue;
             }
-            if (pending.toString().trim().length() > 0) chain.add(addSource(String.valueOf(nextId[0]++), pending.toString().trim()));
+            if (pending.toString().trim().length() > 0) chain.add(addSource(String.valueOf(nextId[0]++), storedText.of(pending.toString().trim())));
             pending.setLength(0);
             chain.add(mapped.get(0));
             mappedBlocks++;
             for (int i = 1; i < mapped.size(); i++) live.put(mapped.get(i).id, mapped.get(i));
         }
-        if (pending.toString().trim().length() > 0) chain.add(addSource(String.valueOf(nextId[0]++), pending.toString().trim()));
+        if (pending.toString().trim().length() > 0) chain.add(addSource(String.valueOf(nextId[0]++), storedText.of(pending.toString().trim())));
         for (int i = 0; i < chain.size(); i++) {
             chain.get(i).nextBlock = i + 1 < chain.size() ? Integer.parseInt(chain.get(i + 1).id) : -1;
         }

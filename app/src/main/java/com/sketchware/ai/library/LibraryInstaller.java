@@ -35,6 +35,10 @@ public final class LibraryInstaller {
         public final List<String> skipped = new ArrayList<>();
         /** v1.8.13: a higher version of the same library was on and stays on (folder names). */
         public final List<String> keptNewer = new ArrayList<>();
+        /** v1.8.13: why nothing was switched on in the project (its library list can't be read), or null. */
+        public String notSwitchedOn;
+        /** v1.8.13: the library installed is lower than the version on in the project: nothing of it was switched on. */
+        public boolean rootKeptBack;
 
         public boolean ok() {
             return failed.isEmpty();
@@ -60,6 +64,8 @@ public final class LibraryInstaller {
         List<MavenResolver.Artifact> order = MavenResolver.installOrder(plan.artifacts);
         List<String> ready = new ArrayList<>();
         java.util.Set<String> leftOut = new java.util.HashSet<>();   // v1.8.12: group:artifact without Android code
+        // v1.8.13: group:artifact -> the highest version of it that is on in this project (read once)
+        HashMap<String, String[]> on = scId == null ? new HashMap<String, String[]>() : highestOn(enabled(scId));
         int steps = 0, step = 0;
         for (MavenResolver.Artifact a : order) if (!"pom".equals(a.packaging)) steps++;
         for (MavenResolver.Artifact a : order) {
@@ -70,12 +76,13 @@ public final class LibraryInstaller {
             String counter = steps > 1 ? " (" + (++step) + "/" + steps + ")" : "";
             try {
                 if (a != plan.root && !usable(dir)) {
-                    // v1.8.13: a library this one needs is installed in a higher version: that one is used (Gradle's
-                    // highest-version rule), nothing is downloaded
-                    String newer = newestInstalled(a.group + ":" + a.name, a.version);
-                    if (newer != null) {
-                        outcome.reused.add(newer);
-                        ready.add(newer);
+                    // v1.8.13: a library this one needs is on in this project in a higher version: that one is used
+                    // (Gradle's highest-version rule: the project asks for it too), nothing is downloaded
+                    String[] newer = on.get(a.group + ":" + a.name);
+                    if (newer != null && MavenResolver.compareVersions(newer[1], a.version) >= 0
+                            && usable(new File(root(), newer[0]))) {
+                        outcome.reused.add(newer[0]);
+                        ready.add(newer[0]);
                         continue;
                     }
                 }
@@ -147,7 +154,7 @@ public final class LibraryInstaller {
         }
         // v1.8.12: cancelled: what was installed stays installed, nothing is switched on half-way
         if (MavenResolver.cancelledHere()) return outcome;
-        if (scId != null && !ready.isEmpty()) enable(scId, ready, outcome);
+        if (scId != null && !ready.isEmpty()) enable(scId, folderName(plan.root), ready, outcome);
         return outcome;
     }
 
@@ -244,82 +251,94 @@ public final class LibraryInstaller {
     /**
      * Switches the libraries on in the project. v1.8.13: like Gradle, one version per group:artifact and the highest
      * wins: a lower version never replaces a higher one that is on (arrow-continuations asking for animal-sniffer 1.23
-     * keeps 1.28); a higher one replaces the lower ones.
+     * keeps 1.28); a higher one replaces the lower ones. When the library installed ({@code rootName}) is itself lower
+     * than the version on, nothing of it is switched on: the version on brings its own dependencies.
      */
-    private static void enable(String scId, List<String> names, Outcome outcome) {
+    private static void enable(String scId, String rootName, List<String> names, Outcome outcome) {
         ArrayList<HashMap<String, Object>> libraries = enabled(scId);
         if (libraries == null) {
-            outcome.failed.add("The project's local library list can't be read, so nothing was switched on");
+            outcome.notSwitchedOn = "the project's local library list can't be read, so nothing was switched on";
             return;
         }
+        HashMap<String, String> coordinates = new HashMap<>();   // folder -> coordinate, each needs.json read once
+        if (names.contains(rootName) && newerOn(rootName, libraries, coordinates) != null) {
+            outcome.keptNewer.add(newerOn(rootName, libraries, coordinates));
+            outcome.rootKeptBack = true;
+            return;
+        }
+        boolean changed = false;
         for (String name : names) {
-            String key = artifactKey(name);
-            String version = versionOf(name);
-            String newerOn = null;
-            boolean present = false;
-            for (HashMap<String, Object> library : libraries) {
-                String other = String.valueOf(library.get("name"));
-                if (other.equals(name)) {
-                    present = true;
-                } else if (key != null && key.equals(artifactKey(other))) {
-                    String otherVersion = versionOf(other);
-                    if (version != null && otherVersion != null && MavenResolver.compareVersions(otherVersion, version) > 0) {
-                        newerOn = other;
-                    }
-                }
-            }
-            if (newerOn != null) {
-                outcome.keptNewer.add(newerOn);
+            String newer = newerOn(name, libraries, coordinates);
+            if (newer != null) {
+                outcome.keptNewer.add(newer);
                 continue;
             }
+            String key = keyOf(coordinate(name, coordinates));
+            boolean present = false;
             for (int i = libraries.size() - 1; i >= 0; i--) {
                 String other = String.valueOf(libraries.get(i).get("name"));
-                if (!other.equals(name) && key != null && key.equals(artifactKey(other))) {
+                if (other.equals(name)) {
+                    present = true;
+                } else if (key != null && key.equals(keyOf(coordinate(other, coordinates)))) {
                     // another (lower) version of the same group:artifact, whatever its folder is called
                     libraries.remove(i);
                     outcome.replaced.add(other);
+                    changed = true;
                 }
             }
             if (!present) {
                 libraries.add(entry(name));
                 outcome.enabled.add(name);
+                changed = true;
             }
         }
-        save(scId, libraries);
+        if (changed) save(scId, libraries);
     }
 
-    /** v1.8.13: the installed folder of group:artifact with the highest version, or null. */
-    static String newestInstalledKey(String key) {
-        return newestInstalled(key, null);
+    /** The folder of a higher version of {@code name}'s group:artifact that is on, or null. */
+    private static String newerOn(String name, List<HashMap<String, Object>> libraries, HashMap<String, String> coordinates) {
+        String coordinate = coordinate(name, coordinates);
+        String key = keyOf(coordinate);
+        if (key == null) return null;
+        String version = coordinate.split(":")[2];
+        for (HashMap<String, Object> library : libraries) {
+            String other = String.valueOf(library.get("name"));
+            if (other.equals(name)) continue;
+            String otherCoordinate = coordinate(other, coordinates);
+            if (key.equals(keyOf(otherCoordinate)) && MavenResolver.compareVersions(otherCoordinate.split(":")[2], version) > 0) {
+                return other;
+            }
+        }
+        return null;
     }
 
-    /** The version recorded for a library folder, or null. */
-    static String versionOf(String folder) {
+    private static String coordinate(String folder, HashMap<String, String> cache) {
+        if (cache.containsKey(folder)) return cache.get(folder);
         String coordinate = coordinateOf(folder);
-        return coordinate == null ? null : coordinate.split(":")[2];
+        cache.put(folder, coordinate);
+        return coordinate;
     }
 
-    /**
-     * v1.8.13: the installed folder of group:artifact with the highest version that is at least {@code atLeast}, ready to
-     * build, or null.
-     */
-    static String newestInstalled(String key, String atLeast) {
-        File[] dirs = root().listFiles();
-        if (dirs == null) return null;
-        String best = null, bestVersion = null;
-        for (File dir : dirs) {
-            if (!dir.isDirectory() || dir.getName().startsWith(".") || !usable(dir)) continue;
-            String coordinate = coordinateOf(dir.getName());
-            if (coordinate == null) continue;
-            String[] gav = coordinate.split(":");
-            if (!key.equals(gav[0] + ":" + gav[1])) continue;
-            if (atLeast != null && MavenResolver.compareVersions(gav[2], atLeast) < 0) continue;
-            if (bestVersion == null || MavenResolver.compareVersions(gav[2], bestVersion) > 0) {
-                best = dir.getName();
-                bestVersion = gav[2];
-            }
+    private static String keyOf(String coordinate) {
+        if (coordinate == null) return null;
+        String[] gav = coordinate.split(":");
+        return gav.length >= 3 ? gav[0] + ":" + gav[1] : null;
+    }
+
+    /** v1.8.13: group:artifact -> {folder, version} of the highest version switched on in the list (null list: none). */
+    static HashMap<String, String[]> highestOn(List<HashMap<String, Object>> libraries) {
+        HashMap<String, String[]> on = new HashMap<>();
+        if (libraries == null) return on;
+        for (HashMap<String, Object> library : libraries) {
+            String folder = String.valueOf(library.get("name"));
+            String coordinate = coordinateOf(folder);
+            String key = keyOf(coordinate);
+            if (key == null) continue;
+            String version = coordinate.split(":")[2];
+            String[] best = on.get(key);
+            if (best == null || MavenResolver.compareVersions(version, best[1]) > 0) on.put(key, new String[]{folder, version});
         }
-        return best;
+        return on;
     }
 
     /** "group:artifact" recorded for a library folder (needs.json, else source.json), or null when unknown. */

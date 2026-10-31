@@ -439,6 +439,22 @@ public final class M3Widgets {
         return result;
     }
 
+    /**
+     * v1.8.13: the reverse of {@link #routeHints} for text the Java editor stores (add-source blocks, custom variables):
+     * {@code SketchTextField.hint(edittext1, } back to {@code edittext1.setHint(} for the fields routeHints routes, so
+     * the stored code doesn't depend on Material 3 staying on; the generator routes it again. Only the exact form
+     * routeHints writes is turned back (anything else would not generate back to the same text).
+     */
+    public static String unrouteHints(String code, Set<String> wrappedIds) {
+        if (wrappedIds.isEmpty() || !code.contains(TEXT_FIELD_CLASS + ".hint(")) return code;
+        String result = code;
+        for (String id : wrappedIds) {
+            Pattern call = Pattern.compile("(?<![\\w.$])" + Pattern.quote(TEXT_FIELD_CLASS + ".hint(" + id + ", "));
+            result = call.matcher(result).replaceAll(Matcher.quoteReplacement(id + ".setHint("));
+        }
+        return result;
+    }
+
     /** Source of {@code <package>.SketchButton}. */
     public static String buttonClass(String packageName) {
         return "package " + packageName + ";\n"

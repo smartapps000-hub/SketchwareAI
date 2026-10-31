@@ -769,9 +769,17 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             if (libraries == null) {
                 message = "The project's local library list can't be read: nothing was changed.";
             } else {
+                // v1.8.13: one version per library: switching one on switches its other versions off
+                String key = on ? LibraryInstaller.artifactKey(name) : null;
+                List<String> others = new ArrayList<>();
                 for (int i = libraries.size() - 1; i >= 0; i--) {
                     String n = String.valueOf(libraries.get(i).get("name"));
-                    if (name.equals(n) || n.equals(alsoOff)) libraries.remove(i);
+                    if (name.equals(n) || n.equals(alsoOff)) {
+                        libraries.remove(i);
+                    } else if (key != null && key.equals(LibraryInstaller.artifactKey(n))) {
+                        libraries.remove(i);
+                        others.add(n);
+                    }
                 }
                 if (on) libraries.add(LibraryInstaller.entry(name));
                 List<String> linked = new ArrayList<>();
@@ -787,8 +795,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                     }
                     LibraryNeeds needs = LibraryNeeds.read(new File(LibraryInstaller.root(), name));
                     if (needs != null) {
+                        java.util.HashMap<String, String[]> higher = LibraryInstaller.highestOn(libraries);
                         for (String need : needs.requires) {
                             String folder = folderOf(need);
+                            String[] gav = need.split(":");
+                            String[] onNow = gav.length < 3 ? null : higher.get(gav[0] + ":" + gav[1]);
+                            if (onNow != null && MavenResolver.compareVersions(onNow[1], gav[2]) >= 0) continue;   // a version as high is on
                             if (new File(LibraryInstaller.root(), folder).isDirectory() && !contains(libraries, folder)) {
                                 libraries.add(LibraryInstaller.entry(folder));
                                 linked.add(folder);
@@ -797,9 +809,10 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                     }
                 }
                 LibraryInstaller.save(scId, libraries);
-                if (!linked.isEmpty()) message = "Also on (needed by " + name + "): " + join(linked);
-                if (alsoOff != null) message = "This project now uses " + name + " instead of " + alsoOff
-                        + (linked.isEmpty() ? "" : ". Also on: " + join(linked));
+                String off = alsoOff != null ? alsoOff : others.isEmpty() ? null : others.get(0);
+                if (!linked.isEmpty()) message = "Also on (needed by " + pretty(name) + "): " + join(prettyAll(linked));
+                if (off != null) message = "This project now uses " + pretty(name) + " instead of " + pretty(off)
+                        + (linked.isEmpty() ? "" : ". Also on: " + join(prettyAll(linked)));
             }
             final String text = message;
             runOnUiThread(() -> {
@@ -916,7 +929,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 busyLog = requests.toString();
             }
             setResult(RESULT_OK);
-            return combine(reports, report.toString().trim());
+            return combine(reports, report.toString().trim(), scId != null);
         });
     }
 
@@ -956,6 +969,18 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         return LibraryInfo.pretty(LibraryInfo.readable(gav[0], gav[1])) + (gav.length > 2 ? " " + gav[2] : "");
     }
 
+    /** v1.8.13: a folder as the user knows it ("ESCPOS Thermal Printer Android 3.3.0"; the folder for an imported file). */
+    static String pretty(String folder) {
+        String coordinate = LibraryInstaller.coordinateOf(folder);
+        return coordinate != null ? readableName(coordinate) : folder;
+    }
+
+    private static List<String> prettyAll(List<String> folders) {
+        List<String> out = new ArrayList<>();
+        for (String f : folders) out.add(pretty(f));
+        return out;
+    }
+
     /** A folder as its coordinate (the folder name only for an imported file). */
     static String display(String folder) {
         String coordinate = LibraryInstaller.coordinateOf(folder);
@@ -971,34 +996,40 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         String details = summary(plan.root.coordinate(), plan, outcome).trim();
         String name = readableName(plan.root.coordinate());
         if (plan.root.builtIn != null) return Report.quiet(name + " is built in: nothing to install");
-        String folder = LibraryInstaller.folderName(plan.root);
-        boolean rootThere = outcome.installed.contains(folder) || outcome.reused.contains(folder);
-        if (!rootThere) {
-            String newer = LibraryInstaller.newestInstalledKey(plan.root.group + ":" + plan.root.name);
-            if (newer == null || !outcome.reused.contains(newer)) return Report.fatal("Couldn't install " + name, details);
-            folder = newer;
+        // a POM-only root (a BOM, a multi-module JitPack build) installs only what it lists
+        boolean pomOnly = "pom".equals(plan.root.packaging);
+        final List<String> there = new ArrayList<>();
+        if (pomOnly) {
+            there.addAll(outcome.installed);
+            there.addAll(outcome.reused);
+        } else {
+            String folder = LibraryInstaller.folderName(plan.root);
+            if (outcome.installed.contains(folder) || outcome.reused.contains(folder)) there.add(folder);
         }
-        final String done = folder;
-        runOnUiThread(() -> justInstalled.add(done));
+        if (there.isEmpty()) return Report.fatal("Couldn't install " + name, details);
+        runOnUiThread(() -> justInstalled.addAll(there));
         String toast;
-        if (scId == null) {
+        if (scId == null || outcome.notSwitchedOn != null) {
             toast = name + " installed";
-        } else if (!outcome.keptNewer.isEmpty() && !outcome.enabled.contains(folder)) {
-            toast = name + " installed; the newer version already on in this project stays on";
+        } else if (outcome.rootKeptBack) {
+            toast = name + " installed; the newer version on in this project stays on";
         } else {
             toast = name + " enabled for this project";
         }
-        int problems = outcome.failed.size() + outcome.skipped.size() + outcome.warnings.size();
+        int problems = outcome.failed.size() + outcome.skipped.size() + outcome.warnings.size()
+                + (outcome.notSwitchedOn != null ? 1 : 0);
         if (problems == 0) return Report.quiet(toast);
-        String notice = !outcome.failed.isEmpty()
-                ? outcome.failed.size() + (outcome.failed.size() == 1 ? " library" : " libraries") + " it needs couldn't be installed"
+        String needs = pomOnly ? " it lists" : " it needs";
+        String notice = outcome.notSwitchedOn != null ? "not switched on: " + outcome.notSwitchedOn
+                : !outcome.failed.isEmpty()
+                ? outcome.failed.size() + (outcome.failed.size() == 1 ? " library" : " libraries") + needs + " couldn't be installed"
                 : !outcome.skipped.isEmpty() ? outcome.skipped.size() + " left out (no Android code in them)"
                 : "Its .aar bundles jars that aren't built";
         return Report.warning(toast, name + ": " + notice, details);
     }
 
     /** Several installs (Update, Add N): one Toast, a line when any had trouble, a dialog only when none worked. */
-    private static Report combine(List<Report> reports, String details) {
+    private static Report combine(List<Report> reports, String details, boolean projectOpen) {
         if (reports.isEmpty()) return null;
         if (reports.size() == 1) return reports.get(0);
         int fatal = 0, warn = 0;
@@ -1008,7 +1039,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         }
         int ok = reports.size() - fatal;
         if (ok == 0) return Report.fatal("Couldn't install the libraries", details);
-        String toast = ok + (ok == 1 ? " library" : " libraries") + " enabled";
+        String toast = ok + (ok == 1 ? " library" : " libraries") + (projectOpen ? " enabled" : " installed");
         if (fatal + warn == 0) return Report.quiet(toast);
         return Report.warning(toast, (fatal > 0 ? fatal + " couldn't be installed" : warn + " with something to check"), details);
     }
@@ -1025,6 +1056,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         if (!outcome.enabled.isEmpty()) s.append("Switched on in this project: ").append(join(displayAll(outcome.enabled))).append('\n');
         if (!outcome.replaced.isEmpty()) s.append("Replaced by the newer version: ").append(join(displayAll(outcome.replaced))).append('\n');
         if (!outcome.keptNewer.isEmpty()) s.append("Newer version kept on: ").append(join(displayAll(outcome.keptNewer))).append('\n');
+        if (outcome.notSwitchedOn != null) s.append("Not switched on: ").append(outcome.notSwitchedOn).append('\n');
         if (!outcome.failed.isEmpty()) {
             // v1.8.12: at most five failures in full, the rest counted
             List<String> shown = outcome.failed.size() > 5 ? outcome.failed.subList(0, 5) : outcome.failed;

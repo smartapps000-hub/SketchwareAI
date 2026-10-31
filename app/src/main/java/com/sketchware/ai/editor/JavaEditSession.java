@@ -202,8 +202,11 @@ public final class JavaEditSession {
         converter.useStatementBlocks(statementBlocks());
         converter.useLibraryPackages(libraryPackages());
         // v1.8.13: edittext1.setHint(…) typed in a Material 3 project is what the generator writes as
-        // SketchTextField.hint(edittext1, …) (M3Widgets.routeHints): compared the same way, it is no longer refused
-        JavaToBlocks.Result result = converter.save(com.sketchware.ai.project.M3Widgets.routeHints(edited, materialTextFields()));
+        // SketchTextField.hint(edittext1, …) (M3Widgets.routeHints): compared the same way, it is no longer refused.
+        // Add-source blocks store it as typed (setHint), so they still build when Material 3 is switched off.
+        final java.util.Set<String> m3Fields = materialTextFields();
+        converter.useStoredText(text -> com.sketchware.ai.project.M3Widgets.unrouteHints(text, m3Fields));
+        JavaToBlocks.Result result = converter.save(com.sketchware.ai.project.M3Widgets.routeHints(edited, m3Fields));
         if (result.ok && !result.unchanged) {
             try {
                 load();
