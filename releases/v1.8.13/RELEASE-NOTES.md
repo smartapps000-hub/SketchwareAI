@@ -1,0 +1,58 @@
+# Sketchware AI v1.8.13
+
+versionCode 183, versionName `VERSIONNAME`. Installs over v1.8.12 (same test key). Library Resolver without popups, no
+version flip-flops, and two Java editor fixes.
+
+## Download
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.8.13.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.8.13.apk
+
+APKSIZE bytes. Not a `raw.githubusercontent.com` link: that one gives the 134-byte Git LFS pointer.
+
+## Library Resolver: no popup when it worked
+
+- **Installed, already installed, switched on: no dialog.** A short Toast ("ESCPOS Thermal Printer Android 3.3.0
+  enabled for this project"), the project's switch on, and a green **✓ Installed** on the library's card.
+- **Something to check** (a library it needs couldn't be installed, archives without Android code left out, bundled
+  jars): the same Toast, plus one line above the list with **Copy log** and **×**. No dialog.
+- **A dialog only when the library itself couldn't be installed** (for example a version that is on none of Google
+  Maven, Maven Central and JitPack, like `AestheticDialogs:1.3.100.test`). It keeps Copy log.
+- Names, not folders: "ESCPOS Thermal Printer Android 3.3.0" or `com.google.zxing:core:3.4.0` instead of
+  `core_V_3.4.0`. The folder names are only in Copy log's details.
+- Delete, Update check, Find dex: a Toast instead of a dialog.
+
+## The highest version wins
+
+`animal-sniffer-annotations` 1.28 was switched off when a library needing 1.23 was installed ("Switched off (other
+version)"), and back again on the next install.
+- A library that is on is never replaced by a **lower** version of itself; the lower one is installed but stays off.
+- A library that the one you install needs reuses a **higher or equal** version already installed instead of
+  downloading the lower one.
+- The Required tab counts a need as met when a higher version of that library is on.
+
+## Java editor
+
+- `textview1.setText(edittext1.getText().toString());` becomes the **setText** block with the **getText** block
+  inside it (no add source block). `X.getText().toString()` works in every text slot (Toast, setText, setHint …).
+  `textview1.setText(edittext1.getText())` without `.toString()` stays an add source block.
+- **"Not saved: the blocks wouldn't give exactly this code" after `edittext1.setHint("…");`** in a Material 3 project
+  (your MainActivity screenshot, line 71) is fixed. Material 3 projects write a hint on an outlined field as
+  `SketchTextField.hint(edittext1, "…");`; the editor compared your line with that and refused. It now compares them
+  the way the generator writes them, and the line becomes the setHint block.
+
+## Checked
+
+CHECKED
+
+**Not run here:** the Library Resolver and Java editor screens themselves (Activities) and your phone's network.
+Please try on the phone:
+1. + Add `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` in a project: one Toast, switch on, green ✓ Installed,
+   no dialog.
+2. Your MainActivity edit (setText, setHint, `String userNotes = edittext1.getText().toString();` …): Save works.
+3. `textview1.setText(edittext1.getText().toString());` in an event: Save, then the event shows setText with getText
+   inside.
+
+## Files
+
+`apk/Sketchware_AI_v1.8.13.apk` (APKSIZE bytes, sha256 `APKSHORT`) on the repository's `binaries` branch (one file, Git LFS).

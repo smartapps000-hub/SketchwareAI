@@ -187,8 +187,14 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         if (notice != null) {
             // v1.8.13: what the last install wants you to know, without a dialog; × removes it
             View row = row(notice, "Copy log has the details");
+            TextView title = row.findViewById(R.id.lib_title);
+            title.setSingleLine(false);
+            title.setMaxLines(6);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
             actionButton(row, "Copy log", v -> copy("Library Resolver log", noticeLog == null ? notice : noticeLog));
             TextView close = row.findViewById(R.id.lib_info);
+            close.setContentDescription("Dismiss");
             close.setText("×");
             close.setVisibility(View.VISIBLE);
             close.setOnClickListener(v -> {
