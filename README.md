@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.8.12** (versionCode 182). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.8.13** (versionCode 183). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,7 +27,7 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.8.12)
+## Shipped (v1.0 – v1.8.13)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -45,10 +45,11 @@ Everything in this section is in the released APK and was exercised as described
 | Java editor | Design editor → *Edit Java code* or the Code tab: an activity's generated Java in a code editor. Saving turns the changes back into the project: changed lines inside an event become *add source directly* blocks (only the blocks whose lines changed are replaced; changes inside if/else/loops stay there), new fields custom variables, new imports custom imports, methods written as `public void _name(final String _x, …)` MoreBlocks. What the designer generates itself is refused with its line. Nothing is kept unless the code generated again from the blocks is the code you wrote | v1.8.8 |
 | Library Resolver | Replaces the local library manager. Required / All / Updates / Cache tabs; Maven Central search; + Add by Maven coordinate (POMs read like Gradle: parents, BOMs, properties, exclusions, version ranges) or AAR/JAR/ZIP import; libraries Sketchware AI has built in are not downloaded, and a build adds the built-in libraries a local library needs (Retrofit → OkHttp, Gson) | v1.8.8 |
 | Export of local libraries | Export to Android Studio includes the project's local libraries: by Maven coordinate in `build.gradle` when known, else as `.jar` / `.aar` files in `app/libs` | v1.8.8 |
-| Java statements to blocks | Saving the Java editor turns statements a block writes (setText, setVisible, setEnabled/Clickable/Checked, requestFocus, Toast, setTitle, set/increase/decrease variables, Intent setScreen/putExtra, StartActivity, Finish) into those blocks instead of add-source blocks, when the block generates exactly the typed line | v1.8.9 |
+| Java statements to blocks | Saving the Java editor turns statements a block writes (setText, setVisible, setEnabled/Clickable/Checked, requestFocus, Toast, setTitle, set/increase/decrease variables, Intent setScreen/putExtra, StartActivity, Finish) into those blocks instead of add-source blocks, when the block generates exactly the typed line; `X.getText().toString()` in a text slot becomes the getText block (v1.8.13); a setHint on a Material 3 outlined field is saved (v1.8.13) | v1.8.9 |
 | Library Resolver 2 | Search as you type; `group:artifact` queries Maven Central by field (no HTTP 400) and Google Maven / JitPack by coordinate; `import pkg.*;` added to generated activities for local-library classes the code uses (skipped when it would make a name ambiguous); (i) per library: POM description, licence, project page, manifest permissions, packages, Copy import (offline) | v1.8.9 |
 | Library Resolver 3 | One card per library: readable name (POM name, or the artifact made readable) with a version badge, the coordinate, (i), Share (GitHub / project page), Latest / Update, Delete, switched on; long names scroll. Sort A to Z or updates & newest first. + Add also takes a GitHub or JitPack link (newest version JitPack built, or the tag in the link); a com.github version is tried with and without a leading `v`; repositories that redirect (301/302 to another host) are followed; when nothing is found the dialog lists the repositories that didn't answer and why. Progress dialog with the step (POM, archive, D8) and the bytes of the download. Search shows only .aar / .jar libraries (no WebJars, npm, Kotlin/JS or native, BOMs). Jars an .aar bundles in `libs/` (not part of the build) are named after the install, with how to add them. After an update, the old version is listed under *Older versions* instead of offering the same update again | v1.8.11 |
 | Library Resolver 4 | Only Google Maven, Maven Central and JitPack (JitPack first for GitHub groups); `repositories.json` is no longer read. Find shows the step and a bar, Cancel stops it, Try again; one failure dialog with Copy log (every request and its answer); without a POM the .aar/.jar is installed alone. Search hides Boost / C++ Prefab packages and server artifacts; archives without Android code are left out in one line. GitHub/Web button opens the browser; green Up to date | v1.8.12 |
+| Library Resolver 5 | No popup when an install worked: a Toast, the switch on and a green ✓ Installed on the card; when something needs a word, one line above the list with Copy log; a dialog only when the library itself couldn't be installed. Readable names instead of folder names. The highest version of a library wins: a lower one is never switched on over a higher one, a needed library uses the higher version that is on | v1.8.13 |
 | Material 3 tags | MaterialCardView (elevated) and MaterialToolbar in Material 3 projects; Project Configuration → *Convert to Material 3 & Modern Stack* for older projects (target 37, min 21, AppCompat, Material 3, D8 + Java 11) | v1.8.9 |
 | Code tab | Fourth design editor tab: the project's activities (→ Java editor) and its own Java/Kotlin files; + New class | v1.8.8 |
 | Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |

@@ -20,26 +20,31 @@ APKSIZE bytes. Not a `raw.githubusercontent.com` link: that one gives the 134-by
   Maven, Maven Central and JitPack, like `AestheticDialogs:1.3.100.test`). It keeps Copy log.
 - Names, not folders: "ESCPOS Thermal Printer Android 3.3.0" or `com.google.zxing:core:3.4.0` instead of
   `core_V_3.4.0`. The folder names are only in Copy log's details.
-- Delete, Update check, Find dex: a Toast instead of a dialog.
+- Delete, Check for updates and Dex end in a Toast instead of a dialog. Switching a library on by hand switches its
+  other versions off and names them ("This project now uses … instead of …").
 
 ## The highest version wins
 
 `animal-sniffer-annotations` 1.28 was switched off when a library needing 1.23 was installed ("Switched off (other
 version)"), and back again on the next install.
 - A library that is on is never replaced by a **lower** version of itself; the lower one is installed but stays off.
-- A library that the one you install needs reuses a **higher or equal** version already installed instead of
-  downloading the lower one.
+- A library the one you install needs uses the **higher version that is on** in the project instead of downloading
+  the lower one.
+- Installing a library lower than the version on switches nothing on (not its dependencies either); the Toast says
+  the newer version stays on. A higher one replaces the lower one.
 - The Required tab counts a need as met when a higher version of that library is on.
 
 ## Java editor
 
 - `textview1.setText(edittext1.getText().toString());` becomes the **setText** block with the **getText** block
-  inside it (no add source block). `X.getText().toString()` works in every text slot (Toast, setText, setHint …).
+  inside it (no add source block). `X.getText().toString()` works in the text slot of the blocks the editor maps
+  (setText, Toast, setTitle, setHint …).
   `textview1.setText(edittext1.getText())` without `.toString()` stays an add source block.
 - **"Not saved: the blocks wouldn't give exactly this code" after `edittext1.setHint("…");`** in a Material 3 project
   (your MainActivity screenshot, line 71) is fixed. Material 3 projects write a hint on an outlined field as
   `SketchTextField.hint(edittext1, "…");`; the editor compared your line with that and refused. It now compares them
-  the way the generator writes them, and the line becomes the setHint block.
+  the way the generator writes them, and the line becomes the setHint block. A setHint inside an if stays an add
+  source block, stored as you typed it.
 
 ## Checked
 

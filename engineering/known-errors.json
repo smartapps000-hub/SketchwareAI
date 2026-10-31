@@ -361,11 +361,11 @@
     },
     {
       "fingerprint": "Java editor: Save refused, 'The blocks wouldn't give exactly this code (initialize)' after edittext.setHint(...) in a Material 3 project",
-      "rootCause": "M3Widgets.routeHints writes setHint on an outlined field as the field's label, so the regenerated code differs",
-      "repair": "none: refused with nothing changed (as for an add-source line)",
+      "rootCause": "M3Widgets.routeHints writes setHint on an outlined field as SketchTextField.hint(field, …) in the generated code (Jx.formattedCode); the editor compared the typed setHint line with that and refused (owner's MainActivity, line 71, 31 Oct 2026)",
+      "repair": "v1.8.13: the edited text is routed the same way before the comparison (JavaEditSession.save), the statement generator routes too and SketchTextField.hint(field, text) maps back to the setHint block; add-source blocks store the line as typed (M3Widgets.unrouteHints), so they build with Material 3 off too",
       "scope": "Java editor, Material 3 projects",
-      "verifiedOn": "ART fixture 919",
-      "permanent": false
+      "verifiedOn": "ART fixture 908 (javaedit-m3): the owner's six lines typed unindented into initializeLogic save, setHint and getText become blocks, a setHint inside an if is stored as typed and generated as the hint, the project builds",
+      "permanent": true
     },
     {
       "fingerprint": "Design editor crash: ClassCastException android.widget.FrameLayout$LayoutParams cannot be cast to android.widget.LinearLayout$LayoutParams (LinearLayout.measureHorizontal, ItemVerticalScrollView)",
@@ -453,6 +453,30 @@
       "repair": "v1.8.12: search hides hits whose files list no .aar/.jar, boost*, *prefab*, ndk/cpp/cxx names and server artifacts (vaadin, jwebmp, spring-boot …), and lists .aar hits first; the installer leaves archives without Android code out in one line ('Left out, no Android code in them (13): …'); an imported Prefab .aar is named as a C++ package; at most five failures in full, all of them in Copy log",
       "scope": "Library Resolver search and installs",
       "verifiedOn": "JVM (real boost_date_time-1.81.0.aar from Maven Central → 'C++ (Prefab) package'; search filter cases)",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Library Resolver: a dialog after every install ('Installed: … Already installed: core_V_3.4.0 … Switched on in this project: …'), also when everything worked",
+      "rootCause": "every finished task ended in a report dialog that listed library folder names",
+      "repair": "v1.8.13: a finished install shows a Toast ('ESCPOS Thermal Printer Android 3.3.0 enabled for this project') and a green '✓ Installed' on the card; when a library it needs failed or was left out, one line above the list with Copy log and ×; a dialog only when the library itself couldn't be installed. Names instead of folders (the folders stay in Copy log's details). Delete, Dex and the update check end in a Toast",
+      "scope": "Library Resolver screen",
+      "verifiedOn": "layoutlib render of the notice line and the card (V1813Test); the screen itself not run",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Library Resolver: animal-sniffer-annotations 1.28 'Switched off (other version)' by an install that needs 1.23, and back on with the next install",
+      "rootCause": "enable() switched off every other version of a group:artifact when switching one on, whichever was higher",
+      "repair": "v1.8.13: the highest version wins (Gradle's rule): a lower version is never switched on over a higher one that is on; a library the install needs reuses a higher version that is on in the project instead of downloading the lower one; a library lower than the version on brings none of its dependencies; a higher one replaces the lower ones; the Required tab counts a need as met by a higher version that is on",
+      "scope": "Library Resolver installs and switches",
+      "verifiedOn": "ART harness 'versions' (fake library folders, offline): 7/7 checks",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Java editor: textview1.setText(edittext1.getText().toString()); saved as an add source block",
+      "rootCause": "statements mapped to blocks only took literals and variables in their text slots",
+      "repair": "v1.8.13: X.getText().toString() in a text slot becomes the getText block inside it (referenced as @id, like getVar); without .toString() it stays add source (getText() alone is no String)",
+      "scope": "Java editor",
+      "verifiedOn": "ART fixture 919 section 18 and 908 (javaedit-m3)",
       "permanent": true
     }
   ]

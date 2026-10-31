@@ -472,6 +472,41 @@
       "checks": [
         "image out/lr1811_*.png: name, version badge, coordinate, (i) / Share / status / Delete / switch in one row"
       ]
+    },
+    {
+      "id": "919 (v1.8.13)",
+      "kind": "javaedit section 18 (JavaEdit.java)",
+      "content": "textview1.setText(edittext1.getText().toString()); typed into button2's onClick",
+      "checks": [
+        "saved with no add source block: a setText block whose text slot is '@<id>' of a getText block (type s, parameter edittext1)",
+        "the code generated again has the line as typed"
+      ]
+    },
+    {
+      "id": "908 (v1.8.13, javaedit-m3)",
+      "kind": "Java editor on the Material 3 fixture 908 (run.sh <apk> <root> javaedit-m3 908, then build 908)",
+      "content": "the owner's MainActivity lines (31 Oct 2026) typed unindented into initializeLogic: setText, edittext1.setHint, String userNotes = edittext1.getText().toString(), setText(userNotes), setVisibility, setText(edittext1.getText().toString()); then if (userNotes.isEmpty()) { edittext1.setHint(\"Type here\"); }",
+      "checks": [
+        "saved (setHint on an outlined field no longer refused)",
+        "generated as SketchTextField.hint(edittext1, ...)",
+        "setHint block and a getText block with [edittext1] in onCreate_initializeLogic",
+        "the setHint inside the if is stored as typed in its add source block (no SketchTextField) and generated as the field's hint",
+        "saving the shown code again changes nothing",
+        "the project builds (Run build steps ok)"
+      ]
+    },
+    {
+      "id": "990 (v1.8.13, versions)",
+      "kind": "harness command versions (Versions.java): LibraryInstaller.install with plans of fake library folders h.test:* (classes.jar + classes.dex + needs.json), offline, in scratch project 990's library list",
+      "content": "A: hwx 2.0 on, hwroot 1.0 needs hwx 1.0 (not installed); B: hwx 1.0 installed too; C: hwroot 1.0 on, install hwroot 0.9 needing hwdep 0.9; D: hwx 1.0 on, install hwx 2.0; E: no project, hwroot 1.0 needing hwx 1.0",
+      "checks": [
+        "A: 2.0 reused, nothing fetched, 1.0 not on",
+        "B: 1.0 not switched on over 2.0",
+        "C: rootKeptBack, 1.0 stays on, 0.9 and hwdep stay off",
+        "D: 1.0 replaced by 2.0",
+        "E: without a project no other version is reused",
+        "VERSIONS 7/7"
+      ]
     }
   ]
 }
