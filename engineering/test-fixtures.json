@@ -507,6 +507,15 @@
         "E: without a project no other version is reused",
         "VERSIONS 7/7"
       ]
+    },
+    {
+      "id": "923 (v1.8.13, autofixm3)",
+      "kind": "Sketchware project made by tools/art-harness (spec 'autofixm3')",
+      "content": "the 905 autofix block (#639 shape: a statement after a try/catch that leaves the method on every path) with edittext1.setHint(\"Name\"); as its first line, in a Material 3 project (edittext1 an outlined field)",
+      "checks": [
+        "Run build with the unreachable-code repair (1 warning)",
+        "mysc/923/autofix.json: a proposal for block 10 whose before/after keep edittext1.setHint(\"Name\"); while the generated line is SketchTextField.hint(edittext1, \"Name\");"
+      ]
     }
   ]
 }
