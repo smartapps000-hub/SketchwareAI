@@ -125,10 +125,21 @@ public final class JavaEditSession {
         } catch (Throwable ignored) {
             // none
         }
+        // v1.8.13: setHint on an outlined Material 3 field is written as SketchTextField.hint(…), as the build writes it
+        final java.util.Set<String> m3Fields = materialTextFields();
         return new StatementBlocks(
-                blocks -> new a.a.a.Fx(activityName, buildConfig, "", blocks).a(),
+                blocks -> com.sketchware.ai.project.M3Widgets.routeHints(new a.a.a.Fx(activityName, buildConfig, "", blocks).a(), m3Fields),
                 paletteSpecs(context),
                 views, components, data.e.get(javaName), activities);
+    }
+
+    /** v1.8.13: the EditTexts the generator writes setHint for as SketchTextField.hint (Material 3 projects). */
+    private java.util.Set<String> materialTextFields() {
+        try {
+            return new a.a.a.Jx(generatorUsed.N, file, data).materialTextFields();
+        } catch (Throwable t) {
+            return new java.util.HashSet<>();
+        }
     }
 
     /** The palette's spec for an opcode (localized like the palette's), the English one when that can't be read. */
@@ -190,7 +201,9 @@ public final class JavaEditSession {
                 () -> new yq(context, scId).getFileSrc(javaName, files, data, libraries));
         converter.useStatementBlocks(statementBlocks());
         converter.useLibraryPackages(libraryPackages());
-        JavaToBlocks.Result result = converter.save(edited);
+        // v1.8.13: edittext1.setHint(…) typed in a Material 3 project is what the generator writes as
+        // SketchTextField.hint(edittext1, …) (M3Widgets.routeHints): compared the same way, it is no longer refused
+        JavaToBlocks.Result result = converter.save(com.sketchware.ai.project.M3Widgets.routeHints(edited, materialTextFields()));
         if (result.ok && !result.unchanged) {
             try {
                 load();

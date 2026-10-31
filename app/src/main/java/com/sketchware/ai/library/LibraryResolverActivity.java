@@ -63,6 +63,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private boolean updatesChecked;
     /** v1.8.11: libraries the last check found at their newest stable version (only those show "Latest"). */
     private final java.util.HashSet<String> checkedLatest = new java.util.HashSet<>();
+    /** v1.8.13: folders installed in this session: their card says "✓ Installed" in green. */
+    private final java.util.HashSet<String> justInstalled = new java.util.HashSet<>();
     /** v1.8.12: libraries the last check got no stable version for (shown as a line in the Updates tab). */
     private final List<String> uncheckedNames = new ArrayList<>();
     private List<MavenSearch.Hit> hits;
@@ -182,6 +184,20 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private void show() {
         list.removeAllViews();
         action.setVisibility(View.GONE);
+        if (notice != null) {
+            // v1.8.13: what the last install wants you to know, without a dialog; × removes it
+            View row = row(notice, "Copy log has the details");
+            actionButton(row, "Copy log", v -> copy("Library Resolver log", noticeLog == null ? notice : noticeLog));
+            TextView close = row.findViewById(R.id.lib_info);
+            close.setText("×");
+            close.setVisibility(View.VISIBLE);
+            close.setOnClickListener(v -> {
+                notice = null;
+                noticeLog = null;
+                show();
+            });
+            list.addView(row);
+        }
         switch (tab) {
             case 0:
                 showRequired();
@@ -360,6 +376,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             status.setVisibility(View.VISIBLE);
             String[] gav = lib.coordinate.split(":");
             status.setOnClickListener(v -> installCoordinates(Collections.singletonList(gav[0] + ":" + gav[1] + ":" + latest)));
+        } else if (justInstalled.contains(lib.name)) {
+            // v1.8.13: installed in this session
+            status.setText("✓ Installed");
+            status.setTextColor(0xFF7BD88F);
+            status.setBackgroundResource(R.drawable.ob_pill16);
+            status.setVisibility(View.VISIBLE);
         } else if (checkedLatest.contains(lib.name)) {
             // v1.8.12: green, not a button
             status.setText("✓ Up to date");
@@ -427,7 +449,8 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 if (!needs.builtIn.isEmpty()) sub.append(" · built in: ").append(builtInNames(needs.builtIn));
                 for (String need : needs.requires) {
                     String folder = folderOf(need);
-                    if (!enabled.contains(folder)) missing.add(need);
+                    // v1.8.13: a higher version of it that is on counts (Gradle's highest-version rule)
+                    if (!enabled.contains(folder) && !newerOn(need, enabled, libs)) missing.add(need);
                 }
             }
             if (!missing.isEmpty()) sub.append("\nNeeds, not switched on: ").append(join(missing));
@@ -468,6 +491,18 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             }
             list.addView(card);
         }
+    }
+
+    /** v1.8.13: a version of need's group:artifact at least as high as need's is switched on. */
+    private static boolean newerOn(String need, List<String> enabled, List<Installed> libs) {
+        String[] gav = need.split(":");
+        if (gav.length < 3) return false;
+        String key = gav[0] + ":" + gav[1];
+        for (Installed lib : libs) {
+            if (enabled.contains(lib.name) && key.equals(lib.key()) && lib.version != null
+                    && MavenResolver.compareVersions(lib.version, gav[2]) >= 0) return true;
+        }
+        return false;
     }
 
     private static String builtInNames(List<String> constants) {
@@ -794,7 +829,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                             setResult(RESULT_OK);
                         }
                     }
-                    return null;
+                    return Report.quiet("Deleted " + (lib.title != null ? lib.title : lib.name));
                 }))
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -803,7 +838,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
     private void dexNow(File dir) {
         runBusy("Dexing " + dir.getName() + "…", false, () -> {
             LibraryInstaller.dex(new File(dir, "classes.jar"));
-            return dir.getName() + " is ready";
+            return Report.quiet("Ready to build");
         });
     }
 
@@ -813,7 +848,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             List<MavenSearch.Hit> found = MavenSearch.search(query, 40, null);
             hits = found;
             hitsQuery = query.toLowerCase(Locale.ROOT);
-            return null;
+            return null;   // the results are the list
         });
     }
 
@@ -833,7 +868,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 else if (MavenResolver.compareVersions(latest, gav[2]) > 0) found.put(lib.name, latest);
                 else current.add(lib.name);
             }
-            if (MavenResolver.cancelledHere()) return "Nothing was changed: tap Check for updates to check again.";
+            if (MavenResolver.cancelledHere()) return Report.quiet("Update check cancelled: nothing changed");
             runOnUiThread(() -> {
                 updates.clear();
                 updates.putAll(found);
@@ -843,7 +878,9 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 uncheckedNames.addAll(unchecked);
                 updatesChecked = true;
             });
-            return null;   // v1.8.12: no dialog: the tab lists what couldn't be checked
+            // v1.8.12: no dialog: the tab lists what couldn't be checked
+            return Report.quiet(found.isEmpty() ? "Everything that could be checked is up to date"
+                    : found.size() + (found.size() == 1 ? " update" : " updates") + " found");
         });
     }
 
@@ -852,6 +889,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             MavenResolver resolver = new MavenResolver(repositories(), cacheFolder(), null);
             StringBuilder report = new StringBuilder();
             StringBuilder requests = new StringBuilder();
+            List<Report> reports = new ArrayList<>();
             for (String coordinate : coordinates) {
                 if (MavenResolver.cancelledHere()) break;
                 status("Reading the POM files\n" + coordinate);
@@ -860,16 +898,19 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 busyLog = requests.toString();
                 if (plan.cancelled) break;
                 if (!MavenResolver.found(plan)) {
-                    report.append(coordinate).append(": ").append(join(plan.problems)).append(networkNotes(plan)).append('\n');
+                    String why = coordinate + ": " + join(plan.problems) + networkNotes(plan);
+                    report.append(why).append('\n');
+                    reports.add(Report.fatal("Couldn't install " + readableName(coordinate), why));
                     continue;
                 }
                 LibraryInstaller.Outcome outcome = LibraryInstaller.install(resolver, plan, scId, this::status);
                 report.append(summary(coordinate, plan, outcome)).append('\n');
+                reports.add(installReport(plan, outcome));
                 requests.insert(0, outcomeLog(outcome));
                 busyLog = requests.toString();
             }
             setResult(RESULT_OK);
-            return report.toString().trim();
+            return combine(reports, report.toString().trim());
         });
     }
 
@@ -902,17 +943,82 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         });
     }
 
+    /** "ESCPOS Thermal Printer Android 3.3.0" for a coordinate: what the user sees instead of folder names. */
+    static String readableName(String coordinate) {
+        String[] gav = coordinate == null ? null : coordinate.split(":");
+        if (gav == null || gav.length < 2) return String.valueOf(coordinate);
+        return LibraryInfo.pretty(LibraryInfo.readable(gav[0], gav[1])) + (gav.length > 2 ? " " + gav[2] : "");
+    }
+
+    /** A folder as its coordinate (the folder name only for an imported file). */
+    static String display(String folder) {
+        String coordinate = LibraryInstaller.coordinateOf(folder);
+        return coordinate != null ? coordinate : folder;
+    }
+
+    /**
+     * v1.8.13: the end of an install. The library on (or installed) → a Toast and the card's green "✓ Installed"; a
+     * library it needs failed or was left out → also a line above the list; the library itself not installed → the
+     * only dialog.
+     */
+    private Report installReport(MavenResolver.Plan plan, LibraryInstaller.Outcome outcome) {
+        String details = summary(plan.root.coordinate(), plan, outcome).trim();
+        String name = readableName(plan.root.coordinate());
+        if (plan.root.builtIn != null) return Report.quiet(name + " is built in: nothing to install");
+        String folder = LibraryInstaller.folderName(plan.root);
+        boolean rootThere = outcome.installed.contains(folder) || outcome.reused.contains(folder);
+        if (!rootThere) {
+            String newer = LibraryInstaller.newestInstalledKey(plan.root.group + ":" + plan.root.name);
+            if (newer == null || !outcome.reused.contains(newer)) return Report.fatal("Couldn't install " + name, details);
+            folder = newer;
+        }
+        final String done = folder;
+        runOnUiThread(() -> justInstalled.add(done));
+        String toast;
+        if (scId == null) {
+            toast = name + " installed";
+        } else if (!outcome.keptNewer.isEmpty() && !outcome.enabled.contains(folder)) {
+            toast = name + " installed; the newer version already on in this project stays on";
+        } else {
+            toast = name + " enabled for this project";
+        }
+        int problems = outcome.failed.size() + outcome.skipped.size() + outcome.warnings.size();
+        if (problems == 0) return Report.quiet(toast);
+        String notice = !outcome.failed.isEmpty()
+                ? outcome.failed.size() + (outcome.failed.size() == 1 ? " library" : " libraries") + " it needs couldn't be installed"
+                : !outcome.skipped.isEmpty() ? outcome.skipped.size() + " left out (no Android code in them)"
+                : "Its .aar bundles jars that aren't built";
+        return Report.warning(toast, name + ": " + notice, details);
+    }
+
+    /** Several installs (Update, Add N): one Toast, a line when any had trouble, a dialog only when none worked. */
+    private static Report combine(List<Report> reports, String details) {
+        if (reports.isEmpty()) return null;
+        if (reports.size() == 1) return reports.get(0);
+        int fatal = 0, warn = 0;
+        for (Report r : reports) {
+            if (r.fatalTitle != null) fatal++;
+            else if (r.notice != null) warn++;
+        }
+        int ok = reports.size() - fatal;
+        if (ok == 0) return Report.fatal("Couldn't install the libraries", details);
+        String toast = ok + (ok == 1 ? " library" : " libraries") + " enabled";
+        if (fatal + warn == 0) return Report.quiet(toast);
+        return Report.warning(toast, (fatal > 0 ? fatal + " couldn't be installed" : warn + " with something to check"), details);
+    }
+
     static String summary(String coordinate, MavenResolver.Plan plan, LibraryInstaller.Outcome outcome) {
         StringBuilder s = new StringBuilder(coordinate).append('\n');
-        if (!outcome.installed.isEmpty()) s.append("Installed: ").append(join(outcome.installed)).append('\n');
-        if (!outcome.reused.isEmpty()) s.append("Already installed: ").append(join(outcome.reused)).append('\n');
+        if (!outcome.installed.isEmpty()) s.append("Installed: ").append(join(displayAll(outcome.installed))).append('\n');
+        if (!outcome.reused.isEmpty()) s.append("Already installed: ").append(join(displayAll(outcome.reused))).append('\n');
         if (!plan.builtIn.isEmpty()) {
             List<String> names = new ArrayList<>();
             for (MavenResolver.Artifact a : plan.builtIn) names.add(a.name + " " + a.builtInVersion);
             s.append("Built in (added to the build): ").append(join(names)).append('\n');
         }
-        if (!outcome.enabled.isEmpty()) s.append("Switched on in this project: ").append(join(outcome.enabled)).append('\n');
-        if (!outcome.replaced.isEmpty()) s.append("Switched off (other version): ").append(join(outcome.replaced)).append('\n');
+        if (!outcome.enabled.isEmpty()) s.append("Switched on in this project: ").append(join(displayAll(outcome.enabled))).append('\n');
+        if (!outcome.replaced.isEmpty()) s.append("Replaced by the newer version: ").append(join(displayAll(outcome.replaced))).append('\n');
+        if (!outcome.keptNewer.isEmpty()) s.append("Newer version kept on: ").append(join(displayAll(outcome.keptNewer))).append('\n');
         if (!outcome.failed.isEmpty()) {
             // v1.8.12: at most five failures in full, the rest counted
             List<String> shown = outcome.failed.size() > 5 ? outcome.failed.subList(0, 5) : outcome.failed;
@@ -1024,7 +1130,7 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                     LibraryInstaller.Outcome outcome = LibraryInstaller.install(r, plan, scId, this::status);
                     setResult(RESULT_OK);
                     busyLog = outcomeLog(outcome) + requestLog(plan);
-                    return summary(plan.root.coordinate(), plan, outcome).trim();
+                    return installReport(plan, outcome);
                 });
                 return;
             }
@@ -1145,6 +1251,12 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 .show();
     }
 
+    private static List<String> displayAll(List<String> folders) {
+        List<String> out = new ArrayList<>();
+        for (String f : folders) out.add(display(f));
+        return out;
+    }
+
     /** v1.8.12: every failure and left-out archive of an install, in full. */
     static String outcomeLog(LibraryInstaller.Outcome outcome) {
         StringBuilder s = new StringBuilder();
@@ -1260,38 +1372,70 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             copy.delete();
             if (reason != null) {
                 FileUtil.deleteFile(staging.getAbsolutePath());
-                return shown + ": " + reason;
+                return Report.fatal("Couldn't import " + shown, reason);
             }
             com.sketchware.ai.project.LibraryHeal.writeConfig(staging, null);
             try {
                 LibraryInstaller.dex(new File(staging, "classes.jar"));
             } catch (Exception e) {
                 FileUtil.deleteFile(staging.getAbsolutePath());
-                return shown + ": couldn't be dexed: " + (e.getMessage() != null ? e.getMessage() : e.toString());
+                return Report.fatal("Couldn't import " + shown, "It couldn't be dexed: " + (e.getMessage() != null ? e.getMessage() : e.toString()));
             }
             if (!staging.renameTo(dir)) {
                 FileUtil.deleteFile(staging.getAbsolutePath());
-                return shown + ": couldn't move it into " + dir;
+                return Report.fatal("Couldn't import " + shown, "It couldn't be moved into " + dir);
             }
-            String bundled = MavenFetcher.bundledJarsWarning(name, dir);
-            String warning = bundled == null ? "" : "\n\n" + bundled;
+            String bundled = MavenFetcher.bundledJarsWarning(shown, dir);
             if (scId != null) {
                 ArrayList<HashMap<String, Object>> libraries = LibraryInstaller.enabled(scId);
-                if (libraries == null) return name + " installed; the project's local library list can't be read, so it isn't switched on" + warning;
+                if (libraries == null) return Report.warning(shown + " imported", "The project's local library list can't be read, so "
+                        + shown + " isn't switched on", "");
                 if (!contains(libraries, name)) libraries.add(LibraryInstaller.entry(name));
                 LibraryInstaller.save(scId, libraries);
                 setResult(RESULT_OK);
-                return name + " installed and switched on in this project" + warning;
+                return bundled == null ? Report.quiet(shown + " imported and enabled for this project")
+                        : Report.warning(shown + " imported and enabled for this project", "Its .aar bundles jars that aren't built", bundled);
             }
-            return name + " installed" + warning;
+            return bundled == null ? Report.quiet(shown + " imported")
+                    : Report.warning(shown + " imported", "Its .aar bundles jars that aren't built", bundled);
         });
     }
 
     // ------------------------------------------------------------------------------------------- helpers
 
     private interface Work {
-        String run() throws Exception;
+        Report run() throws Exception;
     }
+
+    /**
+     * v1.8.13: how a busy work ends. Success is quiet (a Toast); something the user should know but that didn't stop it
+     * is a line above the list with Copy log (no dialog); only a work that achieved nothing opens a dialog.
+     */
+    static final class Report {
+        final String toast, notice, fatalTitle, details;
+
+        private Report(String toast, String notice, String fatalTitle, String details) {
+            this.toast = toast;
+            this.notice = notice;
+            this.fatalTitle = fatalTitle;
+            this.details = details;
+        }
+
+        static Report quiet(String toast) {
+            return new Report(toast, null, null, null);
+        }
+
+        static Report warning(String toast, String notice, String details) {
+            return new Report(toast, notice, null, details);
+        }
+
+        static Report fatal(String title, String details) {
+            return new Report(null, null, title, details);
+        }
+    }
+
+    /** v1.8.13: the line above the list after a work that needs a word (dismissed with ×), and its log. */
+    private String notice, noticeLog;
 
     private AlertDialog busyDialog;
     private TextView busyStep, busyBytes;
@@ -1347,21 +1491,17 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
         new Thread(() -> {
             MavenResolver.PROGRESS.set(this::bytes);
             MavenResolver.CANCEL.set(cancel);
-            String report;
+            Report report;
             try {
                 report = work.run();
             } catch (Throwable t) {
-                report = "Failed: " + t;
+                report = cancel.isCancelled() ? null : Report.fatal(title.replace("…", "") + " failed", String.valueOf(t));
             } finally {
                 MavenResolver.PROGRESS.remove();
                 MavenResolver.CANCEL.remove();
             }
-            if (cancel.isCancelled()) {
-                // what was done before the Cancel is reported; a failure caused by the Cancel itself isn't
-                report = report == null || report.isEmpty() || report.startsWith("Failed: ") || report.equals("Cancelled.")
-                        ? "Cancelled." : "Cancelled.\n\n" + report;
-            }
-            final String text = report;
+            if (cancel.isCancelled() && (report == null || report.fatalTitle != null)) report = Report.quiet("Cancelled");
+            final Report done = report;
             runOnUiThread(() -> {
                 busy = false;
                 if (busyDialog != null) busyDialog.dismiss();
@@ -1371,14 +1511,22 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
                 if (isFinishing()) return;
                 installedCache = null;
                 installedGeneration++;
-                show();
-                if (text != null && !text.isEmpty()) {
-                    // v1.8.12: one report, Copy log puts it and every request on the clipboard
-                    String log = "Library Resolver · Sketchware AI " + com.sketchware.remod.BuildConfig.VERSION_NAME + "\n\n" + text
+                if (done != null) {
+                    String log = "Library Resolver · Sketchware AI " + com.sketchware.remod.BuildConfig.VERSION_NAME + "\n\n"
+                            + (done.details == null ? "" : done.details)
                             + (busyLog == null || busyLog.isEmpty() ? "" : "\n\n" + busyLog);
-                    new ObAlertBuilder(this).setTitle("Library Resolver").setMessage(text).setPositiveButton("OK", null)
-                            .setNeutralButton("Copy log", (d, w) -> copy("Library Resolver log", log)).show();
+                    if (done.toast != null) Toast.makeText(this, done.toast, Toast.LENGTH_SHORT).show();
+                    if (done.notice != null) {
+                        notice = done.notice;
+                        noticeLog = log;
+                    }
+                    if (done.fatalTitle != null) {
+                        // the only dialog: nothing was achieved
+                        new ObAlertBuilder(this).setTitle(done.fatalTitle).setMessage(done.details).setPositiveButton("OK", null)
+                                .setNeutralButton("Copy log", (d, w) -> copy("Library Resolver log", log)).show();
+                    }
                 }
+                show();
             });
         }, "LibraryResolver").start();
     }

@@ -187,6 +187,11 @@ public class Jx {
         return new java.io.File(mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar");
     }
 
+    /** v1.8.13: {@link #wrappedTextFields()} for the Java editor (it writes setHint the way the generator does). */
+    public java.util.Set<String> materialTextFields() {
+        return wrappedTextFields();
+    }
+
     /** Names of the EditTexts this class reaches that the layouts show as outlined Material 3 fields. */
     private java.util.Set<String> wrappedTextFields() {
         java.util.Set<String> ids = new java.util.HashSet<>();

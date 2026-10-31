@@ -56,7 +56,14 @@ public final class StatementBlocks {
         ENGLISH.put("setVarInt", "set %m.varInt to %d");
         ENGLISH.put("setVarBoolean", "set %m.varBool to %b");
         ENGLISH.put("setTitle", "Activity set title %s");
+        ENGLISH.put("getText", "%m.textview getText");   // v1.8.13: a value block inside another block's slot
     }
+
+    /** v1.8.13: "edittext1.getText().toString()" — the getText block's code, used inside setText(…), Toast(…) … */
+    private static final Pattern GET_TEXT = Pattern.compile("^([A-Za-z_][A-Za-z0-9_]*)\\.getText\\(\\)\\.toString\\(\\)$");
+
+    /** v1.8.13: Material 3 projects write setHint on an outlined field as {@code SketchTextField.hint(field, text)}. */
+    static final String M3_HINT_CLASS = "SketchTextField";
 
     public static final Specs ENGLISH_SPECS = opCode -> ENGLISH.get(opCode);
 
@@ -171,6 +178,10 @@ public final class StatementBlocks {
                 out.add(new Candidate("doToast", " ", new String[]{"%s"}, args.get(1)));
                 return out;
             }
+            if (target.equals(M3_HINT_CLASS) && method.equals("hint") && args.size() == 2) {
+                out.add(new Candidate("setHint", " ", new String[]{"%m.edittext", "%s"}, args.get(0), args.get(1)));
+                return out;
+            }
             switch (method) {
                 case "setText":
                     if (args.size() == 1) out.add(new Candidate("setText", " ", new String[]{"%m.textview", "%s"}, target, args.get(0)));
@@ -265,9 +276,11 @@ public final class StatementBlocks {
     /** The stored parameter for Java text {@code arg} in a slot of kind {@code kind}, or null when it can't be one. */
     private String parameter(String kind, String arg, ArrayList<BlockBean> blocks, int[] nextId) {
         switch (kind) {
-            case "%s":
+            case "%s": {
                 if (isStringLiteral(arg)) return unescape(arg.substring(1, arg.length() - 1));
-                return variable(arg, 2, "s", blocks, nextId);
+                String variable = variable(arg, 2, "s", blocks, nextId);
+                return variable != null ? variable : expression(arg, blocks, nextId);
+            }
             case "%d":
                 if (NUMBER.matcher(arg).matches()) return arg;
                 return variable(arg, 1, "d", blocks, nextId);
@@ -309,6 +322,23 @@ public final class StatementBlocks {
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    /**
+     * v1.8.13: a string value written by a block of its own, put in the slot as "@<id>": {@code X.getText().toString()}
+     * is the getText block of TextView / EditText X. The whole statement is still checked against the generator.
+     */
+    private String expression(String arg, ArrayList<BlockBean> blocks, int[] nextId) {
+        Matcher m = GET_TEXT.matcher(arg);
+        if (!m.matches()) return null;
+        String view = view(m.group(1), "TextView");
+        if (view == null) return null;
+        String spec = specs.spec("getText");
+        if (spec == null || spec.isEmpty()) spec = ENGLISH.get("getText");
+        BlockBean getter = new BlockBean(String.valueOf(nextId[0]++), spec, "s", "", "getText");
+        getter.parameters.add(view);
+        blocks.add(getter);
+        return "@" + getter.id;
     }
 
     /** A variable block ("getVar") for a variable of the activity of that type: "@<id>". */

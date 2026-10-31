@@ -42,6 +42,9 @@ public class Main {
                 case "javaedit-open":
                     JavaEdit.openAll(Arrays.copyOfRange(args, 1, args.length));
                     break;
+                case "javaedit-m3":
+                    JavaEdit.m3(args[1]);
+                    break;
                 case "javaedit":
                     JavaEdit.run(args[1], args.length < 3 || !args[2].equals("nobuild"));
                     break;

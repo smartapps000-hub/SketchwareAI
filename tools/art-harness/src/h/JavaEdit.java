@@ -105,6 +105,49 @@ public class JavaEdit {
         session = call(c("com.sketchware.ai.editor.JavaEditSession"), "open", Main.CTX, sc, JAVA, files, proj, libs);
     }
 
+    /**
+     * v1.8.13: the owner's MainActivity edit in a Material 3 project (fixture 908, an outlined edittext1): lines typed
+     * without indentation into initializeLogic, a setHint among them (the generator writes it SketchTextField.hint(...),
+     * which made v1.8.12 refuse the save) and setText(edittext1.getText().toString()).
+     * Usage: run.sh <apk> <root> javaedit-m3 <sc_id>   (CHECK lines and JAVAEDIT-M3 n/m ok)
+     */
+    public static void m3(String sc_id) throws Throwable {
+        sc = sc_id;
+        Class<?> jC = c("a.a.a.jC");
+        proj = call(jC, "a", sc);
+        files = call(jC, "b", sc);
+        libs = call(jC, "c", sc);
+        open();
+        check("m3: opens convertible", (Boolean) call(session, "convertible"), String.valueOf(get(session, "problem")));
+        List<String> l = lines(code());
+        int at = find(l, "private void initializeLogic() {", 0);
+        String[] typed = {
+                "textview1.setText(\"AiTechApp PDF & Notebook Engine\");",
+                "edittext1.setHint(\"Enter your notes here...\");",
+                "String userNotes = edittext1.getText().toString();",
+                "textview1.setText(userNotes);",
+                "textview1.setVisibility(View.VISIBLE);",
+                "textview1.setText(edittext1.getText().toString());"};
+        for (int k = 0; k < typed.length; k++) l.add(at + 1 + k, typed[k]);   // no indentation, as typed on the phone
+        Object r = save(join(l));
+        check("m3: saved (setHint on an outlined field no longer refused)", ok(r), report(r));
+        String again = code();
+        write("javaedit-m3-saved.java", again);
+        check("m3: setHint written as the field's hint", again.contains("SketchTextField.hint(edittext1, \"Enter your notes here...\");"), "");
+        StringBuilder ops = new StringBuilder();
+        boolean nestedGetText = false;
+        for (Object b : blocks("onCreate_initializeLogic")) {
+            ops.append(get(b, "opCode")).append(' ');
+            nestedGetText |= "getText".equals(get(b, "opCode")) && String.valueOf(get(b, "parameters")).equals("[edittext1]");
+        }
+        check("m3: setHint block and nested getText block", ops.toString().contains("setHint") && nestedGetText, ops.toString());
+        // saving the shown code again changes nothing
+        Object r2 = save(again);
+        check("m3: saved code saves unchanged", ok(r2) && (Boolean) get(r2, "unchanged"), report(r2));
+        Main.OUT.println("JAVAEDIT-M3 " + (checks - fails) + "/" + checks + " ok");
+        call(proj, "k");
+    }
+
     public static void run(String sc_id, boolean build) throws Throwable {
         sc = sc_id;
         Class<?> jC = c("a.a.a.jC");
@@ -456,6 +499,32 @@ public class JavaEdit {
         boolean gone = true;
         for (Object variable : ((HashMap<String, ArrayList<Object>>) get(proj, "e")).get(JAVA)) gone &= !String.valueOf(get(variable, "second")).contains("setText");
         check("invalid custom variable removed by deleting its line", ok(r) && gone, report(r));
+
+        // 18. v1.8.13: a value block inside a block's slot: setText(edittext1.getText().toString()) is the setText block
+        // with the getText block in its text slot, no add-source block
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        l.add(on + 1, "\t\t\t\ttextview1.setText(edittext1.getText().toString());");
+        r = save(join(l));
+        check("nested getText: ok", ok(r), report(r));
+        List<Object> nested = blocks("button2_onClick");
+        Object head = nested.isEmpty() ? null : nested.get(0);
+        @SuppressWarnings("unchecked") List<String> hp = head == null ? null : (List<String>) get(head, "parameters");
+        Object child = null;
+        if (hp != null && hp.size() == 2 && hp.get(1).startsWith("@")) {
+            for (Object b : nested) if (hp.get(1).substring(1).equals(get(b, "id"))) child = b;
+        }
+        boolean asd = false;
+        for (Object b : nested) asd |= "addSourceDirectly".equals(get(b, "opCode"));
+        check("nested getText: setText block with a getText block in its slot, no add source",
+                head != null && "setText".equals(get(head, "opCode")) && child != null && "getText".equals(get(child, "opCode"))
+                        && String.valueOf(get(child, "parameters")).equals("[edittext1]") && "s".equals(get(child, "type")) && !asd,
+                shape("button2_onClick") + " " + hp + (child == null ? "" : " child " + get(child, "opCode") + get(child, "parameters")));
+        check("nested getText: generated again as typed", code().contains("textview1.setText(edittext1.getText().toString());"), "");
 
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());

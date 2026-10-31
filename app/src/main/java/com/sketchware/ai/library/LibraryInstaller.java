@@ -33,6 +33,8 @@ public final class LibraryInstaller {
         public final List<String> warnings = new ArrayList<>();
         /** v1.8.12: archives without Android code (C++ Prefab packages, source zips): left out, listed in one line. */
         public final List<String> skipped = new ArrayList<>();
+        /** v1.8.13: a higher version of the same library was on and stays on (folder names). */
+        public final List<String> keptNewer = new ArrayList<>();
 
         public boolean ok() {
             return failed.isEmpty();
@@ -67,6 +69,16 @@ public final class LibraryInstaller {
             File dir = new File(root(), name);
             String counter = steps > 1 ? " (" + (++step) + "/" + steps + ")" : "";
             try {
+                if (a != plan.root && !usable(dir)) {
+                    // v1.8.13: a library this one needs is installed in a higher version: that one is used (Gradle's
+                    // highest-version rule), nothing is downloaded
+                    String newer = newestInstalled(a.group + ":" + a.name, a.version);
+                    if (newer != null) {
+                        outcome.reused.add(newer);
+                        ready.add(newer);
+                        continue;
+                    }
+                }
                 if (usable(dir)) {
                     outcome.reused.add(name);
                 } else {
@@ -229,23 +241,41 @@ public final class LibraryInstaller {
         com.sketchware.ai.project.LibraryHeal.save(scId, libraries);
     }
 
+    /**
+     * Switches the libraries on in the project. v1.8.13: like Gradle, one version per group:artifact and the highest
+     * wins: a lower version never replaces a higher one that is on (arrow-continuations asking for animal-sniffer 1.23
+     * keeps 1.28); a higher one replaces the lower ones.
+     */
     private static void enable(String scId, List<String> names, Outcome outcome) {
         ArrayList<HashMap<String, Object>> libraries = enabled(scId);
         if (libraries == null) {
-            outcome.failed.add("The project's local library list can't be read, so nothing was switched on (installed: "
-                    + String.valueOf(names).replace("[", "").replace("]", "") + ")");
+            outcome.failed.add("The project's local library list can't be read, so nothing was switched on");
             return;
         }
         for (String name : names) {
             String key = artifactKey(name);
+            String version = versionOf(name);
+            String newerOn = null;
             boolean present = false;
-            for (int i = libraries.size() - 1; i >= 0; i--) {
-                String other = String.valueOf(libraries.get(i).get("name"));
+            for (HashMap<String, Object> library : libraries) {
+                String other = String.valueOf(library.get("name"));
                 if (other.equals(name)) {
                     present = true;
                 } else if (key != null && key.equals(artifactKey(other))) {
-                    // v1.8.11: another version of the same group:artifact, whatever its folder is called (the old
-                    // downloader named folders "core-v3.4.1"): the project switches to the new one
+                    String otherVersion = versionOf(other);
+                    if (version != null && otherVersion != null && MavenResolver.compareVersions(otherVersion, version) > 0) {
+                        newerOn = other;
+                    }
+                }
+            }
+            if (newerOn != null) {
+                outcome.keptNewer.add(newerOn);
+                continue;
+            }
+            for (int i = libraries.size() - 1; i >= 0; i--) {
+                String other = String.valueOf(libraries.get(i).get("name"));
+                if (!other.equals(name) && key != null && key.equals(artifactKey(other))) {
+                    // another (lower) version of the same group:artifact, whatever its folder is called
                     libraries.remove(i);
                     outcome.replaced.add(other);
                 }
@@ -256,6 +286,40 @@ public final class LibraryInstaller {
             }
         }
         save(scId, libraries);
+    }
+
+    /** v1.8.13: the installed folder of group:artifact with the highest version, or null. */
+    static String newestInstalledKey(String key) {
+        return newestInstalled(key, null);
+    }
+
+    /** The version recorded for a library folder, or null. */
+    static String versionOf(String folder) {
+        String coordinate = coordinateOf(folder);
+        return coordinate == null ? null : coordinate.split(":")[2];
+    }
+
+    /**
+     * v1.8.13: the installed folder of group:artifact with the highest version that is at least {@code atLeast}, ready to
+     * build, or null.
+     */
+    static String newestInstalled(String key, String atLeast) {
+        File[] dirs = root().listFiles();
+        if (dirs == null) return null;
+        String best = null, bestVersion = null;
+        for (File dir : dirs) {
+            if (!dir.isDirectory() || dir.getName().startsWith(".") || !usable(dir)) continue;
+            String coordinate = coordinateOf(dir.getName());
+            if (coordinate == null) continue;
+            String[] gav = coordinate.split(":");
+            if (!key.equals(gav[0] + ":" + gav[1])) continue;
+            if (atLeast != null && MavenResolver.compareVersions(gav[2], atLeast) < 0) continue;
+            if (bestVersion == null || MavenResolver.compareVersions(gav[2], bestVersion) > 0) {
+                best = dir.getName();
+                bestVersion = gav[2];
+            }
+        }
+        return best;
     }
 
     /** "group:artifact" recorded for a library folder (needs.json, else source.json), or null when unknown. */
