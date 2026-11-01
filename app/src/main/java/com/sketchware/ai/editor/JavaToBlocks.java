@@ -701,12 +701,12 @@ public final class JavaToBlocks {
         for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
             EditMap.Event event = entry.getKey();
             String self = "moreBlock".equals(event.info.kind) ? "_" + event.info.targetId + "(" : null;
-            String[] scope = {self, event.info.kind, event.info.eventName};
+            String[] scope = {self, event.info.kind, event.info.eventName, event.info.targetId};
             for (Target t : entry.getValue()) statementLines(e, t.eStart, t.eEnd, scope, lines);
         }
         for (String[] added : moreBlockAdditions) {
             statementLines(e, Integer.parseInt(added[3]), Integer.parseInt(added[4]),
-                    new String[]{"_" + added[0] + "(", "moreBlock", null}, lines);
+                    new String[]{"_" + added[0] + "(", "moreBlock", null, null}, lines);
         }
         if (lines.isEmpty()) return;
         Set<String> taken = takenNames(e);
@@ -733,7 +733,8 @@ public final class JavaToBlocks {
                 why = "it is declared more than once in this activity";
             } else {
                 why = AutoVariables.hazard(e, line, d.name, entry.getValue()[0],
-                        AutoVariables.reentry(kindOfCode, entry.getValue()[2]));
+                        AutoVariables.reentry(kindOfCode, entry.getValue()[2]),
+                        "moreBlock".equals(kindOfCode) ? null : entry.getValue()[3]);
             }
             if (why != null) {
                 String note = d.name + " stays a local variable in its code: " + why + ".";

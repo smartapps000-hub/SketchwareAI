@@ -429,12 +429,63 @@ public final class GradleExport {
         return manifest.substring(0, start) + stripped + manifest.substring(end);
     }
 
-    /** Rewrites an exported AndroidManifest.xml without its package attribute ({@link #withoutPackageAttribute}). */
+    /**
+     * Packages of the libraries an export adds that declare min SDK 21 (built-in set and their Maven equivalents:
+     * AppCompat 1.7.1, Material 1.13.0 …). For a project below 21 the exported manifest overrides them, as the phone
+     * build does (aapt2 there doesn't check library min SDKs); without it Gradle's manifest merger stops ("minSdkVersion
+     * 19 cannot be smaller than version 21 declared in library").
+     */
+    static final String[] MIN_SDK_21_LIBRARIES = {
+            "androidx.appcompat", "androidx.appcompat.resources", "androidx.asynclayoutinflater",
+            "androidx.constraintlayout.widget", "androidx.coordinatorlayout", "androidx.customview",
+            "androidx.customview.poolingcontainer", "androidx.documentfile", "androidx.dynamicanimation", "androidx.emoji2",
+            "androidx.emoji2.viewsintegration", "androidx.exifinterface", "androidx.fragment", "androidx.graphics.shapes",
+            "com.google.android.material", "androidx.print", "androidx.profileinstaller", "androidx.startup",
+            "androidx.versionedparcelable", "androidx.viewpager", "androidx.recyclerview", "androidx.transition",
+            "androidx.window", "androidx.core", "androidx.core.ktx", "androidx.activity", "androidx.savedstate",
+            "androidx.lifecycle.runtime", "androidx.lifecycle.viewmodel", "androidx.lifecycle.livedata",
+            "androidx.lifecycle.livedata.core", "androidx.lifecycle.process", "androidx.lifecycle.viewmodel.savedstate",
+            "androidx.annotation.experimental", "androidx.tracing", "androidx.interpolator", "androidx.loader",
+            "androidx.drawerlayout", "androidx.slidingpanelayout", "androidx.swiperefreshlayout", "androidx.cardview",
+            "androidx.vectordrawable", "androidx.vectordrawable.animated", "androidx.cursoradapter", "androidx.viewpager2",
+            "androidx.browser", "androidx.media", "androidx.legacy.coreutils", "androidx.localbroadcastmanager"};
+
+    /** The manifest with {@code <uses-sdk tools:overrideLibrary="…"/>} for {@link #MIN_SDK_21_LIBRARIES}. */
+    public static String withLibraryMinSdkOverride(String manifest) {
+        int start = manifest.indexOf("<manifest");
+        if (start < 0 || manifest.contains("tools:overrideLibrary")) return manifest;
+        int end = manifest.indexOf('>', start);
+        if (end < 0) return manifest;
+        String tag = manifest.substring(start, end);
+        if (!tag.contains("xmlns:tools=")) tag += " xmlns:tools=\"http://schemas.android.com/tools\"";
+        return manifest.substring(0, start) + tag + ">\n\n    <uses-sdk tools:overrideLibrary=\""
+                + String.join(", ", MIN_SDK_21_LIBRARIES) + "\" />" + manifest.substring(end + 1);
+    }
+
+    /** min SDK of an exported app/build.gradle ("minSdk = 19"), or 0. */
+    static int exportedMinSdk(File appBuildGradle) {
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\bminSdk\\s*=?\\s*(\\d+)").matcher(read(appBuildGradle));
+            return m.find() ? Integer.parseInt(m.group(1)) : 0;
+        } catch (IOException | RuntimeException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Rewrites an exported AndroidManifest.xml (app/src/main) without its package attribute
+     * ({@link #withoutPackageAttribute}); below min SDK 21 (read from app/build.gradle, written before it) with the
+     * library min SDK override ({@link #withLibraryMinSdkOverride}).
+     */
     public static void stripPackageAttribute(File manifest) {
         if (!manifest.isFile()) return;
         try {
             String content = read(manifest);
             String stripped = withoutPackageAttribute(content);
+            File app = manifest.getParentFile() == null || manifest.getParentFile().getParentFile() == null ? null
+                    : manifest.getParentFile().getParentFile().getParentFile();
+            int minSdk = app == null ? 0 : exportedMinSdk(new File(app, "build.gradle"));
+            if (minSdk > 0 && minSdk < 21) stripped = withLibraryMinSdkOverride(stripped);
             if (!stripped.equals(content)) write(manifest, stripped);
         } catch (IOException | RuntimeException ignored) {
             // the manifest stays as generated; AGP only warns about the attribute

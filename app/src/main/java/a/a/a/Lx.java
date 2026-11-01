@@ -48,6 +48,8 @@ public class Lx {
                 "targetSdk = " + targetSdkVersion + "\r\n" +
                 "versionCode = " + metadata.versionCode + "\r\n" +
                 "versionName = \"" + metadata.versionName + "\"\r\n" +
+                // below 21 SketchApplication extends MultiDexApplication (as on the phone, where Dp adds MultiDex)
+                (minSdkVersion < 21 ? "multiDexEnabled = true\r\n" : "") +
                 "}\r\n" +
                 "\r\n" +
                 "buildTypes {\r\n" +
@@ -63,6 +65,7 @@ public class Lx {
                 "dependencies {\r\n" +
                 "implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])\r\n" +
                 com.sketchware.ai.project.GradleExport.desugaringDependency(minSdkVersion) +
+                (minSdkVersion < 21 ? "implementation 'androidx.multidex:multidex:2.0.1'\r\n" : "") +
                 com.sketchware.ai.project.GradleExport.extraDependencies(metadata);
 
         // Same versions as the built-in libraries the phone builds with (mod.jbk.build.BuiltInLibraries)

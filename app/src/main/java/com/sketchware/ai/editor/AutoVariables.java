@@ -470,16 +470,30 @@ final class AutoVariables {
         return REENTRY_CLICK;
     }
 
-    /** Whether a code line makes a call that can run the code again ({@link #REFIRING}, a MoreBlock: _name(…)). */
-    static boolean refires(String code, int reentry) {
+    /**
+     * Whether a code line makes a call that can run the code again: performClick anywhere; in a change event a
+     * {@link #REFIRING} call on the event's own view ({@code target}: edittext1.setText in edittext1's onTextChanged) or
+     * a MoreBlock call (_name(…), it may make that call); in a MoreBlock ({@code target} null) a REFIRING call on any
+     * view or another MoreBlock call.
+     */
+    static boolean refires(String code, int reentry, String target) {
         if (reentry == REENTRY_NONE) return false;
         Matcher m = CALL.matcher(code);
         while (m.find()) {
             String called = m.group(1);
-            if (reentry == REENTRY_CLICK) {
-                if (called.equals("performClick") || called.equals("callOnClick")) return true;
-            } else if (REFIRING.contains(called) || called.startsWith("_") && called.length() > 1) {
-                return true;
+            if (called.equals("performClick") || called.equals("callOnClick")) return true;
+            if (reentry == REENTRY_CLICK) continue;
+            if (called.startsWith("_") && called.length() > 1) return true;
+            if (!REFIRING.contains(called)) continue;
+            if (target == null) return true;
+            // the receiver: the name in front of ".called(" (whole name, not a member of something else)
+            String before = code.substring(0, m.start()).replaceAll("\\s+$", "");
+            if (!before.endsWith(".")) continue;
+            before = before.substring(0, before.length() - 1).replaceAll("\\s+$", "");
+            if (before.endsWith(target)) {
+                int at = before.length() - target.length();
+                char c = at > 0 ? before.charAt(at - 1) : ' ';
+                if (!Character.isJavaIdentifierPart(c) && c != '.') return true;
             }
         }
         return false;
@@ -492,7 +506,7 @@ final class AutoVariables {
      * onCheckedChange …; performClick in onClick): a use after such a call would see the value that inner run left in
      * the field.
      */
-    static String hazard(JavaMembers e, int line, String name, String selfCall, int reentry) {
+    static String hazard(JavaMembers e, int line, String name, String selfCall, int reentry, String target) {
         int d = e.depth[line];
         // the line that opened the block (depth at its start below d), and the line that closes it
         int open = line - 1;
@@ -526,7 +540,7 @@ final class AutoVariables {
                         : "a call above this use (setText, setChecked, setProgress … or a MoreBlock) can run this code "
                         + "again, which would change it";
             }
-            if (refires(code, reentry)) called = true;
+            if (refires(code, reentry, target)) called = true;
         }
         return null;
     }
