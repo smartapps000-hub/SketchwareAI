@@ -368,3 +368,18 @@ it needs a bundled API 35 android.jar and generated apps at min SDK 23, so it is
   (`NavigationBarView.OnItemSelectedListener`), TabLayout + androidx ViewPager (PagerAdapter), FloatingActionButton.
 - The scaffold template's FAB icon is a project image (`fab_add.png`, 48x48 white plus, drawn for this fork), copied from
   the IDE's Java resource `com/sketchware/ai/project/preset_fab_add.png`.
+
+## v1.9.0
+
+- No built-in library changed. Asked for: Material Components 1.12.0+ and ConstraintLayout 2.2.0+: Material **1.13.0**
+  (since v1.8.4) and ConstraintLayout **2.2.2** / constraintlayout-core 1.1.2 (since v1.8.4) are already built in (newer than
+  asked); Material Color Utilities (HCT, SchemeContent) generate the Material 3 colour roles since v1.8.6 (`M3Palette`).
+  Material 1.14.0 still needs min SDK 23 and androidx.core 1.16 (see Known limits).
+- Compile platform: `assets/libs/android.jar.zip` now holds the android.jar of **platform android-37.0 rev 2** (Android 17;
+  25,573,030 bytes zipped; class files 52). The built-in libraries were dexed against it unchanged (fixtures 901, 907, 911
+  build; LoadAll of the built apps as before).
+- IDE toolchain for projects: `com.android.tools:r8` **8.13.25** (was 8.11.18): D8, R8 and L8 for project builds. Desugaring
+  configuration desugar_jdk_libs_nio 2.1.5 unchanged (fixture 911: desugared library + CallDesugar).
+- New asset: `assets/icons/material_symbols.zip` (1,945,080 bytes): Google Material Symbols from npm
+  `@material-symbols/svg-400` 0.48.2 (Apache-2.0), 3,937 icons × Outlined / Rounded / Sharp, weight 400, unfilled, one
+  SVG path per line. Drawn into PNGs by `ui.SymbolIcons` in the Image Manager's icon screen.

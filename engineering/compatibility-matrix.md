@@ -30,12 +30,13 @@ Not run anywhere off-device: Activities (logic editor, compile log screen, sourc
 | Item | Where it comes from |
 |---|---|
 | minSdk / targetSdk | per project: Project Configuration (defaults in `ModernProjectDefaults`) |
-| compile platform | bundled android.jar = Android 14 (API 34) since v1.8.4 (API 33 before) unless a custom android.jar is set in Build Settings; APIs newer than 34 can't be called from project code |
-| Java level | ECJ 3.26 with -11, falling back to 1.8; D8/R8 8.11.18 (3.3.75 before v1.8.5) with core library desugaring (desugar_jdk_libs_nio 2.1.5) |
+| compile platform | bundled android.jar = Android 17 (API 37, platform android-37.0) since v1.9.0 (API 34 from v1.8.4, API 33 before) unless a custom android.jar is set in Build Settings. Compiling against API 37 says nothing about running there: a call above the project's min SDK still needs a `Build.VERSION` check |
+| Java level | ECJ 3.26 with -11, falling back to 1.8; D8/R8 8.13.25 since v1.9.0 (8.11.18 from v1.8.5, 3.3.75 before) with core library desugaring (desugar_jdk_libs_nio 2.1.5) |
 | Libraries | v1.8.4: Material 1.13.0, AppCompat 1.7.1, AndroidX releases that build against API 34 (core 1.13.1, fragment 1.8.9, lifecycle 2.8.7 ...), Kotlin 1.8.22, Glide 4.16, Gson 2.14, OkHttp 3.14.9; Firebase/Play libraries still the 2021-2022 releases; local libraries as installed |
 | Theme | v1.8.4: new projects Material 3 AppTheme (Theme.Material3.Light.NoActionBar); older projects keep MaterialComponents (Bridge). v1.8.5: same light theme; Material 3 widgets written as tags (SketchButton, MaterialCheckBox/RadioButton, MaterialSwitch, outlined text fields); no DayNight |
 | App bundles | v1.8.5: bundletool 1.18.3, native libraries uncompressed with 16 KB page alignment; JAR signature with SHA-256 digests (BundleSigner) |
 | Export to Android Studio | v1.8.5: AGP 8.12.0 / Gradle 8.13 project, compileSdk 36, targetSdk as in the project |
+| Device target | v1.9.0: Project Configuration → Target device. Wear OS adds `uses-feature android.hardware.type.watch` + standalone meta-data; Android TV adds leanback / touchscreen / portrait as not required, the TV launcher category and a banner. Phone, foldable, tablet: no manifest change |
 
 Whether a generated APK runs on a given Android version depends on that project's minSdk/targetSdk, the APIs and libraries it uses, and platform behaviour changes. A successful compile on one runtime proves none of that.
 
@@ -111,3 +112,13 @@ Whether a generated APK runs on a given Android version depends on that project'
   night. Regression fixtures 901-920 built again. Results in `v1.8.9-verification.md`.
 - The Library Resolver's live search, (i) dialog and Copy import, the Project Configuration dialog and its Convert to
   Material 3 action, the Java editor screen: NOT TESTED here (no device, no emulator).
+
+## v1.9.0 (1 Nov 2026)
+- Java editor registers variables; the logic editor's source sheet in Material 3 colours with Edit / Apply; Run build cache
+  (R classes, compiled resources); Target device (manifest for Wear OS / Android TV, design canvas sizes); Material Symbols
+  in the icon screen; projects compile against android-37.0; D8/R8 8.13.25. Fixtures 901, 907, 908, 911, 919, 920, 922,
+  925-928 built on the Android 12 (API 31) ART harness with the release APK's classes (926 cold, warm and cache off,
+  compared class by class), Export AAB of 928, Export to Android Studio of 908 / 920 / 922 built with Gradle; layoutlib
+  renders of the source sheet, the Target device row and the symbols. Results in `v1.9.0-verification.md`.
+- The source sheet, the design canvas viewports and Device menu, the icon screen and Project Configuration (Activities and
+  dialogs), a generated app on a watch or a TV, and the build time on a phone: NOT TESTED here (no device, no emulator).

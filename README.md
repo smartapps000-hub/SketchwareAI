@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.8.13** (versionCode 183). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.9.0** (versionCode 190). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,15 +27,15 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.8.13)
+## Shipped (v1.0 – v1.9.0)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
 | Area | What it does | Since |
 |---|---|---|
 | On-phone toolchain | aapt2 2.20 built from AOSP `android-16.0.0_r4`, static, for arm64-v8a, armeabi-v7a, x86_64, x86, 16 KB-aligned | v1.0 (64-bit), v1.8.4 (all ABIs), v1.8.5 (android-16) |
-| | Projects compile against the bundled Android 14 (API 34) `android.jar`; ECJ 3.26 (Java 7 to 11) | v1.8.4 |
-| | D8 / R8 8.11.18 with core library desugaring (`desugar_jdk_libs_nio` 2.1.5): `java.time`, streams and `java.nio.file` on older Android versions. If that step fails, the build continues without it and says so | v1.8.5 |
+| | Projects compile against the bundled Android 17 (API 37) `android.jar` (platform android-37.0); ECJ 3.26 (Java 7 to 11) | v1.8.4 (API 34), v1.9.0 (API 37) |
+| | D8 / R8 8.13.25 with core library desugaring (`desugar_jdk_libs_nio` 2.1.5): `java.time`, streams and `java.nio.file` on older Android versions. If that step fails, the build continues without it and says so | v1.8.5, v1.9.0 (8.13.25) |
 | | Embedded Kotlin compiler 1.7.10; bundletool 1.18.3 (AAB export, 16 KB page alignment for native libraries) | upstream / v1.8.5 |
 | Build repair (offline, rule-based) | Unreachable code, missing imports, missing or broken libraries (restore, exact Maven download), damaged PNGs, missing images. Repairs never move a line. Repairs inside *add source directly* blocks can be stored back into the block | v1.7.0 – v1.8.2 |
 | Diagnostics | Source map (a compile error points to its block, with *Open block*), build map (time and status per step), Build Doctor diagnosis, build history | v1.8.0 – v1.8.2 |
@@ -50,6 +50,11 @@ Everything in this section is in the released APK and was exercised as described
 | Library Resolver 3 | One card per library: readable name (POM name, or the artifact made readable) with a version badge, the coordinate, (i), Share (GitHub / project page), Latest / Update, Delete, switched on; long names scroll. Sort A to Z or updates & newest first. + Add also takes a GitHub or JitPack link (newest version JitPack built, or the tag in the link); a com.github version is tried with and without a leading `v`; repositories that redirect (301/302 to another host) are followed; when nothing is found the dialog lists the repositories that didn't answer and why. Progress dialog with the step (POM, archive, D8) and the bytes of the download. Search shows only .aar / .jar libraries (no WebJars, npm, Kotlin/JS or native, BOMs). Jars an .aar bundles in `libs/` (not part of the build) are named after the install, with how to add them. After an update, the old version is listed under *Older versions* instead of offering the same update again | v1.8.11 |
 | Library Resolver 4 | Only Google Maven, Maven Central and JitPack (JitPack first for GitHub groups); `repositories.json` is no longer read. Find shows the step and a bar, Cancel stops it, Try again; one failure dialog with Copy log (every request and its answer); without a POM the .aar/.jar is installed alone. Search hides Boost / C++ Prefab packages and server artifacts; archives without Android code are left out in one line. GitHub/Web button opens the browser; green Up to date | v1.8.12 |
 | Library Resolver 5 | No popup when an install worked: a Toast, the switch on and a green ✓ Installed on the card; when something needs a word, one line above the list with Copy log; a dialog only when the library itself couldn't be installed. Readable names instead of folder names. The highest version of a library wins: a lower one is never switched on over a higher one, a needed library uses the higher version that is on | v1.8.13 |
+| Java editor variables | Saving the Java editor (or Apply in the logic editor's source sheet) turns a local `String` / `double` / `boolean` declaration into a project variable with set blocks (`String name = "x";` → String variable + set block); an assignment to an undeclared name becomes a variable of the type its value shows; other types (int, Intent, library classes) become custom variables with the assignment kept as code. A local whose meaning would change as a field (declared twice, used by a listener opened after it, recursive MoreBlock) stays code, and the save says why | v1.9.0 |
+| Source sheet | The logic editor's `</>` sheet in Material 3 dark colours (every token at least 5:1 contrast); *Edit* shows the event's code, *Apply* turns it into blocks (same rules as the Java editor) and reopens the event, without leaving the logic editor | v1.9.0 |
+| Build cache | Build Settings → *Build cache* (on by default): a Run build reuses the last build's compiled and dexed R classes and the compiled resources (project and local libraries) while they are unchanged. On the test harness a repeat build of a Material 3 project went from 324 s to 36 s with identical output. Exports always build everything | v1.9.0 |
+| Target device | Project Configuration → *Target device*: Phone, Foldable, Tablet, Wear OS, Android TV. Wear OS adds the watch feature and standalone meta-data to the manifest; Android TV the leanback feature (not required), the TV launcher and a banner. The design editor's *Device* button previews the screen at foldable 700×840 dp, tablet 1280×800 dp, Wear OS round 227×227 dp or TV 960×540 dp with its Material 3 size class | v1.9.0 |
+| Material Symbols | Image Manager → icons: Google's Material Symbols (3,937 icons, Outlined / Rounded / Sharp) next to the 2014 Material icons, added as PNG images in black, grey or white | v1.9.0 |
 | Material 3 tags | MaterialCardView (elevated) and MaterialToolbar in Material 3 projects; Project Configuration → *Convert to Material 3 & Modern Stack* for older projects (target 37, min 21, AppCompat, Material 3, D8 + Java 11) | v1.8.9 |
 | Code tab | Fourth design editor tab: the project's activities (→ Java editor) and its own Java/Kotlin files; + New class | v1.8.8 |
 | Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |
@@ -61,7 +66,7 @@ Everything in this section is in the released APK and was exercised as described
 ## How it is tested, and what is not
 
 - **Android runtime harness** (`tools/art-harness`): the APK's own classes run on an Android 12 (API 31) ART runtime
-  **without the Android framework**: whole Run builds of fixture projects 901–922 (914–918 created by the New Project
+  **without the Android framework**: whole Run builds of fixture projects 901–928 (914–918 created by the New Project
   screen's own code; 919 edited through the Java editor's save; 920 with libraries installed by the Library Resolver) and
   AAB exports (aapt2,
   ECJ, Kotlin, D8/L8, DEX merge, packaging, signing). This is not a device test and says nothing about other Android versions.
@@ -79,19 +84,30 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 
 ## Known limits
 
-- Project code can't call Android 15+ APIs unless a newer `android.jar` is set in Build Settings (the bundled one is API 34).
+- Project code compiles against Android 17 (API 37). That says nothing about running on older Android versions: a call
+  above the project's min SDK needs a `Build.VERSION` check, and the Material 3 widgets still come from Material 1.13.
+  Android 17's SDK dropped `FingerprintManager`; the bundled android.jar keeps it (and `Context.FINGERPRINT_SERVICE`) so
+  fingerprint code in add-source blocks still compiles. A few other long-deprecated calls are gone (`Thread.suspend/resume`,
+  `Notification.WearableExtender.setBackground`): set an older android.jar in Build Settings for code that needs them.
 - Java 17 language level is not possible with ECJ 3.26 and the on-phone R8 (`engineering/java17-path.md`).
 - Kotlin code is compiled by kotlinc 1.7.10, which reads Kotlin metadata up to 1.8: Kotlin sources can't use libraries built with newer Kotlin.
 - Material 3 Expressive: Material 1.13 (bundled) contains some Expressive components (button groups, split button,
   loading indicator, docked and floating toolbars) but not the Expressive theme, and the palette doesn't offer them yet.
-  Material Components 1.14 needs min SDK 23 and API 35: not shipped.
+  Material Components 1.14 needs min SDK 23 (and androidx.core 1.16): not shipped.
 - Dark theme: colours, icons and `setTextColor` blocks the user chose keep their values at night. A dark icon or text
   colour on the theme background can be hard to read in dark mode; the Library Manager's *Dark theme* switch turns it
   off per project. Dynamic colour replaces the project colours on Android 12+ by design.
-- The design canvas shows the light look only.
+- The design canvas shows the light look only. Its foldable, tablet, Wear OS and TV sizes are a preview of the same
+  layout: there are no window-size-class layouts (sw600dp / sw720dp folders), no Wear OS rotary input and no TV D-pad
+  focus handling yet.
+- Build cache: the first Run build after an IDE update, a change in any resource or library, or a different Java level /
+  min SDK compiles everything again. The aapt2 link step and packaging are not cached. Build times on a phone were not
+  measured here.
 - Java editor: only code inside events, fields, imports and MoreBlock-shaped methods becomes blocks; other methods and
-  classes belong in a Java file of their own (Code tab → + New class). Changed code is stored as *add source directly*
-  blocks, not as individual blocks.
+  classes belong in a Java file of their own (Code tab → + New class). Statements a block writes exactly, getText in a
+  text slot and local String / double / boolean variables become blocks; everything else is stored as *add source
+  directly* blocks. An `int` local becomes a custom int variable (not a Number variable, which is a double); decimal
+  numbers are written with a `d` (`2.5d`), the way the Number blocks write them.
 - Library Resolver: a library that needs a different major version of a built-in library (Retrofit 3 needs OkHttp 4;
   OkHttp 3.14.9 is built in) may not work; the install plan says so. Libraries compiled for Java 8+ can't be dexed on
   Android 7.1 and older (Dx).
@@ -113,9 +129,13 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 6. Sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Blocked until a Firebase project for
    `com.sketchware.ai`, a private release key and consent screens exist. Telemetry would ship switched off.
 7. Material 3 Expressive: the Expressive components of Material 1.13 in the palette, then the Material Components 1.14
-   migration (Expressive theme; needs min SDK 23 and a bundled API 35 `android.jar`).
+   migration (Expressive theme; needs min SDK 23; the bundled `android.jar` is API 37 since v1.9.0). Material 3
+   typography roles and variable fonts (Anek Telugu) in the theme.
 8. A dark-mode preview on the design canvas.
-9. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
+9. Toolchain: aapt2 rebuilt from `android-17.0.0_r1` for the four ABIs; D8/R8 9.x (core library desugaring through
+   TraceReferences); caching the aapt2 link step.
+10. Adaptive layouts: window-size-class layout folders from the canvas sizes, Wear OS rotary input, TV D-pad focus.
+11. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
 
 ## Building from source
 

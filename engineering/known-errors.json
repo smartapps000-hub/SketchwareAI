@@ -486,6 +486,22 @@
       "scope": "build repairs written back into add-source blocks",
       "verifiedOn": "ART fixture 923 (autofixm3): unreachable-code repair proposed for block 10 with the setHint line kept; JVM: 10 line shapes",
       "permanent": true
+    },
+    {
+      "fingerprint": "Logic editor '</>' source sheet: keywords and names in dark blue / grey on the dark sheet, hard to read",
+      "rootCause": "the sheet used the TextMate Dracula colour scheme with sora's JavaLanguage; a TextMate scheme only colours TextMate tokens, so JavaLanguage's keyword, name, literal and comment colours kept EditorColorScheme's light-theme defaults (#2196F3, #666666 ...)",
+      "repair": "v1.9.0: ui.M3CodeScheme sets every colour JavaLanguage uses on Material 3 dark surface #141218, each at least 5:1",
+      "scope": "logic editor source sheet",
+      "verifiedOn": "layoutlib render of the sheet before/after (V190Test); the sheet itself not run",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Java editor: String x = ...; / double / boolean locals saved as add source blocks instead of variables",
+      "rootCause": "only statements a block writes exactly became blocks; a local declaration has no block",
+      "repair": "v1.9.0: editor.AutoVariables: a local String / double / boolean (or an assignment to an undeclared name whose value shows its type) becomes a project variable with set blocks; other types a custom variable with the assignment kept as code; locals whose meaning would change as fields (declared twice, used before, captured by a listener or lambda opened after, recursive MoreBlock) stay code and the save says why",
+      "scope": "Java editor save, logic editor source sheet Apply",
+      "verifiedOn": "ART fixture 919 section 19, 925 (eventcode), 908 (javaedit-m3: the owner's String userNotes line)",
+      "permanent": true
     }
   ]
 }

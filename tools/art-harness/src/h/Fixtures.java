@@ -269,6 +269,19 @@ public class Fixtures {
             // v1.8.13 autofixm3: the block also sets the outlined field's hint, which the generator writes as
             // SketchTextField.hint(edittext1, ...): the repair must still be offered for the block
             source = (spec.equals("autofixm3") ? "edittext1.setHint(\"Name\");\n" : "") + "try {\n    android.util.Log.d(\"fixture\", \"try\");\n    return;\n} catch (Exception e) {\n    return;\n}\nandroid.util.Log.d(\"fixture\", \"after\");";
+        } else if (spec.equals("fingerprint")) {
+            // v1.9.0: FingerprintManager and Context.FINGERPRINT_SERVICE, the way add-source fingerprint locks call
+            // them; Android 17's SDK (API 37) dropped both, the bundled android.jar keeps them from API 34
+            source = "android.hardware.fingerprint.FingerprintManager fm = (android.hardware.fingerprint.FingerprintManager) getSystemService(FINGERPRINT_SERVICE);\n"
+                    + "if (fm != null && fm.isHardwareDetected() && fm.hasEnrolledFingerprints()) {\n"
+                    + "    fm.authenticate(null, new android.os.CancellationSignal(), 0, new android.hardware.fingerprint.FingerprintManager.AuthenticationCallback() {\n"
+                    + "        @Override\n"
+                    + "        public void onAuthenticationSucceeded(android.hardware.fingerprint.FingerprintManager.AuthenticationResult result) {\n"
+                    + "            android.util.Log.d(\"fingerprint\", \"ok \" + (result.getCryptoObject() == null));\n"
+                    + "        }\n"
+                    + "    }, null);\n"
+                    + "}\n"
+                    + "android.util.Log.d(\"fingerprint\", android.content.Context.FINGERPRINT_SERVICE);";
         } else if (spec.equals("typo")) {
             source = "String label = \"abc\";\nint n = label.lenght();";
         } else if (spec.equals("jni")) {

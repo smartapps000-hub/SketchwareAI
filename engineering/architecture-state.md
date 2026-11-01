@@ -380,3 +380,87 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
   Material 3. Runs off the UI thread.
 - Release packaging: the APK is one file in `binaries:apk/` stored with Git LFS (not shrunk: the embedded Kotlin compiler
   is reflective; see v1.8.9-verification.md section 5).
+
+## v1.9.0 additions
+
+- **Java editor registers variables** (`editor.AutoVariables`, `JavaToBlocks.planAutoVariables`): among the statements
+  that become blocks (the changed runs' code and new MoreBlocks' bodies, `ownStatements`), a local declaration
+  `[final] T name [= value];` becomes a project variable: String / double / boolean a String / Number / Boolean variable
+  whose set block writes `name = value;` (a decimal number as `2.5d`, the way the Number set block writes it); any other
+  type (int, long, Intent, a library class ...) a custom variable (type 6) `private T name` with the assignment kept as
+  code. An int is not made a Number (double): `String.valueOf(count)` would print "1.0" and `list.get(count)` would no
+  longer compile. An assignment `name = value;` to a name declared nowhere registers a variable of the type its value
+  shows (`AutoVariables.infer`: string literal / getText / String.valueOf / concatenation with a literal / toString,
+  trim ...; number / arithmetic of numbers and Number variables / Double.parseDouble; true/false / comparison / ! /
+  equals, isEmpty, contains, isChecked ...; a variable of that type); two values of different types: not registered.
+  A local becomes a field only when it can't change what the code does: declared exactly once in the class
+  (`AutoVariables.declarations`, also parameters, for-each, catch, lambdas), not taken by a field, method, inner class,
+  variable, list or MoreBlock, not starting with `_`, not used before its declaration in its block, not used by a
+  listener or lambda opened after it in its block (`hazard`: the field would hold a later value), not in a MoreBlock
+  that calls itself. Otherwise it stays code and the save says why. Registrations are planned before any line becomes
+  a block (`targetsFor` then `planAutoVariables` then `applyTargets`), so later lines in the same save use the variable
+  blocks. Proof: the activity generated again must equal the edited text with each converted declaration rewritten as
+  its assignment (or removed) and each new field after the class line (`expectedText`). Variables are appended to
+  `eC.e` after MoreBlocks; the Snapshot covers them.
+- **Logic editor source sheet** (`editor.EventCodeSheet`, `EventCode`, `ui.M3CodeScheme`): the "</>" sheet showed the
+  TextMate Dracula theme with sora's `JavaLanguage`; a TextMate scheme only colours TextMate tokens, so JavaLanguage's
+  keywords, names and literals kept `EditorColorScheme`'s light-theme defaults (#2196F3, #666666 on the dark sheet).
+  `M3CodeScheme` sets every colour JavaLanguage uses on M3 dark surface #141218, each at least 5:1 (WCAG AA 4.5:1).
+  **Edit** stores the canvas's blocks (`LogicEditorActivity.E()`), opens the activity in a `JavaEditSession` on the
+  design editor's live data and shows the event's body (its lines without the generator's indentation; empty events
+  with an empty body); **Apply** puts the edited body back in place of the event's lines and saves through
+  `JavaEditSession.save` (statements → blocks, variables registered, the rest add-source, proof), writes the working
+  copy (`jC.a(sc_id).k()`) and opens the logic editor again on the same event (a fresh intent without SINGLE_TOP and
+  focus extras, `applied_report` shown after the load), so the old canvas is never saved over the new blocks; a
+  refused apply keeps the sheet open with the problems on the sheet's lines.
+- **Build cache for Run builds** (Build Settings → Build cache, `build_cache`, default on; never for exports, AABs,
+  ProGuard or StringFog):
+  - `project.RClassCache`: aapt2 writes one R.java per package of the project and of every library with resources,
+    each with all ids (non-transitive R off): 28 files of 2.5 MB in a Material 3 project, compiled by ECJ and dexed by
+    D8 at every build. Key = SHA-1 of every R.java (path, size, content) + Java level + min SDK + IDE version name;
+    entry `cacheDir/build-cache/r/<sc_id>/<key>/{classes,dex}` (one entry per project). Hit: ECJ gets the kept classes on
+    its classpath and no R sources; D8 gets the project's own classes; the kept R DEX is added as `bin/dex/r-classes*.dex`
+    (merged or packaged like the project's DEX; `DexOrder` keeps code files first). Miss: compiled together as before,
+    the R classes kept after a successful compile, dexed once separately. Fixture 926 on ART: Java 125 s → 4 s, DEX
+    190 s → 5 s on the second build; every class of the cold, warm and cache-off APKs equal (dexdump, 9,545 classes),
+    resources.arsc and all other entries byte-identical.
+  - `project.ResourceCache`: a local library's compiled res archive kept by the folder's file listing (path, size,
+    time) + aapt2 identity, with the PNG notes of its compile; the project's generated resources (written fresh into
+    mysc each build) as one `.flat` per file keyed by content, changed files compiled one by one (more than 8 or all:
+    the folder as before, then kept); the archive written from the flats (stored entries, sorted, 1980 times like
+    aapt2's). aapt2 compile output is deterministic (checked: two runs byte-identical, a single-file compile equals the
+    archive entry).
+  - Not cached: the aapt2 link (it writes the R.java files the R key is computed from) and packaging/signing.
+- **Target device** (`project.DeviceTargets`, Project Configuration → Target device, `target_device`): Phone (default),
+  Foldable, Tablet, Wear OS, Android TV. Manifest only for Wear OS (`uses-feature android.hardware.type.watch`, meta-data
+  `com.google.android.wearable.standalone`) and Android TV (`android.software.leanback`, `android.hardware.touchscreen`,
+  `android.hardware.screen.portrait` not required; `LEANBACK_LAUNCHER` on the launcher activity; `android:banner` =
+  app icon), never added twice (`hasChild`), never added for other targets. Fixtures 927/928: aapt2 badging shows the
+  features and `leanback-launchable-activity`.
+- **Design canvas viewports** (`editor.ViewportViewEditor`, `res/layout/fr_graphic_editor.xml`): a subclass of the
+  precompiled `ViewEditor` whose layout method `a()` is upstream's (read from its bytecode) with the screen size as a
+  parameter; Phone calls upstream's own `a()`. Foldable 700×840 dp, tablet 1280×800 dp, Wear OS 227×227 dp round (frame,
+  strips and pane clipped to one circle), TV 960×540 dp, each scaled into the same space. Design editor header → Device
+  (menu id 0x5D1E, not a resource); the canvas opens at the project's target device. Material 3 window size class shown
+  with the size (Compact < 600 dp, Medium < 840 dp, Expanded).
+- **Material Symbols** (`ui.SymbolIcons`, `assets/icons/material_symbols.zip`, Apache-2.0, npm
+  `@material-symbols/svg-400` 0.48.2): 3,937 icons × Outlined / Rounded / Sharp, one SVG path each (viewBox 0 -960 960
+  960; only M L H V Q T Z used); the Image Manager's icon screen (`ImportIconActivity`) has a row 2014 icons / Outlined
+  / Rounded / Sharp; a symbol is drawn into a 48×48 PNG (the 2014 icons' size, 24 dp at xhdpi) in the chosen colour
+  (black, grey #757575, white) and added like any icon (name `ms_<icon>_<style>_<colour>`).
+- **Toolchain**: projects compile against the bundled **android-37.0** android.jar (Android 17; class files 52 like
+  34; ECJ 3.26 reads it; aapt2 2.20 links against its resource table); `BuildWarnings.BUNDLED_ANDROID_JAR_API` 37.
+  `tools/builtin-libs/android_jar.py` writes `assets/libs/android.jar.zip`: the platform jar with the public API Android
+  17's SDK dropped that projects call from add-source blocks copied back from android-34 (`android.hardware.fingerprint`
+  FingerprintManager + 3 nested classes, `Context.FINGERPRINT_SERVICE` added to Context.class as a String constant); every
+  other entry byte-identical. Public members of android-34 missing in 37 (72 lines, by a class-file diff): the 6 classes
+  above and MediaDrm's two annotation types; the rest moved to a supertype (SplittableRandom, Throwable.getCause,
+  equals/hashCode, Layout) and still compile, except `Notification.WearableExtender.get/setBackground`,
+  `Thread.suspend/resume/destroy/countStackFrames/stop(Throwable)`, `Deflater/Inflater/ZipFile.finalize`,
+  `CarrierConfigManager.KEY_HIDE_ENABLE_2G`, `WifiInfo.makeCopy`, ICU calendar internals (not restored). Found by
+  LoadAll: androidx core's `FingerprintManagerCompat$1` no longer linked against the dexed android-37 jar (fixture 929
+  `fingerprint` builds the typical add-source fingerprint code).
+  D8/R8/L8 **8.13.25** (the newest 8.x; 9.x dropped `D8Command.Builder.setDesugaredLibraryKeepRuleConsumer`, which core
+  library desugaring uses: moving to TraceReferences is its own change). linkcheck 0 risky calls; api_level against
+  android-26 the same members as v1.8.13. aapt2 stays 2.20 (android-16.0.0_r4): AOSP has android-17.0.0_r1, a rebuild
+  for four ABIs was not done in this release.

@@ -516,6 +516,90 @@
         "Run build with the unreachable-code repair (1 warning)",
         "mysc/923/autofix.json: a proposal for block 10 whose before/after keep edittext1.setHint(\"Name\"); while the generated line is SketchTextField.hint(edittext1, \"Name\");"
       ]
+    },
+    {
+      "id": "919 (v1.9.0)",
+      "kind": "Java editor edit series (run.sh <apk> <root> create javaedit 919, then javaedit 919), section 19 added",
+      "content": "String twice = \"1\"; added to initializeLogic; button2's onClick replaced by: String userName = \"Ravi\"; textview1.setText(userName); double total = 2.5; boolean shown = true; int clickCount = 3; attempts = 4; rating = 4.5; label = edittext1.getText().toString(); String twice = \"2\"; String captured = \"x\"; and an OnClickListener whose onClick calls textview1.setText(captured)",
+      "checks": [
+        "String, Number, Boolean registered from declarations (userName, total, shown)",
+        "int kept as a custom variable of type int (private int clickCount), its assignment kept as code",
+        "undeclared assignments registered by their value (attempts and rating Number, label String)",
+        "twice (declared twice) and captured (read by a listener opened after it) stay locals in one add source block; the save says why",
+        "blocks: setVarString setText setVarInt setVarBoolean addSourceDirectly setVarInt setVarInt setVarString addSourceDirectly; setText(userName) holds a getVar block",
+        "decimals stored as numbers ([rating, 4.5]) and written the generator's way (rating = 4.5d;)",
+        "generated again with fields and assignments; the shown code saves unchanged; reopens convertible",
+        "JAVAEDIT 75/75, then the project builds (Run build 16 harness steps, 0 warnings)"
+      ]
+    },
+    {
+      "id": "925",
+      "kind": "logic editor source sheet (EventCode, as EventCodeSheet's Edit/Apply calls it): run.sh <apk> <root> create javaedit 925, then eventcode 925",
+      "content": "button1 onClick body edited and applied (a local String declared and used by setText), an unbalanced edit, an empty event, a MoreBlock, onCreate (setTitle)",
+      "checks": [
+        "the body is shown without the generator's indentation; an unchanged apply changes nothing",
+        "applied: the variable is registered, the blocks before stay, set and setText blocks follow",
+        "unbalanced code refused with nothing changed",
+        "empty event editable with an empty body and applied; MoreBlock applied; onCreate applied as a setTitle block",
+        "the Java editor opens the activity convertible, generated with every applied line, saves it unchanged",
+        "EVENTCODE 17/17, then the project builds"
+      ]
+    },
+    {
+      "id": "926 (cache)",
+      "kind": "Material 3 project (spec m3) built three times: build cache on (cold), on again (warm), switched off (build_settings build_cache=false)",
+      "content": "Run build with project.RClassCache and project.ResourceCache",
+      "checks": [
+        "warm build: Java 125 s -> 4.0 s, DEX 190 s -> 5.2 s on the ART interpreter (whole build 324 s -> 36 s)",
+        "every class of the cold, warm and cache-off APKs equal (dexdump per class, 9,545 classes); resources.arsc and every other entry byte-identical",
+        "lane build:926 after m3:926: 16 steps, 0 warnings"
+      ]
+    },
+    {
+      "id": "927",
+      "kind": "Sketchware project made by tools/art-harness (spec 'wear'): target_device = wear",
+      "content": "a Material 3 project whose Project Configuration target device is Wear OS",
+      "checks": [
+        "Run build 0 warnings",
+        "aapt2 dump badging: uses-feature android.hardware.type.watch; meta-data com.google.android.wearable.standalone=true",
+        "LoadAll"
+      ]
+    },
+    {
+      "id": "928",
+      "kind": "Sketchware project made by tools/art-harness (spec 'tv'): target_device = tv",
+      "content": "a Material 3 project whose Project Configuration target device is Android TV",
+      "checks": [
+        "Run build 0 warnings",
+        "aapt2 dump badging: uses-feature android.software.leanback, android.hardware.touchscreen and android.hardware.screen.portrait not required; leanback-launchable-activity; application banner",
+        "Export AAB: bundletool 1.18.3 validate, universal APK, jarsigner: jar verified."
+      ]
+    },
+    {
+      "id": "908 (v1.9.0, javaedit-m3)",
+      "kind": "as 908 (v1.8.13, javaedit-m3)",
+      "content": "the owner's MainActivity lines of 31 Oct 2026 again",
+      "checks": [
+        "String userNotes = edittext1.getText().toString(); becomes a String variable userNotes with a set block (no add source block for it)",
+        "JAVAEDIT-M3 8/8; the project builds, 0 warnings"
+      ]
+    },
+    {
+      "id": "render-v190",
+      "kind": "layoutlib (tools/layoutlib-renders V190Test, V190SymbolsTest; working copy /home/claude/pz)",
+      "content": "the source sheet with the Dracula TextMate scheme (v1.8.13) and with M3CodeScheme; Project Configuration's Target device row; Material Symbols drawn by SymbolIcons.render",
+      "checks": [
+        "sheet190_before / sheet190_after, cfg190_target_device, symbols190 PNGs"
+      ]
+    },
+    {
+      "id": "929",
+      "kind": "Sketchware project made by tools/art-harness (spec 'fingerprint')",
+      "content": "add-source code in initializeLogic: FingerprintManager fm = (FingerprintManager) getSystemService(FINGERPRINT_SERVICE); isHardwareDetected, hasEnrolledFingerprints, authenticate with an anonymous AuthenticationCallback (onAuthenticationSucceeded reads result.getCryptoObject()), Context.FINGERPRINT_SERVICE",
+      "checks": [
+        "Run build 0 warnings against the bundled android-37.0 jar (the platform jar alone fails at ECJ: FingerprintManager cannot be resolved)",
+        "LoadAll: FingerprintManagerCompat$1 (androidx core) links again"
+      ]
     }
   ]
 }
