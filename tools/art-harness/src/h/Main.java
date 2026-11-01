@@ -52,6 +52,10 @@ public class Main {
                 case "javaedit":
                     JavaEdit.run(args[1], args.length < 3 || !args[2].equals("nobuild"));
                     break;
+                case "eventcode":
+                    // v1.9.0: the logic editor's source sheet (EventCode) on a javaedit fixture
+                    JavaEdit.eventCode(args[1], args.length < 3 || !args[2].equals("nobuild"));
+                    break;
                 case "libinfo": {
                     // v1.8.9: the Library Resolver's (i) text for an installed library, read on ART (offline)
                     java.io.File dir = new java.io.File((java.io.File) call(c("com.sketchware.ai.project.LibraryHeal"), "localLibs"), args[1]);
@@ -158,6 +162,9 @@ public class Main {
             call(buildMap, "task", get(buildMap, "JAVA"));
             call(dp[0], "compileJavaCode");
         });
+        // v1.9.0: DesignActivity's Run build runs these two (no-ops unless switched on for the project)
+        step("stringfog", () -> call(neu("mod.hey.studios.project.stringfog.StringfogHandler", sc_id), "start", rcv, dp[0]));
+        step("proguard", () -> call(neu("mod.hey.studios.project.proguard.ProguardHandler", sc_id), "start", rcv, dp[0]));
         step("dex", () -> {
             call(buildMap, "task", get(buildMap, "DEX"));
             call(dp[0], "createDexFilesFromClasses");

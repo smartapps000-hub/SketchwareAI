@@ -543,6 +543,80 @@ public class JavaEdit {
                 shape("button2_onClick") + " " + hp + (child == null ? "" : " child " + get(child, "opCode") + get(child, "parameters")));
         check("nested getText: generated again as typed", code().contains("textview1.setText(edittext1.getText().toString());"), "");
 
+        // 19. v1.9.0: variables registered by the save. Local declarations of String / double / boolean become project
+        // variables with set blocks, an int a custom variable (its type kept), assignments to undeclared names
+        // variables of the type their value shows; a name declared twice or captured by a listener stays a local.
+        l = lines(code());
+        int ic19 = find(l, "private void initializeLogic() {", 0);
+        l.add(ic19 + 1, "String twice = \"1\";");
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed19 = {
+                "String userName = \"Ravi\";",
+                "textview1.setText(userName);",
+                "double total = 2.5;",
+                "boolean shown = true;",
+                "int clickCount = 3;",
+                "attempts = 4;",
+                "rating = 4.5;",
+                "label = edittext1.getText().toString();",
+                "String twice = \"2\";",
+                "String captured = \"x\";",
+                "button1.setOnClickListener(new View.OnClickListener() {",
+                "@Override public void onClick(View v) { textview1.setText(captured); }",
+                "});"};
+        for (int k = 0; k < typed19.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed19[k]);
+        r = save(join(l));
+        check("variables: saved", ok(r), report(r));
+        v = vars();
+        check("variables: String, Number, Boolean registered from declarations",
+                v.contains("2=userName; ") && v.contains("1=total; ") && v.contains("0=shown; "), v);
+        check("variables: int kept as a custom variable of type int", v.contains("6=private int clickCount; "), v);
+        check("variables: undeclared assignments registered by their value", v.contains("1=attempts; ") && v.contains("1=rating; ") && v.contains("2=label; "), v);
+        check("variables: declared twice / captured by a listener stay locals", !v.contains("twice") && !v.contains("captured"), v);
+        all.clear();
+        for (Object b : blocks("button2_onClick")) all.put((String) get(b, "id"), b);
+        cur = blocks("button2_onClick").isEmpty() ? null : blocks("button2_onClick").get(0);
+        ops = new StringBuilder();
+        List<Object> chain19 = new ArrayList<>();
+        while (cur != null) {
+            chain19.add(cur);
+            ops.append(get(cur, "opCode")).append(' ');
+            int nx = (Integer) get(cur, "nextBlock");
+            cur = nx < 0 ? null : all.get(String.valueOf(nx));
+        }
+        check("variables: set blocks instead of add source", ops.toString().equals(
+                "setVarString setText setVarInt setVarBoolean addSourceDirectly setVarInt setVarInt setVarString addSourceDirectly "), ops.toString());
+        if (chain19.size() == 9) {
+            check("variables: int assignment kept as code", sourceOf(chain19.get(4)).equals("clickCount = 3;"), sourceOf(chain19.get(4)));
+            @SuppressWarnings("unchecked") List<String> p1 = (List<String>) get(chain19.get(1), "parameters");
+            Object g1 = p1.size() == 2 && p1.get(1).startsWith("@") ? all.get(p1.get(1).substring(1)) : null;
+            check("variables: setText(userName) reads the new variable", g1 != null && "getVar".equals(get(g1, "opCode"))
+                    && "userName".equals(get(g1, "spec")), String.valueOf(p1));
+            check("variables: set blocks' parameters", String.valueOf(get(chain19.get(0), "parameters")).equals("[userName, Ravi]")
+                    && String.valueOf(get(chain19.get(2), "parameters")).equals("[total, 2.5]")
+                    && String.valueOf(get(chain19.get(3), "parameters")).equals("[shown, true]"),
+                    get(chain19.get(0), "parameters") + " " + get(chain19.get(2), "parameters") + " " + get(chain19.get(3), "parameters"));
+            check("variables: locals that stay are one add source block", sourceOf(chain19.get(8)).startsWith("String twice = \"2\";\nString captured = \"x\";"),
+                    sourceOf(chain19.get(8)));
+            check("variables: decimals stored as numbers, written the generator's way", String.valueOf(get(chain19.get(6), "parameters")).equals("[rating, 4.5]"),
+                    String.valueOf(get(chain19.get(6), "parameters")));
+        }
+        String notes19 = String.valueOf(get(r, "notes"));
+        check("variables: the save says why locals stay", notes19.contains("captured stays a local") && notes19.contains("twice stays a local"), notes19);
+        regenerated = code();
+        write("javaedit-19-variables.java", regenerated);
+        check("variables: generated again with fields and assignments", regenerated.contains("private String userName = \"\";")
+                && regenerated.contains("userName = \"Ravi\";") && !regenerated.contains("String userName = \"Ravi\";")
+                && regenerated.contains("private int clickCount;") && regenerated.contains("clickCount = 3;")
+                && regenerated.contains("private double attempts = 0;") && regenerated.contains("total = 2.5d;") && regenerated.contains("rating = 4.5d;") && regenerated.contains("label = edittext1.getText().toString();")
+                && regenerated.contains("String captured = \"x\";") && regenerated.contains("String twice = \"1\";"), "");
+        Object r19 = save(regenerated);
+        check("variables: the shown code saves unchanged", ok(r19) && (Boolean) get(r19, "unchanged"), report(r19));
+
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());
         Main.OUT.println("AFTER " + state());
@@ -551,6 +625,97 @@ public class JavaEdit {
 
         Main.OUT.println("JAVAEDIT " + (checks - fails) + "/" + checks + " ok");
         // keep the project as the editor leaves it (the design editor saves to the backup copy) and build it
+        call(proj, "k");
+        if (build) Main.build(sc);
+    }
+
+    /** Opcodes of an event's top chain, in order. */
+    static String chainOps(String key) throws Throwable {
+        Map<String, Object> all = new HashMap<>();
+        for (Object b : blocks(key)) all.put((String) get(b, "id"), b);
+        Object cur = blocks(key).isEmpty() ? null : blocks(key).get(0);
+        StringBuilder ops = new StringBuilder();
+        Set<Object> seen = new HashSet<>();
+        while (cur != null && seen.add(cur)) {
+            ops.append(get(cur, "opCode")).append(' ');
+            int nx = (Integer) get(cur, "nextBlock");
+            cur = nx < 0 ? null : all.get(String.valueOf(nx));
+        }
+        return ops.toString().trim();
+    }
+
+    static Object openEvent(String key) throws Throwable {
+        return call(c("com.sketchware.ai.editor.EventCode"), "open", Main.CTX, sc, JAVA, key, files, proj, libs);
+    }
+
+    /**
+     * v1.9.0: the logic editor's "&lt;/&gt;" sheet without its dialog: EventCode opens one event of a javaedit fixture
+     * (a fresh one: create javaedit &lt;id&gt; first) the way the sheet does after "Edit", applies edits like "Apply" and
+     * checks what was stored, then the activity must still open in the Java editor unchanged, and the project builds.
+     * Usage: run.sh <apk> <root> eventcode <sc_id> [nobuild]   (CHECK lines and EVENTCODE n/m ok)
+     */
+    public static void eventCode(String sc_id, boolean build) throws Throwable {
+        sc = sc_id;
+        Class<?> jC = c("a.a.a.jC");
+        proj = call(jC, "a", sc);
+        files = call(jC, "b", sc);
+        libs = call(jC, "c", sc);
+        // 1. an event with blocks: its body, without the method's indentation; applied unchanged it changes nothing
+        Object b1 = openEvent("button1_onClick");
+        check("sheet: button1 onClick editable", (Boolean) call(b1, "editable"), String.valueOf(get(b1, "problem")));
+        String body = (String) get(b1, "body");
+        write("eventcode-button1.txt", body);
+        check("sheet: the body, not indented", !body.isEmpty() && !body.startsWith(" ") && !body.startsWith("\t")
+                && body.contains("textview1.setText(") && !body.contains("public void onClick"), body);
+        String before = state();
+        Object r = call(b1, "apply", body);
+        check("sheet: unchanged apply changes nothing", ok(r) && (Boolean) get(r, "unchanged") && before.equals(state()), report(r));
+        String opsBefore = chainOps("button1_onClick");
+        // 2. lines typed at the end: a new String variable and a setText reading it
+        r = call(b1, "apply", body + "\nString sheetText = \"From the sheet\";\ntextview1.setText(sheetText);");
+        check("sheet: applied", ok(r) && !(Boolean) get(r, "unchanged"), report(r));
+        check("sheet: the variable is registered", vars().contains("2=sheetText; "), vars());
+        String opsAfter = chainOps("button1_onClick");
+        check("sheet: the blocks before stay, set and setText blocks follow", opsAfter.equals(opsBefore + " setVarString setText"),
+                opsBefore + " => " + opsAfter);
+        // 3. refused: a brace not closed; the problem's line is the sheet's; nothing changes
+        Object again = openEvent("button1_onClick");
+        String body2 = (String) get(again, "body");
+        check("sheet: reopened with the new lines", body2.contains("sheetText = \"From the sheet\";") && body2.contains("textview1.setText(sheetText);"), body2);
+        before = state();
+        r = call(again, "apply", body2 + "\nif (true) {\ntextview1.setText(\"open\");");
+        check("sheet: unbalanced code refused, nothing changed", !ok(r) && before.equals(state()), report(r));
+        // 4. an empty event (button2 onClick of a fresh fixture): a statement becomes its block
+        Object b2 = openEvent("button2_onClick");
+        check("sheet: empty event editable with an empty body", (Boolean) call(b2, "editable") && "".equals(get(b2, "body")),
+                get(b2, "problem") + " [" + get(b2, "body") + "]");
+        r = call(b2, "apply", "textview1.setText(\"Sheet\");\nedittext1.setText(edittext1.getText().toString());");
+        check("sheet: empty event applied", ok(r), report(r));
+        check("sheet: empty event's blocks", chainOps("button2_onClick").equals("setText setText"), chainOps("button2_onClick"));
+        // 5. a MoreBlock and onCreate
+        Object mb = openEvent("greet_moreBlock");
+        r = call(mb, "apply", get(mb, "body") + "\nandroid.util.Log.d(\"sheet\", \"more block\");");
+        boolean mbStored = false;
+        for (Object b : blocks("greet_moreBlock")) {
+            mbStored |= "addSourceDirectly".equals(get(b, "opCode")) && sourceOf(b).contains("\"more block\"");
+        }
+        check("sheet: MoreBlock applied", ok(r) && mbStored, report(r) + " " + chainOps("greet_moreBlock"));
+        Object oc = openEvent("onCreate_initializeLogic");
+        check("sheet: onCreate editable", (Boolean) call(oc, "editable"), String.valueOf(get(oc, "problem")));
+        r = call(oc, "apply", get(oc, "body") + "\nsetTitle(\"Sheet\");");
+        check("sheet: onCreate applied, setTitle block", ok(r) && chainOps("onCreate_initializeLogic").endsWith("setTitle"),
+                report(r) + " " + chainOps("onCreate_initializeLogic"));
+        // 6. the whole activity opens in the Java editor and saves unchanged
+        open();
+        check("sheet: Java editor opens convertible", (Boolean) call(session, "convertible"), String.valueOf(get(session, "problem")));
+        String all = code();
+        write("eventcode-final.java", all);
+        check("sheet: generated with every applied line", all.contains("private String sheetText = \"\";")
+                && all.contains("sheetText = \"From the sheet\";") && all.contains("textview1.setText(\"Sheet\");")
+                && all.contains("android.util.Log.d(\"sheet\", \"more block\");") && all.contains("setTitle(\"Sheet\");"), "");
+        Object r2 = save(all);
+        check("sheet: Java editor saves it unchanged", ok(r2) && (Boolean) get(r2, "unchanged"), report(r2));
+        Main.OUT.println("EVENTCODE " + (checks - fails) + "/" + checks + " ok");
         call(proj, "k");
         if (build) Main.build(sc);
     }

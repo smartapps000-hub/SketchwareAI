@@ -13,5 +13,9 @@ android {
 dependencies {
     implementation "com.google.android.material:material:1.13.0"
     implementation "androidx.appcompat:appcompat:1.7.1"
+    // v1.9.0: the logic editor's source sheet (sora-editor, as the IDE ships it)
+    implementation "io.github.Rosemoe.sora-editor:editor:0.17.2"
+    implementation "io.github.Rosemoe.sora-editor:language-java:0.17.2"
+    implementation "io.github.Rosemoe.sora-editor:language-textmate:0.17.2"
     testImplementation "junit:junit:4.13.2"
 }

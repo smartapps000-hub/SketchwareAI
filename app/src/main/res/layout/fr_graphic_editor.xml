@@ -3,7 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.besome.sketch.editor.view.ViewEditor
+    <!-- v1.9.0: device viewports (design editor header → Device); Phone is upstream's canvas unchanged -->
+    <com.sketchware.ai.editor.ViewportViewEditor
         android:id="@+id/view_editor"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

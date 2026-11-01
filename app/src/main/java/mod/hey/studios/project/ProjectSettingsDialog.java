@@ -57,6 +57,8 @@ public class ProjectSettingsDialog {
                 com.sketchware.ai.project.ModernProjectDefaults.SETTING_MATERIAL3,
                 "Material 3 theme", "AppCompat projects · Material components and dialogs in Material 3");
 
+        EditText targetDevice = addTargetDevice(content);
+
         CheckBox autoHeal = bindToggle(content.findViewById(R.id.ob_cfg_row_heal),
                 com.sketchware.ai.project.ModernProjectDefaults.SETTING_AUTO_HEAL,
                 "Auto-heal builds", "Fixes unreachable code and missing imports, then rebuilds");
@@ -143,12 +145,15 @@ public class ProjectSettingsDialog {
                 edgeToEdge,
                 autoHeal,
                 useNewMaterialComponentsAppTheme,
-                material3AppTheme
+                material3AppTheme,
+                targetDevice
         };
 
         dialog.a(Helper.getResString(R.string.common_word_cancel), Helper.getDialogDismissListener(dialog));
         dialog.b(Helper.getResString(R.string.common_word_save), v -> {
             settings.setValues(preferences);
+            // v1.9.0: the open design canvas follows the target device
+            com.sketchware.ai.editor.ViewportViewEditor.select(com.sketchware.ai.project.DeviceTargets.of(settings));
             if (!convert[0]) {
                 // the design editor draws Material 3 widgets for Material 3 projects
                 com.sketchware.ai.editor.DesignTheme.load(settings.sc_id);
@@ -168,6 +173,84 @@ public class ProjectSettingsDialog {
             }, "ProjectConvert").start();
         });
         dialog.show();
+    }
+
+    /**
+     * v1.9.0: "Target device" (Phone, Foldable, Tablet, Wear OS, Android TV) above the toggles: one pill per device in
+     * two rows (every label fully visible), the line under them says what it changes (Wear OS / TV: manifest features;
+     * all: the design canvas's size). The choice is kept in a hidden field tagged with the setting, which Save stores.
+     */
+    private EditText addTargetDevice(View content) {
+        View anchor = content.findViewById(R.id.ob_cfg_row_edge);
+        LinearLayout column = (LinearLayout) anchor.getParent();
+        int at = column.indexOfChild(anchor);
+        float density = activity.getResources().getDisplayMetrics().density;
+
+        TextView caption = new TextView(activity);
+        caption.setText("Target device");
+        caption.setTextSize(12);
+        caption.setTextColor(activity.getResources().getColor(R.color.ob_text_2));
+        LinearLayout.LayoutParams captionParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        captionParams.topMargin = (int) (16 * density);
+        column.addView(caption, at++, captionParams);
+
+        final EditText value = new EditText(activity);
+        value.setVisibility(View.GONE);
+        value.setTag(com.sketchware.ai.project.DeviceTargets.SETTING);
+        column.addView(value, at++);
+
+        final TextView effect = new TextView(activity);
+        effect.setTextSize(12);
+        effect.setTextColor(activity.getResources().getColor(R.color.ob_text_3));
+
+        final java.util.List<TextView> pills = new java.util.ArrayList<>();
+        final String[][] rows = {
+                {com.sketchware.ai.project.DeviceTargets.PHONE, com.sketchware.ai.project.DeviceTargets.FOLDABLE,
+                        com.sketchware.ai.project.DeviceTargets.TABLET},
+                {com.sketchware.ai.project.DeviceTargets.WEAR, com.sketchware.ai.project.DeviceTargets.TV}};
+        for (String[] targets : rows) {
+            LinearLayout row = new LinearLayout(activity);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (String target : targets) {
+                TextView pill = new TextView(activity);
+                pill.setTag(target);
+                pill.setText(com.sketchware.ai.project.DeviceTargets.label(target));
+                pill.setTextSize(13);
+                pill.setMaxLines(1);
+                pill.setGravity(android.view.Gravity.CENTER);
+                pill.setMinHeight((int) (40 * density));
+                pill.setPadding((int) (8 * density), 0, (int) (8 * density), 0);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+                params.rightMargin = (int) (6 * density);
+                row.addView(pill, params);
+                pills.add(pill);
+                pill.setOnClickListener(v -> {
+                    value.setText((String) v.getTag());
+                    for (TextView other : pills) {
+                        boolean chosen = other == v;
+                        other.setBackgroundResource(chosen ? R.drawable.ob_amber_pill : R.drawable.ob_pill16_state);
+                        other.setTextColor(activity.getResources().getColor(chosen ? R.color.ob_accent : R.color.ob_text));
+                    }
+                    effect.setText(com.sketchware.ai.project.DeviceTargets.effect((String) v.getTag()));
+                });
+            }
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rowParams.topMargin = (int) (6 * density);
+            column.addView(row, at++, rowParams);
+        }
+
+        LinearLayout.LayoutParams effectParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        effectParams.topMargin = (int) (6 * density);
+        column.addView(effect, at, effectParams);
+
+        String current = com.sketchware.ai.project.DeviceTargets.of(settings);
+        for (TextView pill : pills) {
+            if (current.equals(pill.getTag())) pill.performClick();
+        }
+        return value;
     }
 
     private void bindInput(EditText input, String key, String defaultValue) {

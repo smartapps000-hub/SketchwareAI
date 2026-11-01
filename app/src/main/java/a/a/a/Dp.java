@@ -105,6 +105,8 @@ public class Dp {
     public ProjectSettings settings;
     private boolean buildAppBundle = false;
     private ArrayList<File> dexesToAddButNotMerge = new ArrayList<>();
+    /** v1.9.0: the R classes kept from the last Run build (null: compiled and dexed with the rest, as before). */
+    public com.sketchware.ai.project.RClassCache rClassCache;
 
     /**
      * Timestamp keeping track of when compiling the project's resources started, needed for stats of how long compiling took.
@@ -619,6 +621,28 @@ public class Dp {
                 LogUtil.w(TAG, "Failed to delete file " + rJavaFileWithoutPackage.getAbsolutePath());
             }
 
+            /* v1.9.0: when every R.java is what the last Run build compiled, its R classes are reused: ECJ compiles the
+             * project's own sources against them (RClassCache; D8 then adds their kept DEX) */
+            rClassCache = null;
+            try {
+                boolean plainClasses = yq.N.isDebugBuild && !proguard.isProguardEnabled()
+                        && !new mod.hey.studios.project.stringfog.StringfogHandler(yq.sc_id).isStringfogEnabled();
+                rClassCache = com.sketchware.ai.project.RClassCache.open(context.getCacheDir(), yq.sc_id,
+                        new File(yq.rJavaDirectoryPath), javaVersion, settings.getMinSdkVersion(),
+                        com.sketchware.remod.BuildConfig.VERSION_NAME, plainClasses,
+                        !BuildSettings.SETTING_GENERIC_VALUE_FALSE.equals(build_settings.getValue(
+                                BuildSettings.SETTING_BUILD_CACHE, BuildSettings.SETTING_GENERIC_VALUE_TRUE)));
+            } catch (Throwable t) {
+                LogUtil.e(TAG, "R class cache not used", t);
+                rClassCache = null;
+            }
+            if (rClassCache != null && rClassCache.hasClasses()) {
+                args.remove(yq.rJavaDirectoryPath);
+                int cp = args.indexOf("-cp") + 1;
+                args.set(cp, args.get(cp) + ":" + rClassCache.classesPath());
+                LogUtil.d(TAG, "R classes reused from the build cache");
+            }
+
             /*
              * Pre-compile pass (com.sketchware.ai.project.AutoHeal#wrapDeadCode): code that follows a
              * statement which always leaves the method or loop would stop the compiler with
@@ -785,6 +809,9 @@ public class Dp {
             }
 
             LogUtil.d(TAG, "System.out of Eclipse compiler: " + outOutputStream.getOut());
+            if (compiled && rClassCache != null && !rClassCache.hasClasses()) {
+                rClassCache.storeClasses(new File(yq.compiledClassesPath));
+            }
             if (compiled) {
                 LogUtil.d(TAG, "System.err of Eclipse compiler: " + errors);
                 LogUtil.d(TAG, "Compiling Java files took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");

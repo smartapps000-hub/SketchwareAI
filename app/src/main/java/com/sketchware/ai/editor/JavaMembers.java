@@ -83,6 +83,11 @@ public final class JavaMembers {
     /** Lines that hold (part of) a comment outside string and character literals. */
     private boolean[] commented;
 
+    /** v1.9.0: line {@code k} (1-based) as code: string/char literal contents and comments blanked. */
+    public String code(int k) {
+        return k >= 1 && k <= code.length ? code[k - 1] : "";
+    }
+
     /** Whether line {@code k} (1-based) holds (part of) a comment; "//" inside a string literal is not one. */
     public boolean hasComment(int k) {
         return k >= 1 && k <= commented.length && commented[k - 1];

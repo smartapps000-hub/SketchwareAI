@@ -1480,7 +1480,7 @@ It adds or updates the components below. Full list: CREDITS.md in the source.
 	Apache-2.0; protobuf BSD-3-Clause; abseil-cpp Apache-2.0; expat MIT; libpng libpng license;
 	zlib zlib license; fmtlib MIT; Android NDK runtime. Full texts: licenses/aapt2-NOTICE.txt
 
-* R8 / D8 8.11.18
+* R8 / D8 8.13.25
 
 	https://r8.googlesource.com/r8
 	BSD-3-Clause
@@ -1513,4 +1513,9 @@ It adds or updates the components below. Full list: CREDITS.md in the source.
 * Material Color Utilities (from Material Components 1.13.0)
 
 	https://github.com/material-components/material-components-android
+	Apache-2.0 License
+
+* Material Symbols 0.48.2 (Google; npm @material-symbols/svg-400)
+
+	https://github.com/google/material-design-icons
 	Apache-2.0 License

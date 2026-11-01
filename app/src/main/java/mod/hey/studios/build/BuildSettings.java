@@ -13,6 +13,8 @@ public class BuildSettings extends ProjectSettings {
     public static final String SETTING_NO_HTTP_LEGACY = "no_http_legacy";
     public static final String SETTING_NO_WARNINGS = "no_warn";
     public static final String SETTING_ENABLE_LOGCAT = "enable_logcat";
+    /** v1.9.0: reuse the last Run build's R classes / compiled resources when they didn't change (default on). */
+    public static final String SETTING_BUILD_CACHE = "build_cache";
 
     public static final String SETTING_DEXER_D8 = "D8";
     public static final String SETTING_DEXER_DX = "Dx";

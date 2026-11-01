@@ -2502,6 +2502,7 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         this.a(0, 0xffee7d16);
         this.loadEventBlocks();
         this.z();
+        showAppliedReport();
     }
 
     @Override
@@ -2947,30 +2948,50 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         yq yq = new yq(this, this.B);
         yq.a(jC.c(this.B), jC.b(this.B), jC.a(this.B), false);
         String code = new Fx(this.M.getActivityName(), yq.N, "", this.o.getBlocks()).a();
+        // v1.9.0: Material 3 dark colours (the TextMate Dracula theme left JavaLanguage's tokens dark blue and grey)
+        // and Edit / Apply: the event's code typed or pasted here becomes its blocks without leaving this editor
+        com.sketchware.ai.editor.EventCodeSheet.show(this, this.B, this.M.getJavaName(), this.C + "_" + this.D,
+                Lx.j(code, false), new com.sketchware.ai.editor.EventCodeSheet.Host() {
+                    @Override
+                    public void storeBlocks() {
+                        E();
+                    }
 
-        CodeEditor codeEditor = new CodeEditor(this);
-        // Dark scheme to match the glass dialog (the white sheet was a hole in the theme).
-        codeEditor.setColorScheme(mod.jbk.code.CodeEditorColorSchemes.DRACULA);
-        codeEditor.setEditable(false);
-        codeEditor.setEditorLanguage(new JavaLanguage());
-        codeEditor.setText(Lx.j(code, false));
-        codeEditor.setTextSize(12);
-        codeEditor.setTypefaceText(Typeface.MONOSPACE);
-        codeEditor.setWordwrap(false);
-        codeEditor.getComponent(Magnifier.class).setWithinEditorForcibly(true);
+                    @Override
+                    public void reopen(String report) {
+                        reopenWithReport(report);
+                    }
+                });
+    }
 
-        AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(this)
-                .setTitle("Source code")
-                .setIcon(R.drawable.code_icon)
-                .setPositiveButton(R.string.common_word_close, null)
-                .create();
+    /**
+     * v1.9.0: the event's blocks changed in the project data (Apply in the source sheet): this editor is opened again on
+     * the same event, so the canvas shows them and the old canvas is never saved over them (finish() drops this
+     * event's undo history, which described the old blocks).
+     */
+    private void reopenWithReport(String report) {
+        Intent again = new Intent(this, LogicEditorActivity.class);
+        android.os.Bundle extras = getIntent().getExtras();
+        if (extras != null) again.putExtras(extras);
+        again.removeExtra("focus_block_id");
+        again.removeExtra("focus_block_op");
+        again.removeExtra("focus_line");
+        again.putExtra("applied_report", report);
+        startActivity(again);
+        finish();
+        overridePendingTransition(0, 0);
+    }
 
-        dialog.setView(codeEditor,
-                (int) getDip(12),
-                (int) getDip(4),
-                (int) getDip(12),
-                (int) getDip(4));
-        dialog.show();
+    /** v1.9.0: what an Apply in the source sheet stored, shown once the event is open again. */
+    private void showAppliedReport() {
+        String report = getIntent().getStringExtra("applied_report");
+        if (report == null) return;
+        getIntent().removeExtra("applied_report");
+        new com.sketchware.ai.ui.ObAlertBuilder(this)
+                .setTitle("Applied — converted to blocks")
+                .setMessage(report.isEmpty() ? "The event's blocks were updated." : report)
+                .setPositiveButton("OK", null)
+                .show();
     }
 
     public final void t() {

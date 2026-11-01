@@ -174,6 +174,15 @@ public final class JavaEditSession {
         return x == y && a.regionMatches(0, b, 0, x);
     }
 
+    /** v1.9.0: the mapped event with this key (button1_onClick, onCreate_initializeLogic, greet_moreBlock ...), or null. */
+    EditMap.Event event(String key) {
+        if (map == null || key == null) return null;
+        for (EditMap.Event event : map.events) {
+            if (event.info.marked && key.equals(event.info.key())) return event;
+        }
+        return null;
+    }
+
     /** Whether saving converts to blocks (otherwise only {@link #ownFile} can be written, or nothing). */
     public boolean convertible() {
         return ownFile == null && map != null && map.problem == null && problem == null;

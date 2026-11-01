@@ -26,6 +26,21 @@ public class DexCompiler {
 
     @TargetApi(Build.VERSION_CODES.O)
     public static void compileDexFiles(Dp compileHelper) throws CompilationFailedException {
+        /* v1.9.0: R classes kept by the build cache are dexed once and added; D8 here gets the project's own classes */
+        com.sketchware.ai.project.RClassCache rClasses = compileHelper.proguard.isProguardEnabled()
+                || compileHelper.rClassCache == null || !compileHelper.rClassCache.hasClasses() ? null : compileHelper.rClassCache;
+        compileProjectDex(compileHelper, rClasses);
+        if (rClasses != null) {
+            try {
+                rClasses.addDex(new File(compileHelper.yq.binDirectoryPath, "dex"), new File(compileHelper.androidJarPath));
+            } catch (Exception e) {
+                throw failure("Couldn't dex the R classes: " + e, e);
+            }
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private static void compileProjectDex(Dp compileHelper, com.sketchware.ai.project.RClassCache rClasses) throws CompilationFailedException {
         int minApiLevel;
 
         try {
@@ -43,8 +58,11 @@ public class DexCompiler {
         if (compileHelper.proguard.isProguardEnabled()) {
             programFiles.add(new File(compileHelper.yq.classesProGuardPath).toPath());
         } else {
+            File classesRoot = new File(compileHelper.yq.compiledClassesPath);
             for (String filePath : ProcessingFiles.getListResource(compileHelper.yq.compiledClassesPath)) {
-                programFiles.add(new File(filePath).toPath());
+                File classFile = new File(filePath);
+                if (rClasses != null && rClasses.isRClass(classFile, classesRoot)) continue;
+                programFiles.add(classFile.toPath());
             }
         }
 

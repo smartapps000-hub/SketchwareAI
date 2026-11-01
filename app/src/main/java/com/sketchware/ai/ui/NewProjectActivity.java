@@ -334,7 +334,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         boolean d8 = BuildSettings.SETTING_DEXER_D8.equals(choices.dexer);
         engineModern.setSelected(true);
         engineModern.setTextColor(0xFFFFFFFF);
-        engineModern.setText(d8 ? "On the phone: D8 / R8 8.11" : "On the phone: Dx");
+        engineModern.setText(d8 ? "On the phone: D8 / R8 8.13" : "On the phone: Dx");
         engineCaption.setText((d8
                 ? "Core library desugaring (java.time, streams on old Android versions), Java 7 to 11. "
                 : "D8 needs Android 8.0 or newer; on this phone Dx compiles at Java 7. ")
@@ -508,8 +508,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         String highest = javaLabel(levels[levels.length - 1]).replace(" (recommended)", "");
         javaCaption.setText(BuildSettings.SETTING_DEXER_DX.equals(choices.dexer)
                 ? "Dx compiles at Java 7 only."
-                : "Java 17 isn't available: the on-phone compiler supports up to " + highest + ". The bundled "
-                + "android.jar is API 34; a newer target SDK changes how Android treats the app, not which APIs you can call.");
+                : "Java 17 isn't available: the on-phone compiler supports up to " + highest + ". Code compiles "
+                + "against Android 17 (API 37): calls to APIs newer than the min SDK need a Build.VERSION check.");
     }
 
     static String sdkLabel(int api) {

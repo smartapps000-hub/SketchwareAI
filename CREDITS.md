@@ -26,7 +26,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | ↳ zlib (Chromium) | AOSP copy | zlib licence | same NOTICE |
 | ↳ fmtlib | 11.0.2 | MIT | same NOTICE |
 | ↳ NDK r28c runtime: bionic libc/libm/libdl; LLVM libc++, libc++abi, libunwind, compiler-rt | r28c | BSD/MIT/ISC and others; Apache-2.0 WITH LLVM-exception | same NOTICE |
-| R8 / D8 / L8 | 8.11.18 | BSD-3-Clause (its POM also lists the licences of code it bundles: Apache-2.0, MIT, CDDL-1.1 / GPL-2.0 with Classpath Exception, LGPL-2.1, EDL-1.0) | Maven POM |
+| R8 / D8 / L8 | 8.13.25 (8.11.18 until v1.8.13) | BSD-3-Clause (its POM also lists the licences of code it bundles: Apache-2.0, MIT, CDDL-1.1 / GPL-2.0 with Classpath Exception, LGPL-2.1, EDL-1.0) | Maven POM |
 | desugar_jdk_libs (code from OpenJDK; in `assets/libs/desugar.zip`, and compiled into a generated app when it uses `java.time`, streams ...) | 2.1.5 | GPL-2.0 with Classpath Exception | Maven POM (`desugar_jdk_libs_nio` 2.1.5) |
 | desugar_jdk_libs configuration (nio) | 2.1.5 | BSD-3-Clause | Maven POM |
 | bundletool | 1.18.3 | Apache-2.0 | Maven POM |
@@ -64,7 +64,8 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | Sora, Manrope, JetBrains Mono (`res/font`, the Obsidian UI) | SIL Open Font License 1.1 | `assets/licenses/fonts-OFL.txt` |
 | Material icons "palette", "dark_mode", "wallpaper", "android" (`res/drawable/ob_ic_material3.xml`, `ob_ic_dark_theme.xml`, `ob_ic_dynamic_color.xml`, `np_ic_android.xml`) | Apache-2.0 | not re-verified |
 | Droid Sans Mono (`assets/fonts`, upstream) | Apache-2.0 | not re-verified |
-| `assets/libs/android.jar.zip`: Android SDK platform android-34 rev 3 `android.jar` (compile-only; upstream bundles one the same way) | Android Software Development Kit License Agreement | not re-verified |
+| `assets/libs/android.jar.zip`: Android SDK platform android-37.0 rev 2 `android.jar` (Android 17, compile-only; android-34 rev 3 until v1.8.13; upstream bundles one the same way) | Android Software Development Kit License Agreement | sdkmanager `platforms;android-37.0` source.properties |
+| Material Symbols 0.48.2 (Google), weight 400, Outlined / Rounded / Sharp, 3,937 icons each (`assets/icons/material_symbols.zip`: each icon's SVG path, the licence text inside; v1.9.0) | Apache-2.0 | npm `@material-symbols/svg-400` package.json + LICENSE |
 | Test fonts used by `tools/` (fixture 909, layoutlib) | OFL-1.1; created by `make-test-fonts.py`, never committed or shipped | — |
 
 ## 5. Libraries a generated app can include (built-in libraries)

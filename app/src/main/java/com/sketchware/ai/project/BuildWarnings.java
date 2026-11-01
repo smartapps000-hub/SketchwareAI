@@ -15,14 +15,14 @@ import mod.jbk.util.LogUtil;
  * "Built with N warnings" and saves them to the compile log (Show last compile error).
  * <p>
  * The checks at the start compare the project against what this toolchain really provides:
- * code is compiled against the bundled Android 14 (API 34) android.jar with ECJ 3.26 and
- * D8/R8 3.3; the bundled Jetpack libraries are the newest that build against it (v1.8.4), Firebase/Play the
- * 2021-2022 releases.
+ * code is compiled against the bundled Android 17 (API 37) android.jar (API 34 until v1.8.13) with ECJ 3.26 and
+ * D8 (see DexCompiler); the bundled Jetpack libraries are the newest that built against API 34 (v1.8.4), Firebase/Play
+ * the 2021-2022 releases.
  */
 public final class BuildWarnings {
 
     /** API level of assets/libs/android.jar.zip, the platform user code is compiled against. */
-    public static final int BUNDLED_ANDROID_JAR_API = 34;
+    public static final int BUNDLED_ANDROID_JAR_API = 37;
 
     private static final String TAG = "BuildWarnings";
     private static final List<String> warnings = new ArrayList<>();

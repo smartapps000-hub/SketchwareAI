@@ -337,6 +337,8 @@ public class Ix {
         ConstVarManifest.handlePermissionComponent(a, c.x);
         addPackageVisibilityQueries(a);
         AndroidManifestInjector.getP(a, c.sc_id);
+        // v1.9.0: Wear OS / Android TV features, only for a project whose target device is set to one of them
+        com.sketchware.ai.project.DeviceTargets.addFeatures(a, settings);
 
         Nx applicationTag = new Nx("application");
         applicationTag.a("android", "allowBackup", "true");
@@ -356,6 +358,7 @@ public class Ix {
             applicationTag.a("android", "usesCleartextTraffic", "true");
         }
         AndroidManifestInjector.getAppAttrs(applicationTag, c.sc_id);
+        com.sketchware.ai.project.DeviceTargets.application(applicationTag, settings);
         if (com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings) >= 33) {
             // Android 16 turns on predictive back for apps targeting API 36+, which stops
             // onBackPressed() from being called; Sketchware's "onBackPressed" event relies on it.
@@ -414,6 +417,7 @@ public class Ix {
                     Nx categoryTag = new Nx("category");
                     categoryTag.a("android", "name", Intent.CATEGORY_LAUNCHER);
                     intentFilterTag.a(categoryTag);
+                    com.sketchware.ai.project.DeviceTargets.launcher(intentFilterTag, settings);
                     if (targetsSdkVersion31OrHigher && !AndroidManifestInjector.isActivityExportedUsed(c.sc_id, javaName)) {
                         activityTag.a("android", "exported", "true");
                     }

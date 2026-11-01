@@ -332,9 +332,90 @@ public class ResourceCompiler {
             com.sketchware.ai.project.PngSanitizer.keeper(
                     com.sketchware.ai.project.ProjectImages.keeper(buildHelper.yq.sc_id));
             try {
-                compileDirectory(buildHelper.yq.resDirectoryPath, outputPath + File.separator + "project.zip", true, "project");
+                String archive = outputPath + File.separator + "project.zip";
+                if (!compileProjectFromCache(archive)) {
+                    compileDirectory(buildHelper.yq.resDirectoryPath, archive, true, "project");
+                    keepProjectFlats(archive);
+                }
             } finally {
                 com.sketchware.ai.project.PngSanitizer.keeper(null);
+            }
+        }
+
+        /** v1.9.0 build cache (ResourceCache): only Run builds, unless switched off in Build Settings. */
+        private com.sketchware.ai.project.ResourceCache cache() {
+            try {
+                if (buildAppBundle || !buildHelper.yq.N.isDebugBuild) return null;
+                if (BuildSettings.SETTING_GENERIC_VALUE_FALSE.equals(buildHelper.build_settings.getValue(
+                        BuildSettings.SETTING_BUILD_CACHE, BuildSettings.SETTING_GENERIC_VALUE_TRUE))) {
+                    return null;
+                }
+                return new com.sketchware.ai.project.ResourceCache(SketchApplication.getContext().getCacheDir(),
+                        buildHelper.yq.sc_id, aapt2);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+
+        /**
+         * v1.9.0: the project's generated resources from kept .flat files; only changed files are compiled (one by
+         * one). False when the folder must be compiled as a whole (no cache, most files changed, or a file aapt2
+         * rejected: the folder compile reports it and repairs PNGs).
+         */
+        private boolean compileProjectFromCache(String archive) {
+            com.sketchware.ai.project.ResourceCache cache = cache();
+            if (cache == null) return false;
+            File res = new File(buildHelper.yq.resDirectoryPath);
+            File temp = new File(buildHelper.yq.binDirectoryPath, "res-flat-" + System.nanoTime());
+            try {
+                // damaged PNGs are repaired first, as the folder compile does (the content is what is keyed)
+                for (String note : com.sketchware.ai.project.PngSanitizer.fixTree(res)) {
+                    com.sketchware.ai.project.BuildWarnings.add(note);
+                }
+                java.util.List<com.sketchware.ai.project.ResourceCache.Item> items = cache.projectItems(res);
+                if (items == null || items.isEmpty()) return false;
+                java.util.List<com.sketchware.ai.project.ResourceCache.Item> missing = new ArrayList<>();
+                for (com.sketchware.ai.project.ResourceCache.Item item : items) {
+                    if (!cache.flat(item).isFile()) missing.add(item);
+                }
+                if (missing.size() == items.size() || missing.size() > 8) return false;
+                for (com.sketchware.ai.project.ResourceCache.Item item : missing) {
+                    if (!temp.isDirectory() && !temp.mkdirs()) return false;
+                    ArrayList<String> commands = new ArrayList<>();
+                    commands.add(aapt2.getAbsolutePath());
+                    commands.add("compile");
+                    commands.add(item.file.getAbsolutePath());
+                    commands.add("-o");
+                    commands.add(temp.getAbsolutePath());
+                    BinaryExecutor executor = new BinaryExecutor();
+                    executor.setCommands(commands);
+                    File flat = new File(temp, item.flatName);
+                    if (!executor.execute().isEmpty() || !flat.isFile()) return false;
+                    cache.keepFlat(item, flat);
+                    if (!cache.flat(item).isFile()) return false;
+                }
+                cache.writeArchive(items, new File(archive));
+                cache.pruneFlats(items);
+                LogUtil.d(TAG + ":cPR", "Project resources: " + (items.size() - missing.size()) + " of " + items.size()
+                        + " files reused from the build cache");
+                return true;
+            } catch (Exception e) {
+                LogUtil.e(TAG, "Resource cache not used", e);
+                return false;
+            } finally {
+                com.sketchware.ai.project.RClassCache.delete(temp);
+            }
+        }
+
+        /** v1.9.0: after the whole folder was compiled, its .flat files are kept for the next Run build. */
+        private void keepProjectFlats(String archive) {
+            com.sketchware.ai.project.ResourceCache cache = cache();
+            if (cache == null) return;
+            try {
+                java.util.List<com.sketchware.ai.project.ResourceCache.Item> items = cache.projectItems(new File(buildHelper.yq.resDirectoryPath));
+                if (items != null && cache.keepFromArchive(items, new File(archive))) cache.pruneFlats(items);
+            } catch (Exception e) {
+                LogUtil.e(TAG, "Couldn't keep the project's compiled resources", e);
             }
         }
 
@@ -344,7 +425,7 @@ public class ResourceCompiler {
          * in a copy of the folder under bin/res-fixed. If AAPT2 still rejects a PNG, that image is
          * repaired and the folder compiled once more.
          */
-        private void compileDirectory(String directory, String outputArchive, boolean ownedByBuild, String mirrorName) throws zy {
+        private java.util.List<String> compileDirectory(String directory, String outputArchive, boolean ownedByBuild, String mirrorName) throws zy {
             java.util.List<String> notes = new ArrayList<>();
             File source = new File(directory);
             File mirror = new File(buildHelper.yq.binDirectoryPath, "res-fixed" + File.separator + mirrorName);
@@ -374,6 +455,7 @@ public class ResourceCompiler {
                 LogUtil.e(TAG, log);
                 throw new zy(log);
             }
+            return notes;
         }
 
         /** @return "" on success, otherwise AAPT2's output */
@@ -406,10 +488,27 @@ public class ResourceCompiler {
                 File localLibraryDirectory = new File(localLibraryResDirectory).getParentFile();
                 if (localLibraryDirectory != null) {
                     ensureLocalLibraryDirectory(localLibraryResDirectory, MissingFileException.STEP_RESOURCE_COMPILING);
-
-                    compileDirectory(localLibraryResDirectory,
-                            outputPath + File.separator + localLibraryDirectory.getName() + ".zip",
+                    File output = new File(outputPath, localLibraryDirectory.getName() + ".zip");
+                    // v1.9.0: a library's res folder that didn't change since the last Run build isn't compiled again
+                    com.sketchware.ai.project.ResourceCache cache = cache();
+                    File kept = null;
+                    if (cache != null) {
+                        try {
+                            kept = cache.libraryArchive(new File(localLibraryResDirectory));
+                            if (kept.isFile()) {
+                                com.sketchware.ai.project.RClassCache.copy(kept, output);
+                                for (String note : cache.libraryNotes(kept)) com.sketchware.ai.project.BuildWarnings.add(note);
+                                LogUtil.d(TAG + ":cLLR", "Reused compiled resources of " + localLibraryDirectory.getName());
+                                continue;
+                            }
+                        } catch (Exception e) {
+                            LogUtil.e(TAG, "Library resource cache not used", e);
+                            kept = null;
+                        }
+                    }
+                    java.util.List<String> notes = compileDirectory(localLibraryResDirectory, output.getAbsolutePath(),
                             false, "lib-" + localLibraryDirectory.getName());
+                    if (cache != null && kept != null) cache.keepLibrary(kept, output, notes);
                 }
             }
         }

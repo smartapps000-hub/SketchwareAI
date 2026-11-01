@@ -452,6 +452,12 @@ public class Fixtures {
             call(ps, "putValue", "min_sdk", "19");
             call(ps, "saveNow");
         }
+        if (spec.equals("wear") || spec.equals("tv")) {
+            // v1.9.0: Project Configuration -> Target device (the m3 widgets otherwise): Wear OS / Android TV manifest
+            Object ps = neu("mod.hey.studios.project.ProjectSettings", sc_id);
+            call(ps, "putValue", "target_device", spec);
+            call(ps, "saveNow");
+        }
         Main.OUT.println("CREATED " + spec + " as #" + sc_id + ": " + widgets.size() + " widgets, " + comps.size() + " components");
     }
 

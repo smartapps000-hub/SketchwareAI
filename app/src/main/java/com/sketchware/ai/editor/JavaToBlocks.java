@@ -162,7 +162,11 @@ public final class JavaToBlocks {
     private final Set<Integer> variableRemovals = new LinkedHashSet<>();
     private final List<Pair<Integer, String>> variableAdditions = new ArrayList<>();
     private final Set<Integer> listRemovals = new LinkedHashSet<>();
-    private final List<String[]> moreBlockAdditions = new ArrayList<>();   // {name, spec, body}
+    private final List<String[]> moreBlockAdditions = new ArrayList<>();   // {name, spec, body, body from, body to}
+    /** v1.9.0: variables the save registers by itself (AutoVariables), by name, in the order found. */
+    private final Map<String, AutoVariables.Variable> autoVariables = new LinkedHashMap<>();
+    /** v1.9.0: edited line → what the statement on it becomes (a local declaration that is a variable now). */
+    private final Map<Integer, AutoVariables.Rewrite> autoRewrites = new HashMap<>();
     private final List<String> moreBlockRemovals = new ArrayList<>();
     private final Set<String> importsAdded = new LinkedHashSet<>();
     private final Set<String> originalImports = new HashSet<>();
@@ -201,7 +205,11 @@ public final class JavaToBlocks {
             if (result.problems.isEmpty()) {
                 String again = generator.generate();
                 JavaMembers r = new JavaMembers(again);
-                String difference = r.problem != null ? r.problem : firstDifference(r, e);
+                // v1.9.0: with registered variables the blocks write each declaration as its assignment and the
+                // variable as a field: that is the code they must give back exactly
+                JavaMembers expected = autoVariables.isEmpty() ? e : new JavaMembers(expectedText(e));
+                String difference = r.problem != null ? r.problem
+                        : expected.problem != null ? expected.problem : firstDifference(r, expected);
                 if (difference != null) {
                     result.problems.add(new Problem(0, "The blocks wouldn't give exactly this code (" + difference
                             + "). Nothing was changed."));
@@ -471,7 +479,8 @@ public final class JavaToBlocks {
                     if (!stripFinal(header).equals(stripFinal(em.head + " {"))) {
                         why = "its parameter types aren't the ones a MoreBlock writes (" + header + ")";
                     } else {
-                        moreBlockAdditions.add(new String[]{name, spec, body(e, em.bodyOpenLine + 1, em.bodyCloseLine)});
+                        moreBlockAdditions.add(new String[]{name, spec, body(e, em.bodyOpenLine + 1, em.bodyCloseLine),
+                                String.valueOf(em.bodyOpenLine + 1), String.valueOf(em.bodyCloseLine)});
                         result.changes.add("MoreBlock " + name + " added");
                         return;
                     }
@@ -616,8 +625,15 @@ public final class JavaToBlocks {
             if (list == null) byEvent.put(edit.event, list = new ArrayList<>());
             list.add(edit);
         }
+        Map<EditMap.Event, List<Target>> targets = new LinkedHashMap<>();
         for (Map.Entry<EditMap.Event, List<Edit>> entry : byEvent.entrySet()) {
-            applyEvent(entry.getKey(), entry.getValue(), e, result);
+            targets.put(entry.getKey(), targetsFor(entry.getKey(), entry.getValue()));
+        }
+        // v1.9.0: variables declared or assigned in the new code are registered before any line becomes a block, so
+        // their set blocks and variable blocks can be used everywhere in this save
+        planAutoVariables(e, targets, result);
+        for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
+            applyTargets(entry.getKey(), entry.getValue(), e, result);
         }
         // Variables and lists.
         ArrayList<Pair<Integer, String>> variables = data.variables(javaName);
@@ -656,13 +672,160 @@ public final class JavaToBlocks {
             if (!added[2].isEmpty()) {
                 Map<String, BlockBean> nested = new LinkedHashMap<>();
                 int counted = mappedBlocks;
-                List<BlockBean> chain = chainFor(added[2], new int[]{1}, nested);
+                List<BlockBean> chain = chainFor(added[2], new int[]{1}, nested,
+                        bodyStart(e, Integer.parseInt(added[3]), Integer.parseInt(added[4])));
                 mappedBlocks = counted;   // the count is reported per event; a new MoreBlock is its own change
                 blocks.addAll(chain);
                 for (BlockBean b : nested.values()) if (!chain.contains(b)) blocks.add(b);
             }
             data.blocks(javaName).put(added[0] + "_moreBlock", blocks);
         }
+        // v1.9.0: registered variables (after the MoreBlocks, whose bodies can declare them too)
+        for (AutoVariables.Variable variable : autoVariables.values()) {
+            variables.add(new Pair<>(variable.kind, variable.stored()));
+            result.changes.add("Variable " + variable.name + " (" + variable.label() + ") added to the project");
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------ v1.9.0 variables
+
+    /**
+     * Finds the local declarations and the assignments to undeclared names among the statements that become blocks
+     * (the targets' code and new MoreBlocks' bodies) and decides which become project variables (AutoVariables).
+     */
+    private void planAutoVariables(JavaMembers e, Map<EditMap.Event, List<Target>> targets, Result result) {
+        if (statements == null) return;
+        // edited line of each statement of its own → the call a MoreBlock would make to itself (null for events)
+        java.util.TreeMap<Integer, String> lines = new java.util.TreeMap<>();
+        for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
+            EditMap.Event event = entry.getKey();
+            String self = "moreBlock".equals(event.info.kind) ? "_" + event.info.targetId + "(" : null;
+            for (Target t : entry.getValue()) statementLines(e, t.eStart, t.eEnd, self, lines);
+        }
+        for (String[] added : moreBlockAdditions) {
+            statementLines(e, Integer.parseInt(added[3]), Integer.parseInt(added[4]), "_" + added[0] + "(", lines);
+        }
+        if (lines.isEmpty()) return;
+        Set<String> taken = takenNames(e);
+        Map<String, Integer> known = new HashMap<>();
+        for (Pair<Integer, String> v : data.variables(javaName)) {
+            if (v.first != null && v.first >= 0 && v.first <= 2) known.put(variableName(v), v.first);
+        }
+        // 1. local declarations: String name = …; double total = 0; boolean done; Intent i = new Intent();
+        for (Map.Entry<Integer, String> entry : lines.entrySet()) {
+            int line = entry.getKey();
+            AutoVariables.Declaration d = AutoVariables.declaration(e.line(line).trim());
+            if (d == null) continue;
+            String why;
+            if (d.name.startsWith("_") || taken.contains(d.name) || autoVariables.containsKey(d.name)) {
+                why = "the name is already used by a widget, component, variable, list or method of this activity";
+            } else if (AutoVariables.declarations(e, d.name) != 1) {
+                why = "it is declared more than once in this activity";
+            } else {
+                why = AutoVariables.hazard(e, line, d.name, entry.getValue());
+            }
+            if (why != null) {
+                String note = d.name + " stays a local variable in its code: " + why + ".";
+                if (!result.notes.contains(note)) result.notes.add(note);
+                continue;
+            }
+            int kind = AutoVariables.kindOf(d.type);
+            AutoVariables.Variable variable = new AutoVariables.Variable(d.name, kind,
+                    kind == AutoVariables.CUSTOM ? AutoVariables.storedType(d.type) : d.type);
+            autoVariables.put(d.name, variable);
+            autoRewrites.put(line, new AutoVariables.Rewrite(variable,
+                    d.value == null ? null : AutoVariables.assignmentStatement(d.name, kind, d.value)));
+            if (kind != AutoVariables.CUSTOM) known.put(d.name, kind);
+        }
+        // 2. assignments to names declared nowhere: total = 0; name = edittext1.getText().toString();
+        Map<String, Set<Integer>> kinds = new LinkedHashMap<>();
+        Map<String, List<Integer>> assignedOn = new HashMap<>();
+        for (Map.Entry<Integer, String> entry : lines.entrySet()) {
+            if (autoRewrites.containsKey(entry.getKey())) continue;
+            String[] assignment = AutoVariables.assignment(e.line(entry.getKey()).trim());
+            if (assignment == null) continue;
+            String name = assignment[0];
+            if (name.startsWith("_") || taken.contains(name) || autoVariables.containsKey(name) || known.containsKey(name)) {
+                continue;
+            }
+            Set<Integer> seen = kinds.get(name);
+            if (seen == null) kinds.put(name, seen = new HashSet<>());
+            seen.add(AutoVariables.infer(assignment[1], known));
+            List<Integer> on = assignedOn.get(name);
+            if (on == null) assignedOn.put(name, on = new ArrayList<>());
+            on.add(entry.getKey());
+        }
+        for (Map.Entry<String, Set<Integer>> entry : kinds.entrySet()) {
+            Set<Integer> told = new HashSet<>(entry.getValue());
+            told.remove(-1);
+            String name = entry.getKey();
+            if (told.size() != 1 || AutoVariables.declarations(e, name) != 0) {
+                if (told.size() > 1) result.notes.add(name + " isn't made a variable: its values have different types.");
+                continue;
+            }
+            int kind = told.iterator().next();
+            String javaType = kind == AutoVariables.STRING ? "String" : kind == AutoVariables.NUMBER ? "double" : "boolean";
+            AutoVariables.Variable variable = new AutoVariables.Variable(name, kind, javaType);
+            autoVariables.put(name, variable);
+            known.put(name, kind);
+            if (kind == AutoVariables.NUMBER) {
+                // a decimal number is written the way the set block writes it (2.5 → 2.5d)
+                for (int line : assignedOn.get(name)) {
+                    String[] assignment = AutoVariables.assignment(e.line(line).trim());
+                    String statement = AutoVariables.assignmentStatement(name, kind, assignment[1]);
+                    if (!statement.equals(e.line(line).trim())) autoRewrites.put(line, new AutoVariables.Rewrite(variable, statement));
+                }
+            }
+        }
+        for (AutoVariables.Variable variable : autoVariables.values()) {
+            if (variable.kind != AutoVariables.CUSTOM) statements.declare(variable.name, variable.kind);
+        }
+    }
+
+    /** Names a registered variable mustn't take: the activity's fields, methods and inner classes, its variables,
+     * lists and MoreBlocks. */
+    private Set<String> takenNames(JavaMembers e) {
+        Set<String> names = new HashSet<>();
+        for (JavaMembers.Member m : e.members) if (m.name != null) names.add(m.name);
+        for (Pair<Integer, String> v : data.variables(javaName)) {
+            if (v.first == null || v.first != VAR_IMPORT) names.add(variableName(v).replaceAll("\\s*\\[\\s*\\]", "").trim());
+        }
+        for (Pair<Integer, String> list : data.lists(javaName)) if (list.second != null) names.add(list.second.trim());
+        for (Pair<String, String> moreBlock : data.moreBlocks(javaName)) if (moreBlock.first != null) names.add(moreBlock.first);
+        return names;
+    }
+
+    /** The statements of their own (what {@link #chainFor} may map) in edited lines [from, to), with {@code self}. */
+    private static void statementLines(JavaMembers e, int from, int to, String self, Map<Integer, String> out) {
+        String content = body(e, from, to);
+        if (content.isEmpty()) return;
+        int first = bodyStart(e, from, to);
+        String[] lines = content.split("\n", -1);
+        boolean[] own = ownStatements(lines);
+        for (int n = 0; n < lines.length; n++) if (own[n]) out.put(first + n, self);
+    }
+
+    /**
+     * The edited text the blocks must give back when variables are registered: each converted declaration as its
+     * assignment (or gone, when it had no value) and each new variable's field after the class line.
+     */
+    private String expectedText(JavaMembers e) {
+        StringBuilder out = new StringBuilder();
+        for (int k = 1; k <= e.count(); k++) {
+            String line = e.line(k);
+            AutoVariables.Rewrite rewrite = autoRewrites.get(k);
+            if (rewrite != null) {
+                if (rewrite.statement == null) continue;
+                int indent = 0;
+                while (indent < line.length() && (line.charAt(indent) == ' ' || line.charAt(indent) == '\t')) indent++;
+                line = line.substring(0, indent) + rewrite.statement;
+            }
+            out.append(line).append('\n');
+            if (k == e.classLine) {
+                for (AutoVariables.Variable variable : autoVariables.values()) out.append(variable.fieldLine()).append('\n');
+            }
+        }
+        return out.toString();
     }
 
     /** Where a changed run of lines goes: a run of blocks of one chain (or a place between two of them). */
@@ -676,7 +839,8 @@ public final class JavaToBlocks {
         int eStart, eEnd;            // edited lines [eStart, eEnd)
     }
 
-    private void applyEvent(EditMap.Event event, List<Edit> eventEdits, JavaMembers e, Result result) {
+    /** The block runs an event's edits replace, merged until none overlap, top to bottom. */
+    private List<Target> targetsFor(EditMap.Event event, List<Edit> eventEdits) {
         // Merge edits whose targets overlap, until none do.
         List<Edit> work = new ArrayList<>(eventEdits);
         List<Target> targets;
@@ -726,7 +890,10 @@ public final class JavaToBlocks {
             next.add(joined);
             work = next;
         }
+        return targets;
+    }
 
+    private void applyTargets(EditMap.Event event, List<Target> targets, JavaMembers e, Result result) {
         String key = event.info.key();
         ArrayList<BlockBean> original = data.blocks(javaName).get(key);
         Map<String, BlockBean> live = new LinkedHashMap<>();
@@ -745,7 +912,8 @@ public final class JavaToBlocks {
         for (int k = targets.size() - 1; k >= 0; k--) {
             Target t = targets.get(k);
             String content = body(e, t.eStart, t.eEnd);
-            List<BlockBean> chain = content.isEmpty() ? new ArrayList<BlockBean>() : chainFor(content, nextId, live);
+            List<BlockBean> chain = content.isEmpty() ? new ArrayList<BlockBean>()
+                    : chainFor(content, nextId, live, bodyStart(e, t.eStart, t.eEnd));
             BlockBean added = chain.isEmpty() ? null : chain.get(0);
             BlockBean lastAdded = chain.isEmpty() ? null : chain.get(chain.size() - 1);
             String after;      // id the new block (or the removal) continues with
@@ -933,34 +1101,29 @@ public final class JavaToBlocks {
      * blocks. Returns the chain (linked by nextBlock, the last one's nextBlock -1); variable blocks used as parameters
      * go into {@code live} only.
      */
-    private List<BlockBean> chainFor(String content, int[] nextId, Map<String, BlockBean> live) {
+    private List<BlockBean> chainFor(String content, int[] nextId, Map<String, BlockBean> live, int firstLine) {
         List<BlockBean> chain = new ArrayList<>();
         String[] lines = content.split("\n", -1);
         int lastCode = lines.length - 1;
         while (lastCode >= 0 && lines[lastCode].trim().isEmpty()) lastCode--;
         StringBuilder pending = new StringBuilder();
-        int depth = 0;
-        boolean[] inComment = {false};
-        String previous = null;   // the last non-blank code line before this one
+        boolean[] own = ownStatements(lines);
         for (int n = 0; n < lines.length; n++) {
             String line = lines[n];
-            int before = depth;
-            boolean commentBefore = inComment[0];
-            depth += braceDelta(line, inComment);
-            String trimmed = line.trim();
+            // v1.9.0: a declaration whose variable the save registered is its assignment now (or nothing)
+            AutoVariables.Rewrite rewrite = firstLine > 0 ? autoRewrites.get(firstLine + n) : null;
+            if (rewrite != null) {
+                if (rewrite.statement == null) continue;
+                line = rewrite.statement;
+            }
             ArrayList<BlockBean> mapped = null;
-            // only a whole statement of its own: not inside braces or a block comment, not the body of a braceless
-            // if / else / loop on the line before (the previous code line ends a statement or a block)
-            boolean own = previous == null || previous.endsWith(";") || previous.endsWith("{") || previous.endsWith("}");
-            if (statements != null && before == 0 && depth == 0 && !commentBefore && !inComment[0] && own
-                    && !trimmed.contains("/*") && !trimmed.contains("*/") && trimmed.endsWith(";")) {
+            if (statements != null && own[n]) {
                 mapped = statements.map(line, nextId);
                 // Finish Activity is a cap block: nothing may hang under it, so only as the last statement
                 if (mapped != null && "finishActivity".equals(mapped.get(0).opCode) && n != lastCode) {
                     mapped = null;   // its ids stay unused (gaps are fine; ids are only unique)
                 }
             }
-            if (!trimmed.isEmpty() && !commentBefore && !trimmed.startsWith("//")) previous = codePart(trimmed);
             if (mapped == null) {
                 if (pending.length() > 0) pending.append('\n');
                 pending.append(line);
@@ -977,6 +1140,37 @@ public final class JavaToBlocks {
             chain.get(i).nextBlock = i + 1 < chain.size() ? Integer.parseInt(chain.get(i + 1).id) : -1;
         }
         return chain;
+    }
+
+    /**
+     * Which lines are a whole statement of their own (what may become a block): not inside braces or a block comment,
+     * ending with ';', and not the body of a braceless if / else / loop on the line before (the previous code line
+     * ends a statement or a block).
+     */
+    static boolean[] ownStatements(String[] lines) {
+        boolean[] own = new boolean[lines.length];
+        int depth = 0;
+        boolean[] inComment = {false};
+        String previous = null;   // the last non-blank code line before this one
+        for (int n = 0; n < lines.length; n++) {
+            String line = lines[n];
+            int before = depth;
+            boolean commentBefore = inComment[0];
+            depth += braceDelta(line, inComment);
+            String trimmed = line.trim();
+            boolean ownLine = previous == null || previous.endsWith(";") || previous.endsWith("{") || previous.endsWith("}");
+            own[n] = before == 0 && depth == 0 && !commentBefore && !inComment[0] && ownLine
+                    && !trimmed.contains("/*") && !trimmed.contains("*/") && trimmed.endsWith(";");
+            if (!trimmed.isEmpty() && !commentBefore && !trimmed.startsWith("//")) previous = codePart(trimmed);
+        }
+        return own;
+    }
+
+    /** First edited line of {@link #body}{@code (e, from, to)} (blank lines at the start are left out). */
+    static int bodyStart(JavaMembers e, int from, int to) {
+        int a = from;
+        while (a < to && e.line(a).trim().isEmpty()) a++;
+        return a;
     }
 
     /** A code line without a trailing // comment (approximate: a // inside a string ends it too early, which only
@@ -1251,7 +1445,7 @@ public final class JavaToBlocks {
             "throw", "throws", "transient", "try", "void", "volatile", "while", "true", "false", "null", "var"));
     // Java identifiers, not only ASCII: Telugu/Hindi vowel signs are combining marks (\p{M})
     private static final String ID = "[\\p{L}\\p{Nl}_$][\\p{L}\\p{M}\\p{N}\\p{Pc}_$]*";
-    private static final Pattern FIELD_HEAD = Pattern.compile(
+    static final Pattern FIELD_HEAD = Pattern.compile(
             "((?:(?:public|protected|private|static|final|transient|volatile)\\s+)*)"   // modifiers
             + "(" + ID + "(?:\\s*\\.\\s*" + ID + ")*"                                     // type name
             + "(?:\\s*<[\\p{L}\\p{M}\\p{N}_$\\s,.?<>\\[\\]&]*>)?(?:\\s*\\[\\s*\\])*)"          // generics, arrays

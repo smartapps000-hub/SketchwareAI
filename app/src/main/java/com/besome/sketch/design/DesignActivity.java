@@ -502,6 +502,9 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
             sc_id = savedInstanceState.getString("sc_id");
         }
         com.sketchware.ai.editor.DesignTheme.load(sc_id);
+        // v1.9.0: the canvas opens at the project's target device (Project Configuration); the header's Device switches it
+        com.sketchware.ai.editor.ViewportViewEditor.select(com.sketchware.ai.project.DeviceTargets.of(
+                new mod.hey.studios.project.ProjectSettings(sc_id)));
 
         r = new DB(getApplicationContext(), "P1");
         t = new DB(getApplicationContext(), "P12");
@@ -642,12 +645,51 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.design_menu, menu);
+        // v1.9.0: canvas device viewports (phone, foldable, tablet, Wear OS, TV)
+        MenuItem device = menu.add(Menu.NONE, MENU_DEVICE, 105, "Device");
+        device.setIcon(R.drawable.ob_ic_devices_menu);
+        device.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
+    }
+
+    /** v1.9.0: menu id of the header's Device action (not a resource: no new pinned id). */
+    private static final int MENU_DEVICE = 0x5D1E;
+
+    /** v1.9.0: the canvas viewports, each with its size and Material 3 window size class; the current one checked. */
+    private void showDevicePicker() {
+        View anchor = findViewById(MENU_DEVICE);
+        if (anchor == null) anchor = findViewById(R.id.toolbar);
+        PopupMenu popupMenu = new PopupMenu(new android.view.ContextThemeWrapper(this, R.style.Ob_PopupTheme), anchor);
+        Menu menu = popupMenu.getMenu();
+        String current = com.sketchware.ai.editor.ViewportViewEditor.selected();
+        String[] targets = com.sketchware.ai.project.DeviceTargets.ALL;
+        for (int i = 0; i < targets.length; i++) {
+            MenuItem choice = menu.add(Menu.NONE, i, i, com.sketchware.ai.project.DeviceTargets.viewport(targets[i]).describe());
+            choice.setCheckable(true);
+            choice.setChecked(targets[i].equals(current));
+        }
+        menu.setGroupCheckable(Menu.NONE, true, true);
+        popupMenu.setOnMenuItemClickListener(choice -> {
+            int index = choice.getItemId();
+            if (index < 0 || index >= targets.length) return false;
+            com.sketchware.ai.editor.ViewportViewEditor.select(targets[index]);
+            String target = new mod.hey.studios.project.ProjectSettings(sc_id)
+                    .getValue(com.sketchware.ai.project.DeviceTargets.SETTING, com.sketchware.ai.project.DeviceTargets.PHONE);
+            mod.SketchwareUtil.toast(com.sketchware.ai.project.DeviceTargets.viewport(targets[index]).describe()
+                    + (targets[index].equals(target) || targets[index].equals(com.sketchware.ai.project.DeviceTargets.PHONE)
+                    ? "" : ". Preview only: set the target device in Project Configuration for the manifest."));
+            return true;
+        });
+        popupMenu.show();
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
+        if (itemId == MENU_DEVICE) {
+            showDevicePicker();
+            return true;
+        }
         if (itemId == R.id.design_actionbar_titleopen_drawer) {
             if (!drawer.f(Gravity.END)) {
                 drawer.h(Gravity.END);

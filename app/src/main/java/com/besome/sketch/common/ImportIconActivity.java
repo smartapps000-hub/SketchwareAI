@@ -52,6 +52,12 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
      */
     private int iconType = -1;
     private ArrayList<Pair<String, String>> icons = new ArrayList<>();
+    /** v1.9.0: 0 = the 2014 Material icons (PNG pack), 1-3 = Material Symbols Outlined / Rounded / Sharp. */
+    private int iconSet = 0;
+    private final Button[] setButtons = new Button[4];
+    /** v1.9.0: a Material Symbol's entry: "ms:" + its SVG path (drawn when shown, saved as PNG when chosen). */
+    private static final String SYMBOL = "ms:";
+    private final android.util.LruCache<String, android.graphics.Bitmap> symbolPreviews = new android.util.LruCache<>(240);
 
     private int getGridLayoutColumnCount() {
         return ((int) (getResources().getDisplayMetrics().widthPixels / getResources().getDisplayMetrics().density)) / 60;
@@ -72,9 +78,21 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
 
             if (id == R.id.btn_accept) {
                 if (iconNameValidator.b() && adapter.selectedIconPosition >= 0) {
+                    String path = icons.get(adapter.selectedIconPosition).second;
+                    if (path.startsWith(SYMBOL)) {
+                        // v1.9.0: the symbol as a PNG of the 2014 icons' size (48 px = 24 dp at xhdpi), in the chosen colour
+                        try {
+                            path = com.sketchware.ai.ui.SymbolIcons.savePng(path.substring(SYMBOL.length()), 48, symbolColor(),
+                                    new File(new File(getCacheDir(), "material_symbols"), iconName.getText().toString() + ".png"))
+                                    .getAbsolutePath();
+                        } catch (Exception e) {
+                            mod.SketchwareUtil.toastError("Couldn't make the icon: " + e.getMessage());
+                            return;
+                        }
+                    }
                     Intent intent = new Intent();
                     intent.putExtra("iconName", iconName.getText().toString());
-                    intent.putExtra("iconPath", icons.get(adapter.selectedIconPosition).second);
+                    intent.putExtra("iconPath", path);
                     setResult(Activity.RESULT_OK, intent);
                     finish();
                 }
@@ -137,6 +155,7 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
         showBlackIcons.setOnClickListener(this);
         showGreyIcons.setOnClickListener(this);
         showWhiteIcons.setOnClickListener(this);
+        addIconSetRow();
         iconName = findViewById(R.id.ed_input);
         ((TextInputLayout) findViewById(R.id.ti_input)).setHint(xB.b().a(getApplicationContext(), R.string.design_manager_icon_hint_enter_icon_name));
         iconNameValidator = new WB(getApplicationContext(), findViewById(R.id.ti_input), uq.b, alreadyAddedImageNames);
@@ -169,6 +188,56 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
         }
     }
 
+    /**
+     * v1.9.0: a row above the colour buttons: the 2014 icons (as before) or Google's Material Symbols in their three
+     * styles (assets/icons/material_symbols.zip, Apache-2.0). The colour buttons work for both.
+     */
+    private void addIconSetRow() {
+        View colorRow = (View) showBlackIcons.getParent();
+        ViewGroup column = (ViewGroup) colorRow.getParent();
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.END);
+        float density = getResources().getDisplayMetrics().density;
+        String[] labels = {"2014 icons", "Outlined", "Rounded", "Sharp"};
+        for (int i = 0; i < labels.length; i++) {
+            Button button = new Button(this);
+            button.setText(labels[i]);
+            button.setTextSize(12);
+            button.setAllCaps(false);
+            button.setPadding((int) (8 * density), 0, (int) (8 * density), 0);
+            button.setMinWidth(0);
+            button.setMinimumWidth(0);
+            button.setMinHeight(0);
+            button.setMinimumHeight(0);
+            final int set = i;
+            button.setOnClickListener(v -> {
+                if (!mB.a()) setIconSet(set);
+            });
+            setButtons[i] = button;
+            row.addView(button, new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (int) (25 * density)));
+        }
+        column.addView(row, column.indexOfChild(colorRow));
+        paintSetButtons();
+    }
+
+    private void paintSetButtons() {
+        for (int i = 0; i < setButtons.length; i++) {
+            if (setButtons[i] != null) setButtons[i].setBackgroundColor(i == iconSet ? 0xff33b8f5 : 0xffe5e5e5);
+        }
+    }
+
+    private void setIconSet(int set) {
+        if (iconSet == set) return;
+        iconSet = set;
+        paintSetButtons();
+        new IconColorChangedIconLoader(getApplicationContext()).execute();
+    }
+
+    private int symbolColor() {
+        return iconType == 1 ? 0xff757575 : iconType == 2 ? 0xffffffff : 0xff000000;
+    }
+
     private void listIcons() {
         icons = new ArrayList<>();
         String color = "black";
@@ -178,6 +247,17 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
             } else if (iconType == 2) {
                 color = "white";
             }
+        }
+        if (iconSet > 0) {
+            String style = com.sketchware.ai.ui.SymbolIcons.STYLES[iconSet - 1];
+            try {
+                for (com.sketchware.ai.ui.SymbolIcons.Icon icon : com.sketchware.ai.ui.SymbolIcons.load(getApplicationContext(), style)) {
+                    icons.add(new Pair<>(com.sketchware.ai.ui.SymbolIcons.imageName(icon.name, style, color), SYMBOL + icon.path));
+                }
+            } catch (Exception e) {
+                android.util.Log.e("ImportIconActivity", "Material Symbols unreadable", e);
+            }
+            return;
         }
         String iconFolderName = "icon_" + color;
         for (String iconName : new File(wq.getExtractedIconPackStoreLocation() + File.separator + iconFolderName).list()) {
@@ -231,7 +311,18 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
             }
             holder.name.setText(icons.get(position).first);
             try {
-                holder.icon.setImageBitmap(iB.a(icons.get(position).second, 1));
+                String path = icons.get(position).second;
+                if (path.startsWith(SYMBOL)) {
+                    String key = icons.get(position).first;
+                    android.graphics.Bitmap preview = symbolPreviews.get(key);
+                    if (preview == null) {
+                        preview = com.sketchware.ai.ui.SymbolIcons.render(path.substring(SYMBOL.length()), 96, symbolColor());
+                        symbolPreviews.put(key, preview);
+                    }
+                    holder.icon.setImageBitmap(preview);
+                } else {
+                    holder.icon.setImageBitmap(iB.a(path, 1));
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }

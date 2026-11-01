@@ -72,6 +72,7 @@ public final class StatementBlocks {
     private static final Pattern ASSIGN = Pattern.compile("^([A-Za-z_][A-Za-z0-9_]*) = (.+);$");
     private static final Pattern STEP = Pattern.compile("^([A-Za-z_][A-Za-z0-9_]*)(\\+\\+|--);$");
     private static final Pattern NUMBER = Pattern.compile("^-?[0-9]+(\\.[0-9]+)?$");
+    private static final Pattern DECIMAL_D = Pattern.compile("^-?[0-9]+\\.[0-9]+[dD]$");
     private static final Pattern NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
     private final Generator generator;
@@ -97,6 +98,16 @@ public final class StatementBlocks {
             }
         }
         this.activities = activities;
+    }
+
+    /** v1.9.0: a variable the save registers (AutoVariables): its set and variable blocks can be used from now on. */
+    void declare(String name, int type) {
+        if (type >= 0 && type <= 3 && name != null && NAME.matcher(name).matches()) variables.put(name, type);
+    }
+
+    /** v1.9.0: Sketchware type of a variable of the activity (0 boolean, 1 number, 2 String, 3 Map), or null. */
+    Integer typeOf(String name) {
+        return variables.get(name);
     }
 
     /**
@@ -283,6 +294,8 @@ public final class StatementBlocks {
             }
             case "%d":
                 if (NUMBER.matcher(arg).matches()) return arg;
+                // v1.9.0: the generator writes a decimal number as 2.5d: typed so, the block stores 2.5
+                if (DECIMAL_D.matcher(arg).matches()) return arg.substring(0, arg.length() - 1);
                 return variable(arg, 1, "d", blocks, nextId);
             case "%b":
                 if (arg.equals("true") || arg.equals("false")) return arg;
@@ -349,7 +362,7 @@ public final class StatementBlocks {
         return "@" + getter.id;
     }
 
-    private static boolean isStringLiteral(String s) {
+    static boolean isStringLiteral(String s) {
         if (s.length() < 2 || s.charAt(0) != '"' || s.charAt(s.length() - 1) != '"') return false;
         for (int i = 1; i < s.length() - 1; i++) {
             char c = s.charAt(i);

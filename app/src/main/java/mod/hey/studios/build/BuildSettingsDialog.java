@@ -82,7 +82,8 @@ public class BuildSettingsDialog {
                         com.sketchware.ai.project.ModernProjectDefaults.defaultJavaVersion(), "Java version", javaCaption(), contentView),
                 addTogglePref(BuildSettings.SETTING_NO_WARNINGS, true, "Hide warnings in error log", 12, contentView),
                 addTogglePref(BuildSettings.SETTING_NO_HTTP_LEGACY, false, "Don't include http-legacy-28.dex", 12, contentView),
-                addTogglePref(BuildSettings.SETTING_ENABLE_LOGCAT, true, "Enable debug logcat logs viewable in Logcat Reader. Not enabled in exported AABs/APKs.", 12, contentView)
+                addTogglePref(BuildSettings.SETTING_ENABLE_LOGCAT, true, "Enable debug logcat logs viewable in Logcat Reader. Not enabled in exported AABs/APKs.", 12, contentView),
+                addTogglePref(BuildSettings.SETTING_BUILD_CACHE, true, "Build cache: Run reuses the last build's compiled R classes and resources while they are unchanged (faster repeat builds; exports always build everything)", 12, contentView)
         };
 
         // The fields are built with the activity's light theme: without the shared input theme
