@@ -8,7 +8,7 @@ Four different things, tracked separately. A row says "tested" only for what was
 |---|---|
 | minSdk | 26 (flavor minApi26, the one that is shipped); a minApi21 flavor compiles but isn't shipped |
 | targetSdk | 34 |
-| compileSdk | 34 since v1.8.5 (AGP 8.12.0, Gradle 8.13, JDK 17; before: 30 with AGP 7.3.1). APIs above 34 are called by reflection |
+| compileSdk | 34 since v1.8.5 (since v1.9.0 built with AGP 9.5.0, Gradle 9.8.2, Kotlin Gradle plugin 2.4.21, JDK 17; v1.8.5-v1.8.13 AGP 8.12.0 / Gradle 8.13; before: 30 with AGP 7.3.1). APIs above 34 are called by reflection |
 
 ## 2. Where the IDE's build engine has been run
 

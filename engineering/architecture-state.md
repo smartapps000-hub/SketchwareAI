@@ -464,3 +464,17 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
   library desugaring uses: moving to TraceReferences is its own change). linkcheck 0 risky calls; api_level against
   android-26 the same members as v1.8.13. aapt2 stays 2.20 (android-16.0.0_r4): AOSP has android-17.0.0_r1, a rebuild
   for four ABIs was not done in this release.
+- **IDE build on Gradle 9.8.2 / AGP 9.5.0 / Kotlin Gradle plugin 2.4.21** (owner, 1 Nov 2026: `./gradlew :wrapper
+  --gradle-version=9.8.2`; compileSdk, target and the min 26/21 flavours unchanged). Gradle 9.6+ removed an internal API
+  every AGP 8.x uses ("relies on InternalProblems"), and Gradle 9.8.2 is tested with AGP 9.0-9.5 and KGP 2.0-2.4; AGP 9.5.0
+  needs KGP 2.2.10+. Changes: AGP 9's built-in Kotlin compiles the app's Kotlin files (no `kotlin-android` plugin; options in
+  `kotlin { compilerOptions }`); `Project.exec` is gone in Gradle 9 (git through `providers.exec`); `packaging` instead of
+  `packagingOptions`; `=` assignments where Gradle 10 drops the space syntax. Kotlin 2.4 compiles language/API version 2.0 at
+  the oldest (1.7 is refused): the IDE keeps kotlin-stdlib 1.7.x at run time (`kotlin.stdlib.default.dependency=false` is
+  honoured by built-in Kotlin; resolved 1.7.20 as before), and `tools/linkcheck/kotlin_stdlib.py` checks that every kotlin.*
+  member the APK's code calls is defined in the APK (763 references, 0 unresolved, same count as the AGP 8.12 build).
+  `android.nonFinalResIds=false` is deprecated in AGP 9 and removed in AGP 10: the precompiled jars and switch statements on
+  R ids need final ids, so AGP 10 needs that code changed first. AGP 9's D8 adds empty synthetic stubs for framework classes
+  newer than min SDK 26 that libraries reference (594 more `android/*` classes than the AGP 8.12 build; the phone's own
+  class wins where it exists) and its own desugaring helpers (DesugarVarHandle, RecordTag, renamed `j$` classes); small Java
+  resources are now stored deflated. Resources, assets, native libraries and the manifest are otherwise identical.

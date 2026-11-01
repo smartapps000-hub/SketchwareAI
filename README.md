@@ -144,7 +144,8 @@ The tree is the upstream source zip `Sketchware-Pro-6_4_0-rc05.zip` (sha256
 is complete: the source packages that upstream's unanchored `.gitignore` rule `build/` used to hide (`mod/hey/studios/build`,
 `mod/jbk/build`) and the public test key are tracked.
 
-Needs JDK 17 and the Android SDK (platform 34; Gradle 8.13 and AGP 8.12 are fetched by the wrapper). Then:
+Needs JDK 17 and the Android SDK (platform 34; Gradle 9.8.2, the Android Gradle plugin 9.5.0 and the Kotlin Gradle plugin
+2.4.21 are fetched by the wrapper, and AGP installs build-tools 36.0.0 when it is missing). Then:
 
 ```
 git clone https://github.com/smartapps000-hub/SketchwareAI.git && cd SketchwareAI
