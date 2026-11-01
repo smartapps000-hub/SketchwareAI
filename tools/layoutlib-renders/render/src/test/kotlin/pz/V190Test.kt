@@ -140,6 +140,60 @@ class V190Test {
     }
 }
 
+/**
+ * v1.9.0: the Export screen's "Export to Android Studio" card (a glass card, #1E1E22, light text) with the notice
+ * ExportProjectActivity.addExportStackNotice adds under its title, built the same way (pill + subtitle, button below).
+ */
+class V190ExportNoticeTest {
+    @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, theme = "Theme.MaterialComponents.NoActionBar.Bridge")
+
+    @Test fun exportNotice() {
+        val context = paparazzi.context
+        val d = context.resources.displayMetrics.density
+        val card = android.widget.RelativeLayout(context)
+        card.setPadding((8 * d).toInt(), (8 * d).toInt(), (8 * d).toInt(), (8 * d).toInt())
+        card.background = android.graphics.drawable.GradientDrawable().apply { setColor(0xFF1E1E22.toInt()); cornerRadius = 12 * d }
+        val icon = android.view.View(context).apply { id = View.generateViewId(); setBackgroundColor(0xFF3DDC84.toInt()) }
+        card.addView(icon, android.widget.RelativeLayout.LayoutParams((24 * d).toInt(), (24 * d).toInt()))
+        val title = TextView(context).apply {
+            id = View.generateViewId(); text = "Export to Android Studio"; textSize = 16f; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(context.getColor(R.color.ob_text))
+        }
+        card.addView(title, android.widget.RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            addRule(android.widget.RelativeLayout.RIGHT_OF, icon.id); leftMargin = (8 * d).toInt() })
+        val notice = LinearLayout(context).apply { id = View.generateViewId(); orientation = LinearLayout.VERTICAL }
+        val badge = TextView(context).apply {
+            text = "Future-Proof Modern Pipeline"; textSize = 11f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(context.getColor(R.color.ob_accent)); setBackgroundResource(R.drawable.ob_amber_pill)
+            setPadding((10 * d).toInt(), (3 * d).toInt(), (10 * d).toInt(), (3 * d).toInt())
+        }
+        notice.addView(badge, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val subtitle = TextView(context).apply {
+            text = "Gradle 9.8.2 \u00b7 AGP 9.5.0 \u00b7 Kotlin 2.4.21 \u00b7 compileSdk\u00a037\nRequires Android Studio Rabbit 2 (2026.2.2)+ & JDK\u00a017/21"
+            textSize = 12f; setTextColor(context.getColor(R.color.ob_text_2))
+        }
+        notice.addView(subtitle, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (6 * d).toInt() })
+        card.addView(notice, android.widget.RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            addRule(android.widget.RelativeLayout.BELOW, title.id); addRule(android.widget.RelativeLayout.ALIGN_LEFT, title.id); topMargin = (8 * d).toInt() })
+        val button = TextView(context).apply {
+            text = "EXPORT"; textSize = 14f; setTextColor(0xFFFFFFFF.toInt()); gravity = Gravity.CENTER
+            setBackgroundResource(R.drawable.ob_cta); setPadding((24 * d).toInt(), (10 * d).toInt(), (24 * d).toInt(), (10 * d).toInt())
+        }
+        card.addView(button, android.widget.RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            addRule(android.widget.RelativeLayout.BELOW, notice.id); addRule(android.widget.RelativeLayout.CENTER_HORIZONTAL)
+            topMargin = (12 * d).toInt(); bottomMargin = (16 * d).toInt() })
+        val screen = FrameLayout(context).apply { setBackgroundColor(0xFF0B0B0D.toInt()); setPadding((8 * d).toInt(), (8 * d).toInt(), (8 * d).toInt(), (8 * d).toInt()) }
+        screen.addView(card, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val width = context.resources.displayMetrics.widthPixels
+        screen.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        screen.layout(0, 0, width, screen.measuredHeight)
+        val bmp = Bitmap.createBitmap(width, screen.measuredHeight, Bitmap.Config.ARGB_8888)
+        screen.draw(Canvas(bmp))
+        java.io.File("/home/claude/pz/out").mkdirs()
+        java.io.FileOutputStream("/home/claude/pz/out/export190_notice.png").use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+}
+
 /** v1.9.0: Material Symbols drawn by the IDE's SymbolIcons.render (android.graphics.Path), as the icon screen shows them. */
 class V190SymbolsTest {
     @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, theme = "Theme.MaterialComponents.Light.NoActionBar.Bridge")

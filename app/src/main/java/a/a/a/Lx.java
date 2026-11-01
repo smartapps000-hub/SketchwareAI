@@ -26,14 +26,15 @@ public class Lx {
      * @return Content of a <code>build.gradle</code> file for the module ':app', with indentation
      */
     public static String getBuildGradleString(int compileSdkVersion, int minSdkVersion, int targetSdkVersion, jq metadata) {
-        // Android Gradle plugin 8.12 DSL (GradleExport): namespace instead of the manifest's package attribute
+        // Android Gradle plugin 9.5 DSL (GradleExport): namespace instead of the manifest's package attribute, '='
+        // assignments (Gradle 10 drops "name value"); AGP 9 compiles Kotlin files without a Kotlin plugin here
         String content = "plugins {\r\n" +
                 "id 'com.android.application'\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "android {\r\n" +
-                "namespace '" + metadata.packageName + "'\r\n" +
-                "compileSdk " + compileSdkVersion + "\r\n" +
+                "namespace = '" + metadata.packageName + "'\r\n" +
+                "compileSdk = " + compileSdkVersion + "\r\n" +
                 "\r\n";
         if (new BuildSettings(metadata.sc_id)
                 .getValue(BuildSettings.SETTING_NO_HTTP_LEGACY, BuildSettings.SETTING_GENERIC_VALUE_FALSE)
@@ -42,16 +43,16 @@ public class Lx {
                     "\r\n";
         }
         content += "defaultConfig {\r\n" +
-                "applicationId \"" + metadata.packageName + "\"\r\n" +
-                "minSdk " + minSdkVersion + "\r\n" +
-                "targetSdk " + targetSdkVersion + "\r\n" +
-                "versionCode " + metadata.versionCode + "\r\n" +
-                "versionName \"" + metadata.versionName + "\"\r\n" +
+                "applicationId = \"" + metadata.packageName + "\"\r\n" +
+                "minSdk = " + minSdkVersion + "\r\n" +
+                "targetSdk = " + targetSdkVersion + "\r\n" +
+                "versionCode = " + metadata.versionCode + "\r\n" +
+                "versionName = \"" + metadata.versionName + "\"\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "buildTypes {\r\n" +
                 "release {\r\n" +
-                "minifyEnabled false\r\n" +
+                "minifyEnabled = false\r\n" +
                 "proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\r\n" +
                 "}\r\n" +
                 "}\r\n" +

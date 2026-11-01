@@ -9,12 +9,16 @@ import java.nio.charset.StandardCharsets;
 import mod.hey.studios.build.BuildSettings;
 
 /**
- * The Gradle files of a project exported for Android Studio (v1.8.5): the stack Sketchware AI itself is built with,
- * Android Gradle plugin 8.12 on Gradle 8.13 (JDK 17), instead of upstream's AGP 3.4.2 + jcenter, which current Android
- * Studio can't open. The settings are the ones the on-device build uses, so the exported project builds the same app:
+ * The Gradle files of a project exported for Android Studio: since v1.9.0 the stack Sketchware AI itself is built with,
+ * Android Gradle plugin 9.5.0 on Gradle 9.8.2 with the Kotlin Gradle plugin 2.4.21 (JDK 17 or newer; Android Studio
+ * Rabbit 2, 2026.2.2, is the first that opens AGP 9.5 projects). v1.8.5-v1.8.13 wrote AGP 8.12 / Gradle 8.13; upstream
+ * wrote AGP 3.4.2 + jcenter. The settings are the ones the on-device build uses, so the exported project builds the same
+ * app:
  * <ul>
- * <li>{@code namespace} = the package (AGP 8 no longer reads the manifest's package attribute);</li>
- * <li>compileSdk 36, the highest AGP 8.12 supports; targetSdk and minSdk as in the project;</li>
+ * <li>{@code namespace} = the package (AGP 8+ no longer reads the manifest's package attribute);</li>
+ * <li>compileSdk 37 (Android 17, the platform the phone compiles against); targetSdk and minSdk as in the project;</li>
+ * <li>Kotlin files of the project (Java/Kotlin manager) compiled by AGP 9's built-in Kotlin, with the Kotlin Gradle
+ * plugin 2.4.21 on the build classpath;</li>
  * <li>the project's Java version, core library desugaring with desugar_jdk_libs_nio 2.1.5 (the same library D8 adds
  * on the phone, {@link CoreLibDesugaring});</li>
  * <li>{@code android.nonTransitiveRClass=false} and {@code android.nonFinalResIds=false}: generated code reads library
@@ -24,13 +28,13 @@ import mod.hey.studios.build.BuildSettings;
  */
 public final class GradleExport {
 
-    public static final String ANDROID_GRADLE_PLUGIN = "8.12.0";
-    public static final String GRADLE = "8.13";
-    /**
-     * compileSdk of every exported project: the highest Android Gradle plugin 8.12 supports (material 1.13.0 and
-     * appcompat 1.7.1 need 35 or higher). A higher targetSdk (37) is written as is.
-     */
-    public static final int COMPILE_SDK = 36;
+    public static final String ANDROID_GRADLE_PLUGIN = "9.5.0";
+    public static final String GRADLE = "9.8.2";
+    public static final String KOTLIN_GRADLE_PLUGIN = "2.4.21";
+    /** The first Android Studio that opens projects of {@link #ANDROID_GRADLE_PLUGIN} (developer.android.com, Nov 2026). */
+    public static final String ANDROID_STUDIO = "Rabbit 2 (2026.2.2)";
+    /** compileSdk of every exported project: Android 17, as on the phone (AGP 9.5 supports up to API 37). */
+    public static final int COMPILE_SDK = 37;
 
     private GradleExport() {
     }
@@ -61,9 +65,12 @@ public final class GradleExport {
 
     public static String topLevelBuildGradle(String androidGradlePluginVersion) {
         return "// Top-level build file. Android Gradle plugin " + androidGradlePluginVersion + ", Gradle " + GRADLE
-                + ", JDK 17: the stack Sketchware AI is built with.\r\n" +
+                + ", Kotlin Gradle plugin " + KOTLIN_GRADLE_PLUGIN + ", JDK 17+: the stack Sketchware AI is built with.\r\n"
+                + "// Opens in Android Studio " + ANDROID_STUDIO + " or newer.\r\n" +
                 "plugins {\r\n" +
                 "    id 'com.android.application' version '" + androidGradlePluginVersion + "' apply false\r\n" +
+                "    // AGP 9 compiles Kotlin files itself (built-in Kotlin) with this Kotlin Gradle plugin\r\n" +
+                "    id 'org.jetbrains.kotlin.android' version '" + KOTLIN_GRADLE_PLUGIN + "' apply false\r\n" +
                 "}\r\n";
     }
 
@@ -74,9 +81,9 @@ public final class GradleExport {
     public static String compileOptions(String sc_id, int minSdk) {
         String java = javaVersion(sc_id);
         return "compileOptions {\r\n" +
-                "sourceCompatibility JavaVersion." + java + "\r\n" +
-                "targetCompatibility JavaVersion." + java + "\r\n" +
-                (minSdk >= 21 ? "coreLibraryDesugaringEnabled true\r\n" : "") +
+                "sourceCompatibility = JavaVersion." + java + "\r\n" +
+                "targetCompatibility = JavaVersion." + java + "\r\n" +
+                (minSdk >= 21 ? "coreLibraryDesugaringEnabled = true\r\n" : "") +
                 "}\r\n";
     }
 

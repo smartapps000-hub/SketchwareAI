@@ -503,6 +503,7 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         btn_send_src.setText(Helper.getResString(R.string.myprojects_export_project_button_send_src_zip));
         loading_export_src.setVisibility(View.GONE);
         layout_export_src.setVisibility(View.GONE);
+        addExportStackNotice(title_export_src);
         btn_export_src.setOnClickListener(v -> {
             btn_export_src.setVisibility(View.GONE);
             layout_export_src.setVisibility(View.GONE);
@@ -517,6 +518,55 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
             }.start();
         });
         btn_send_src.setOnClickListener(v -> shareExportedSourceCode());
+    }
+
+    /**
+     * v1.9.0: under the "Export to Android Studio" title, what the exported project is built with and what opens it:
+     * a pill and a line of text (GradleExport's versions). The button, the loading animation and the result move below
+     * it instead of sitting at fixed offsets from the card's top.
+     */
+    private void addExportStackNotice(TextView title) {
+        if (!(title.getParent() instanceof RelativeLayout)) return;
+        RelativeLayout card = (RelativeLayout) title.getParent();
+        float d = getResources().getDisplayMetrics().density;
+        LinearLayout notice = new LinearLayout(this);
+        notice.setId(View.generateViewId());
+        notice.setOrientation(LinearLayout.VERTICAL);
+        TextView badge = new TextView(this);
+        badge.setText("Future-Proof Modern Pipeline");
+        badge.setTextSize(11);
+        badge.setTypeface(Typeface.DEFAULT_BOLD);
+        badge.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.ob_accent));
+        badge.setBackgroundResource(R.drawable.ob_amber_pill);
+        badge.setPadding((int) (10 * d), (int) (3 * d), (int) (10 * d), (int) (3 * d));
+        notice.addView(badge, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        TextView subtitle = new TextView(this);
+        // no-break spaces keep "compileSdk 37" and "JDK 17/21" on one line
+        subtitle.setText("Gradle " + com.sketchware.ai.project.GradleExport.GRADLE + " · AGP "
+                + com.sketchware.ai.project.GradleExport.ANDROID_GRADLE_PLUGIN + " · Kotlin "
+                + com.sketchware.ai.project.GradleExport.KOTLIN_GRADLE_PLUGIN + " · compileSdk\u00a0"
+                + com.sketchware.ai.project.GradleExport.COMPILE_SDK + "\nRequires Android Studio "
+                + com.sketchware.ai.project.GradleExport.ANDROID_STUDIO + "+ & JDK\u00a017/21");
+        subtitle.setTextSize(12);
+        subtitle.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.ob_text_2));
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = (int) (6 * d);
+        notice.addView(subtitle, subtitleParams);
+        RelativeLayout.LayoutParams noticeParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT);
+        noticeParams.addRule(RelativeLayout.BELOW, title.getId());
+        noticeParams.addRule(RelativeLayout.ALIGN_LEFT, title.getId());
+        noticeParams.topMargin = (int) (8 * d);
+        card.addView(notice, noticeParams);
+        for (View below : new View[]{btn_export_src, loading_export_src, layout_export_src}) {
+            if (!(below.getLayoutParams() instanceof RelativeLayout.LayoutParams)) continue;
+            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) below.getLayoutParams();
+            params.addRule(RelativeLayout.BELOW, notice.getId());
+            params.topMargin = (int) (12 * d);
+            below.setLayoutParams(params);
+        }
     }
 
     /**

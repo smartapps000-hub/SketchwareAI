@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    compileSdk 34
+    compileSdk = 37
 
     // Gradle 9 has no Project.exec: git runs through the providers API
     def gitCommitHash = providers.exec {
