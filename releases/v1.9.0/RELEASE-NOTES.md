@@ -1,7 +1,8 @@
 # Sketchware AI v1.9.0
 
 versionCode 190, versionName `@@VERSIONNAME@@`. Installs over v1.8.13 (same test key). Variables from your Java code,
-a readable source sheet you can edit, faster repeat builds, Wear OS / TV targets, Material Symbols, Android 17 SDK.
+a readable source sheet you can edit, faster repeat builds, Wear OS / TV targets, Material Symbols, Android 17 (API 37)
+for your projects and for Export to Android Studio (Gradle 9.8.2 / AGP 9.5.0).
 
 ## Download
 
@@ -21,7 +22,9 @@ a readable source sheet you can edit, faster repeat builds, Wear OS / TV targets
   An int is not turned into a Number variable on purpose: Number is a `double`, so `String.valueOf(count)` would show
   `3.0`.
 - A local stays a local (and the save tells you why) when making it a variable would change what the code does: the
-  same name declared twice, a listener opened after it that reads it, a MoreBlock that calls itself.
+  same name declared twice, `final`, inside a list adapter's code, read by a listener, lambda or class written after it,
+  a MoreBlock that calls itself, or used after a call that can run the same code again (setText inside onTextChanged,
+  setChecked inside onCheckedChange …). In onClick and onCreate a local used after setText still becomes a variable.
 - Decimal numbers appear as `2.5d` in the generated code: that is how the Number blocks write them.
 
 ## Source sheet (`</>` in the logic editor)
@@ -54,10 +57,27 @@ black, grey or white like the other icons.
 
 ## Toolchain
 
-- Projects compile against **Android 17 (API 37)** (was API 34). Android 17's SDK dropped `FingerprintManager`; it is
-  kept in the bundled android.jar so fingerprint code in add-source blocks still compiles.
-- D8 / R8 **8.13.25** (was 8.11.18).
+- Projects compile against **Android 17 (API 37)** (was API 34); new projects target 37. Android 17's SDK dropped
+  `FingerprintManager`; it is kept in the bundled android.jar so fingerprint code in add-source blocks still compiles.
+- D8 / R8 **8.13.25** (was 8.11.18). aapt2 stays 2.20, the same version build-tools 37 ships.
 - Material Components 1.13.0 and ConstraintLayout 2.2.2 were already built in (newer than 1.12.0 / 2.2.0).
+
+## Export to Android Studio
+
+- Exported projects use **Gradle 9.8.2, Android Gradle plugin 9.5.0, Kotlin Gradle plugin 2.4.21, compileSdk 37**
+  (were Gradle 8.13 / AGP 8.12 / compileSdk 36). Kotlin files of your project are compiled now (AGP 9's built-in Kotlin).
+- The Export screen says so under "Export to Android Studio": **Future-Proof Modern Pipeline** and "Requires Android
+  Studio Rabbit 2 (2026.2.2)+ & JDK 17/21". Your text said Android Studio 2024.2 (Ladybug): that one only opens projects
+  up to AGP 8.7; AGP 9.5 needs Rabbit 2.
+- targetSdk and minSdk stay your project's, so the exported app is the app the phone builds.
+
+## Sketchware AI itself
+
+- Built with Gradle 9.8.2, Android Gradle plugin 9.5.0 and Kotlin 2.4.21, and compiled against API 37.
+- It still **targets API 34**. Targeting 36 or higher makes Android 16+ phones draw every screen edge to edge with no
+  way out and stop calling the back-button code the design and logic editors save the project in; targeting 37 also
+  changes reflection and tablet orientation. Your phone (Android 15) wouldn't show it, Android 16/17 phones would. That
+  move needs every screen and back handler checked first; it is on the roadmap.
 
 ## Checked
 

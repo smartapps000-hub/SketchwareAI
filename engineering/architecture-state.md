@@ -478,3 +478,20 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
   newer than min SDK 26 that libraries reference (594 more `android/*` classes than the AGP 8.12 build; the phone's own
   class wins where it exists) and its own desugaring helpers (DesugarVarHandle, RecordTag, renamed `j$` classes); small Java
   resources are now stored deflated. Resources, assets, native libraries and the manifest are otherwise identical.
+- **Export to Android Studio on Gradle 9.8.2 / AGP 9.5.0 / KGP 2.4.21 / compileSdk 37** (owner, 1 Nov 2026, "API 37
+  directive"): `GradleExport` constants (`ANDROID_GRADLE_PLUGIN`, `GRADLE`, `KOTLIN_GRADLE_PLUGIN`, `COMPILE_SDK`,
+  `ANDROID_STUDIO`); the top-level build.gradle puts `org.jetbrains.kotlin.android` 2.4.21 on the classpath (`apply
+  false`) so AGP 9's built-in Kotlin compiles the project's Kotlin files with it (AGP 8.12 exports had no Kotlin plugin:
+  a .kt file was left out); app/build.gradle with `=` assignments. targetSdk and minSdk stay the project's, so the export
+  builds the app the phone builds (new projects target 37). AGP 9.5 needs Gradle 9.6+, JDK 17 and Android Studio Rabbit 2
+  (2026.2.2) or newer (developer.android.com, Nov 2026); the Export screen says so under the card's title
+  (`ExportProjectActivity.addExportStackNotice`: "Future-Proof Modern Pipeline" pill + versions; render
+  `V190ExportNoticeTest`). The owner's text named Android Studio 2024.2 (Ladybug), which only opens AGP up to 8.7.
+  Fixtures 904 (Kotlin), 908, 911, 920, 922 exported and built with Gradle 9.8.2.
+- **IDE compileSdk 37, targetSdk 34** (same directive): the IDE compiles against android-37.0 without source changes.
+  targetSdk stays 34: for target 36+, Android 16+ draws every screen edge to edge with no opt-out
+  (`windowOptOutEdgeToEdgeEnforcement` disabled) and no longer calls `onBackPressed` unless
+  `android:enableOnBackInvokedCallback="false"` (a temporary opt-out): 26 source activities and ~30 precompiled classes
+  override it, the design and logic editors save the project there; target 37 also makes changing a `static final`
+  field by reflection throw, requires `System.load` files to be read-only and drops the large-screen orientation opt-out
+  (developer.android.com behavior-changes-16 / -17). None of it can be run here (no device, no emulator).

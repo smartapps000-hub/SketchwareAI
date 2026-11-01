@@ -7,8 +7,8 @@ Four different things, tracked separately. A row says "tested" only for what was
 | Item | Value |
 |---|---|
 | minSdk | 26 (flavor minApi26, the one that is shipped); a minApi21 flavor compiles but isn't shipped |
-| targetSdk | 34 |
-| compileSdk | 34 since v1.8.5 (since v1.9.0 built with AGP 9.5.0, Gradle 9.8.2, Kotlin Gradle plugin 2.4.21, JDK 17; v1.8.5-v1.8.13 AGP 8.12.0 / Gradle 8.13; before: 30 with AGP 7.3.1). APIs above 34 are called by reflection |
+| targetSdk | 34 (v1.9.0: kept while compileSdk moved to 37; target 36+ changes back handling and edge-to-edge on Android 16+, see architecture-state.md) |
+| compileSdk | 37 since v1.9.0 (built with AGP 9.5.0, Gradle 9.8.2, Kotlin Gradle plugin 2.4.21, JDK 17); 34 in v1.8.5-v1.8.13 (AGP 8.12.0 / Gradle 8.13); before: 30 with AGP 7.3.1 |
 
 ## 2. Where the IDE's build engine has been run
 
@@ -35,7 +35,7 @@ Not run anywhere off-device: Activities (logic editor, compile log screen, sourc
 | Libraries | v1.8.4: Material 1.13.0, AppCompat 1.7.1, AndroidX releases that build against API 34 (core 1.13.1, fragment 1.8.9, lifecycle 2.8.7 ...), Kotlin 1.8.22, Glide 4.16, Gson 2.14, OkHttp 3.14.9; Firebase/Play libraries still the 2021-2022 releases; local libraries as installed |
 | Theme | v1.8.4: new projects Material 3 AppTheme (Theme.Material3.Light.NoActionBar); older projects keep MaterialComponents (Bridge). v1.8.5: same light theme; Material 3 widgets written as tags (SketchButton, MaterialCheckBox/RadioButton, MaterialSwitch, outlined text fields); no DayNight |
 | App bundles | v1.8.5: bundletool 1.18.3, native libraries uncompressed with 16 KB page alignment; JAR signature with SHA-256 digests (BundleSigner) |
-| Export to Android Studio | v1.8.5: AGP 8.12.0 / Gradle 8.13 project, compileSdk 36, targetSdk as in the project |
+| Export to Android Studio | v1.9.0: Gradle 9.8.2 / AGP 9.5.0 / Kotlin Gradle plugin 2.4.21 project, compileSdk 37, targetSdk and minSdk as in the project; opens in Android Studio Rabbit 2 (2026.2.2)+ with JDK 17+. v1.8.5-v1.8.13: AGP 8.12.0 / Gradle 8.13, compileSdk 36 |
 | Device target | v1.9.0: Project Configuration → Target device. Wear OS adds `uses-feature android.hardware.type.watch` + standalone meta-data; Android TV adds leanback / touchscreen / portrait as not required, the TV launcher category and a banner. Phone, foldable, tablet: no manifest change |
 
 Whether a generated APK runs on a given Android version depends on that project's minSdk/targetSdk, the APIs and libraries it uses, and platform behaviour changes. A successful compile on one runtime proves none of that.

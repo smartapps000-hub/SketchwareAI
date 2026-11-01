@@ -58,7 +58,7 @@ Everything in this section is in the released APK and was exercised as described
 | Material 3 tags | MaterialCardView (elevated) and MaterialToolbar in Material 3 projects; Project Configuration → *Convert to Material 3 & Modern Stack* for older projects (target 37, min 21, AppCompat, Material 3, D8 + Java 11) | v1.8.9 |
 | Code tab | Fourth design editor tab: the project's activities (→ Java editor) and its own Java/Kotlin files; + New class | v1.8.8 |
 | Fonts | `SketchFonts`: custom TTF/OTF fonts with room for Telugu (and other) stacked glyphs | v1.8.4 |
-| Export | APK signed v1+v2+v3; AAB with a SHA-256 JAR signature; "Export to Android Studio" writes an AGP 8.12 / Gradle 8.13 project | v1.8.2, v1.8.5 |
+| Export | APK signed v1+v2+v3; AAB with a SHA-256 JAR signature; "Export to Android Studio" writes a Gradle 9.8.2 / Android Gradle plugin 9.5.0 / Kotlin Gradle plugin 2.4.21 project with compileSdk 37 (Kotlin files compiled too); it opens in Android Studio Rabbit 2 (2026.2.2) or newer with JDK 17+ | v1.8.2, v1.8.5, v1.9.0 (AGP 9.5) |
 | Built-in libraries | Material 1.13.0, AppCompat 1.7.1, AndroidX core 1.13.1 and the rest of the set listed in `engineering/component-library-inventory.md` | v1.8.4 |
 | Native libraries | Warning for a 64-bit `.so` with 4 KB page alignment; local libraries' `.so` files in APK and AAB | v1.8.4 |
 | UI | "Obsidian liquid glass" visual layer over upstream's screens. The logic editor, block drawer and view editor are upstream's own (precompiled) classes | v1.6 |
@@ -116,6 +116,10 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
   language of the blocks (blocks generate Java; Kotlin files can be added in the Java Manager), Jetpack Compose.
 - Firebase, Play services (Ads 20.1.0, Maps, Auth), OneSignal and Audience Network are held at their old versions.
 - The debug APK is signed with the public test key, so it installs over earlier releases. It is not a release key.
+- Sketchware AI itself compiles against API 37 but targets API 34. Targeting 36 or higher makes Android 16+ draw every
+  screen edge to edge with no opt-out and stop calling `onBackPressed` (the design and logic editors save there);
+  targeting 37 also blocks changing `static final` fields by reflection and ignores orientation locks on tablets. That
+  move needs every screen and back handler checked on Android 16/17 phones first (roadmap). Apps made with it target 37.
 
 ## Advanced Roadmap (v1.9 – v2.0): not built
 
@@ -135,7 +139,10 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 9. Toolchain: aapt2 rebuilt from `android-17.0.0_r1` for the four ABIs; D8/R8 9.x (core library desugaring through
    TraceReferences); caching the aapt2 link step.
 10. Adaptive layouts: window-size-class layout folders from the canvas sizes, Wear OS rotary input, TV D-pad focus.
-11. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
+11. Sketchware AI itself targeting API 37: insets on every screen (edge to edge), back handling through
+    OnBackPressedDispatcher instead of `onBackPressed`, the embedded compilers checked for `static final` reflection,
+    layouts for any orientation on tablets. ECJ newer than 3.26 for Java 17/21 (3.28 and 3.33 crashed on ART in Oct 2026).
+12. Any AI assistance (on-device or cloud model): not designed. Today's rules keep models out of the build.
 
 ## Building from source
 
@@ -144,8 +151,9 @@ The tree is the upstream source zip `Sketchware-Pro-6_4_0-rc05.zip` (sha256
 is complete: the source packages that upstream's unanchored `.gitignore` rule `build/` used to hide (`mod/hey/studios/build`,
 `mod/jbk/build`) and the public test key are tracked.
 
-Needs JDK 17 and the Android SDK (platform 34; Gradle 9.8.2, the Android Gradle plugin 9.5.0 and the Kotlin Gradle plugin
-2.4.21 are fetched by the wrapper, and AGP installs build-tools 36.0.0 when it is missing). Then:
+Needs JDK 17 and the Android SDK (platform android-37.0: the IDE compiles against API 37 and targets API 34; Gradle 9.8.2,
+the Android Gradle plugin 9.5.0 and the Kotlin Gradle plugin 2.4.21 are fetched by the wrapper, and AGP installs
+build-tools 36.0.0 when it is missing). Then:
 
 ```
 git clone https://github.com/smartapps000-hub/SketchwareAI.git && cd SketchwareAI

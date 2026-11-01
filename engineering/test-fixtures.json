@@ -529,7 +529,8 @@
         "blocks: setVarString setText setVarInt setVarBoolean addSourceDirectly setVarInt setVarInt setVarString addSourceDirectly; setText(userName) holds a getVar block",
         "decimals stored as numbers ([rating, 4.5]) and written the generator's way (rating = 4.5d;)",
         "generated again with fields and assignments; the shown code saves unchanged; reopens convertible",
-        "JAVAEDIT 75/75, then the project builds (Run build 16 harness steps, 0 warnings)"
+        "section 20 (review): request20 (final), raw20 (in the greet MoreBlock, used after edittext1.setText), later20 (read by a Runnable whose '{' is on the next line), local20 (read by a local class) stay locals and the save says why; greet20 in initializeLogic and name20 in onClick (used after setText) become String variables",
+        "JAVAEDIT 80/80, then the project builds (Run build 16 harness steps, 0 warnings)"
       ]
     },
     {
@@ -599,6 +600,16 @@
       "checks": [
         "Run build 0 warnings against the bundled android-37.0 jar (the platform jar alone fails at ECJ: FingerprintManager cannot be resolved)",
         "LoadAll: FingerprintManagerCompat$1 (androidx core) links again"
+      ]
+    },
+    {
+      "id": "export-agp95 (v1.9.0)",
+      "kind": "Export to Android Studio (run.sh <apk> <root> export <id>) built by gradle-export-check.sh with the Gradle of the export's wrapper",
+      "content": "fixtures 904 (Kotlin file), 908 (Material 3), 911 (desugaring), 920 (Retrofit by coordinate), 922 (ESCPOS local library)",
+      "checks": [
+        "build.gradle: AGP 9.5.0 and org.jetbrains.kotlin.android 2.4.21 apply false; wrapper Gradle 9.8.2; app: compileSdk = 37, '=' assignments",
+        "assembleDebug ok for all five; every library R class referenced is defined (dexdump)",
+        "904: com/fixture/kotlin/KtHelper compiled into the APK by AGP 9's built-in Kotlin"
       ]
     }
   ]

@@ -74,7 +74,19 @@ v1.8.9 (Java editor statements → real blocks (`StatementBlocks`); Library Reso
 Maven/JitPack coordinate lookup, live search, automatic `import pkg.*` for local-library classes (`LibraryImports`),
 offline (i) (`LibraryInfo`); MaterialCardView/MaterialToolbar in Material 3 projects; Project Configuration → Convert to
 Material 3 & Modern Stack; APK v1.8.9-f975642, versionCode 179, sha256 `9023c26e...669c0cc`, 138,476,021 bytes;
-patches zip `506aea6f...26c06b58`, 66 patches; GitHub `main` 7a5eaf5, `binaries` 09924a0; see section 3c). Local branch
+patches zip `506aea6f...26c06b58`, 66 patches; GitHub `main` 7a5eaf5, `binaries` 09924a0; see section 3c).
+v1.8.10-v1.8.13 (Library Resolver 3-5: cards, GitHub/JitPack links, three repositories only, no popup after an install,
+highest version wins; nested getText, setHint on outlined fields; records in `engineering/v1.8.1x-verification.md`).
+v1.9.0 (Java editor registers variables (`AutoVariables`: String/double/boolean → variables with set blocks, other types
+custom variables; locals stay code when final, in adapter code, declared twice, captured by a listener/lambda/local class,
+or used after a call that can re-fire a change event or MoreBlock); logic editor `</>` sheet in Material 3 dark colours
+(`M3CodeScheme`) with Edit / Apply (`EventCodeSheet`, `EventCode`); Run build cache (`RClassCache`: R classes compiled and
+dexed once per R.java set, markers list every file + size; `ResourceCache`: project .flat files and local-library
+archives; 8 projects kept; Build Settings → Build cache); Target device (`DeviceTargets`: Wear OS / Android TV manifest,
+canvas viewports `ViewportViewEditor`); Material Symbols in the icon screen (`SymbolIcons`); bundled android-37.0 jar
+with FingerprintManager kept (`tools/builtin-libs/android_jar.py`); D8/R8 8.13.25; IDE build Gradle 9.8.2 / AGP 9.5.0 /
+KGP 2.4.21, compileSdk 37, target 34; Export to Android Studio on the same stack, compileSdk 37; APK @@APK190@@; patches zip
+@@ZIP190@@; GitHub `main` @@MAIN190@@, `binaries` @@BIN190@@). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
@@ -323,9 +335,9 @@ Android 17 is **API 37**; Android 16 is API 36. Verify Play deadlines with a web
 before stating them. Defaults live in `ModernProjectDefaults`: new projects target 37, min
 21, D8, Java 11, Material 3 AppTheme (`material3_theme`), dark theme on (`m3_dark_theme`), dynamic colour off
 (`m3_dynamic_color`); old projects keep their stored values and are never raised silently (no key = MaterialComponents
-Bridge theme). The bundled `android.jar` is **API 34**:
-APIs newer than that can't be called from project code unless a custom android.jar is set (the helper reaches
-API 35 methods by reflection). Java 17 is not possible with ECJ 3.26 (`engineering/java17-path.md`).
+Bridge theme). The bundled `android.jar` is **API 37** since v1.9.0 (platform android-37.0 rev 2; `FingerprintManager`
+and `Context.FINGERPRINT_SERVICE` copied back from android-34 by `tools/builtin-libs/android_jar.py`, every other entry
+the platform's; API 34 in v1.8.4-v1.8.13). Java 17 is not possible with ECJ 3.26 (`engineering/java17-path.md`).
 Whether a generated APK runs on some Android version depends on that project's min/target, its APIs and libraries;
 a compile here proves none of it.
 
@@ -369,11 +381,16 @@ LoadingIndicator, Docked/FloatingToolbarLayout) but no Expressive theme; the pal
 
 ## 5. Toolchain facts (check live versions before quoting them)
 
-In the app: D8/R8/L8 **8.11.18** + desugar_jdk_libs(_nio) 2.1.5 for projects, ECJ 3.26 (minApi26), embedded kotlinc
+In the app: D8/R8/L8 **8.13.25** (the newest 8.x; 9.x has no `setDesugaredLibraryKeepRuleConsumer`) + desugar_jdk_libs(_nio) 2.1.5 for projects, ECJ 3.26 (minApi26), embedded kotlinc
 1.7.10 (reads Kotlin metadata up to 1.8; the IDE pins kotlin-stdlib 1.7.10 with `kotlin.stdlib.default.dependency=false`),
 bundletool **1.18.3**, aapt2 **2.20** (android-16.0.0_r4, static, all four ABIs, 16 KB LOAD alignment; same resource tables
-as 2.19). The IDE's own build: **AGP 8.12.0, Gradle 8.13, KGP 1.9.25, compileSdk 34**, target 34, IDE minSdk 26, JDK 17,
-coreLibraryDesugaring in the IDE.
+as 2.19; build-tools 37.0.0 ships aapt2 2.20 too). The IDE's own build (v1.9.0): **Gradle 9.8.2, AGP 9.5.0, KGP 2.4.21,
+compileSdk 37**, target 34 (target 36+ = forced edge-to-edge and no `onBackPressed` on Android 16+: its own migration),
+IDE minSdk 26, JDK 17, coreLibraryDesugaring in the IDE. AGP 9's built-in Kotlin compiles the IDE's Kotlin files (no
+kotlin-android plugin); Kotlin 2.4 compiles language/API version 2.0 at the oldest, the IDE still ships kotlin-stdlib 1.7.x
+for the embedded kotlinc: `tools/linkcheck/kotlin_stdlib.py <apk>` must end with `TOTAL unresolved kotlin references: 0`.
+`android.nonFinalResIds=false` is deprecated (removed in AGP 10). Gradle 9.6+ can't run any AGP 8.x. Export to Android
+Studio writes the same stack (compileSdk 37); AGP 9.5 needs Android Studio Rabbit 2 (2026.2.2)+.
 The bundled ProGuard 7.2.2 and the `ClassFileSanitizer` path stay (D8/R8 3.3.75 crashed with an NPE "String.length()" on
 class files with nameless `MethodParameters` entries: javac 21 output, AndroidX since 2024, concurrent-futures >= 1.2,
 error_prone >= 2.48). MDC-Android 1.14.0 (Material 3 Expressive, the last View feature release) needs min SDK 23 and
@@ -411,7 +428,7 @@ update (`tools/builtin-libs`: coords.py -> solve.py -> package.py (sanitizes, de
 - Export to Android Studio (`GradleExport`) mirrors the built-in set: Maven coordinates where they exist (plus FCM
   messaging/iid, play-services-auth, OneSignal, Audience Network), otherwise `app/libs/<name>.aar` from libs.zip with an
   R.txt (`textSymbols`: aapt2 text-symbol format, values 0, enum/flag ids, styleable children android_ first; identical
-  to aapt2's for the four libraries); the manifest copy loses its `package` attribute; compileSdk 36.
+  to aapt2's for the four libraries); the manifest copy loses its `package` attribute; compileSdk 37 (v1.9.0; 36 before).
 - Known gaps from upstream: BadgeView generates `com.allenliu.badgeview.BadgeView` (no library has it); Ads 20.1.0 has
   two optional `androidx.work.Worker` classes and WorkManager was never bundled. (The rewarded-ad import is generated
   since v1.8.5.)
@@ -431,7 +448,8 @@ Google sign-in: they need another path.
 
 ## 6. Building the APK here
 
-1. JDK **17**, SDK at `/opt/android-sdk` (`platforms;android-34` (+30, 26 for the API scan), `build-tools;36.1.0`;
+1. JDK **17**, SDK at `/opt/android-sdk` (`platforms;android-37.0` and `platforms;android-34` (+30, 26 for the API scan;
+   34 is the source of the restored fingerprint classes), `build-tools;36.1.0` (AGP 9.5 installs 36.0.0 itself);
    `ndk;28.2.13676358` only to rebuild aapt2), `local.properties` with `sdk.dir=/opt/android-sdk`.
 2. Bump `versionCode` and `versionName` in `app/build.gradle`, **commit, then build** (the
    version name carries the git hash).
@@ -452,7 +470,8 @@ library changes). Don't replace them with v7's 4 KB-aligned binaries.
 
 All of these, on the final APK, before calling it done:
 
-- `aapt2 dump badging` (package, version, min 26, target 34), `apksigner verify`,
+- `aapt2 dump badging` (package, version, min 26, target 34, compileSdk 37), `apksigner verify` (v2 scheme, as every
+  release), `tools/linkcheck/kotlin_stdlib.py <apk>` (0 unresolved),
   `zipalign -c -P 16 4`, every ELF in the APK (also inside nested zips) LOAD-aligned 0x4000,
   `tools/linkcheck/run.sh <apk>` ending in `TOTAL risky calls: 0` (then delete its `/tmp/tmp.*` dir by exact path; set
   `PLATFORM_JAR` to `platforms/android-30/android.jar` when android-36 is not installed), `tools/linkcheck/api_level.py`
@@ -618,7 +637,7 @@ Everything is in the repo, `tools/art-harness` (README there):
    911 desugared library (223 `j$` classes in v1.8.5) + CallDesugar; 912 scanCode keeps code-touched widgets plain and
    compiles; 912 also stands for a v1.8.5 Material 3 project (dark setting empty: Light theme, no values-night); 913
    `m3dark`: DayNight + values-night, dynamic colour line, tinted buttons, button4 kept plain by `getBackground()`;
-   Export AAB 908-913 `jar verified.`; exports 902/908/911/913 build with Gradle 8.13; v1.8.7: 914-918 `np*` templates
+   Export AAB 908-913 `jar verified.`; exports 902/908/911/913 build with Gradle 8.13 (9.8.2 since v1.9.0); v1.8.7: 914-918 `np*` templates
    created by `NewProjectSetup.create` (Fixtures.createLikeNewProjectScreen), each must generate `AppCompatActivity`, AAB
    915/917, export 915 (`drawable/fab_add`); v1.8.8: 919 `javaedit` (`run.sh <apk> <root> create javaedit 919`, then
    `javaedit 919`: CHECK lines, `JAVAEDIT n/n ok` (43 in v1.8.8), then a build), 920 `resolver` (MavenResolver +
@@ -626,7 +645,19 @@ Everything is in the repo, `tools/art-harness` (README there):
    delete `libs/local_libs/retrofit_V_2.9.0`, `converter-gson_V_2.9.0` first so it installs fresh), AAB 920, export 920
    built with Gradle (Retrofit by coordinate, 114 `retrofit2` classes), `javaedit-open <ids>` (every activity opens
    convertible and saves unchanged, 20/20); v1.8.9: 919 54 checks (statements to blocks), 922 `escpos` (automatic
-   imports; export built with Gradle), 924 = 922 on a fresh `<tag>` (auto-fix adds the imports, 3 warnings), jeopen 21/21). Lanes:
+   imports; export built with Gradle), 924 = 922 on a fresh `<tag>` (auto-fix adds the imports, 3 warnings), jeopen 21/21);
+   v1.9.0 (harness steps now 16: stringfog and proguard are steps of `Main.build`): 919 80 checks (section 19 variables,
+   section 20 locals that stay code), 908 `javaedit-m3` 8/8 (`String userNotes` → String variable), 925 `eventcode`
+   (`create javaedit 925`, then `eventcode 925`: EVENTCODE 17/17), 926 `m3` built twice (cold, then `build:926` hits the
+   R/resource cache: about 36 s vs 320 s; compare cold/warm/cache-off APKs class by class with dexdump), 927 `wear` and
+   928 `tv` (aapt2 badging: watch feature / leanback, TV launcher; AAB 928), 929 `fingerprint` (add-source FingerprintManager
+   code compiles against the patched android-37 jar), `versions:990` 9/9; exports (904 Kotlin, 908, 911, 920, 922) built
+   with Gradle 9.8.2 / AGP 9.5.0 by `gradle-export-check.sh` (it takes Gradle's version from the export's wrapper
+   properties). The harness's framework stand-in is `out/android-dex37.zip` (the bundled jar dexed; rebuild it whenever
+   `android.jar.zip` changes). v1.9.0 scripts (in `/root`, recreate from this description): `harness190.sh`, `run190.sh`,
+   `lane190.sh <apk> <tag> <out> items` (items as below plus `ec:id`, `jem3:id`, `versions:id`, `build:id`, `resolver:id`),
+   `relcheck.sh <apk> <name>` (badging, apksigner, zipalign, ELF LOAD, linkcheck, kotlin_stdlib, api_level vs v1.8.13 by
+   member, pinned ids). Lanes:
    `/home/claude/lane188.sh <apk> <tag> <outfile> <items>` with items
    `spec:id`, `aab:id`, `export:id`, `je:id`, `jeopen:id,id`, through `/home/claude/run188.sh` (the worktree's harness
    built into `out/harness188.zip`); `/home/claude/je.sh <apk> <id> ...` runs editor classes from the worktree in front of
