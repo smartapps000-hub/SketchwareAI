@@ -612,7 +612,7 @@ Everything is in the repo, `tools/art-harness` (README there):
    Check AABs with `/home/claude/bt/check-aab.sh <aab> <package>` (bundletool 1.11.3, 1.17.2, 1.18.3 resolved with a tiny
    Gradle project, classpaths in `cp*.txt`: validate, `build-apks --mode=universal --aapt2=<build-tools aapt2>`,
    `jarsigner -verify`); for 16 KB also `dump config` and `build-apks --device-spec` (arm64, API 35) + `zipalign -c -P 16`
-   on the ABI split. AAB file names come from the project name (`Fixture_<spec>.aab`, templates `np<x>.aab`): `ls` the
+   on the ABI split (`--device-spec` needs protobuf-java-util on that classpath; the Gradle cache has 3.25.5). AAB file names come from the project name (`Fixture_<spec>.aab`, templates `np<x>.aab`): `ls` the
    folder rather than guessing. Build exported projects with `/home/claude/gradle-export-check.sh <export dir> <work dir>`
    (Gradle from the wrapper properties, JDK 17, `--warning-mode all`) and dexdump the APK: every library R class
    referenced must be defined. `art.sh <cp>:<904 apk> h.CallKt` (`A, B`), `<cp>:<911 apk> h.CallDesugar`

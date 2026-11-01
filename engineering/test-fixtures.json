@@ -611,6 +611,18 @@
         "assembleDebug ok for all five; every library R class referenced is defined (dexdump)",
         "904: com/fixture/kotlin/KtHelper compiled into the APK by AGP 9's built-in Kotlin"
       ]
+    },
+    {
+      "id": "suite v1.9.0 (release APK a52c25a)",
+      "kind": "lanes of lane190.sh on the release APK (919, 908, 920, 922, 925-929 on the release candidate cf5aa78, same code)",
+      "content": "901-905, 907-916, 917, 918, 919, 920, 922, 923, 925-929 Run builds; 906 must fail; AAB 908, 910, 915, 928; javaedit-open of 25 projects; versions:990; LoadAll of 24 apps; CallKt; CallDesugar",
+      "checks": [
+        "every build 16 harness steps; warnings: 905 1, 910 2 (its two 4 KB libraries), 923 1, all others 0",
+        "906: ECJ 'The method lenght() is undefined', origin MainActivity -> onCreate -> block 1 (add source directly), line 2",
+        "910: libraries made by make-native-fixture.sh with NDK r28 (readelf LOAD 0x1000 / 0x4000); AAB arm64 split .so Stored, zipalign -c -P 16 ok",
+        "JAVAEDIT 82/82 (919), JAVAEDIT-M3 8/8 (908), EVENTCODE 17/17 (925), JAVAEDIT-OPEN 25/25, VERSIONS 9/9",
+        "LoadAll: only kotlinx AgentPremain x2 (+ 902's 2 AdMob offline WorkManager classes); CallKt A, B; CallDesugar = expected"
+      ]
     }
   ]
 }
