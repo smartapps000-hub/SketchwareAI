@@ -40,18 +40,18 @@ public final class EventCodeSheet {
     }
 
     /**
-     * True while the sheet reads or changes the project data on its own thread (Edit's open, Apply): the logic editor
+     * Above 0 while a sheet reads or changes the project data on its own thread (Edit's open, Apply): the logic editor
      * must not store its canvas then ({@code LogicEditorActivity.E()}, {@code onSaveInstanceState}), or it would race
      * the apply and could put the old blocks back over the new ones. Cleared on the UI thread when the result is
      * handled, so the applied blocks are in place before anything stores a canvas again.
      */
-    private static volatile boolean running;
+    private static final java.util.concurrent.atomic.AtomicInteger running = new java.util.concurrent.atomic.AtomicInteger();
 
     private EventCodeSheet() {
     }
 
     public static boolean isRunning() {
-        return running;
+        return running.get() > 0;
     }
 
     /** Whether the sheet's own dialog can still be touched (its activity not finishing or destroyed). */
@@ -123,7 +123,7 @@ public final class EventCodeSheet {
                     say(status, "Couldn't store the blocks: " + t);
                     return;
                 }
-                running = true;
+                running.incrementAndGet();
                 busy(dialog, close, true);
                 new Thread(() -> {
                     EventCode code;
@@ -138,7 +138,7 @@ public final class EventCodeSheet {
                     final EventCode result = code;
                     final String error = failure;
                     activity.runOnUiThread(() -> {
-                        running = false;
+                        running.decrementAndGet();
                         if (!alive(activity, dialog)) return;
                         busy[0] = false;
                         busy(dialog, close, false);
@@ -168,7 +168,7 @@ public final class EventCodeSheet {
             busy[0] = true;
             action.setEnabled(false);
             editor.setEditable(false);
-            running = true;
+            running.incrementAndGet();
             busy(dialog, close, true);
             say(status, "Turning the code into blocks…");
             final EventCode code = opened[0];
@@ -190,7 +190,7 @@ public final class EventCodeSheet {
                 }
                 final JavaToBlocks.Result done = result;
                 activity.runOnUiThread(() -> {
-                    running = false;
+                    running.decrementAndGet();
                     boolean shown = alive(activity, dialog);
                     if (done.ok && !done.unchanged) {
                         if (shown) dialog.dismiss();

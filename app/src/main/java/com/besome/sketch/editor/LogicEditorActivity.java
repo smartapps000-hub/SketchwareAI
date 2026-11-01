@@ -355,8 +355,9 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     }
 
     public final void E() {
-        // v1.9.0: while the source sheet applies code on its own thread, the canvas (the old blocks) isn't stored
-        if (com.sketchware.ai.editor.EventCodeSheet.isRunning()) return;
+        // v1.9.0: while the source sheet applies code on its own thread, or its result waits for this editor to come
+        // back on screen, the canvas (the old blocks) isn't stored
+        if (com.sketchware.ai.editor.EventCodeSheet.isRunning() || pendingReport != null) return;
         eC a2 = jC.a(this.B);
         String javaName = this.M.getJavaName();
         a2.a(javaName, this.C + "_" + this.D, o.getBlocks());
@@ -2516,6 +2517,18 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         if (!super.j()) {
             finish();
         }
+        resumed = true;
+        if (pendingReport != null && !isFinishing()) {
+            String report = pendingReport;
+            pendingReport = null;
+            reopenWithReport(report);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        resumed = false;
+        super.onPause();
     }
 
     @Override
@@ -2527,7 +2540,7 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         bundle.putBoolean("applied_report_shown", appliedReportShown);
         super.onSaveInstanceState(bundle);
         // v1.9.0: not while the source sheet applies code (its thread changes these blocks; the reopened editor shows them)
-        if (com.sketchware.ai.editor.EventCodeSheet.isRunning()) return;
+        if (com.sketchware.ai.editor.EventCodeSheet.isRunning() || pendingReport != null) return;
         ArrayList<BlockBean> blocks = this.o.getBlocks();
         eC a2 = jC.a(this.B);
         String javaName = this.M.getJavaName();
@@ -2979,6 +2992,12 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
                             }
                             target = now;
                         }
+                        if (!target.resumed) {
+                            // in the background (another app on screen): Android 10+ doesn't start activities from
+                            // there; this editor reopens when it is back on screen
+                            target.pendingReport = report;
+                            return;
+                        }
                         target.reopenWithReport(report);
                     }
                 });
@@ -2988,6 +3007,10 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     private static java.lang.ref.WeakReference<LogicEditorActivity> live;
     /** v1.9.0: the applied report was shown (kept across a recreate, which delivers the original intent again). */
     private boolean appliedReportShown;
+    /** v1.9.0: whether this editor is on screen (between onResume and onPause). */
+    private boolean resumed;
+    /** v1.9.0: a source-sheet apply that ended while this editor was in the background: reopened in onResume. */
+    private String pendingReport;
 
     /**
      * v1.9.0: the event's blocks changed in the project data (Apply in the source sheet): this editor is opened again on

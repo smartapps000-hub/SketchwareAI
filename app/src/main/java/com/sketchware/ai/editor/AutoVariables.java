@@ -109,11 +109,27 @@ final class AutoVariables {
     private static final Pattern ANONYMOUS_HEAD = Pattern.compile("\\bnew\\s+" + ID + "(?:\\s*\\.\\s*" + ID + ")*\\s*(?:<[^;]*>)?\\s*\\([^;]*\\)\\s*$");
     /** A local class, interface, enum or record declared in a method. */
     private static final Pattern LOCAL_TYPE = Pattern.compile("^(?:(?:final|abstract|static|strictfp)\\s+)*(?:class|interface|enum|record)\\s+" + ID);
-    /** A method or constructor call: a name followed by '(' (control words excluded by {@link #NOT_CALLS}). */
+    /** A method call: a name followed by '('. */
     private static final Pattern CALL = Pattern.compile("(" + ID + ")\\s*\\(");
-    private static final Set<String> NOT_CALLS = new HashSet<>(Arrays.asList(
-            "if", "for", "while", "switch", "catch", "synchronized", "return", "throw", "else", "do", "try", "case",
-            "assert", "yield"));
+
+    /** How the code a local is declared in can run again while it runs (see {@link #hazard}). */
+    static final int REENTRY_NONE = 0;
+    /** An event a view fires again when its own code changes it (onTextChanged, onCheckedChange …), or a MoreBlock. */
+    static final int REENTRY_LISTENER = 1;
+    /** Any other event (onClick …): only performClick runs it again. */
+    static final int REENTRY_CLICK = 2;
+
+    /** Calls that fire a view's change listener at once (setText fires onTextChanged before it returns …). */
+    private static final Set<String> REFIRING = new HashSet<>(Arrays.asList(
+            "setText", "append", "clear", "setChecked", "toggle", "check", "clearCheck", "setProgress",
+            "incrementProgressBy", "setRating", "setSelection", "setCurrentItem", "selectTab", "setDate", "updateDate",
+            "setHour", "setMinute", "setCurrentHour", "setCurrentMinute", "scrollTo", "scrollBy", "smoothScrollTo",
+            "smoothScrollBy", "scrollToPosition", "smoothScrollToPosition", "setQuery", "setSelectedItemId",
+            "performClick", "callOnClick"));
+    /** Change events whose names say "changed / selected / scrolled" but that no setter of the activity fires. */
+    private static final Set<String> NOT_REFIRED = new HashSet<>(Arrays.asList(
+            "onSensorChanged", "onAccuracyChanged", "onLocationChanged", "onChildChanged", "onOptionsItemSelected",
+            "onContextItemSelected", "onLetterSelected"));
 
     /** Words a declaration pattern can't take as a type: "return name;", "else name = 1;" are no declarations. */
     private static final Set<String> NOT_TYPES = new HashSet<>(Arrays.asList(
@@ -443,22 +459,40 @@ final class AutoVariables {
         return false;
     }
 
-    /** Whether a code line calls a method or constructor. */
-    static boolean calls(String code) {
+    /** How code of this kind ("event", "onCreate", "moreBlock", "adapter") and event can run again while it runs. */
+    static int reentry(String kind, String eventName) {
+        if ("moreBlock".equals(kind)) return REENTRY_LISTENER;
+        if (!"event".equals(kind)) return REENTRY_NONE;
+        if (eventName != null && !NOT_REFIRED.contains(eventName)
+                && eventName.matches(".*(Change|Changed|Selected|Scrolled)$")) {
+            return REENTRY_LISTENER;
+        }
+        return REENTRY_CLICK;
+    }
+
+    /** Whether a code line makes a call that can run the code again ({@link #REFIRING}, a MoreBlock: _name(…)). */
+    static boolean refires(String code, int reentry) {
+        if (reentry == REENTRY_NONE) return false;
         Matcher m = CALL.matcher(code);
         while (m.find()) {
-            if (!NOT_CALLS.contains(m.group(1))) return true;
+            String called = m.group(1);
+            if (reentry == REENTRY_CLICK) {
+                if (called.equals("performClick") || called.equals("callOnClick")) return true;
+            } else if (REFIRING.contains(called) || called.startsWith("_") && called.length() > 1) {
+                return true;
+            }
         }
         return false;
     }
 
     /**
      * Why the local declared on line {@code line} can't become a field (see the class comment), or null when it can.
-     * The local's scope is the block it is declared in. {@code reentrant}: the code can run again while it runs (an
-     * event: setText in onTextChanged runs onTextChanged again at once, setChecked onCheckedChange …; a MoreBlock the
-     * code it calls may call): a use after a call would then see the value that inner run left in the field.
+     * The local's scope is the block it is declared in. {@code reentry} ({@link #reentry}): whether the code can run
+     * again while it runs (setText in onTextChanged runs onTextChanged again before it returns, setChecked
+     * onCheckedChange …; performClick in onClick): a use after such a call would see the value that inner run left in
+     * the field.
      */
-    static String hazard(JavaMembers e, int line, String name, String selfCall, boolean reentrant) {
+    static String hazard(JavaMembers e, int line, String name, String selfCall, int reentry) {
         int d = e.depth[line];
         // the line that opened the block (depth at its start below d), and the line that closes it
         int open = line - 1;
@@ -487,11 +521,12 @@ final class AutoVariables {
             boolean used = uses(e, k, name);
             if (nested && used) return "a listener, lambda or class below it uses it (it would see a later value)";
             if (selfCall != null && code.contains(selfCall)) return "the MoreBlock calls itself (each call has its own value)";
-            if (reentrant && called && used) {
-                return "a call above this use can run the same code again (setText in onTextChanged, setChecked in "
-                        + "onCheckedChange …), which would change it";
+            if (called && used) {
+                return reentry == REENTRY_CLICK ? "performClick above this use runs this event again, which would change it"
+                        : "a call above this use (setText, setChecked, setProgress … or a MoreBlock) can run this code "
+                        + "again, which would change it";
             }
-            if (calls(code)) called = true;
+            if (refires(code, reentry)) called = true;
         }
         return null;
     }

@@ -6,8 +6,10 @@ Sketchware projects call from add-source blocks put back, copied from android-34
 in the SDK):
   - android.hardware.fingerprint.FingerprintManager and its nested classes (deprecated since API 28, gone in API 37)
   - android.content.Context.FINGERPRINT_SERVICE
-A project that compiled in v1.8.13 (API 34) still compiles. Whether those calls work on Android 17 depends on the phone,
-as it did for an app compiled against API 34.
+Fingerprint code that compiled in v1.8.13 (API 34) still compiles. Other API 34 members API 37 dropped are not put
+back (Thread.suspend/resume/destroy/countStackFrames/stop(Throwable), Notification.WearableExtender.get/setBackground,
+CarrierConfigManager.KEY_HIDE_ENABLE_2G, MediaDrm's two annotation types; engineering/architecture-state.md lists the
+diff). Whether the fingerprint calls work on Android 17 depends on the phone, as it did for an app compiled against API 34.
 
 usage: android_jar.py <android-37.0 android.jar> <android-34 android.jar> <out android.jar.zip>
 The inner android.jar keeps the base jar's entry order, names, dates and stored entries; the added classes are stored

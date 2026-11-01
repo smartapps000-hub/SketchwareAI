@@ -617,10 +617,10 @@ public class JavaEdit {
         Object r19 = save(regenerated);
         check("variables: the shown code saves unchanged", ok(r19) && (Boolean) get(r19, "unchanged"), report(r19));
 
-        // 20. v1.9.0 review: locals that only keep their meaning as locals stay code: a final one; one used after a
-        // call in an event that can run again (setText in onTextChanged ...); one read by a listener whose '{' is on
-        // the next line; one read by a local class. In initializeLogic (it can't run again while it runs) a use after
-        // a call still becomes a variable.
+        // 20. v1.9.0 reviews: locals that only keep their meaning as locals stay code: a final one; one used after a
+        // call that can run the code again (setText in a MoreBlock: an onTextChanged may call it back); one read by a
+        // listener whose '{' is on the next line; one read by a local class. In initializeLogic, and in onClick after
+        // setText (only performClick runs onClick again), a use after a call still becomes a variable.
         l = lines(code());
         int ic20 = find(l, "private void initializeLogic() {", 0);
         l.add(ic20 + 1, "String greet20 = \"Hi\";");
@@ -633,9 +633,6 @@ public class JavaEdit {
         for (int k = stop - 1; k > on; k--) l.remove(k);
         String[] typed20 = {
                 "final int request20 = 7;",
-                "String raw20 = \"a,b\";",
-                "edittext1.setText(raw20.replace(\",\", \"\"));",
-                "textview1.setText(raw20);",
                 "String later20 = \"x\";",
                 "Runnable task20 = new Runnable()",
                 "{",
@@ -643,14 +640,22 @@ public class JavaEdit {
                 "};",
                 "String local20 = \"y\";",
                 "class Holder20 { String get() { return local20; } }",
-                "textview1.setText(String.valueOf(request20) + new Holder20().get());"};
+                "textview1.setText(String.valueOf(request20) + new Holder20().get());",
+                "String name20 = edittext1.getText().toString();",
+                "textview1.setText(name20);",
+                "SketchwareUtil.showMessage(getApplicationContext(), name20);"};
         for (int k = 0; k < typed20.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed20[k]);
+        int mb20 = find(l, "public void _greet(", 0);
+        l.add(mb20 + 1, "\t\tString raw20 = \"a,b\";");
+        l.add(mb20 + 2, "\t\tedittext1.setText(raw20.replace(\",\", \"\"));");
+        l.add(mb20 + 3, "\t\ttextview1.setText(raw20);");
         Object r20 = save(join(l));
         check("review locals: saved", ok(r20), report(r20));
         v = vars();
         check("review locals: final, re-entry, next-line listener, local class stay locals",
                 !v.contains("request20") && !v.contains("raw20") && !v.contains("later20") && !v.contains("local20"), v);
-        check("review locals: initializeLogic converts a use after a call", v.contains("2=greet20; "), v);
+        check("review locals: initializeLogic and onClick convert a use after setText", v.contains("2=greet20; ")
+                && v.contains("2=name20; "), v);
         String notes20 = String.valueOf(get(r20, "notes"));
         check("review locals: the save says why", notes20.contains("request20 stays a local variable in its code: it is final")
                 && notes20.contains("raw20 stays a local variable in its code: a call above this use")

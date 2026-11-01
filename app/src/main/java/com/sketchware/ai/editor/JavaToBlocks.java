@@ -696,17 +696,17 @@ public final class JavaToBlocks {
     private void planAutoVariables(JavaMembers e, Map<EditMap.Event, List<Target>> targets, Result result) {
         if (statements == null) return;
         // edited line of each statement of its own → {the call a MoreBlock would make to itself (null for events),
-        // the code's kind: "event", "onCreate", "moreBlock", "adapter"}
+        // the code's kind: "event", "onCreate", "moreBlock", "adapter", the event's name}
         java.util.TreeMap<Integer, String[]> lines = new java.util.TreeMap<>();
         for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
             EditMap.Event event = entry.getKey();
             String self = "moreBlock".equals(event.info.kind) ? "_" + event.info.targetId + "(" : null;
-            String[] scope = {self, event.info.kind};
+            String[] scope = {self, event.info.kind, event.info.eventName};
             for (Target t : entry.getValue()) statementLines(e, t.eStart, t.eEnd, scope, lines);
         }
         for (String[] added : moreBlockAdditions) {
             statementLines(e, Integer.parseInt(added[3]), Integer.parseInt(added[4]),
-                    new String[]{"_" + added[0] + "(", "moreBlock"}, lines);
+                    new String[]{"_" + added[0] + "(", "moreBlock", null}, lines);
         }
         if (lines.isEmpty()) return;
         Set<String> taken = takenNames(e);
@@ -732,7 +732,8 @@ public final class JavaToBlocks {
             } else if (AutoVariables.declarations(e, d.name) != 1) {
                 why = "it is declared more than once in this activity";
             } else {
-                why = AutoVariables.hazard(e, line, d.name, entry.getValue()[0], !"onCreate".equals(kindOfCode));
+                why = AutoVariables.hazard(e, line, d.name, entry.getValue()[0],
+                        AutoVariables.reentry(kindOfCode, entry.getValue()[2]));
             }
             if (why != null) {
                 String note = d.name + " stays a local variable in its code: " + why + ".";

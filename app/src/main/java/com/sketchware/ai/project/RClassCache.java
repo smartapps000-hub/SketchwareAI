@@ -136,7 +136,8 @@ public final class RClassCache {
 
     /**
      * Whether marker {@code name} lists exactly the files under {@code folder} with their sizes. A marker whose files
-     * don't match (partly deleted by the system) is removed with the entry's content, so the build makes it again.
+     * don't match (partly deleted by the system) is removed with what it describes, so the build makes it again: the
+     * whole entry for the classes, only the DEX for the DEX (the build may already compile against the classes).
      */
     private boolean verified(String name, String folder) {
         File marker = new File(entry, name);
@@ -148,7 +149,12 @@ public final class RClassCache {
             LogUtil.e(TAG, "Couldn't read " + marker, e);
         }
         LogUtil.d(TAG, "Kept R " + folder + " incomplete: built again");
-        delete(entry);
+        if ("dex".equals(folder)) {
+            delete(new File(entry, "dex.ok"));
+            delete(new File(entry, "dex"));
+        } else {
+            delete(entry);
+        }
         return false;
     }
 
@@ -220,6 +226,7 @@ public final class RClassCache {
             if (copied == 0) return;
             writeMarker(new File(temp, "classes.ok"), out);
             pruneOthers();
+            if (entry.exists()) delete(entry);   // what is left of an entry whose classes didn't match their marker
             if (!temp.renameTo(entry)) {
                 LogUtil.d(TAG, "R classes already kept by another build");
             }
