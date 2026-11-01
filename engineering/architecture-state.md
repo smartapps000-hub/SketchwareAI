@@ -488,8 +488,13 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
   (`ExportProjectActivity.addExportStackNotice`: "Future-Proof Modern Pipeline" pill + versions; render
   `V190ExportNoticeTest`). The owner's text named Android Studio 2024.2 (Ladybug), which only opens AGP up to 8.7.
   Fixtures 904 (Kotlin), 908, 911, 920, 922 exported and built with Gradle 9.8.2.
-- **IDE compileSdk 37, targetSdk 34** (same directive): the IDE compiles against android-37.0 without source changes.
-  targetSdk stays 34: for target 36+, Android 16+ draws every screen edge to edge with no opt-out
+- **IDE compileSdk 37, targetSdk 35** (same directive; target 35 at the owner's next directive the same day): the IDE
+  compiles against android-37.0 without source changes. Target 35 with `android:windowOptOutEdgeToEdgeEnforcement` in
+  AppTheme (every activity theme but one inherits it) and the MaterialComponents Bridge theme (Android 15 would draw
+  every screen edge to edge; the opt-out holds on Android 15 and, for target 35, on 16+) and
+  `<application android:enableOnBackInvokedCallback="false">` (onBackPressed stays the back path everywhere). Target-35
+  OpenJDK changes checked in the APK's code: no `Arrays.asList(...).toArray()` cast to String[] (one jose4j ArrayList
+  cast, unchanged behaviour); no Configuration screen dp use; no foreground services. Not targeting 36/37: for target 36+, Android 16+ draws every screen edge to edge with no opt-out
   (`windowOptOutEdgeToEdgeEnforcement` disabled) and no longer calls `onBackPressed` unless
   `android:enableOnBackInvokedCallback="false"` (a temporary opt-out): 26 source activities and ~30 precompiled classes
   override it, the design and logic editors save the project there; target 37 also makes changing a `static final`

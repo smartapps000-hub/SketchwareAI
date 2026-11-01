@@ -85,7 +85,7 @@ dexed once per R.java set, markers list every file + size; `ResourceCache`: proj
 archives; 8 projects kept; Build Settings → Build cache); Target device (`DeviceTargets`: Wear OS / Android TV manifest,
 canvas viewports `ViewportViewEditor`); Material Symbols in the icon screen (`SymbolIcons`); bundled android-37.0 jar
 with FingerprintManager kept (`tools/builtin-libs/android_jar.py`); D8/R8 8.13.25; IDE build Gradle 9.8.2 / AGP 9.5.0 /
-KGP 2.4.21, compileSdk 37, target 34; Export to Android Studio on the same stack, compileSdk 37; APK @@APK190@@; patches zip
+KGP 2.4.21, compileSdk 37, target 35 (edge-to-edge opt-out in AppTheme, enableOnBackInvokedCallback=false); Export to Android Studio on the same stack, compileSdk 37; APK @@APK190@@; patches zip
 @@ZIP190@@; GitHub `main` @@MAIN190@@, `binaries` @@BIN190@@). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
@@ -385,7 +385,9 @@ In the app: D8/R8/L8 **8.13.25** (the newest 8.x; 9.x has no `setDesugaredLibrar
 1.7.10 (reads Kotlin metadata up to 1.8; the IDE pins kotlin-stdlib 1.7.10 with `kotlin.stdlib.default.dependency=false`),
 bundletool **1.18.3**, aapt2 **2.20** (android-16.0.0_r4, static, all four ABIs, 16 KB LOAD alignment; same resource tables
 as 2.19; build-tools 37.0.0 ships aapt2 2.20 too). The IDE's own build (v1.9.0): **Gradle 9.8.2, AGP 9.5.0, KGP 2.4.21,
-compileSdk 37**, target 34 (target 36+ = forced edge-to-edge and no `onBackPressed` on Android 16+: its own migration),
+compileSdk 37**, target 35 (since v1.9.0: `android:windowOptOutEdgeToEdgeEnforcement` in AppTheme and the Bridge theme,
+`android:enableOnBackInvokedCallback="false"`; target 36+ = forced edge-to-edge and no `onBackPressed` on Android 16+:
+its own migration, engineering/v1.9.0-audit.md),
 IDE minSdk 26, JDK 17, coreLibraryDesugaring in the IDE. AGP 9's built-in Kotlin compiles the IDE's Kotlin files (no
 kotlin-android plugin); Kotlin 2.4 compiles language/API version 2.0 at the oldest, the IDE still ships kotlin-stdlib 1.7.x
 for the embedded kotlinc: `tools/linkcheck/kotlin_stdlib.py <apk>` must end with `TOTAL unresolved kotlin references: 0`.
@@ -470,7 +472,7 @@ library changes). Don't replace them with v7's 4 KB-aligned binaries.
 
 All of these, on the final APK, before calling it done:
 
-- `aapt2 dump badging` (package, version, min 26, target 34, compileSdk 37), `apksigner verify` (v2 scheme, as every
+- `aapt2 dump badging` (package, version, min 26, target 35, compileSdk 37), `apksigner verify` (v2 scheme, as every
   release), `tools/linkcheck/kotlin_stdlib.py <apk>` (0 unresolved),
   `zipalign -c -P 16 4`, every ELF in the APK (also inside nested zips) LOAD-aligned 0x4000,
   `tools/linkcheck/run.sh <apk>` ending in `TOTAL risky calls: 0` (then delete its `/tmp/tmp.*` dir by exact path; set

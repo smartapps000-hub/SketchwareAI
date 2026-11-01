@@ -1,6 +1,6 @@
 # Sketchware AI v1.9.0
 
-versionCode 190, versionName `v1.9.0-cf5aa78-minApi26`. Installs over v1.8.13 (same test key). Variables from your Java code,
+versionCode 190, versionName `v1.9.0-a52c25a-minApi26`. Installs over v1.8.13 (same test key). Variables from your Java code,
 a readable source sheet you can edit, faster repeat builds, Wear OS / TV targets, Material Symbols, Android 17 (API 37)
 for your projects and for Export to Android Studio (Gradle 9.8.2 / AGP 9.5.0).
 
@@ -9,7 +9,7 @@ for your projects and for Export to Android Studio (Gradle 9.8.2 / AGP 9.5.0).
 - https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.0.apk
 - https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.0.apk
 
-142,270,163 bytes. Not a `raw.githubusercontent.com` link: that one gives the Git LFS pointer.
+142,270,119 bytes. Not a `raw.githubusercontent.com` link: that one gives the Git LFS pointer.
 
 ## Java editor: variables instead of add source
 
@@ -74,10 +74,12 @@ black, grey or white like the other icons.
 ## Sketchware AI itself
 
 - Built with Gradle 9.8.2, Android Gradle plugin 9.5.0 and Kotlin 2.4.21, and compiled against API 37.
-- It still **targets API 34**. Targeting 36 or higher makes Android 16+ phones draw every screen edge to edge with no
-  way out and stop calling the back-button code the design and logic editors save the project in; targeting 37 also
-  changes reflection and tablet orientation. Your phone (Android 15) wouldn't show it, Android 16/17 phones would. That
-  move needs every screen and back handler checked first; it is on the roadmap.
+- It now **targets Android 15 (API 35)** (was 34). Android 15 would draw every screen edge to edge for that target: the
+  themes opt out, and the back button keeps calling the code the design and logic editors save in
+  (`enableOnBackInvokedCallback="false"`). Please check on your phone: screens not under the status bar, Back in the
+  logic editor and the design editor still saves.
+- Not 36/37 yet: Android 16+ phones would draw every screen edge to edge with no way out and stop calling that back
+  code. That needs every screen and back handler checked first; it is on the roadmap (`engineering/v1.9.0-audit.md`).
 
 ## Checked
 
@@ -92,5 +94,5 @@ row, the icon screen (Activities), a generated app on a watch or TV, build times
 
 ## Files
 
-`apk/Sketchware_AI_v1.9.0.apk` (142,270,163 bytes, sha256 `acdeb6e44e8595ede82c6710bc9404335de0d408ea249ede67068ec4a396dc86`) on the repository's `binaries` branch (one file,
+`apk/Sketchware_AI_v1.9.0.apk` (142,270,119 bytes, sha256 `6008c1e1dc0013d9c1fa6b9e5ccbf85b7d9c9b31a65882e1eda14ee5e74d281f`) on the repository's `binaries` branch (one file,
 Git LFS).

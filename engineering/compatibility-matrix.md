@@ -7,7 +7,7 @@ Four different things, tracked separately. A row says "tested" only for what was
 | Item | Value |
 |---|---|
 | minSdk | 26 (flavor minApi26, the one that is shipped); a minApi21 flavor compiles but isn't shipped |
-| targetSdk | 34 (v1.9.0: kept while compileSdk moved to 37; target 36+ changes back handling and edge-to-edge on Android 16+, see architecture-state.md) |
+| targetSdk | 35 since v1.9.0 (edge-to-edge opt-out in the themes, enableOnBackInvokedCallback=false; 34 before). Target 36+ changes back handling and edge-to-edge on Android 16+: roadmap, see v1.9.0-audit.md |
 | compileSdk | 37 since v1.9.0 (built with AGP 9.5.0, Gradle 9.8.2, Kotlin Gradle plugin 2.4.21, JDK 17); 34 in v1.8.5-v1.8.13 (AGP 8.12.0 / Gradle 8.13); before: 30 with AGP 7.3.1 |
 
 ## 2. Where the IDE's build engine has been run

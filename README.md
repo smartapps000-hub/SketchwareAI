@@ -116,10 +116,12 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
   language of the blocks (blocks generate Java; Kotlin files can be added in the Java Manager), Jetpack Compose.
 - Firebase, Play services (Ads 20.1.0, Maps, Auth), OneSignal and Audience Network are held at their old versions.
 - The debug APK is signed with the public test key, so it installs over earlier releases. It is not a release key.
-- Sketchware AI itself compiles against API 37 but targets API 34. Targeting 36 or higher makes Android 16+ draw every
-  screen edge to edge with no opt-out and stop calling `onBackPressed` (the design and logic editors save there);
-  targeting 37 also blocks changing `static final` fields by reflection and ignores orientation locks on tablets. That
-  move needs every screen and back handler checked on Android 16/17 phones first (roadmap). Apps made with it target 37.
+- Sketchware AI itself compiles against API 37 and targets API 35 (Android 15), with the edge-to-edge opt-out in its
+  themes and `enableOnBackInvokedCallback="false"` so every screen and the back button (the design and logic editors
+  save there) behave as before. Targeting 36 or higher makes Android 16+ draw every screen edge to edge with no opt-out
+  and drop `onBackPressed`; targeting 37 also blocks changing `static final` fields by reflection and ignores
+  orientation locks on tablets. That move needs every screen and back handler checked on Android 16/17 phones first
+  (roadmap). Apps made with it target 37.
 
 ## Advanced Roadmap (v1.9 – v2.0): not built
 
@@ -151,7 +153,7 @@ The tree is the upstream source zip `Sketchware-Pro-6_4_0-rc05.zip` (sha256
 is complete: the source packages that upstream's unanchored `.gitignore` rule `build/` used to hide (`mod/hey/studios/build`,
 `mod/jbk/build`) and the public test key are tracked.
 
-Needs JDK 17 and the Android SDK (platform android-37.0: the IDE compiles against API 37 and targets API 34; Gradle 9.8.2,
+Needs JDK 17 and the Android SDK (platform android-37.0: the IDE compiles against API 37 and targets API 35; Gradle 9.8.2,
 the Android Gradle plugin 9.5.0 and the Kotlin Gradle plugin 2.4.21 are fetched by the wrapper, and AGP installs
 build-tools 36.0.0 when it is missing). Then:
 

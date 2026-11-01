@@ -223,3 +223,50 @@ class V190SymbolsTest {
         java.io.FileOutputStream("/home/claude/pz/out/symbols190.png").use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }
+
+/**
+ * v1.9.0: the palette's DatePicker and TimePicker (framework widgets, as the generator writes them) under the Material 3
+ * themes generated apps use (Light and Dark NoActionBar parents), to see that they pick up the theme's colours.
+ */
+class V190PickersLightTest {
+    @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, theme = "Theme.Material3.Light.NoActionBar")
+    @Test fun pickers() = renderPickers(paparazzi.context, "pickers190_light")
+}
+
+class V190PickersDarkTest {
+    @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, theme = "Theme.Material3.Dark.NoActionBar")
+    @Test fun pickers() = renderPickers(paparazzi.context, "pickers190_dark")
+}
+
+fun renderPickers(context: android.content.Context, name: String) {
+    val column = LinearLayout(context)
+    column.orientation = LinearLayout.VERTICAL
+    val bg = context.obtainStyledAttributes(intArrayOf(android.R.attr.colorBackground))
+    column.setBackgroundColor(bg.getColor(0, 0xFFFFFFFF.toInt()))
+    bg.recycle()
+    val date = android.widget.DatePicker(context)
+    date.updateDate(2026, 10, 1)
+    column.addView(date, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    val time = android.widget.TimePicker(context)
+    time.hour = 9; time.minute = 41
+    column.addView(time, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    val width = context.resources.displayMetrics.widthPixels
+    column.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+    column.layout(0, 0, width, column.measuredHeight)
+    column.jumpDrawablesToCurrentState()
+    val bmp = Bitmap.createBitmap(width, column.measuredHeight, Bitmap.Config.ARGB_8888)
+    column.draw(Canvas(bmp))
+    java.io.File("/home/claude/pz/out").mkdirs()
+    java.io.FileOutputStream("/home/claude/pz/out/$name.png").use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+}
+
+/** The same pickers under MaterialComponents (v1.8.x projects) and the platform theme: is the header's hour drawn there? */
+class V190PickersMdcTest {
+    @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, theme = "Theme.MaterialComponents.Light.NoActionBar")
+    @Test fun pickers() = renderPickers(paparazzi.context, "pickers190_mdc")
+}
+
+class V190PickersPlatformTest {
+    @get:Rule val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, theme = "android:Theme.Material.Light.NoActionBar")
+    @Test fun pickers() = renderPickers(paparazzi.context, "pickers190_platform")
+}
