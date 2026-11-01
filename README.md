@@ -2,6 +2,27 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.0 (versionCode 190, `v1.9.0-a52c25a-minApi26`)
+
+Java editor registers variables (String / Number / Boolean with set blocks), the logic editor's `</>` sheet in Material 3
+dark colours with Edit / Apply, Run build cache (repeat builds about 9x faster on the test machine), Target device
+(Wear OS / Android TV manifest, canvas sizes), Material Symbols, projects compile against Android 17 (API 37),
+D8/R8 8.13.25; Export to Android Studio on Gradle 9.8.2 / AGP 9.5.0 / Kotlin 2.4.21 / compileSdk 37; the IDE itself is
+built with the same stack and targets Android 15 (API 35). Release notes: `releases/v1.9.0/RELEASE-NOTES.md` on `main`.
+
+**Download the APK with one of these links** (both give the full 142 MB file):
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.0.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.0.apk
+
+Not `raw.githubusercontent.com/…`: that address gives the Git LFS pointer text.
+
+| File | sha256 |
+|---|---|
+| `apk/Sketchware_AI_v1.9.0.apk` (142,270,119 bytes) | `6008c1e1dc0013d9c1fa6b9e5ccbf85b7d9c9b31a65882e1eda14ee5e74d281f` |
+| `v1.9.0/SketchwareAI-v1.9.0-patches.zip` (220,439,755 bytes; 114 patches against the upstream zip, `main` at 5631cb1) | `88a6c193c4a3333cdbc50f945265d2f8f30fbb536d301d4d884833828ea38241` |
+
+Signed with the public test key, so it installs over v1.8.13.
+
 ## v1.8.13 (versionCode 183, `v1.8.13-0dab18a-minApi26`)
 
 Library Resolver without popups when an install worked (Toast, green ✓ Installed, one line with Copy log when something
