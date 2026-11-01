@@ -19,6 +19,9 @@
     <style name="AppBaseTheme" parent="@style/Theme.MaterialComponents.Light.NoActionBar.Bridge" />
 
     <style name="AppTheme" parent="@style/AppBaseTheme">
+        <!-- v1.9.0, target 35: Android 15 would draw every screen edge to edge (the screens don't handle insets);
+             honoured on Android 15 and, for target 35, on Android 16+ (ignored there only for target 36+) -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
         <item name="colorAccent">@color/color_accent</item>
         <item name="colorControlHighlight">@color/color_control_highlight</item>
         <item name="colorControlNormal">@color/color_primary</item>
@@ -2237,6 +2240,7 @@
     <style name="Theme.MaterialComponents.Light.DarkActionBar" parent="@style/Base.Theme.MaterialComponents.Light.DarkActionBar" />
 
     <style name="Theme.MaterialComponents.Light.DarkActionBar.Bridge" parent="@style/Base.Theme.MaterialComponents.Light.DarkActionBar.Bridge">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
         <item name="android:forceDarkAllowed">true</item>
         <item name="android:windowBackground">@drawable/sw_window_bg</item>
     </style>
