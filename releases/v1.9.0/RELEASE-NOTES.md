@@ -1,6 +1,6 @@
 # Sketchware AI v1.9.0
 
-versionCode 190, versionName `@@VERSIONNAME@@`. Installs over v1.8.13 (same test key). Variables from your Java code,
+versionCode 190, versionName `v1.9.0-cf5aa78-minApi26`. Installs over v1.8.13 (same test key). Variables from your Java code,
 a readable source sheet you can edit, faster repeat builds, Wear OS / TV targets, Material Symbols, Android 17 (API 37)
 for your projects and for Export to Android Studio (Gradle 9.8.2 / AGP 9.5.0).
 
@@ -9,7 +9,7 @@ for your projects and for Export to Android Studio (Gradle 9.8.2 / AGP 9.5.0).
 - https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.0.apk
 - https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.0.apk
 
-@@SIZE@@ bytes. Not a `raw.githubusercontent.com` link: that one gives the Git LFS pointer.
+142,270,163 bytes. Not a `raw.githubusercontent.com` link: that one gives the Git LFS pointer.
 
 ## Java editor: variables instead of add source
 
@@ -92,5 +92,5 @@ row, the icon screen (Activities), a generated app on a watch or TV, build times
 
 ## Files
 
-`apk/Sketchware_AI_v1.9.0.apk` (@@SIZE@@ bytes, sha256 `@@SHA@@`) on the repository's `binaries` branch (one file,
+`apk/Sketchware_AI_v1.9.0.apk` (142,270,163 bytes, sha256 `acdeb6e44e8595ede82c6710bc9404335de0d408ea249ede67068ec4a396dc86`) on the repository's `binaries` branch (one file,
 Git LFS).
