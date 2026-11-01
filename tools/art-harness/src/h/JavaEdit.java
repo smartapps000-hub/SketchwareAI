@@ -617,6 +617,48 @@ public class JavaEdit {
         Object r19 = save(regenerated);
         check("variables: the shown code saves unchanged", ok(r19) && (Boolean) get(r19, "unchanged"), report(r19));
 
+        // 20. v1.9.0 review: locals that only keep their meaning as locals stay code: a final one; one used after a
+        // call in an event that can run again (setText in onTextChanged ...); one read by a listener whose '{' is on
+        // the next line; one read by a local class. In initializeLogic (it can't run again while it runs) a use after
+        // a call still becomes a variable.
+        l = lines(code());
+        int ic20 = find(l, "private void initializeLogic() {", 0);
+        l.add(ic20 + 1, "String greet20 = \"Hi\";");
+        l.add(ic20 + 2, "textview1.setText(\"x\");");
+        l.add(ic20 + 3, "textview1.setText(greet20);");
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed20 = {
+                "final int request20 = 7;",
+                "String raw20 = \"a,b\";",
+                "edittext1.setText(raw20.replace(\",\", \"\"));",
+                "textview1.setText(raw20);",
+                "String later20 = \"x\";",
+                "Runnable task20 = new Runnable()",
+                "{",
+                "@Override public void run() { textview1.setText(later20); }",
+                "};",
+                "String local20 = \"y\";",
+                "class Holder20 { String get() { return local20; } }",
+                "textview1.setText(String.valueOf(request20) + new Holder20().get());"};
+        for (int k = 0; k < typed20.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed20[k]);
+        Object r20 = save(join(l));
+        check("review locals: saved", ok(r20), report(r20));
+        v = vars();
+        check("review locals: final, re-entry, next-line listener, local class stay locals",
+                !v.contains("request20") && !v.contains("raw20") && !v.contains("later20") && !v.contains("local20"), v);
+        check("review locals: initializeLogic converts a use after a call", v.contains("2=greet20; "), v);
+        String notes20 = String.valueOf(get(r20, "notes"));
+        check("review locals: the save says why", notes20.contains("request20 stays a local variable in its code: it is final")
+                && notes20.contains("raw20 stays a local variable in its code: a call above this use")
+                && notes20.contains("later20 stays a local variable in its code: a listener")
+                && notes20.contains("local20 stays a local variable in its code: a listener"), notes20);
+        Object r20b = save(code());
+        check("review locals: the shown code saves unchanged", ok(r20b) && (Boolean) get(r20b, "unchanged"), report(r20b));
+
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());
         Main.OUT.println("AFTER " + state());

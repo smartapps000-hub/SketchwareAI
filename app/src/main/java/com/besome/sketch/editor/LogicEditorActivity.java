@@ -355,6 +355,8 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     }
 
     public final void E() {
+        // v1.9.0: while the source sheet applies code on its own thread, the canvas (the old blocks) isn't stored
+        if (com.sketchware.ai.editor.EventCodeSheet.isRunning()) return;
         eC a2 = jC.a(this.B);
         String javaName = this.M.getJavaName();
         a2.a(javaName, this.C + "_" + this.D, o.getBlocks());
@@ -2361,6 +2363,9 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
             parcelable = bundle.getParcelable("project_file");
         }
         this.M = (ProjectFileBean) parcelable;
+        // v1.9.0: the instance on screen, for a source-sheet apply that finishes after a recreate
+        live = new java.lang.ref.WeakReference<>(this);
+        if (bundle != null) appliedReportShown = bundle.getBoolean("applied_report_shown");
         this.H = new DB(this.e, "P1");
         this.T = (int) wB.a(getBaseContext(), (float) this.T);
         this.k = findViewById(R.id.toolbar);
@@ -2519,7 +2524,10 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         bundle.putString("id", this.C);
         bundle.putString("event", this.D);
         bundle.putParcelable("project_file", this.M);
+        bundle.putBoolean("applied_report_shown", appliedReportShown);
         super.onSaveInstanceState(bundle);
+        // v1.9.0: not while the source sheet applies code (its thread changes these blocks; the reopened editor shows them)
+        if (com.sketchware.ai.editor.EventCodeSheet.isRunning()) return;
         ArrayList<BlockBean> blocks = this.o.getBlocks();
         eC a2 = jC.a(this.B);
         String javaName = this.M.getJavaName();
@@ -2959,10 +2967,27 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
 
                     @Override
                     public void reopen(String report) {
-                        reopenWithReport(report);
+                        LogicEditorActivity target = LogicEditorActivity.this;
+                        if (target.isDestroyed()) {
+                            // recreated (dark mode, window size) while the sheet applied: the new instance loaded the
+                            // event before the apply ended, so it is the one opened again
+                            LogicEditorActivity now = live == null ? null : live.get();
+                            if (now == null || now == target || now.isFinishing() || !target.B.equals(now.B)
+                                    || !String.valueOf(target.C).equals(String.valueOf(now.C))
+                                    || !String.valueOf(target.D).equals(String.valueOf(now.D))) {
+                                return;
+                            }
+                            target = now;
+                        }
+                        target.reopenWithReport(report);
                     }
                 });
     }
+
+    /** v1.9.0: the logic editor instance on screen (see showSourceCode's reopen). */
+    private static java.lang.ref.WeakReference<LogicEditorActivity> live;
+    /** v1.9.0: the applied report was shown (kept across a recreate, which delivers the original intent again). */
+    private boolean appliedReportShown;
 
     /**
      * v1.9.0: the event's blocks changed in the project data (Apply in the source sheet): this editor is opened again on
@@ -2985,7 +3010,8 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     /** v1.9.0: what an Apply in the source sheet stored, shown once the event is open again. */
     private void showAppliedReport() {
         String report = getIntent().getStringExtra("applied_report");
-        if (report == null) return;
+        if (report == null || appliedReportShown) return;
+        appliedReportShown = true;
         getIntent().removeExtra("applied_report");
         new com.sketchware.ai.ui.ObAlertBuilder(this)
                 .setTitle("Applied — converted to blocks")

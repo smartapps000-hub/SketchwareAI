@@ -105,6 +105,15 @@ final class AutoVariables {
     private static final Pattern GET_TEXT = Pattern.compile("^" + ID + "\\.getText\\(\\)\\.toString\\(\\)$");
     /** An anonymous class opened on a line: new View.OnClickListener() { */
     private static final Pattern ANONYMOUS = Pattern.compile("\\bnew\\s+" + ID + "(?:\\s*\\.\\s*" + ID + ")*\\s*(?:<[^;]*>)?\\s*\\([^;]*\\)\\s*\\{");
+    /** The same with its '{' on the next line: new Runnable() */
+    private static final Pattern ANONYMOUS_HEAD = Pattern.compile("\\bnew\\s+" + ID + "(?:\\s*\\.\\s*" + ID + ")*\\s*(?:<[^;]*>)?\\s*\\([^;]*\\)\\s*$");
+    /** A local class, interface, enum or record declared in a method. */
+    private static final Pattern LOCAL_TYPE = Pattern.compile("^(?:(?:final|abstract|static|strictfp)\\s+)*(?:class|interface|enum|record)\\s+" + ID);
+    /** A method or constructor call: a name followed by '(' (control words excluded by {@link #NOT_CALLS}). */
+    private static final Pattern CALL = Pattern.compile("(" + ID + ")\\s*\\(");
+    private static final Set<String> NOT_CALLS = new HashSet<>(Arrays.asList(
+            "if", "for", "while", "switch", "catch", "synchronized", "return", "throw", "else", "do", "try", "case",
+            "assert", "yield"));
 
     /** Words a declaration pattern can't take as a type: "return name;", "else name = 1;" are no declarations. */
     private static final Set<String> NOT_TYPES = new HashSet<>(Arrays.asList(
@@ -434,11 +443,22 @@ final class AutoVariables {
         return false;
     }
 
+    /** Whether a code line calls a method or constructor. */
+    static boolean calls(String code) {
+        Matcher m = CALL.matcher(code);
+        while (m.find()) {
+            if (!NOT_CALLS.contains(m.group(1))) return true;
+        }
+        return false;
+    }
+
     /**
      * Why the local declared on line {@code line} can't become a field (see the class comment), or null when it can.
-     * The local's scope is the block it is declared in.
+     * The local's scope is the block it is declared in. {@code reentrant}: the code can run again while it runs (an
+     * event: setText in onTextChanged runs onTextChanged again at once, setChecked onCheckedChange …; a MoreBlock the
+     * code it calls may call): a use after a call would then see the value that inner run left in the field.
      */
-    static String hazard(JavaMembers e, int line, String name, String selfCall) {
+    static String hazard(JavaMembers e, int line, String name, String selfCall, boolean reentrant) {
         int d = e.depth[line];
         // the line that opened the block (depth at its start below d), and the line that closes it
         int open = line - 1;
@@ -450,6 +470,7 @@ final class AutoVariables {
             if (uses(e, k, name)) return "it is used before its declaration";
         }
         boolean nested = false;
+        boolean called = false;
         String declared = e.code(line);
         int afterDeclaration = declared.indexOf(';');
         if (afterDeclaration >= 0) {
@@ -458,9 +479,19 @@ final class AutoVariables {
         }
         for (int k = line + 1; k <= close; k++) {
             String code = e.code(k);
-            if (code.contains("->") || ANONYMOUS.matcher(code).find()) nested = true;
-            if (nested && uses(e, k, name)) return "a listener or lambda below it uses it (it would see a later value)";
+            String trimmed = code.trim();
+            if (code.contains("->") || ANONYMOUS.matcher(code).find() || LOCAL_TYPE.matcher(trimmed).find()
+                    || ANONYMOUS_HEAD.matcher(trimmed).find() && k < e.count() && e.code(k + 1).trim().startsWith("{")) {
+                nested = true;
+            }
+            boolean used = uses(e, k, name);
+            if (nested && used) return "a listener, lambda or class below it uses it (it would see a later value)";
             if (selfCall != null && code.contains(selfCall)) return "the MoreBlock calls itself (each call has its own value)";
+            if (reentrant && called && used) {
+                return "a call above this use can run the same code again (setText in onTextChanged, setChecked in "
+                        + "onCheckedChange …), which would change it";
+            }
+            if (calls(code)) called = true;
         }
         return null;
     }

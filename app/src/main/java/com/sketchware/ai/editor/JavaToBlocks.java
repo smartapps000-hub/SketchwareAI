@@ -695,15 +695,18 @@ public final class JavaToBlocks {
      */
     private void planAutoVariables(JavaMembers e, Map<EditMap.Event, List<Target>> targets, Result result) {
         if (statements == null) return;
-        // edited line of each statement of its own → the call a MoreBlock would make to itself (null for events)
-        java.util.TreeMap<Integer, String> lines = new java.util.TreeMap<>();
+        // edited line of each statement of its own → {the call a MoreBlock would make to itself (null for events),
+        // the code's kind: "event", "onCreate", "moreBlock", "adapter"}
+        java.util.TreeMap<Integer, String[]> lines = new java.util.TreeMap<>();
         for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
             EditMap.Event event = entry.getKey();
             String self = "moreBlock".equals(event.info.kind) ? "_" + event.info.targetId + "(" : null;
-            for (Target t : entry.getValue()) statementLines(e, t.eStart, t.eEnd, self, lines);
+            String[] scope = {self, event.info.kind};
+            for (Target t : entry.getValue()) statementLines(e, t.eStart, t.eEnd, scope, lines);
         }
         for (String[] added : moreBlockAdditions) {
-            statementLines(e, Integer.parseInt(added[3]), Integer.parseInt(added[4]), "_" + added[0] + "(", lines);
+            statementLines(e, Integer.parseInt(added[3]), Integer.parseInt(added[4]),
+                    new String[]{"_" + added[0] + "(", "moreBlock"}, lines);
         }
         if (lines.isEmpty()) return;
         Set<String> taken = takenNames(e);
@@ -712,17 +715,24 @@ public final class JavaToBlocks {
             if (v.first != null && v.first >= 0 && v.first <= 2) known.put(variableName(v), v.first);
         }
         // 1. local declarations: String name = …; double total = 0; boolean done; Intent i = new Intent();
-        for (Map.Entry<Integer, String> entry : lines.entrySet()) {
+        for (Map.Entry<Integer, String[]> entry : lines.entrySet()) {
             int line = entry.getKey();
             AutoVariables.Declaration d = AutoVariables.declaration(e.line(line).trim());
             if (d == null) continue;
+            String kindOfCode = entry.getValue()[1];
             String why;
             if (d.name.startsWith("_") || taken.contains(d.name) || autoVariables.containsKey(d.name)) {
                 why = "the name is already used by a widget, component, variable, list or method of this activity";
+            } else if (e.line(line).trim().startsWith("final ")) {
+                // final int REQUEST = 1; … case REQUEST: needs a constant; a captured final keeps its own value
+                why = "it is final";
+            } else if ("adapter".equals(kindOfCode) || insideNestedClass(e, line)) {
+                // a type like the adapter's ViewHolder doesn't exist at the activity's level
+                why = "it is in the code of a list adapter or another inner class";
             } else if (AutoVariables.declarations(e, d.name) != 1) {
                 why = "it is declared more than once in this activity";
             } else {
-                why = AutoVariables.hazard(e, line, d.name, entry.getValue());
+                why = AutoVariables.hazard(e, line, d.name, entry.getValue()[0], !"onCreate".equals(kindOfCode));
             }
             if (why != null) {
                 String note = d.name + " stays a local variable in its code: " + why + ".";
@@ -740,8 +750,9 @@ public final class JavaToBlocks {
         // 2. assignments to names declared nowhere: total = 0; name = edittext1.getText().toString();
         Map<String, Set<Integer>> kinds = new LinkedHashMap<>();
         Map<String, List<Integer>> assignedOn = new HashMap<>();
-        for (Map.Entry<Integer, String> entry : lines.entrySet()) {
+        for (Map.Entry<Integer, String[]> entry : lines.entrySet()) {
             if (autoRewrites.containsKey(entry.getKey())) continue;
+            if ("adapter".equals(entry.getValue()[1]) || insideNestedClass(e, entry.getKey())) continue;
             String[] assignment = AutoVariables.assignment(e.line(entry.getKey()).trim());
             if (assignment == null) continue;
             String name = assignment[0];
@@ -795,14 +806,22 @@ public final class JavaToBlocks {
         return names;
     }
 
-    /** The statements of their own (what {@link #chainFor} may map) in edited lines [from, to), with {@code self}. */
-    private static void statementLines(JavaMembers e, int from, int to, String self, Map<Integer, String> out) {
+    /** Whether edited line {@code line} is inside an inner class of the activity (a list adapter …). */
+    private static boolean insideNestedClass(JavaMembers e, int line) {
+        for (JavaMembers.Member m : e.members) {
+            if (m.kind == JavaMembers.TYPE && line >= m.start && line <= m.end) return true;
+        }
+        return false;
+    }
+
+    /** The statements of their own (what {@link #chainFor} may map) in edited lines [from, to), with {@code scope}. */
+    private static void statementLines(JavaMembers e, int from, int to, String[] scope, Map<Integer, String[]> out) {
         String content = body(e, from, to);
         if (content.isEmpty()) return;
         int first = bodyStart(e, from, to);
         String[] lines = content.split("\n", -1);
         boolean[] own = ownStatements(lines);
-        for (int n = 0; n < lines.length; n++) if (own[n]) out.put(first + n, self);
+        for (int n = 0; n < lines.length; n++) if (own[n]) out.put(first + n, scope);
     }
 
     /**

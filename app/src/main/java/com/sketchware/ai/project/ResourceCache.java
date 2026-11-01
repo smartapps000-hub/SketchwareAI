@@ -48,6 +48,10 @@ public final class ResourceCache {
     public ResourceCache(File cacheRoot, String scId, File aapt2Binary) {
         this.root = new File(new File(new File(cacheRoot, "build-cache"), "res"), scId);
         this.aapt2 = aapt2Binary.getAbsolutePath() + "|" + aapt2Binary.length() + "|" + aapt2Binary.lastModified();
+        // only the most recently built projects keep compiled resources (a deleted project's go this way)
+        if (root.isDirectory()) //noinspection ResultOfMethodCallIgnored
+            root.setLastModified(System.currentTimeMillis());
+        RClassCache.pruneProjects(root, RClassCache.PROJECTS_KEPT);
     }
 
     // -------------------------------------------------------------------------------------------- local libraries

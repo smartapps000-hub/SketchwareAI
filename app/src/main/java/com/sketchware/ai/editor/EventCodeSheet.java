@@ -6,6 +6,8 @@ import android.graphics.Typeface;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -37,7 +39,30 @@ public final class EventCodeSheet {
         void reopen(String report);
     }
 
+    /**
+     * True while the sheet reads or changes the project data on its own thread (Edit's open, Apply): the logic editor
+     * must not store its canvas then ({@code LogicEditorActivity.E()}, {@code onSaveInstanceState}), or it would race
+     * the apply and could put the old blocks back over the new ones. Cleared on the UI thread when the result is
+     * handled, so the applied blocks are in place before anything stores a canvas again.
+     */
+    private static volatile boolean running;
+
     private EventCodeSheet() {
+    }
+
+    public static boolean isRunning() {
+        return running;
+    }
+
+    /** Whether the sheet's own dialog can still be touched (its activity not finishing or destroyed). */
+    private static boolean alive(Activity activity, AlertDialog dialog) {
+        return !activity.isFinishing() && !activity.isDestroyed() && dialog.isShowing();
+    }
+
+    /** Close (and touching outside / Back) only when nothing runs. */
+    private static void busy(AlertDialog dialog, Button close, boolean busy) {
+        dialog.setCancelable(!busy);
+        if (close != null) close.setEnabled(!busy);
     }
 
     /**
@@ -79,6 +104,7 @@ public final class EventCodeSheet {
         dialog.show();
 
         final Button action = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+        final Button close = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
         final EventCode[] opened = {null};
         final boolean[] busy = {false};
         if (action == null) return;
@@ -97,6 +123,8 @@ public final class EventCodeSheet {
                     say(status, "Couldn't store the blocks: " + t);
                     return;
                 }
+                running = true;
+                busy(dialog, close, true);
                 new Thread(() -> {
                     EventCode code;
                     String failure = null;
@@ -110,8 +138,10 @@ public final class EventCodeSheet {
                     final EventCode result = code;
                     final String error = failure;
                     activity.runOnUiThread(() -> {
-                        if (activity.isFinishing() || !dialog.isShowing()) return;
+                        running = false;
+                        if (!alive(activity, dialog)) return;
                         busy[0] = false;
+                        busy(dialog, close, false);
                         if (result == null || !result.editable()) {
                             action.setVisibility(View.GONE);
                             say(status, "Read only: " + (result == null ? "the code couldn't be generated (" + error + ")" : result.problem) + ".");
@@ -120,6 +150,7 @@ public final class EventCodeSheet {
                         opened[0] = result;
                         editor.setText(result.body);
                         editor.setEditable(true);
+                        allowKeyboard(dialog, editor);
                         action.setText("Apply");
                         action.setEnabled(true);
                         say(status, "Edit or paste Java, then Apply: statements a block writes become that block, new "
@@ -137,7 +168,8 @@ public final class EventCodeSheet {
             busy[0] = true;
             action.setEnabled(false);
             editor.setEditable(false);
-            dialog.setCancelable(false);
+            running = true;
+            busy(dialog, close, true);
             say(status, "Turning the code into blocks…");
             final EventCode code = opened[0];
             new Thread(() -> {
@@ -158,14 +190,24 @@ public final class EventCodeSheet {
                 }
                 final JavaToBlocks.Result done = result;
                 activity.runOnUiThread(() -> {
-                    if (activity.isFinishing()) return;
-                    busy[0] = false;
-                    dialog.setCancelable(true);
+                    running = false;
+                    boolean shown = alive(activity, dialog);
                     if (done.ok && !done.unchanged) {
-                        dialog.dismiss();
+                        if (shown) dialog.dismiss();
+                        // the host opens the event again; if this activity was recreated meanwhile (dark mode, window
+                        // size), it reopens the instance that replaced it
                         host.reopen(report(done));
                         return;
                     }
+                    if (!shown) {
+                        if (!done.ok) {
+                            Toast.makeText(activity.getApplicationContext(), "Source code not applied: nothing was changed",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                        return;
+                    }
+                    busy[0] = false;
+                    busy(dialog, close, false);
                     action.setEnabled(true);
                     editor.setEditable(true);
                     if (done.ok) {
@@ -198,6 +240,20 @@ public final class EventCodeSheet {
                 });
             }, "EventCodeApply").start();
         });
+    }
+
+    /**
+     * The dialog was created while the editor was read only, so AlertDialog marked its window as not needing the
+     * keyboard (FLAG_ALT_FOCUSABLE_IM: no text editor in it then); now that the editor takes typing, the keyboard must
+     * be able to open.
+     */
+    private static void allowKeyboard(AlertDialog dialog, CodeEditor editor) {
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
+        editor.requestFocus();
     }
 
     /** The changes and notes of an apply, one per line, for the reopened logic editor. */

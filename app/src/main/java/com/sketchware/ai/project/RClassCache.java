@@ -36,17 +36,26 @@ import mod.jbk.util.LogUtil;
  * next to them (files {@code r-classes*.dex}, merged or packaged like the project's DEX). Same classes, same DEX: the
  * cache only skips work whose output is already there. Not used for exports, with ProGuard or StringFog on, below
  * Android 8 (Dx), or when the generated sources hold anything but R.java; Build Settings can switch it off.
+ * <p>
+ * Android may delete files of the cache folder one by one when storage runs low: each marker lists every kept file
+ * with its size, and an entry whose files don't all match is deleted and built again. Only the
+ * {@link #PROJECTS_KEPT} most recently built projects keep entries.
  */
 public final class RClassCache {
 
     private static final String TAG = "RClassCache";
-    private static final String VERSION = "rclass-1";
+    private static final String VERSION = "rclass-2";
+    /** Projects whose cache entries are kept (the most recently built ones); older ones are deleted. */
+    static final int PROJECTS_KEPT = 8;
 
     /** cacheDir/build-cache/r/&lt;sc_id&gt;/&lt;key&gt;: classes/, dex/ and the markers classes.ok, dex.ok */
     private final File entry;
     /** Package folders of the R.java files (com/fixture/m3), whose R.class and R$*.class are the R classes. */
     private final List<String> packages;
     private final int minSdk;
+    /** Verified state of the markers (null: not checked yet). */
+    private Boolean classesOk;
+    private Boolean dexOk;
 
     private RClassCache(File entry, List<String> packages, int minSdk) {
         this.entry = entry;
@@ -88,6 +97,8 @@ public final class RClassCache {
             }
             String key = hex(digest.digest());
             File project = new File(new File(new File(cacheRoot, "build-cache"), "r"), scId);
+            if (project.isDirectory()) //noinspection ResultOfMethodCallIgnored
+                project.setLastModified(System.currentTimeMillis());
             return new RClassCache(new File(project, key), packages, minSdk);
         } catch (Exception e) {
             LogUtil.e(TAG, "R class cache not used", e);
@@ -114,11 +125,58 @@ public final class RClassCache {
     }
 
     public boolean hasClasses() {
-        return new File(entry, "classes.ok").isFile();
+        if (classesOk == null) classesOk = verified("classes.ok", "classes");
+        return classesOk;
     }
 
     public boolean hasDex() {
-        return new File(entry, "dex.ok").isFile();
+        if (dexOk == null) dexOk = hasClasses() && verified("dex.ok", "dex");
+        return dexOk;
+    }
+
+    /**
+     * Whether marker {@code name} lists exactly the files under {@code folder} with their sizes. A marker whose files
+     * don't match (partly deleted by the system) is removed with the entry's content, so the build makes it again.
+     */
+    private boolean verified(String name, String folder) {
+        File marker = new File(entry, name);
+        if (!marker.isFile()) return false;
+        try {
+            String expected = new String(java.nio.file.Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8);
+            if (!expected.isEmpty() && expected.equals(manifest(new File(entry, folder)))) return true;
+        } catch (IOException e) {
+            LogUtil.e(TAG, "Couldn't read " + marker, e);
+        }
+        LogUtil.d(TAG, "Kept R " + folder + " incomplete: built again");
+        delete(entry);
+        return false;
+    }
+
+    /** "relative/path<TAB>size" of every file under {@code dir}, sorted, one per line ("" when there is none). */
+    static String manifest(File dir) {
+        List<String> lines = new ArrayList<>();
+        listFiles(dir, "", lines);
+        Collections.sort(lines);
+        StringBuilder out = new StringBuilder();
+        for (String line : lines) out.append(line).append('\n');
+        return out.toString();
+    }
+
+    private static void listFiles(File dir, String prefix, List<String> out) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            if (file.isDirectory()) listFiles(file, prefix + file.getName() + "/", out);
+            else out.add(prefix + file.getName() + "\t" + file.length());
+        }
+    }
+
+    private static void writeMarker(File marker, File folder) throws IOException {
+        String manifest = manifest(folder);
+        if (manifest.isEmpty()) throw new IOException("nothing to keep in " + folder);
+        try (OutputStream out = new FileOutputStream(marker)) {
+            out.write(manifest.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     /** Folder of the kept R classes (for ECJ's classpath). */
@@ -160,11 +218,14 @@ public final class RClassCache {
                 }
             }
             if (copied == 0) return;
-            if (!new File(temp, "classes.ok").createNewFile()) throw new IOException("marker");
+            writeMarker(new File(temp, "classes.ok"), out);
             pruneOthers();
             if (!temp.renameTo(entry)) {
                 LogUtil.d(TAG, "R classes already kept by another build");
             }
+            classesOk = null;
+            dexOk = null;
+            pruneProjects(entry.getParentFile(), PROJECTS_KEPT);
         } catch (Exception e) {
             LogUtil.e(TAG, "Couldn't keep the R classes", e);
         } finally {
@@ -194,12 +255,14 @@ public final class RClassCache {
                 D8.run(builder.build());
                 File dex = new File(entry, "dex");
                 delete(dex);
+                delete(new File(entry, "dex.ok"));
                 boolean kept = temp.renameTo(dex);
                 try {
-                    kept = kept && new File(entry, "dex.ok").createNewFile();
+                    if (kept) writeMarker(new File(entry, "dex.ok"), dex);
                 } catch (IOException e) {
                     kept = false;
                 }
+                dexOk = null;
                 if (!kept) {
                     // the DEX is right, only keeping it failed: this build uses it as it is
                     LogUtil.d(TAG, "R DEX not kept, used for this build only");
@@ -231,6 +294,20 @@ public final class RClassCache {
             if (file.isDirectory()) classFiles(file, out);
             else if (file.getName().endsWith(".class")) out.add(file.toPath());
         }
+    }
+
+    /**
+     * Keeps the entries of the {@code keep} most recently used projects in {@code root}'s parent (one folder per
+     * project): {@code project} itself and the newest others. A project that was deleted loses its entry this way.
+     */
+    static void pruneProjects(File project, int keep) {
+        File root = project == null ? null : project.getParentFile();
+        File[] projects = root == null ? null : root.listFiles(File::isDirectory);
+        if (projects == null || projects.length <= keep) return;
+        List<File> others = new ArrayList<>();
+        for (File p : projects) if (!p.equals(project)) others.add(p);
+        Collections.sort(others, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        for (int i = keep - 1; i < others.size(); i++) delete(others.get(i));
     }
 
     private void pruneOthers() {

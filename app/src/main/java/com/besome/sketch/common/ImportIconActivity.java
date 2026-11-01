@@ -80,10 +80,11 @@ public class ImportIconActivity extends BaseAppCompatActivity implements View.On
                 if (iconNameValidator.b() && adapter.selectedIconPosition >= 0) {
                     String path = icons.get(adapter.selectedIconPosition).second;
                     if (path.startsWith(SYMBOL)) {
-                        // v1.9.0: the symbol as a PNG of the 2014 icons' size (48 px = 24 dp at xhdpi), in the chosen colour
+                        // v1.9.0: the symbol as a PNG of the 2014 icons' size (48 px = 24 dp at xhdpi), in the chosen colour;
+                        // in the app's files (not its cache, which the system may clear before the Image Manager saves)
                         try {
                             path = com.sketchware.ai.ui.SymbolIcons.savePng(path.substring(SYMBOL.length()), 48, symbolColor(),
-                                    new File(new File(getCacheDir(), "material_symbols"), iconName.getText().toString() + ".png"))
+                                    new File(new File(getFilesDir(), "material_symbols"), iconName.getText().toString() + ".png"))
                                     .getAbsolutePath();
                         } catch (Exception e) {
                             mod.SketchwareUtil.toastError("Couldn't make the icon: " + e.getMessage());

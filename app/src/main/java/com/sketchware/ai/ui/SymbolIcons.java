@@ -173,8 +173,8 @@ public final class SymbolIcons {
             if (Character.isLetter(c)) {
                 command = c;
                 i++;
-            } else if (command == 0) {
-                return false;
+            } else if (command == 0 || command == 'Z' || command == 'z') {
+                return false;   // numbers after a closepath: not a path this parser reads (it would never move on)
             } else if (command == 'M') {
                 command = 'L';   // coordinates after a moveto are linetos
             } else if (command == 'm') {
