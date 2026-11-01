@@ -92,7 +92,7 @@ hardware virtualisation; details: `engineering/v1.9.0-verification.md`):
   ESCPOS (922), Material 3 (908 + AAB): all build, 0 warnings;
 - Export to Android Studio of 8 projects (Kotlin, min SDK 19, Firebase / AdMob / Maps …) built with Gradle 9.8.2;
 - release checks: 16 KB alignment, v2 signature, 0 risky calls, 0 unresolved Kotlin references, 7,860 resource ids;
-- three separate code reviews; all their findings fixed (verification file, section 8).
+- four separate code reviews; their findings fixed, four low items listed for the next release (verification file, section 8).
 
 **Not run here:** the source sheet, the design canvas sizes and Device button, Project Configuration's Target device
 row, the icon screen (Activities), a generated app on a watch or TV, build times on a phone. Please try on the phone:
@@ -100,6 +100,8 @@ row, the icon screen (Activities), a generated app on a watch or TV, build times
    shows a set block and setText with the greeting block; the Variables list has greeting.
 2. Run the same project twice without changes: the second build should be clearly faster (Compile log, Build map).
 3. Project Configuration → Target device → Wear OS, then the design editor's Device button.
+4. Android 15 target: screens not under the status bar, Back in the logic and design editors still saves, and a
+   Telugu TextView on the design canvas looks as in the built app.
 
 ## Files
 
