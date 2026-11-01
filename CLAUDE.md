@@ -85,8 +85,9 @@ dexed once per R.java set, markers list every file + size; `ResourceCache`: proj
 archives; 8 projects kept; Build Settings → Build cache); Target device (`DeviceTargets`: Wear OS / Android TV manifest,
 canvas viewports `ViewportViewEditor`); Material Symbols in the icon screen (`SymbolIcons`); bundled android-37.0 jar
 with FingerprintManager kept (`tools/builtin-libs/android_jar.py`); D8/R8 8.13.25; IDE build Gradle 9.8.2 / AGP 9.5.0 /
-KGP 2.4.21, compileSdk 37, target 35 (edge-to-edge opt-out in AppTheme, enableOnBackInvokedCallback=false); Export to Android Studio on the same stack, compileSdk 37; APK @@APK190@@; patches zip
-@@ZIP190@@; GitHub `main` @@MAIN190@@, `binaries` @@BIN190@@). Local branch
+KGP 2.4.21, compileSdk 37, target 35 (edge-to-edge opt-out in AppTheme, enableOnBackInvokedCallback=false); Export to Android Studio on the same stack, compileSdk 37; APK v1.9.0-a52c25a, versionCode 190, sha256
+`6008c1e1...e74d281f`, 142,270,119 bytes, target 35; patches zip and the GitHub `main` / `binaries` commits: the `binaries` README
+(a zip can't list its own sum)). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

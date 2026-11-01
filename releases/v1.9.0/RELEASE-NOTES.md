@@ -83,7 +83,16 @@ black, grey or white like the other icons.
 
 ## Checked
 
-@@CHECKED@@
+On this APK's own classes on the Android 12 (API 31) ART runtime (no phone, no emulator: the build machine has no
+hardware virtualisation; details: `engineering/v1.9.0-verification.md`):
+- Java editor fixture 919: 82/82 checks (variables registered, locals that must stay code stay code), then it builds;
+- your 31 Oct MainActivity lines in a Material 3 project: 8/8, `String userNotes` is now a String variable;
+- source sheet Edit / Apply (925): 17/17; Run build cache (926): repeat build 36 s instead of 315 s, same app;
+- Wear OS / Android TV manifests (927, 928 + AAB), fingerprint code against Android 17 (929), Library Resolver (920),
+  ESCPOS (922), Material 3 (908 + AAB): all build, 0 warnings;
+- Export to Android Studio of 8 projects (Kotlin, min SDK 19, Firebase / AdMob / Maps …) built with Gradle 9.8.2;
+- release checks: 16 KB alignment, v2 signature, 0 risky calls, 0 unresolved Kotlin references, 7,860 resource ids;
+- three separate code reviews; all their findings fixed (verification file, section 8).
 
 **Not run here:** the source sheet, the design canvas sizes and Device button, Project Configuration's Target device
 row, the icon screen (Activities), a generated app on a watch or TV, build times on a phone. Please try on the phone:
