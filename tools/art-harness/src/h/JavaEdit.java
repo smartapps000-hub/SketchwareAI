@@ -663,6 +663,27 @@ public class JavaEdit {
                 && notes20.contains("local20 stays a local variable in its code: a listener"), notes20);
         Object r20b = save(code());
         check("review locals: the shown code saves unchanged", ok(r20b) && (Boolean) get(r20b, "unchanged"), report(r20b));
+        // which events can run again, and which calls re-run them (AutoVariables.reentry / refires)
+        Class<?> av = c("com.sketchware.ai.editor.AutoVariables");
+        java.lang.reflect.Method reentry = av.getDeclaredMethod("reentry", String.class, String.class);
+        java.lang.reflect.Method refires = av.getDeclaredMethod("refires", String.class, int.class, String.class);
+        reentry.setAccessible(true);
+        refires.setAccessible(true);
+        int listener = (Integer) reentry.invoke(null, "event", "onTextChanged");
+        int click = (Integer) reentry.invoke(null, "event", "onClick");
+        String kinds = listener + " " + click + " " + reentry.invoke(null, "event", "onSensorChanged") + " "
+                + reentry.invoke(null, "onCreate", "initializeLogic") + " " + reentry.invoke(null, "moreBlock", null);
+        check("review locals: change events and MoreBlocks can run again, onClick only by performClick",
+                kinds.equals("1 2 2 0 1"), kinds);
+        String fires = refires.invoke(null, "textview1.setText(q);", listener, "edittext1") + " "
+                + refires.invoke(null, "edittext1.setText(q.trim());", listener, "edittext1") + " "
+                + refires.invoke(null, "_search(q);", listener, "edittext1") + " "
+                + refires.invoke(null, "button1.performClick();", click, "button1") + " "
+                + refires.invoke(null, "textview1.setText(q);", click, "button1") + " "
+                + refires.invoke(null, "textview1.setText(q);", listener, null) + " "
+                + refires.invoke(null, "myedittext1.setText(q);", listener, "edittext1");
+        check("review locals: only the event's own view, performClick or a MoreBlock re-run it",
+                fires.equals("false true true true false true false"), fires);
 
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());
