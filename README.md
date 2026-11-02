@@ -2,6 +2,15 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.1 (versionCode 191, `v1.9.1-a13b4c4-minApi26`)
+
+`apk/Sketchware_AI_v1.9.1.apk`: 142,282,279 bytes, sha256 `938247d0773b2b3555a87d0a28cfd3ae80edeb18a076e661f5963bfb7bdf389b`
+(Git LFS). Fixes Package APK on duplicate library files, the false -ktx warnings, empty true/false slots; aligned Run-build
+APKs. Release notes: `releases/v1.9.1/RELEASE-NOTES.md` on `main` (commit 9b1a68e).
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.1.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.1.apk
+
 ## v1.9.0 (versionCode 190, `v1.9.0-a52c25a-minApi26`)
 
 Java editor registers variables (String / Number / Boolean with set blocks), the logic editor's `</>` sheet in Material 3
