@@ -235,7 +235,7 @@ public class Ox {
                     }
                 } else if (nx.c().equals("CollapsingToolbarLayout")) {
                     if (!toNotAdd.contains("app:contentScrim")) {
-                        nx.a("app", "contentScrim", "?attr/colorPrimary");
+                        nx.a("app", "contentScrim", "@color/colorPrimary");   // v1.9.2: the project colour, as on the canvas
                     }
                 } else {
                     if (!toNotAdd.contains("android:background")) {

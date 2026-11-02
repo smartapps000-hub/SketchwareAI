@@ -84,6 +84,8 @@ public final class EventCodeSheet {
         final TextView status = new TextView(activity);
         status.setTextColor(0xFFCAC4D0);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        status.setSingleLine(false);
+        status.setMaxLines(2);
         status.setPadding((int) (4 * density), 0, (int) (4 * density), (int) (6 * density));
         status.setVisibility(View.GONE);
 
@@ -91,7 +93,7 @@ public final class EventCodeSheet {
         box.setOrientation(LinearLayout.VERTICAL);
         box.addView(status, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         // a fixed share of the screen: the buttons below always stay on screen
-        int height = (int) (activity.getResources().getDisplayMetrics().heightPixels * 0.55f);
+        int height = (int) (activity.getResources().getDisplayMetrics().heightPixels * 0.62f);
         box.addView(editor, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
 
         final AlertDialog dialog = new ObAlertBuilder(activity)
@@ -153,8 +155,8 @@ public final class EventCodeSheet {
                         allowKeyboard(dialog, editor);
                         action.setText("Apply");
                         action.setEnabled(true);
-                        say(status, "Edit or paste Java, then Apply: statements a block writes become that block, new "
-                                + "variables are added to the project, the rest becomes add source blocks.");
+                        // v1.9.2: one short line, so the code keeps the room
+                        say(status, "Edit or paste Java, then Apply.");
                     });
                 }, "EventCodeOpen").start();
                 return;
@@ -251,9 +253,18 @@ public final class EventCodeSheet {
         Window window = dialog.getWindow();
         if (window != null) {
             window.clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
-            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    | WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
         }
+        editor.setFocusable(true);
+        editor.setFocusableInTouchMode(true);
         editor.requestFocus();
+        // v1.9.2: the keyboard opens with Edit (it took a second tap into the code before)
+        editor.post(() -> {
+            android.view.inputmethod.InputMethodManager input = (android.view.inputmethod.InputMethodManager)
+                    editor.getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            if (input != null) input.showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+        });
     }
 
     /** The changes and notes of an apply, one per line, for the reopened logic editor. */

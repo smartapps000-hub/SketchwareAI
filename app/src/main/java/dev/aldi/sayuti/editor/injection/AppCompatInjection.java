@@ -48,10 +48,23 @@ public class AppCompatInjection {
             for (Map<String, Object> injection : Objects.requireNonNull(projectInjections.get(projectFile.fileName))) {
                 Object value;
                 if (str.toLowerCase().equals(injection.get("type")) && (value = injection.get("value")) instanceof String) {
-                    nx.b((String) value);
+                    nx.b(projectColour((String) value));
                 }
             }
         }
+    }
+
+    /**
+     * v1.9.2: the toolbar's {@code ?attr/colorPrimary} becomes the project colour itself ({@code @color/colorPrimary},
+     * the same value while the theme's colorPrimary is the project's). With dynamic colour on, the theme's colorPrimary
+     * is the wallpaper's (purple on the owner's phone) while the design canvas shows the project colour: the app bar
+     * now looks as on the canvas; buttons and other roles still follow dynamic colour.
+     */
+    static String projectColour(String attribute) {
+        String compact = attribute.replace(" ", "");
+        if (compact.equals("android:background=\"?attr/colorPrimary\"")) return "android:background=\"@color/colorPrimary\"";
+        if (compact.equals("app:contentScrim=\"?attr/colorPrimary\"")) return "app:contentScrim=\"@color/colorPrimary\"";
+        return attribute;
     }
 
     private static List<Map<String, Object>> readAppCompatInjections(String sc_id, String activityFilename) {
