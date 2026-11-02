@@ -370,7 +370,8 @@ public class Hx {
                     case "RequestNetwork":
                     case "BluetoothConnect":
                         for (d value : c) {
-                            value.b = true;
+                            // v1.9.4: a WebView's download listener only when one of its events is used
+                            if (!value.a.equals(com.sketchware.ai.project.WebCode.LISTENER)) value.b = true;
                         }
                         break;
 

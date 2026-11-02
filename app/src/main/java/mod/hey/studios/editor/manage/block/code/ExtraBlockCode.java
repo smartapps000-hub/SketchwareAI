@@ -97,15 +97,21 @@ public class ExtraBlockCode {
             blockInfo = BlockLoader.getBlockFromProject(fx.e.sc_id, blockBean.opCode);
         }
 
+        String code = blockInfo.getCode();
+        // v1.9.4: {host} = the activity or fragment the block is in, also from inside a listener (Activity.this)
+        if (code != null && code.contains("{host}") && (com.sketchware.ai.project.PermissionCode.isOpCode(blockBean.opCode)
+                || com.sketchware.ai.project.WebCode.OP_FILE_UPLOAD.equals(blockBean.opCode))) {
+            code = code.replace("{host}", fx.c == null || fx.c.isEmpty() ? "this" : fx.c + ".this");
+        }
         String formattedCode;
         if (parameters.size() > 0) {
             try {
-                formattedCode = String.format(blockInfo.getCode(), parameters.toArray(new Object[0]));
+                formattedCode = String.format(code, parameters.toArray(new Object[0]));
             } catch (Exception e) {
                 formattedCode = "/* Failed to resolve Custom Block's code: " + e + " */";
             }
         } else {
-            formattedCode = blockInfo.getCode();
+            formattedCode = code;
         }
 
         return formattedCode;

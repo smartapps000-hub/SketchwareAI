@@ -657,6 +657,11 @@ public class ExtraPaletteBlock {
                         logicEditor.a(" ", "webViewStopLoading");
                         logicEditor.a(" ", "webViewZoomIn");
                         logicEditor.a(" ", "webViewZoomOut");
+                        // v1.9.4: downloads, desktop mode, clear data, file upload (SketchWeb)
+                        logicEditor.a(" ", "webAllowDownloads");
+                        logicEditor.a(" ", "webSetDesktopMode");
+                        logicEditor.a(" ", "webClearCookiesAndCache");
+                        logicEditor.a(" ", "webEnableFileUpload");
                     }
                 }
             }
@@ -943,6 +948,12 @@ public class ExtraPaletteBlock {
                 logicEditor.a("s", "intentGetString");
                 logicEditor.a("f", "finishActivity");
                 logicEditor.a("f", "finishAffinity");
+                // v1.9.4: runtime permissions (SketchPermission)
+                logicEditor.a("Permissions", 0xff555555);
+                logicEditor.a(" ", "requestAutoPermission");
+                logicEditor.a(" ", "requestCustomPermission");
+                logicEditor.a("b", "hasAutoPermission");
+                logicEditor.a("s", "getPermissionStatus");
                 if (extraBlocks.isComponentUsed(ComponentBean.COMPONENT_TYPE_INTENT)
                         || extraBlocks.isCustomVarUsed("Intent")) {
                     logicEditor.a("Intent", 0xff555555);

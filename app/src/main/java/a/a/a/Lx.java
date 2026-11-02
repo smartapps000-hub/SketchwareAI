@@ -343,6 +343,11 @@ public class Lx {
                         "super.onPageStarted(_param1, _param2, _param3);\r\n" +
                         "}";
 
+            case "onDownloadStart":
+            case "onDownloadComplete":
+                // v1.9.4 (com.sketchware.ai.project.WebCode)
+                return com.sketchware.ai.project.WebCode.eventCode(eventName, eventLogic);
+
             case "onPageFinished":
                 return "@Override\r\n" +
                         "public void onPageFinished(WebView _param1, String _param2) {\r\n" +
@@ -1803,6 +1808,9 @@ public class Lx {
                 return "_" + componentName + "_create_user_listener = new OnCompleteListener<AuthResult>() {\r\n"
                         + eventLogic + "\r\n"
                         + "};";
+
+            case com.sketchware.ai.project.WebCode.LISTENER:
+                return com.sketchware.ai.project.WebCode.listenerCode(componentName, eventLogic);
 
             case "webViewClient":
                 return componentName + ".setWebViewClient(new WebViewClient() {\r\n"

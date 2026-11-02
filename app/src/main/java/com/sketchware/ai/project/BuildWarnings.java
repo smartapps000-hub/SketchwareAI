@@ -54,6 +54,8 @@ public final class BuildWarnings {
             String java = build.getValue(BuildSettings.SETTING_JAVA_VERSION, ModernProjectDefaults.defaultJavaVersion());
             String customJar = build.getValue(BuildSettings.SETTING_ANDROID_JAR_PATH, "");
             jq features = project.N;
+            // v1.9.4: permissions the permission blocks added to the manifest (PermissionCode.writeManifest)
+            if (features != null && features.permissionNote != null) note(features.permissionNote);
 
             if (target > BUNDLED_ANDROID_JAR_API && customJar.trim().isEmpty()) {
                 note("Target API " + target + " (Android " + (target - 20) + "), but code is compiled against the bundled "

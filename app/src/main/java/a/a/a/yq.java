@@ -633,6 +633,31 @@ public class yq {
                             N.addPermission(jq.PERMISSION_ACCESS_NETWORK_STATE);
                             break;
 
+                        // v1.9.4: permission blocks declare their group's permissions (PermissionCode), nothing
+                        // is requested in onCreate for them; downloads need INTERNET for DownloadManager
+                        case com.sketchware.ai.project.PermissionCode.OP_REQUEST:
+                        case com.sketchware.ai.project.PermissionCode.OP_HAS:
+                        case com.sketchware.ai.project.PermissionCode.OP_STATUS:
+                            N.permissionBlocksUsed = true;
+                            if (bean.parameters.size() > 0
+                                    && com.sketchware.ai.project.PermissionCode.isGroup(bean.parameters.get(0))) {
+                                N.permissionGroups.add(bean.parameters.get(0));
+                            }
+                            break;
+
+                        case com.sketchware.ai.project.PermissionCode.OP_REQUEST_NAME:
+                            N.permissionBlocksUsed = true;
+                            if (bean.parameters.size() > 0
+                                    && com.sketchware.ai.project.PermissionCode.isPermissionName(bean.parameters.get(0))) {
+                                N.permissionNames.add(bean.parameters.get(0));
+                            }
+                            break;
+
+                        case com.sketchware.ai.project.WebCode.OP_ALLOW_DOWNLOADS:
+                            N.addPermission(jq.PERMISSION_INTERNET);
+                            N.webDownloadsUsed = true;
+                            break;
+
                         default:
                     }
                 }
@@ -782,6 +807,12 @@ public class yq {
                         com.sketchware.ai.project.FontCode.helperClass(packageName)));
             }
         }
+
+        // v1.9.4: SketchPermission.java / SketchWeb.java when a generated or custom Java file calls them
+        addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.PermissionCode.CLASS_NAME,
+                com.sketchware.ai.project.PermissionCode.helperClass(packageName, N.g));
+        addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.WebCode.CLASS_NAME,
+                com.sketchware.ai.project.WebCode.helperClass(packageName));
 
         // Generate layouts unless a custom version of it exists already
         // at /Internal storage/.sketchware/data/<sc_id>/files/resource/layout/
@@ -979,6 +1010,31 @@ public class yq {
      * v1.8.5: adds a generated helper class (M3Widgets) when a layout of this generation uses its tag and the user has
      * no Java file of that name.
      */
+    /** v1.9.4: a helper class a generated activity or a custom Java file of the project calls ({@code Name.}). */
+    private static void addCodeHelper(List<SrcCodeBean> srcCodeBeans, List<File> javaFiles, String javaDir,
+                                      String className, String source) {
+        if (javaFiles.contains(new File(javaDir + className + ".java"))) return;
+        String call = className + ".";
+        boolean used = false;
+        for (SrcCodeBean bean : srcCodeBeans) {
+            if (bean.srcFileName != null && bean.srcFileName.endsWith(".java") && bean.source != null
+                    && bean.source.contains(call)) {
+                used = true;
+                break;
+            }
+        }
+        if (!used) {
+            for (File custom : javaFiles) {
+                if (custom.isFile() && custom.getName().endsWith(".java")
+                        && FileUtil.readFile(custom.getAbsolutePath()).contains(call)) {
+                    used = true;
+                    break;
+                }
+            }
+        }
+        if (used) srcCodeBeans.add(new SrcCodeBean(className + ".java", source));
+    }
+
     private static void addHelperClass(List<SrcCodeBean> srcCodeBeans, List<File> javaFiles, String javaDir,
                                        String className, String source) {
         if (javaFiles.contains(new File(javaDir + className + ".java"))) return;

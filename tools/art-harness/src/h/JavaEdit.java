@@ -597,7 +597,8 @@ public class JavaEdit {
         v = vars();
         check("variables: String, Number, Boolean registered from declarations",
                 v.contains("2=userName; ") && v.contains("1=total; ") && v.contains("0=shown; "), v);
-        check("variables: int kept as a custom variable of type int", v.contains("6=private int clickCount; "), v);
+        // v1.9.4: an int whose every use works the same with a double is a Number variable (safe int converter)
+        check("variables: int used safely becomes a Number variable", v.contains("1=clickCount; ") && !v.contains("private int clickCount"), v);
         check("variables: undeclared assignments registered by their value", v.contains("1=attempts; ") && v.contains("1=rating; ") && v.contains("2=label; "), v);
         check("variables: declared twice / captured by a listener stay locals", !v.contains("twice") && !v.contains("captured"), v);
         all.clear();
@@ -612,9 +613,10 @@ public class JavaEdit {
             cur = nx < 0 ? null : all.get(String.valueOf(nx));
         }
         check("variables: set blocks instead of add source", ops.toString().equals(
-                "setVarString setText setVarInt setVarBoolean addSourceDirectly setVarInt setVarInt setVarString addSourceDirectly "), ops.toString());
+                "setVarString setText setVarInt setVarBoolean setVarInt setVarInt setVarInt setVarString addSourceDirectly "), ops.toString());
         if (chain19.size() == 9) {
-            check("variables: int assignment kept as code", sourceOf(chain19.get(4)).equals("clickCount = 3;"), sourceOf(chain19.get(4)));
+            check("variables: the int's assignment is a set block", String.valueOf(get(chain19.get(4), "parameters")).equals("[clickCount, 3]"),
+                    String.valueOf(get(chain19.get(4), "parameters")));
             @SuppressWarnings("unchecked") List<String> p1 = (List<String>) get(chain19.get(1), "parameters");
             Object g1 = p1.size() == 2 && p1.get(1).startsWith("@") ? all.get(p1.get(1).substring(1)) : null;
             check("variables: setText(userName) reads the new variable", g1 != null && "getVar".equals(get(g1, "opCode"))
@@ -638,7 +640,7 @@ public class JavaEdit {
         write("javaedit-19-variables.java", regenerated);
         check("variables: generated again with fields and assignments", regenerated.contains("private String userName = \"\";")
                 && regenerated.contains("userName = \"Ravi\";") && !regenerated.contains("String userName = \"Ravi\";")
-                && regenerated.contains("private int clickCount;") && regenerated.contains("clickCount = 3;")
+                && regenerated.contains("private double clickCount = 0;") && regenerated.contains("clickCount = 3;")
                 && regenerated.contains("private double attempts = 0;") && regenerated.contains("total = 2.5d;") && regenerated.contains("rating = 4.5d;") && regenerated.contains("label = edittext1.getText().toString();")
                 && regenerated.contains("String captured = \"x\";") && regenerated.contains("String twice = \"1\";"), "");
         Object r19 = save(regenerated);
@@ -894,6 +896,45 @@ public class JavaEdit {
         check("more value blocks: generated again as typed", same22, missing22.toString());
         Object r22b = save(regenerated22);
         check("more value blocks: the shown code saves unchanged", ok(r22b) && (Boolean) get(r22b, "unchanged"), report(r22b));
+
+        // 23. v1.9.4 safe int converter: an int local is a Number variable when every use works the same with a double
+        // (increments, + - * on itself, comparisons, casts); text, division or a method argument keep it an int
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed23 = {
+                "int taps23 = 0;",
+                "taps23++;",
+                "taps23 = taps23 + 2;",
+                "textview1.setText(String.valueOf((long)(taps23)));",
+                "done = taps23 > 3;",
+                "int shown23 = 4;",
+                "textview1.setText(String.valueOf(shown23));",
+                "int half23 = 7;",
+                "half23 = half23 / 2;"};
+        for (int k = 0; k < typed23.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed23[k]);
+        Object r23 = save(join(l));
+        check("safe int: saved", ok(r23), report(r23));
+        String v23 = vars();
+        check("safe int: used safely -> Number, text / division -> int", v23.contains("1=taps23; ")
+                && v23.contains("6=private int shown23; ") && v23.contains("6=private int half23; "), v23);
+        String notes23 = String.valueOf(get(r23, "notes"));
+        check("safe int: the save says why", notes23.contains("taps23 (int) is a Number variable")
+                && notes23.contains("shown23 stays an int") && notes23.contains("half23 stays an int"), notes23);
+        String ops23 = chainOps("button2_onClick");
+        check("safe int: the Number variable's lines are blocks", ops23.startsWith("setVarInt increaseInt setVarInt setText setVarBoolean"), ops23);
+        String regenerated23 = code();
+        write("javaedit-23-safeint.java", regenerated23);
+        check("safe int: generated with a double field, lines as typed", regenerated23.contains("private double taps23 = 0;")
+                && regenerated23.contains("private int shown23;") && regenerated23.contains("private int half23;")
+                && regenerated23.contains("taps23 = 0;") && regenerated23.contains("taps23++;")
+                && regenerated23.contains("taps23 = taps23 + 2;") && regenerated23.contains("textview1.setText(String.valueOf((long)(taps23)));")
+                && regenerated23.contains("done = taps23 > 3;") && regenerated23.contains("half23 = half23 / 2;"), "");
+        Object r23b = save(regenerated23);
+        check("safe int: the shown code saves unchanged", ok(r23b) && (Boolean) get(r23b, "unchanged"), report(r23b));
 
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());

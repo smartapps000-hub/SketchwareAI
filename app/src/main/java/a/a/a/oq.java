@@ -501,6 +501,8 @@ public class oq {
 
         if (classInfo.a("WebView")) {
             eventList.add("webViewClient");
+            // v1.9.4: download events (com.sketchware.ai.project.WebCode)
+            eventList.add(com.sketchware.ai.project.WebCode.LISTENER);
         }
 
         if (classInfo.a("CalendarView")) {
@@ -608,6 +610,11 @@ public class oq {
             case "webViewClient":
                 eventList.add("onPageStarted");
                 eventList.add("onPageFinished");
+                break;
+
+            case com.sketchware.ai.project.WebCode.LISTENER:
+                eventList.add(com.sketchware.ai.project.WebCode.EVENT_DOWNLOAD_START);
+                eventList.add(com.sketchware.ai.project.WebCode.EVENT_DOWNLOAD_COMPLETE);
                 break;
 
             case "onDateChangeListener":
@@ -756,6 +763,8 @@ public class oq {
         if (classInfo.a("WebView")) {
             eventList.add("onPageStarted");
             eventList.add("onPageFinished");
+            eventList.add(com.sketchware.ai.project.WebCode.EVENT_DOWNLOAD_START);
+            eventList.add(com.sketchware.ai.project.WebCode.EVENT_DOWNLOAD_COMPLETE);
         }
 
         if (classInfo.a("CalendarView")) {

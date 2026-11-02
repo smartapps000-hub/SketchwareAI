@@ -542,3 +542,58 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   the card's button / loading / result re-anchored below it with copied RelativeLayout params) for Sign APK, Android
   Studio and App Bundle; `fitResultRows` (result rows wrap their text, 24 dp minimum, 10 dp above Send). The App Bundle
   button had taken the Android Studio button's LayoutParams object (its margins moved that button too): own params now.
+
+## v1.9.4 additions
+
+- **Permission blocks** (`project.PermissionCode`, owner's directive 2 Nov 2026): Component palette section
+  "Permissions": `requestAutoPermission %m.permissionGroup`, `requestCustomPermission %s` (a permission name),
+  `hasAutoPermission` (b), `getPermissionStatus` (s: GRANTED / DENIED / NEVER_ASK_AGAIN); menu `permissionGroup`
+  (ExtraMenuBean): STORAGE, CAMERA, MICROPHONE, LOCATION, BLUETOOTH, NOTIFICATIONS, PHONE, SMS. Block code uses
+  `{host}`, which `ExtraBlockCode` replaces with `<Activity>.this` (Fx.c: the class the block is in) for these blocks
+  and webEnableFileUpload only, so the blocks work inside listeners. Generated helper `SketchPermission` (Java 7, min SDK 19, `PermissionCode.helperClass`, written by
+  `yq.addCodeHelper` when a generated or custom Java file calls `SketchPermission.`): `permissions(group, sdk, target)`
+  decides at run time (STORAGE: READ_MEDIA_IMAGES/VIDEO/AUDIO + VISUAL_USER_SELECTED for API 34+/target 34+, the
+  three for 33+/33+, READ (+WRITE up to API 29 or target < 30) otherwise; BLUETOOTH: CONNECT + SCAN for 31+/31+, else
+  FINE_LOCATION; NOTIFICATIONS: POST_NOTIFICATIONS for 33+/33+, else nothing), `has` (LOCATION: fine or coarse;
+  STORAGE 34+: selected photos count), `status` (NEVER_ASK_AGAIN = asked before + no rationale), `request` (request
+  codes 7401-7408, a permission name 7500; one dialog at a time: later requests queue for up to 60 s; nothing to ask →
+  the answer is posted to the activity's onRequestPermissionsResult, by reflection below API 23), `onResult`.
+- **Permission events**: activity events `onPermissionGranted %s.permissionGroup` and `onPermissionDenied
+  %s.permissionGroup %b.neverAskAgain` (EventsHandler; code `public void _onPermissionGranted(final String
+  _permissionGroup)`). Jx writes `onRequestPermissionsResult` when PermissionManager needs it (File blocks, requestCode
+  1000 → initializeLogic, unchanged) or the activity uses the blocks/events (`PermissionCode.usedBy`), with
+  `PermissionCode.resultCode`: `SketchPermission.onResult` then the events the activity has; every activity of a
+  project that uses a permission block anywhere gets it (`jq.permissionBlocksUsed`), so a block in a Fragment releases
+  the helper's one-dialog lock through its activity. An answer with no permissions (interrupted dialog) is never
+  reported as "never ask again". Without AppCompat the
+  `super` call is guarded with `SDK_INT >= 23` (android.app.Activity has no such method below 23). Fragments: a block
+  asks through the fragment's activity; the events are activity events.
+- **Manifest** (`PermissionCode.manifestEntries` / `writeManifest`, from Ix after every other permission writer
+  (built-ins, Permission manager, components, manifest injections: their names are read back from the manifest text)): every
+  permission a group can need, `maxSdkVersion` where newer Android ignores it (STORAGE: READ 32 for target 33+, WRITE 29
+  for target 30+; BLUETOOTH target 31+: BLUETOOTH / ADMIN / FINE_LOCATION 30, SCAN `neverForLocation`); a permission
+  two groups need keeps the wider range; a name already written is not written twice (a duplicate fails Gradle's
+  manifest merger) and keeps its own attributes. The File blocks' READ/WRITE stay as upstream writes them (no
+  maxSdkVersion: their onCreate check would otherwise ask again at every start on Android 11-12, review finding). The
+  web block "allow downloads" adds WRITE_EXTERNAL_STORAGE maxSdkVersion 22 when min SDK < 23 (the download manager of
+  Android 4.4-5.1 needs it even for the app's own folder; AOSP DownloadProvider read). The added names go to the build
+  log's notes (`jq.permissionNote`, noted in `BuildWarnings.begin`, which runs after generation).
+- **Web blocks** (`project.WebCode`): View palette under WebView: `webAllowDownloads %m.webview %s %b %s` (folder,
+  notification on completion, MIME filter), `webSetDesktopMode %b`, `webClearCookiesAndCache`, `webEnableFileUpload`
+  ({host}); WebView events `onDownloadStart %s.url %s.mimeType %d.contentLength` and `onDownloadComplete %s.url
+  %s.fileName %b.success` through the listener `webDownloadListener` (oq lists, Lx event + listener code
+  `SketchWeb.setDownloadEvents(webview, new SketchWeb.DownloadEvents() {…})`). Hx emits a WebView's listeners even
+  without events (upstream): the download listener is excluded from that, so WebView projects without the events
+  generate what they did. Helper `SketchWeb`: one DownloadListener per WebView (WeakHashMap state); DownloadManager with
+  cookies + user agent, Downloads/<folder> on Android 10+ or with WRITE permission, else the app's own Downloads folder
+  (no permission added; INTERNET for the block, as webViewLoadUrl); completion through one receiver
+  (ACTION_DOWNLOAD_COMPLETE, RECEIVER_EXPORTED on 33+); desktop mode = Chrome version from the default user agent in a
+  desktop UA + wide view port, reload; file upload = a WebChromeClient whose onShowFileChooser opens the picker from an
+  android.app.Fragment of its own (`SketchWeb.Chooser`), so the activity's onActivityResult is not involved. No block
+  ignores SSL errors.
+- **Safe int converter** (`AutoVariables.intUnsafe`, owner's decision 2 Nov 2026): an `int` local the Java editor
+  registers becomes a Number variable (double field) only when every use is `n++` / `n--` / `n += k` / `n -= k` (k a
+  whole number), a one-statement self-assignment of + and - only (no text, *, /, %, index, ternary, comparison,
+  assignment or bit operator), a comparison operand, or under a primitive cast (`(int) n`,
+  `String.valueOf((long)(n))`); shifts are read as shifts, not comparisons. Any other use keeps it a custom int and the
+  save names the line. Left: + and - past 2^31 (int wraps, double doesn't).

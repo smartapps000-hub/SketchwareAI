@@ -55,6 +55,9 @@ public class EventsHandler {
         array.add("onCreateContextMenu");
         array.add("onContextItemSelected");
         array.add("onTabLayoutNewTabAdded");
+        // v1.9.4: results of the permission blocks (com.sketchware.ai.project.PermissionCode)
+        array.add(com.sketchware.ai.project.PermissionCode.EVENT_GRANTED);
+        array.add(com.sketchware.ai.project.PermissionCode.EVENT_DENIED);
 
         for (int i = cachedCustomEvents.size() - 1; i >= 0; i--) {
             HashMap<String, Object> customEvent = cachedCustomEvents.get(i);
@@ -228,6 +231,16 @@ public class EventsHandler {
             case "onTabLayoutNewTabAdded":
                 return R.drawable.widget_source;
 
+            case "onPermissionGranted":
+            case "onPermissionDenied":
+                return R.drawable.bg_event_type_activity;
+
+            case "onDownloadStart":
+                return R.drawable.event_on_page_started_48dp;
+
+            case "onDownloadComplete":
+                return R.drawable.event_on_page_finished_48dp;
+
             case " onLongClick":
                 return R.drawable.check_upload_apk_48dp;
 
@@ -286,6 +299,18 @@ public class EventsHandler {
 
             case "onActivityResult":
                 return "onActivityResult";
+
+            case "onPermissionGranted":
+                return "On permission granted";
+
+            case "onPermissionDenied":
+                return "On permission denied";
+
+            case "onDownloadStart":
+                return "On download start";
+
+            case "onDownloadComplete":
+                return "On download complete";
 
             case "initializeLogic":
                 return "initializeLogic";
@@ -350,6 +375,10 @@ public class EventsHandler {
             case "onActivityResult":
             case "initializeLogic":
                 return "";
+
+            case "onPermissionGranted":
+            case "onPermissionDenied":
+                return com.sketchware.ai.project.PermissionCode.eventCode(name, param);
 
             case "onSwipeRefreshLayout":
                 // Changed from: "@Override \npublic void..."
@@ -439,6 +468,18 @@ public class EventsHandler {
             case "onActivityResult":
                 return "%d.requestCode %d.resultCode %m.intent";
 
+            case "onPermissionGranted":
+                return "%s.permissionGroup";
+
+            case "onPermissionDenied":
+                return "%s.permissionGroup %b.neverAskAgain";
+
+            case "onDownloadStart":
+                return "%s.url %s.mimeType %d.contentLength";
+
+            case "onDownloadComplete":
+                return "%s.url %s.fileName %b.success";
+
             case "onTabLayoutNewTabAdded":
             case "onProgressUpdate":
                 return "%d";
@@ -482,6 +523,18 @@ public class EventsHandler {
 
             case "onActivityResult":
                 return "OnActivityResult %d.requestCode %d.resultCode %m.intent.data";
+
+            case "onPermissionGranted":
+                return "When permission granted %s.permissionGroup";
+
+            case "onPermissionDenied":
+                return "When permission denied %s.permissionGroup %b.neverAskAgain";
+
+            case "onDownloadStart":
+                return "When " + name + " download starts %s.url %s.mimeType %d.contentLength";
+
+            case "onDownloadComplete":
+                return "When " + name + " download completes %s.url %s.fileName %b.success";
 
             case "initializeLogic":
                 return "initializeLogic";

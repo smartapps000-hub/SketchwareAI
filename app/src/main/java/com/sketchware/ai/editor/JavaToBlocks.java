@@ -769,8 +769,19 @@ public final class JavaToBlocks {
                 continue;
             }
             int kind = AutoVariables.kindOf(d.type);
-            AutoVariables.Variable variable = new AutoVariables.Variable(d.name, kind,
-                    kind == AutoVariables.CUSTOM ? AutoVariables.storedType(d.type) : d.type);
+            String javaType = kind == AutoVariables.CUSTOM ? AutoVariables.storedType(d.type) : d.type;
+            if (kind == AutoVariables.CUSTOM && "int".equals(d.type)) {
+                // v1.9.4 safe int converter: a Number variable when every use works the same with a double
+                String unsafe = AutoVariables.intUnsafe(e, d.name, line);
+                if (unsafe == null) {
+                    kind = AutoVariables.NUMBER;
+                    javaType = "double";
+                    result.notes.add(d.name + " (int) is a Number variable now: every use of it works the same with a decimal number.");
+                } else {
+                    result.notes.add(d.name + " stays an int (custom variable): " + unsafe + ".");
+                }
+            }
+            AutoVariables.Variable variable = new AutoVariables.Variable(d.name, kind, javaType);
             autoVariables.put(d.name, variable);
             autoRewrites.put(line, new AutoVariables.Rewrite(variable,
                     d.value == null ? null : AutoVariables.assignmentStatement(d.name, kind, d.value)));

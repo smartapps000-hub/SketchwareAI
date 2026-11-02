@@ -464,14 +464,28 @@ public class Jx {
         }
         sb.append("}").append(EOL);
 
-        if (permissionManager.hasPermission && !isFragment) {
+        // v1.9.4: the permission blocks' answers go to the activity's permission events (PermissionCode)
+        // (in every activity when any file uses the blocks: a block in a Fragment asks through its activity)
+        boolean permissionBlocks = !isFragment && (buildConfig.permissionBlocksUsed
+                || com.sketchware.ai.project.PermissionCode.usedBy(projectDataManager, projectFileBean.getJavaName()));
+        if ((permissionManager.hasPermission || permissionBlocks) && !isFragment) {
             sb.append(EOL);
             sb.append("@Override").append(EOL);
             sb.append("public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {").append(EOL);
+            if (permissionBlocks && !buildConfig.g) {
+                // Android 5: android.app.Activity has no onRequestPermissionsResult; SketchPermission calls this one
+                sb.append("if (android.os.Build.VERSION.SDK_INT >= 23) ");
+            }
             sb.append("super.onRequestPermissionsResult(requestCode, permissions, grantResults);").append(EOL);
-            sb.append("if (requestCode == 1000) {").append(EOL);
-            sb.append("initializeLogic();").append(EOL);
-            sb.append("}").append(EOL);
+            if (permissionManager.hasPermission) {
+                sb.append("if (requestCode == 1000) {").append(EOL);
+                sb.append("initializeLogic();").append(EOL);
+                sb.append("}").append(EOL);
+            }
+            if (permissionBlocks) {
+                sb.append(com.sketchware.ai.project.PermissionCode.resultCode(projectDataManager,
+                        projectFileBean.getJavaName(), EOL));
+            }
             sb.append("}").append(EOL);
         }
         sb.append(EOL);

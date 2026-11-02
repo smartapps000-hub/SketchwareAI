@@ -14,9 +14,9 @@ import java.util.regex.Pattern;
  * <li>A local declaration typed as a statement of its own in an event body ({@code String name = "Ravi";}) becomes a
  * variable of the activity: String, double and boolean ones a String / Number / Boolean variable whose set block
  * writes the statement ({@code name = "Ravi";}); any other type (int, Intent, a class of a library ...) a custom
- * variable with exactly that type, its assignment kept as code. An int is not made a Number variable: Sketchware's
- * Number is a double, so {@code String.valueOf(count)} would show "1.0" and {@code list.get(count)} would no longer
- * compile.</li>
+ * variable with exactly that type, its assignment kept as code. An int becomes a Number variable only when every use
+ * of it works the same with a double ({@link #intUnsafe}, v1.9.4): Sketchware's Number is a double, so
+ * {@code String.valueOf(count)} would show "1.0" and {@code list.get(count)} would no longer compile.</li>
  * <li>An assignment to a name declared nowhere ({@code total = 0;}) registers the variable with the type its value
  * shows (string literal or text: String; number: Number; true/false or a comparison: Boolean).</li>
  * </ul>
@@ -443,6 +443,120 @@ final class AutoVariables {
             while (a.find()) count++;
         }
         return count;
+    }
+
+    private static final Pattern CAST = Pattern.compile("\\(\\s*(?:int|long|short|byte|char|float|double)\\s*\\)\\s*$");
+    private static final Pattern CAST_OPEN = Pattern.compile("\\(\\s*(?:int|long|short|byte|char|float|double)\\s*\\)\\s*\\(\\s*$");
+    private static final Set<String> RELATIONAL = new HashSet<>(Arrays.asList("<", ">", "<=", ">=", "==", "!="));
+    private static final Set<String> BEFORE_OPERAND = new HashSet<>(Arrays.asList("(", "&&", "||", "?", ":", ",", "=", "return"));
+    private static final Set<String> AFTER_OPERAND = new HashSet<>(Arrays.asList(")", "&&", "||", "?", ":", ";", ","));
+    // not % or /: an int divided by 0 throws, a double gives NaN / Infinity; integer division truncates; not *: an int
+    // product wraps past 2^31 (n *= 100000 twice), a double doesn't
+    private static final Set<String> ARITHMETIC = new HashSet<>(Arrays.asList("+", "-"));
+    /** Longest first, so that << >> >>> and their assignments are never read as < > <= >=. */
+    private static final String[] OPERATORS = {">>>=", "<<=", ">>=", ">>>", "<<", ">>", "&&", "||", "<=", ">=", "==", "!=",
+            "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", "::"};
+
+    /**
+     * v1.9.4 safe int converter (owner, 2 Nov 2026): why the int local {@code name} declared on line
+     * {@code declaration} can't become a Number variable (a double), or null when every use of it gives the same
+     * result with a double holding a whole number: increments ({@code n++}, {@code n += 2}), assignments to itself
+     * from + and - of whole numbers (one statement on the line), comparisons, and casts ({@code (int) n},
+     * {@code String.valueOf((long)(n))}). Anything else (text, division, remainder, shifts, a method argument, an
+     * index, a switch …) keeps it an int. Left: an int wraps past 2^31, a double doesn't.
+     */
+    static String intUnsafe(JavaMembers e, String name, int declaration) {
+        String quoted = Pattern.quote(name);
+        Pattern step = Pattern.compile("^(?:" + quoted + "\\s*(?:\\+\\+|--)|(?:\\+\\+|--)\\s*" + quoted
+                + "|" + quoted + "\\s*[-+]=\\s*[0-9]+)\\s*;$");
+        Pattern self = Pattern.compile("^" + quoted + "\\s*=(?!=)(.*);$");
+        for (int k = 1; k <= e.count(); k++) {
+            if (k == declaration || !uses(e, k, name)) continue;
+            String code = e.code(k);
+            String trimmed = code.trim();
+            if (step.matcher(trimmed).matches()) continue;
+            // one statement per line: "n = 0; total = total + n;" is two
+            Matcher assigned = trimmed.indexOf(';') == trimmed.length() - 1 ? self.matcher(trimmed) : null;
+            if (assigned != null && !assigned.matches()) assigned = null;
+            String rhs = assigned != null ? assigned.group(1) : null;
+            boolean plainRhs = rhs != null && plainArithmetic(rhs);
+            int at = code.indexOf(name);
+            boolean target = rhs != null;   // the first use on a self-assignment line is the variable assigned
+            while (at >= 0) {
+                int end = at + name.length();
+                boolean identifier = (at == 0 || !Character.isJavaIdentifierPart(code.charAt(at - 1)) && code.charAt(at - 1) != '.')
+                        && (end >= code.length() || !Character.isJavaIdentifierPart(code.charAt(end)));
+                if (identifier) {
+                    String before = code.substring(0, at);
+                    String after = code.substring(end);
+                    String prev = lastToken(before);
+                    String next = firstToken(after);
+                    boolean safe;
+                    if (target) {
+                        safe = true;
+                        target = false;
+                    } else if (CAST.matcher(before).find() || CAST_OPEN.matcher(before).find() && ")".equals(next)) {
+                        safe = true;
+                    } else if (BEFORE_OPERAND.contains(prev) && RELATIONAL.contains(next)
+                            || RELATIONAL.contains(prev) && AFTER_OPERAND.contains(next)) {
+                        safe = true;
+                    } else {
+                        safe = plainRhs && (ARITHMETIC.contains(prev) || "=".equals(prev) || "(".equals(prev) && !callBefore(before))
+                                && (ARITHMETIC.contains(next) || ")".equals(next) || ";".equals(next));
+                    }
+                    if (!safe) {
+                        return "line " + k + " uses it where a decimal number works differently (" + e.line(k).trim() + ")";
+                    }
+                }
+                at = code.indexOf(name, end);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * No text, multiplication, division, remainder, index, ternary, comparison, assignment or bit operation: what's
+     * left is + and - on whole numbers, names and calls.
+     */
+    private static boolean plainArithmetic(String rhs) {
+        for (int i = 0; i < rhs.length(); i++) {
+            if ("\"'/%*[?&|^~;=<>!".indexOf(rhs.charAt(i)) >= 0) return false;
+        }
+        return true;
+    }
+
+    /** The operator, punctuation or word right before the end of {@code text}. */
+    private static String lastToken(String text) {
+        String t = text.trim();
+        if (t.isEmpty()) return "";
+        for (String op : OPERATORS) if (t.endsWith(op)) return op;
+        char c = t.charAt(t.length() - 1);
+        if (!Character.isJavaIdentifierPart(c)) return String.valueOf(c);
+        int from = t.length();
+        while (from > 0 && Character.isJavaIdentifierPart(t.charAt(from - 1))) from--;
+        return t.substring(from);
+    }
+
+    /** The operator, punctuation or word at the start of {@code text}. */
+    private static String firstToken(String text) {
+        String t = text.trim();
+        if (t.isEmpty()) return "";
+        for (String op : OPERATORS) if (t.startsWith(op)) return op;
+        char c = t.charAt(0);
+        if (!Character.isJavaIdentifierPart(c)) return String.valueOf(c);
+        int to = 0;
+        while (to < t.length() && Character.isJavaIdentifierPart(t.charAt(to))) to++;
+        return t.substring(0, to);
+    }
+
+    /** Whether the '(' ending {@code before} opens a method call's arguments (a name or ')' or ']' before it). */
+    private static boolean callBefore(String before) {
+        String t = before.trim();
+        if (!t.endsWith("(")) return false;
+        String head = t.substring(0, t.length() - 1).trim();
+        if (head.isEmpty()) return false;
+        char c = head.charAt(head.length() - 1);
+        return Character.isJavaIdentifierPart(c) || c == ')' || c == ']' || c == '>';
     }
 
     /** Whether code line {@code k} uses {@code name} as an identifier (not as a member "x.name"). */

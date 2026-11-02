@@ -131,7 +131,7 @@ public class Fixtures {
         Main.OUT.println("main: " + javaName + " / " + xmlName);
 
         Object compat = call(libs, "c");
-        set(compat, "useYn", spec.equals("plain") ? "N" : "Y");
+        set(compat, "useYn", spec.equals("plain") || spec.equals("permplain") ? "N" : "Y");
         if (spec.equals("held")) {
             Object firebase = call(libs, "d");
             set(firebase, "useYn", "Y");
@@ -145,7 +145,7 @@ public class Fixtures {
             set(maps, "useYn", "Y");
             set(maps, "data", "AIzaSyFixtureMapsKeyFixtureFixture1234");
         }
-        if (!spec.equals("plain")) {
+        if (!spec.equals("plain") && !spec.equals("permplain")) {
             // toolbar + FAB + drawer, as the activity options dialog sets them
             int opts = (Integer) get(main, "options");
             set(main, "options", opts | 1 | 8 | 4);
@@ -173,6 +173,12 @@ public class Fixtures {
             for (int[] t : new int[][]{{3}, {3, 2}, {3, 3}, {3, 4}, {4}, {5}, {11}, {13}}) widgets.add(t);
         } else if (spec.equals("resolver") || spec.equals("lifecycle")) {
             // v1.8.8: Button, TextView (the Library Resolver's test project; v1.9.0 lifecycle the same)
+            for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
+        } else if (spec.equals("web")) {
+            // v1.9.4: WebView, Button, TextView (the web blocks' test project)
+            for (int t : new int[]{7, 3, 4}) widgets.add(new int[]{t});
+        } else if (spec.equals("perm") || spec.equals("permplain")) {
+            // v1.9.4: Button, TextView (the permission blocks' test project)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("javaedit")) {
             // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit); v1.8.9 a CheckBox
@@ -369,6 +375,13 @@ public class Fixtures {
 
         if (spec.equals("javaedit")) {
             javaEditBlocks(proj, javaName);
+        }
+        if (spec.equals("web")) {
+            webBlocks(proj, javaName);
+        }
+        if (spec.equals("perm") || spec.equals("permplain")) {
+            // permplain: AppCompat off (android.app.Activity: onRequestPermissionsResult only from API 23)
+            permissionBlocks(proj, javaName);
         }
         if (spec.equals("resolver")) {
             resolveLibraries(sc_id, "com.squareup.retrofit2:converter-gson:2.9.0");
@@ -567,6 +580,126 @@ public class Fixtures {
         ArrayList<Object> greet = new ArrayList<>();
         greet.add(block("10", "add source directly %s.inputOnly", " ", "addSourceDirectly", "android.util.Log.d(\"greet\", _who);"));
         call(proj, "a", javaName, "greet_moreBlock", greet);
+    }
+
+    /**
+     * v1.9.4 web: onCreate loads a page and calls the four web blocks (downloads to Downloads/SketchAI without
+     * notification, PDFs and images only; desktop mode; clear data; file upload); webview1's download events show the
+     * URL, MIME type, size, file name and success with Toast blocks.
+     */
+    @SuppressWarnings("unchecked")
+    static void webBlocks(Object proj, String javaName) throws Throwable {
+        HashMap<String, ArrayList<Object>> events = (HashMap<String, ArrayList<Object>>) get(proj, "i");
+        ArrayList<Object> ev = events.computeIfAbsent(javaName, k -> new ArrayList<>());
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 7, "webview1", "onDownloadStart"));
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 7, "webview1", "onDownloadComplete"));
+        ArrayList<Object> create = new ArrayList<>();
+        Object load = block("10", "%m.webview loadUrl %s", " ", "webViewLoadUrl", "webview1", "https://example.com/files");
+        Object allow = block("11", "%m.webview allow downloads to folder %s notify %b only types %s", " ", "webAllowDownloads",
+                "webview1", "SketchAI", "@20", "application/pdf, image/*");
+        Object desktop = block("12", "%m.webview desktop mode %b", " ", "webSetDesktopMode", "webview1", "@21");
+        Object clear = block("13", "%m.webview clear cookies and cache", " ", "webClearCookiesAndCache", "webview1");
+        Object upload = block("14", "%m.webview enable file upload", " ", "webEnableFileUpload", "webview1");
+        set(load, "nextBlock", 11);
+        set(allow, "nextBlock", 12);
+        set(desktop, "nextBlock", 13);
+        set(clear, "nextBlock", 14);
+        create.add(load);
+        create.add(allow);
+        create.add(desktop);
+        create.add(clear);
+        create.add(upload);
+        create.add(block("20", "false", "b", "false"));
+        create.add(block("21", "true", "b", "true"));
+        call(proj, "a", javaName, "onCreate_initializeLogic", create);
+
+        ArrayList<Object> start = new ArrayList<>();
+        Object toast1 = block("10", "Toast %s", " ", "doToast", "@20");
+        Object text1 = block("11", "%m.textview setText %s", " ", "setText", "textview1", "@21");
+        set(toast1, "nextBlock", 11);
+        start.add(toast1);
+        start.add(text1);
+        start.add(block("20", "url", "s", "getArg"));
+        start.add(block("21", "mimeType", "s", "getArg"));
+        Object size = block("12", "%m.textview setText %s", " ", "setText", "button1", "@22");
+        set(text1, "nextBlock", 12);
+        start.add(size);
+        start.add(block("22", "toString %d without decimal", "s", "toString", "@23"));
+        start.add(block("23", "contentLength", "d", "getArg"));
+        call(proj, "a", javaName, "webview1_onDownloadStart", start);
+
+        ArrayList<Object> done = new ArrayList<>();
+        Object toast2 = block("10", "Toast %s", " ", "doToast", "@20");
+        Object ifDone = block("11", "if %b then", "c", "if", "@21");
+        Object yes = block("12", "%m.textview setText %s", " ", "setText", "textview1", "downloaded");
+        set(toast2, "nextBlock", 11);
+        set(ifDone, "subStack1", 12);
+        done.add(toast2);
+        done.add(ifDone);
+        done.add(yes);
+        done.add(block("20", "fileName", "s", "getArg"));
+        done.add(block("21", "success", "b", "getArg"));
+        call(proj, "a", javaName, "webview1_onDownloadComplete", done);
+    }
+
+    /**
+     * v1.9.4 perm: a File block (the File blocks' own onCreate request, requestCode 1000) next to the permission blocks:
+     * onCreate requests CAMERA then STORAGE (the second waits for the first), button1 asks for NOTIFICATIONS and a
+     * permission by name, textview1 shows LOCATION's status and whether BLUETOOTH is granted; the activity events show
+     * the group and "never ask again".
+     */
+    @SuppressWarnings("unchecked")
+    static void permissionBlocks(Object proj, String javaName) throws Throwable {
+        HashMap<String, ArrayList<Object>> events = (HashMap<String, ArrayList<Object>>) get(proj, "i");
+        ArrayList<Object> ev = events.computeIfAbsent(javaName, k -> new ArrayList<>());
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 3, "button1", "onClick"));
+        ev.add(neu("com.besome.sketch.beans.EventBean", 3, 0, "onPermissionGranted", "onPermissionGranted"));
+        ev.add(neu("com.besome.sketch.beans.EventBean", 3, 0, "onPermissionDenied", "onPermissionDenied"));
+        ArrayList<Object> create = new ArrayList<>();
+        Object camera = block("10", "request permission %m.permissionGroup", " ", "requestAutoPermission", "CAMERA");
+        Object storage = block("11", "request permission %m.permissionGroup", " ", "requestAutoPermission", "STORAGE");
+        Object exists = block("12", "%s file exists", "b", "fileutilisexist", "/sdcard/Download/a.txt");
+        Object ifExists = block("13", "if %b then", "c", "if", "@12");
+        Object status = block("14", "%m.textview setText %s", " ", "setText", "textview1", "@15");
+        Object statusOf = block("15", "permission status %m.permissionGroup", "s", "getPermissionStatus", "LOCATION");
+        Object ifBt = block("16", "if %b then", "c", "if", "@17");
+        Object hasBt = block("17", "permission %m.permissionGroup granted", "b", "hasAutoPermission", "BLUETOOTH");
+        Object btText = block("18", "%m.textview setText %s", " ", "setText", "button1", "Bluetooth ready");
+        set(camera, "nextBlock", 11);
+        set(storage, "nextBlock", 13);
+        set(ifExists, "subStack1", 14);
+        set(ifExists, "nextBlock", 16);
+        set(ifBt, "subStack1", 18);
+        for (Object b : new Object[]{camera, storage, exists, ifExists, status, statusOf, ifBt, hasBt, btText}) create.add(b);
+        call(proj, "a", javaName, "onCreate_initializeLogic", create);
+
+        ArrayList<Object> click = new ArrayList<>();
+        Object notify = block("10", "request permission %m.permissionGroup", " ", "requestAutoPermission", "NOTIFICATIONS");
+        Object named = block("11", "request permission name %s", " ", "requestCustomPermission", "android.permission.READ_CONTACTS");
+        set(notify, "nextBlock", 11);
+        click.add(notify);
+        click.add(named);
+        call(proj, "a", javaName, "button1_onClick", click);
+
+        ArrayList<Object> granted = new ArrayList<>();
+        Object toast = block("10", "Toast %s", " ", "doToast", "@20");
+        granted.add(toast);
+        granted.add(block("20", "permissionGroup", "s", "getArg"));
+        call(proj, "a", javaName, "onPermissionGranted_onPermissionGranted", granted);
+
+        ArrayList<Object> denied = new ArrayList<>();
+        Object ifNever = block("10", "if %b then else", "e", "ifElse", "@20");
+        Object never = block("11", "%m.textview setText %s", " ", "setText", "textview1", "@21");
+        Object again = block("12", "Toast %s", " ", "doToast", "@22");
+        set(ifNever, "subStack1", 11);
+        set(ifNever, "subStack2", 12);
+        denied.add(ifNever);
+        denied.add(never);
+        denied.add(again);
+        denied.add(block("20", "neverAskAgain", "b", "getArg"));
+        denied.add(block("21", "permissionGroup", "s", "getArg"));
+        denied.add(block("22", "permissionGroup", "s", "getArg"));
+        call(proj, "a", javaName, "onPermissionDenied_onPermissionDenied", denied);
     }
 
     /**

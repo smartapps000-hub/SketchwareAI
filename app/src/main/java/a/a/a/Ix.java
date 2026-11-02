@@ -96,7 +96,11 @@ public class Ix {
         writePermission(manifestTag, permissionName, null);
     }
 
+    /** v1.9.4: permission names written so far (the permission blocks add only the ones still missing) */
+    private final java.util.Set<String> writtenPermissions = new java.util.HashSet<>();
+
     private void writePermission(Nx manifestTag, String permissionName, String maxSdkVersion) {
+        writtenPermissions.add(permissionName);
         Nx usesPermissionTag = new Nx("uses-permission");
         usesPermissionTag.a("android", "name", permissionName);
         if (maxSdkVersion != null) usesPermissionTag.a("android", "maxSdkVersion", maxSdkVersion);
@@ -314,6 +318,7 @@ public class Ix {
                 for (String permission : new String[]{com.sketchware.ai.project.BluetoothPermissions.CONNECT,
                         com.sketchware.ai.project.BluetoothPermissions.SCAN}) {
                     if (custom.contains(permission)) continue;
+                    writtenPermissions.add(permission);
                     Nx tag = new Nx("uses-permission");
                     tag.a("android", "name", permission);
                     // Scanning only finds Bluetooth devices: no location permission needed (API 31+).
@@ -337,6 +342,14 @@ public class Ix {
         ConstVarManifest.handlePermissionComponent(a, c.x);
         addPackageVisibilityQueries(a);
         AndroidManifestInjector.getP(a, c.sc_id);
+        // v1.9.4: the permission / web blocks' permissions (PermissionCode), each name once: names any writer above
+        // put into the manifest so far (also components and raw injections) are not written again
+        java.util.regex.Matcher declared = java.util.regex.Pattern.compile(
+                "<uses-permission[^>]*?android:name=\"([^\"]+)\"").matcher(a.toCode());
+        while (declared.find()) writtenPermissions.add(declared.group(1));
+        if (com.sketchware.ai.project.PermissionCode.writeManifest(a, c, settings, writtenPermissions)) {
+            if (com.sketchware.ai.project.PermissionCode.target(settings) >= 28) addRequestLegacyExternalStorage = true;
+        }
         // v1.9.0: Wear OS / Android TV features, only for a project whose target device is set to one of them
         com.sketchware.ai.project.DeviceTargets.addFeatures(a, settings);
 

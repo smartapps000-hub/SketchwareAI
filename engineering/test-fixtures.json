@@ -398,7 +398,9 @@
       "checks": [
         "every CHECK ok (JAVAEDIT n/n): unchanged save, empty event, inside if, insert before a block, field + import + MoreBlock, view lookup edit refused, plain method refused, remove variable + block, replace the if, else stack, onCreate emptied, line into an empty onCreate, unbalanced braces refused, two-line field, comment before the closing brace refused, variable type changed",
         "refused saves leave blocks, variables and MoreBlocks unchanged",
-        "after the edits the project builds (Run build steps ok)"
+        "after the edits the project builds (Run build steps ok)",
+        "v1.9.4 section 19: int clickCount = 3; (no other use) is a Number variable, its assignment a setVarInt block, field private double clickCount = 0;",
+        "v1.9.4 section 23 (safe int converter): int taps23 (++, taps23 = taps23 + 2, String.valueOf((long)(taps23)), taps23 > 3) -> Number variable, blocks setVarInt increaseInt setVarInt setText setVarBoolean; shown23 (String.valueOf(shown23)) and half23 (half23 / 2) stay custom int with the line in the save's note; generated as typed, saves unchanged"
       ]
     },
     {
@@ -655,6 +657,37 @@
       "checks": [
         "before: the path row (fixed 24 dp) clips the path and the Send button touches it; after: the row grows, 10 dp above Send, notice text clear of the card's right edge",
         "Sign APK / App Bundle notices fully visible"
+      ]
+    },
+    {
+      "id": "931",
+      "kind": "Sketchware project made by tools/art-harness (spec 'web')",
+      "content": "WebView, Button, TextView; onCreate: webViewLoadUrl, webAllowDownloads(webview1, \"SketchAI\", false block, \"application/pdf, image/*\"), webSetDesktopMode(true block), webClearCookiesAndCache, webEnableFileUpload; webview1 onDownloadStart: Toast url, setText mimeType, button1 setText toString(contentLength); onDownloadComplete: Toast fileName, if success setText",
+      "checks": [
+        "Run build 16 steps, 0 warnings; MainActivity calls SketchWeb.* and SketchWeb.setDownloadEvents(webview1, new SketchWeb.DownloadEvents() {...}) with final _url/_mimeType/_contentLength and _url/_fileName/_success",
+        "SketchWeb.java generated; h.CallWeb on the built APK: WEBCALL 8/8 (MIME filter incl. image/*, parameters, empty / */*; desktop user agent keeps Chrome's version)",
+        "h.LoadAll: every class links except the 2 coroutines AgentPremain classes",
+        "Export to Android Studio built with Gradle 9.8.2 / AGP 9.5.0 (gradle-export-check.sh): R classes 0 missing"
+      ]
+    },
+    {
+      "id": "932",
+      "kind": "Sketchware project made by tools/art-harness (spec 'perm')",
+      "content": "Button, TextView; onCreate: request CAMERA, request STORAGE, a File block (fileutilisexist: the File blocks' own request, code 1000) with setText(permission status LOCATION) inside its if, if (BLUETOOTH granted) setText; button1 onClick: request NOTIFICATIONS, request permission name android.permission.READ_CONTACTS; activity events onPermissionGranted (Toast group) and onPermissionDenied (if neverAskAgain setText group else Toast group)",
+      "checks": [
+        "Run build 16 steps, 0 warnings; onRequestPermissionsResult keeps requestCode 1000 -> initializeLogic and calls SketchPermission.onResult then _onPermissionGranted / _onPermissionDenied",
+        "manifest: READ_EXTERNAL_STORAGE maxSdkVersion 32 (File block, target 37), CAMERA, WRITE_EXTERNAL_STORAGE 29, READ_MEDIA_IMAGES/VIDEO/AUDIO, READ_MEDIA_VISUAL_USER_SELECTED, ACCESS_FINE/COARSE_LOCATION (no max: LOCATION wins over BLUETOOTH's 30), BLUETOOTH/ADMIN 30, BLUETOOTH_CONNECT, BLUETOOTH_SCAN neverForLocation, POST_NOTIFICATIONS, READ_CONTACTS; each once; the build log's notes list them",
+        "h.CallPerm on the built APK: PERMCALL 22/22 (each group for API 23-37 and targets 29-35)",
+        "h.LoadAll: every class links except the 2 coroutines AgentPremain classes",
+        "Export AAB jar verified; Export to Android Studio built with Gradle"
+      ]
+    },
+    {
+      "id": "933",
+      "kind": "Sketchware project made by tools/art-harness (spec 'permplain')",
+      "content": "fixture 932 with AppCompat off (android.app.Activity)",
+      "checks": [
+        "Run build 16 steps, 0 warnings; onRequestPermissionsResult's super call guarded with android.os.Build.VERSION.SDK_INT >= 23; SketchPermission without the androidx Fragment line"
       ]
     }
   ]

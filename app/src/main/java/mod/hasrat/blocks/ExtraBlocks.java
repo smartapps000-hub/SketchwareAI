@@ -76,6 +76,16 @@ public class ExtraBlocks {
         //RewardedVideoAd
         arrayList.add(addBlock("rewardedVideoAdLoad", " ", "", "RewardedAd.load(%2$s.this, _reward_ad_unit_id, new AdRequest.Builder().build(), _%1$s_rewarded_ad_load_callback);", "#2ca5e2", "RewardedAd %m.videoad load with %m.activity"));
         arrayList.add(addBlock("rewardedVideoAdShow", " ", "", "%1s.show(%2$s.this, _%1$s_on_user_earned_reward_listener);", "#2ca5e2", "RewardedAd %m.videoad show %m.activity"));
+        // v1.9.4: runtime permissions (com.sketchware.ai.project.PermissionCode); {host} = Activity.this (ExtraBlockCode)
+        arrayList.add(addBlock("requestAutoPermission", " ", "", "SketchPermission.request({host}, \"%s\");", "#2ca5e2", "request permission %m.permissionGroup"));
+        arrayList.add(addBlock("requestCustomPermission", " ", "", "SketchPermission.request({host}, %s);", "#2ca5e2", "request permission name %s"));
+        arrayList.add(addBlock("hasAutoPermission", "b", "", "SketchPermission.has({host}, \"%s\")", "#2ca5e2", "permission %m.permissionGroup granted"));
+        arrayList.add(addBlock("getPermissionStatus", "s", "", "SketchPermission.status({host}, \"%s\")", "#2ca5e2", "permission status %m.permissionGroup"));
+        // v1.9.4: WebView downloads, desktop mode, clearing data, file upload (com.sketchware.ai.project.WebCode)
+        arrayList.add(addBlock("webAllowDownloads", " ", "", "SketchWeb.allowDownloads(%1$s, %2$s, %3$s, %4$s);", "#4a6cd4", "%m.webview allow downloads to folder %s notify %b only types %s"));
+        arrayList.add(addBlock("webSetDesktopMode", " ", "", "SketchWeb.setDesktopMode(%1$s, %2$s);", "#4a6cd4", "%m.webview desktop mode %b"));
+        arrayList.add(addBlock("webClearCookiesAndCache", " ", "", "SketchWeb.clearCookiesAndCache(%s);", "#4a6cd4", "%m.webview clear cookies and cache"));
+        arrayList.add(addBlock("webEnableFileUpload", " ", "", "SketchWeb.enableFileUpload({host}, %s);", "#4a6cd4", "%m.webview enable file upload"));
     }
 
     /**

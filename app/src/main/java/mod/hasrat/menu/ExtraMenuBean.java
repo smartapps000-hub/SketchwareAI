@@ -628,6 +628,12 @@ public class ExtraMenuBean {
                 menus.addAll(new ArrayList<>(Arrays.asList(patternFlags)));
                 break;
 
+            case "permissionGroup":
+                // v1.9.4: the groups of the permission blocks (com.sketchware.ai.project.PermissionCode)
+                title = "Select a permission group";
+                menus.addAll(Arrays.asList(com.sketchware.ai.project.PermissionCode.GROUPS));
+                break;
+
             case "Permission":
                 title = "Select a Permission";
                 menus.addAll(new ArrayList<>(Arrays.asList(permission)));

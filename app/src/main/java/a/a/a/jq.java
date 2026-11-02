@@ -238,6 +238,16 @@ public class jq {
      */
     public HashMap<String, a> w = new HashMap<>();
     public ConstVarComponent x = new ConstVarComponent();
+    /** v1.9.4: permission groups of the permission blocks (PermissionCode), for the manifest */
+    public java.util.LinkedHashSet<String> permissionGroups = new java.util.LinkedHashSet<>();
+    /** v1.9.4: permission names typed into "request permission name" */
+    public java.util.LinkedHashSet<String> permissionNames = new java.util.LinkedHashSet<>();
+    /** v1.9.4: a file of the project uses a permission block: every activity passes answers to SketchPermission */
+    public boolean permissionBlocksUsed;
+    /** v1.9.4: a web "allow downloads" block is used (DownloadManager needs WRITE_EXTERNAL_STORAGE below Android 6) */
+    public boolean webDownloadsUsed;
+    /** v1.9.4: the build log's note on the permissions the blocks added to the manifest, or null */
+    public String permissionNote;
 
     public boolean hasPermissions() {
         return q == 0;
