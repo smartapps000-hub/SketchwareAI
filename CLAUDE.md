@@ -97,7 +97,11 @@ permission); `literalBooleansToBlocks` when an event opens; `ui.ExportCards`; fi
 v1.9.1-a13b4c4, versionCode 191, sha256 `938247d0...7bdf389b`, 142,282,279 bytes).
 v1.9.2 (generated toolbar / collapsing scrim `@color/colorPrimary` (dynamic colour made the app bar purple), `ui.ObLogicTopMenu`
 (dark drag bar), source sheet one-line hint + keyboard; `engineering/v1.9.2-audit.md`; APK v1.9.2-07bd11c, versionCode
-192, sha256 `d0a3cd12...827a0412`, 142,283,227 bytes). Local branch
+192, sha256 `d0a3cd12...827a0412`, 142,283,227 bytes).
+v1.9.3 (`ObLogicTopMenu` item mapping from LogicTopMenu's bytecode (a→c,d,n Copy; b→a,b,m; c→g,h,p; d→e,f,o); value
+blocks strParseInteger, toHashCode, stringMatches, reverse, stringSubSingle, ternaryString; audits
+`engineering/v1.9.3-deep-audit.md`, `v1.9.3-ecosystem-audit.md`; APK v1.9.3-b77041f, versionCode 193, sha256
+`f0206d35...af063dac`, 142,283,355 bytes). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
