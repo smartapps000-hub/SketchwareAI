@@ -101,7 +101,20 @@ v1.9.2 (generated toolbar / collapsing scrim `@color/colorPrimary` (dynamic colo
 v1.9.3 (`ObLogicTopMenu` item mapping from LogicTopMenu's bytecode (a→c,d,n Copy; b→a,b,m; c→g,h,p; d→e,f,o); value
 blocks strParseInteger, toHashCode, stringMatches, reverse, stringSubSingle, ternaryString; audits
 `engineering/v1.9.3-deep-audit.md`, `v1.9.3-ecosystem-audit.md`; APK v1.9.3-b77041f, versionCode 193, sha256
-`f0206d35...af063dac`, 142,283,355 bytes). Local branch
+`f0206d35...af063dac`, 142,283,355 bytes).
+v1.9.4 (owner's directives 2 Nov: permission system + web engine + safe int converter): `project.PermissionCode` (blocks
+requestAutoPermission / requestCustomPermission / hasAutoPermission / getPermissionStatus, menu `permissionGroup`,
+activity events onPermissionGranted / onPermissionDenied, generated `SketchPermission` (groups by API level and target,
+one dialog at a time, request codes 7401-7408 / 7500), `onRequestPermissionsResult` in every activity of a project using
+the blocks (super guarded `SDK_INT >= 23` without AppCompat), manifest entries with maxSdkVersion, deduped against
+everything Ix wrote before (read back from the manifest text), note via `jq.permissionNote` → `BuildWarnings.begin`);
+File blocks' READ/WRITE unchanged (maxSdkVersion there re-asked at every start on Android 11-12: review); `project.WebCode`
+(webAllowDownloads / webSetDesktopMode / webClearCookiesAndCache / webEnableFileUpload, WebView events onDownloadStart /
+onDownloadComplete via listener `webDownloadListener`, excluded from Hx's always-on WebView listeners; `SketchWeb`
+helper, WRITE max 22 for downloads when min SDK < 23); `{host}` in block code = `<Activity>.this` (ExtraBlockCode, the
+new blocks only); `AutoVariables.intUnsafe` (int → Number only for ++/--/+= k/-= k, + and - self-assignments, comparisons,
+casts; shifts read as shifts); fixtures 931 web, 932 perm, 933 permplain, 919 section 23 (101 checks), h.CallPerm 22/22,
+h.CallWeb 8/8; APK v1.9.4-e33064d, versionCode 194, sha256 `7cf2625e...18dd3a9d`, 142,299,995 bytes). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

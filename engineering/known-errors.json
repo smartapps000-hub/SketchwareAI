@@ -534,6 +534,24 @@
       "scope": "Java editor save, source sheet Apply",
       "verifiedOn": "ART fixture 919 section 21",
       "permanent": true
+    },
+    {
+      "fingerprint": "Permission blocks: the build log's notes don't list the permissions the blocks added",
+      "rootCause": "PermissionCode noted them while the files were generated; BuildWarnings.begin (called after generation) clears notes",
+      "repair": "v1.9.4: the note is kept on the project features (jq.permissionNote) and noted in BuildWarnings.begin",
+      "scope": "Run build, Export"
+    },
+    {
+      "fingerprint": "Java editor: int converter would make doubles of ints used with << >> or across two statements on a line (review, before release)",
+      "rootCause": "operators read one character at a time (<< as <, a comparison); the self-assignment pattern spanned 'n = 0; total = total + n;'",
+      "repair": "v1.9.4: operators read longest first (>>>=, <<=, >>=, >>>, <<, >>, ...); one statement per line; *, /, % and = in the right-hand side keep an int; JVM check of 29 lines (scratch T.java) and fixture 919 section 23",
+      "scope": "Java editor save, source sheet Apply"
+    },
+    {
+      "fingerprint": "Web block 'allow downloads': every download fails on Android 4.4-5.1 (review, before release)",
+      "rootCause": "AOSP DownloadProvider up to 5.1 enforces WRITE_EXTERNAL_STORAGE for any file destination, the app's own folder too (6.0+ only for shared folders)",
+      "repair": "v1.9.4: WRITE_EXTERNAL_STORAGE maxSdkVersion 22 declared when the block is used and min SDK < 23 (listed in the build log)",
+      "scope": "generated apps"
     }
   ]
 }

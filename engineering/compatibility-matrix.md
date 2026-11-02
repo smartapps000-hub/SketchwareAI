@@ -122,3 +122,14 @@ Whether a generated APK runs on a given Android version depends on that project'
   renders of the source sheet, the Target device row and the symbols. Results in `v1.9.0-verification.md`.
 - The source sheet, the design canvas viewports and Device menu, the icon screen and Project Configuration (Activities and
   dialogs), a generated app on a watch or a TV, and the build time on a phone: NOT TESTED here (no device, no emulator).
+
+## v1.9.4 (2 Nov 2026)
+- Permission blocks and events (SketchPermission), WebView blocks and download events (SketchWeb), safe int converter.
+  Fixtures 931 (web), 932 (perm), 933 (perm without AppCompat) and 919 built on the Android 12 (API 31) ART harness with
+  the release APK's classes; SketchPermission's group table run there for API 23-37 x targets 29-35 (h.CallPerm) and
+  SketchWeb's MIME filter / desktop user agent (h.CallWeb); every class of the built apps linked (h.LoadAll); Export AAB
+  of 931 / 932 and Export to Android Studio of 931 / 932 built with Gradle. Results in `v1.9.4-verification.md`.
+- The permission dialogs, the download manager, the file picker and the desktop page on a phone, the logic editor's new
+  palette rows, drop-down and events: NOT TESTED here (no device, no emulator). Which permissions a generated app gets on a
+  given Android version is decided at run time from the table above; that it asks correctly on Android 6-17 is not
+  proven by a compile.
