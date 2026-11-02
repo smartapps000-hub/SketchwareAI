@@ -2,6 +2,14 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.3 (versionCode 193, `v1.9.3-b77041f-minApi26`)
+
+`apk/Sketchware_AI_v1.9.3.apk`, sha256 `f0206d3556afdce1389dde0f9c280b4c600456aea3c3c5b9291108feaf063dac` (Git LFS). Dark Copy item in the logic editor's drag bar, more Operator
+blocks from Java code, audits. Release notes: `releases/v1.9.3/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.3.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.3.apk
+
 ## v1.9.2 (versionCode 192, `v1.9.2-07bd11c-minApi26`)
 
 `apk/Sketchware_AI_v1.9.2.apk`, sha256 `d0a3cd128761b97c3db9944ce1e50116c8212c235667f6cd05bb08e8827a0412` (Git LFS). Project-coloured app bar, dark logic editor drag bar, source
