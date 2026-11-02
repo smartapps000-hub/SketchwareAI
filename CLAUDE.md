@@ -370,7 +370,8 @@ generated activity. User-picked colours, icons and setTextColor results stay as 
 Manager's Dark theme row says so). The owner chose DayNight by default and dynamic colour as an opt-in switch; both
 switches are Library Manager rows shown only while Material 3 is on (New Project screen: rows too, dynamic colour off).
 24 Oct 2026 he confirmed a "purple toolbar" report was dynamic colour matching the wallpaper and that dynamic colour must
-stay off by default so project colours are exact. An empty wrap_content VideoView fills the rest of the screen in black
+stay off by default so project colours are exact. 2 Nov 2026 he confirmed it again (off by default), chose a *safe* int → Number converter
+(only when every use behaves the same as a double) and the web blocks as the next feature (`engineering/v1.9.3-ecosystem-audit.md` section 6). An empty wrap_content VideoView fills the rest of the screen in black
 (a SurfaceView): explain it, don't "fix" the theme.
 Material 3 widgets (since v1.8.5, `M3Widgets`, decided once per generation): the generator writes Material classes as
 tags: plain filled Button -> `<package>.SketchButton` (MaterialButton that drops its tint once a different background
