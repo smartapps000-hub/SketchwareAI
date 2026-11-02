@@ -87,7 +87,14 @@ canvas viewports `ViewportViewEditor`); Material Symbols in the icon screen (`Sy
 with FingerprintManager kept (`tools/builtin-libs/android_jar.py`); D8/R8 8.13.25; IDE build Gradle 9.8.2 / AGP 9.5.0 /
 KGP 2.4.21, compileSdk 37, target 35 (edge-to-edge opt-out in AppTheme, enableOnBackInvokedCallback=false); Export to Android Studio on the same stack, compileSdk 37; APK v1.9.0-a52c25a, versionCode 190, sha256
 `6008c1e1...e74d281f`, 142,270,119 bytes, target 35; patches zip and the GitHub `main` / `binaries` commits: the `binaries` README
-(a zip can't list its own sum)). Local branch
+(a zip can't list its own sum)).
+v1.9.1 (owner's 1-2 Nov phone report + hotfix directive: `project.JavaResources` keeps the first copy of a Java-resource
+path two library jars hold (ApkBuilder's DuplicateFileException stopped Package APK); `LibraryIntegrity.hasClasses`
+(class-less -ktx jars need no DEX); `BuildMap` `failed with:` line; Run-build APK zip-aligned before signing (zipalign
+-P 16 OK; signer unchanged, v1+v2+v3); `StatementBlocks` templates read from the generator (value blocks, list/map/view
+statements, true/false blocks, Toast.makeText → Toast block, File blocks only when the activity has one: storage
+permission); `literalBooleansToBlocks` when an event opens; `ui.ExportCards`; fixtures 919 sections 21-22, 930; APK
+v1.9.1-a13b4c4, versionCode 191, sha256 `938247d0...7bdf389b`, 142,282,279 bytes). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
