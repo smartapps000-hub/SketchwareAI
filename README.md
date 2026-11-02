@@ -2,6 +2,14 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.2 (versionCode 192, `v1.9.2-07bd11c-minApi26`)
+
+`apk/Sketchware_AI_v1.9.2.apk`, sha256 `d0a3cd128761b97c3db9944ce1e50116c8212c235667f6cd05bb08e8827a0412` (Git LFS). Project-coloured app bar, dark logic editor drag bar, source
+sheet keyboard. Release notes: `releases/v1.9.2/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.2.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.2.apk
+
 ## v1.9.1 (versionCode 191, `v1.9.1-a13b4c4-minApi26`)
 
 `apk/Sketchware_AI_v1.9.1.apk`: 142,282,279 bytes, sha256 `938247d0773b2b3555a87d0a28cfd3ae80edeb18a076e661f5963bfb7bdf389b`
