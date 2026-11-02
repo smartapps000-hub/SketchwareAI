@@ -127,10 +127,32 @@ public final class JavaEditSession {
         }
         // v1.8.13: setHint on an outlined Material 3 field is written as SketchTextField.hint(…), as the build writes it
         final java.util.Set<String> m3Fields = materialTextFields();
+        java.util.List<android.util.Pair<Integer, String>> lists = null;
+        try {
+            lists = data.f.get(javaName);
+        } catch (Throwable ignored) {
+            // no lists: list blocks aren't offered
+        }
         return new StatementBlocks(
                 blocks -> com.sketchware.ai.project.M3Widgets.routeHints(new a.a.a.Fx(activityName, buildConfig, "", blocks).a(), m3Fields),
                 paletteSpecs(context),
-                views, components, data.e.get(javaName), activities);
+                views, components, data.e.get(javaName), activities).useLists(lists).useExistingBlocks(existingOpCodes());
+    }
+
+    /** v1.9.1: the opcodes of this activity's blocks (StatementBlocks offers file blocks only when one is there). */
+    private java.util.Set<String> existingOpCodes() {
+        java.util.Set<String> ops = new java.util.HashSet<>();
+        try {
+            java.util.HashMap<String, java.util.ArrayList<com.besome.sketch.beans.BlockBean>> blocks = data.d.get(javaName);
+            if (blocks != null) {
+                for (java.util.ArrayList<com.besome.sketch.beans.BlockBean> list : blocks.values()) {
+                    if (list != null) for (com.besome.sketch.beans.BlockBean block : list) ops.add(block.opCode);
+                }
+            }
+        } catch (Throwable ignored) {
+            // none known: file blocks aren't offered
+        }
+        return ops;
     }
 
     /** v1.8.13: the EditTexts the generator writes setHint for as SketchTextField.hint (Material 3 projects). */
@@ -143,7 +165,7 @@ public final class JavaEditSession {
     }
 
     /** The palette's spec for an opcode (localized like the palette's), the English one when that can't be read. */
-    static StatementBlocks.Specs paletteSpecs(final Context context) {
+    public static StatementBlocks.Specs paletteSpecs(final Context context) {
         return opCode -> {
             String english = StatementBlocks.ENGLISH.get(opCode);
             try {

@@ -171,8 +171,8 @@ public class Fixtures {
         } else if (spec.equals("m3dark")) {
             // v1.8.6: Button x4 (default, blue, yellow, pink read from code), TextView, EditText, CheckBox, Switch
             for (int[] t : new int[][]{{3}, {3, 2}, {3, 3}, {3, 4}, {4}, {5}, {11}, {13}}) widgets.add(t);
-        } else if (spec.equals("resolver")) {
-            // v1.8.8: Button, TextView (the Library Resolver's test project)
+        } else if (spec.equals("resolver") || spec.equals("lifecycle")) {
+            // v1.8.8: Button, TextView (the Library Resolver's test project; v1.9.0 lifecycle the same)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("javaedit")) {
             // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit); v1.8.9 a CheckBox
@@ -373,6 +373,36 @@ public class Fixtures {
         if (spec.equals("resolver")) {
             resolveLibraries(sc_id, "com.squareup.retrofit2:converter-gson:2.9.0");
         }
+        if (spec.equals("lifecycle")) {
+            // v1.9.0, the owner's project #663: AndroidX lifecycle / savedstate libraries of 2025-2026 (Kotlin
+            // Multiplatform artifacts) installed by the Library Resolver next to the built-in lifecycle 2.8.7
+            for (String coordinate : new String[]{"androidx.lifecycle:lifecycle-runtime-ktx:2.9.4",
+                    "androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2", "androidx.savedstate:savedstate-ktx:1.3.1"}) {
+                resolveLibraries(sc_id, coordinate);
+            }
+            // v1.9.1: a library jar with files the built-in coroutines / stdlib jars hold too (as a newer
+            // kotlinx-coroutines-core or kotlin-stdlib installed as a local library has): packaging stopped with
+            // "Duplicate files"; now the first copy is packaged and a warning names the files. No classes: no dex needed.
+            java.io.File dup = new java.io.File((java.io.File) call(c("com.sketchware.ai.project.LibraryHeal"), "localLibs"), "dupres_V_1.0");
+            deleteTree(dup);
+            dup.mkdirs();
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(
+                    new java.io.FileOutputStream(new java.io.File(dup, "classes.jar")))) {
+                for (String name : new String[]{"DebugProbesKt.bin", "kotlin/kotlin.kotlin_builtins", "dupres/own.txt",
+                        "META-INF/dupres.version"}) {
+                    zip.putNextEntry(new java.util.zip.ZipEntry(name));
+                    zip.write(("dupres " + name).getBytes("UTF-8"));
+                    zip.closeEntry();
+                }
+            }
+            @SuppressWarnings("unchecked") ArrayList<HashMap<String, Object>> list = new ArrayList<>((ArrayList<HashMap<String, Object>>)
+                    get(neu("mod.agus.jcoderz.editor.manage.library.locallibrary.ManageLocalLibrary", sc_id), "list"));
+            HashMap<String, Object> entry = new HashMap<>();
+            entry.put("name", "dupres_V_1.0");
+            entry.put("jarPath", new java.io.File(dup, "classes.jar").getAbsolutePath());
+            list.add(entry);
+            call(c("com.sketchware.ai.project.LibraryHeal"), "save", sc_id, list);
+        }
         if (spec.equals("telugu")) {
             // fonts as the font manager stores them: <resources/fonts/<sc_id>>/<name>.ttf whatever the format
             String fontsDir = (String) get(res, "g");
@@ -490,6 +520,7 @@ public class Fixtures {
         v.add(neu("android.util.Pair", 2, "title"));   // v1.8.9 statement-to-block checks
         v.add(neu("android.util.Pair", 1, "score"));
         v.add(neu("android.util.Pair", 0, "done"));
+        v.add(neu("android.util.Pair", 3, "store"));   // v1.9.1: a Map variable for the map blocks (JavaEdit 21)
         HashMap<String, ArrayList<Object>> lists = (HashMap<String, ArrayList<Object>>) get(proj, "f");
         lists.computeIfAbsent(javaName, k -> new ArrayList<>()).add(neu("android.util.Pair", 2, "items"));
         HashMap<String, ArrayList<Object>> more = (HashMap<String, ArrayList<Object>>) get(proj, "g");

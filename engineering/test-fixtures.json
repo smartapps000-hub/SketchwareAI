@@ -623,6 +623,39 @@
         "JAVAEDIT 82/82 (919), JAVAEDIT-M3 8/8 (908), EVENTCODE 17/17 (925), JAVAEDIT-OPEN 25/25, VERSIONS 9/9",
         "LoadAll: only kotlinx AgentPremain x2 (+ 902's 2 AdMob offline WorkManager classes); CallKt A, B; CallDesugar = expected"
       ]
+    },
+    {
+      "id": "919 (v1.9.1)",
+      "kind": "harness fixture javaedit, JavaEdit section 21 (Fixtures.javaEditBlocks adds a Map variable 'store')",
+      "content": "button2 onClick typed: score = score + 1; title = userName.concat(\"!\"); done = score > 3; textview1.setText(String.valueOf(score)); items.add(\"apple\"); textview1.setText(items.get((int)(0))); FileUtil.writeFile / readFile; score = Math.pow(score, 2); done = title.contains(\"a\"); done = (score > 3) && !done; checkbox1.setChecked(false); Toast.makeText(getApplicationContext(), title, Toast.LENGTH_SHORT).show(); a LENGTH_LONG toast; items.clear(); done = checkbox1.isChecked(); store.put(\"k\", title); title = store.get(\"k\").toString(); score = items.size(); score = title.length(); then score = score + 1 + 2; and old data with a bare true in setVarBoolean's slot",
+      "checks": [
+        "blocks: setVarInt(+) setVarString(stringJoin) setVarBoolean(>) setText(toStringWithDecimal) addListStr setText(getAtListStr) [FileUtil lines one add source] setVarInt(mathPow) setVarBoolean(stringContains) setVarBoolean(&&(>, not)) setChecked(false block) doToast [long toast add source] clearList setVarBoolean(getChecked) mapPut setVarString(mapGet) setVarInt(lengthList) setVarInt(stringLength)",
+        "generated again as typed (the short toast as SketchwareUtil.showMessage); the shown code saves unchanged; notes: toast became the Toast block, FileUtil lines stay code (storage permission)",
+        "score = score + 1 + 2; stays add source (the blocks write score + (1 + 2))",
+        "literalBooleansToBlocks: [done, true] -> [done, @8] with a true block; a text slot keeps 'true'",
+        "sections 16 and 19: setChecked(true) / boolean shown = true hold a true block",
+        "then Run build 16 steps, 0 warnings"
+      ]
+    },
+    {
+      "id": "930",
+      "kind": "Sketchware project made by tools/art-harness (spec 'lifecycle')",
+      "content": "Button + TextView; the owner's #663 libraries installed by the Library Resolver from out/maven-cache: androidx.lifecycle:lifecycle-runtime-ktx:2.9.4 (with lifecycle-runtime-android 2.9.4, annotation-jvm 1.9.1, core-viewtree 1.0.0, jspecify 1.0.0), lifecycle-viewmodel-ktx 2.9.2, savedstate-ktx 1.3.1 (the -ktx jars hold only a META-INF version file); v1.9.1 adds dupres_V_1.0, a resource-only jar with DebugProbesKt.bin, kotlin/kotlin.kotlin_builtins, dupres/own.txt (files the built-in kotlinx-coroutines-core-1.7.3 / kotlin-stdlib-1.8.22 jars hold too)",
+      "checks": [
+        "Run build 16 steps, exactly 1 warning: 'Two libraries hold the same file; the APK has the first copy of: DebugProbesKt.bin (in kotlinx-coroutines-core-1.7.3 and dupres_V_1.0), kotlin/kotlin.kotlin_builtins (in kotlin-stdlib-1.8.22 and dupres_V_1.0)'",
+        "no 'has no classes.dex' warning for the -ktx libraries (v1.9.0 gave three)",
+        "APK: DebugProbesKt.bin 1,738 bytes (the coroutines copy), kotlin/kotlin.kotlin_builtins 17,783 bytes, dupres/own.txt present",
+        "fill out/maven-cache first: /root/rj/ResolveCache.java (MavenResolver on the JVM, with the proxy's JAVA_TOOL_OPTIONS) for the three coordinates"
+      ]
+    },
+    {
+      "id": "render-v191",
+      "kind": "layoutlib (Paparazzi) renders, tools/layoutlib-renders V191ExportTest (setup_v191.sh copies ExportCards)",
+      "content": "the Export screen's cards built like export_project.xml at font scale 1.5: the Android Studio card after an export as v1.9.0 left it and with ExportCards; the three cards with their notices",
+      "checks": [
+        "before: the path row (fixed 24 dp) clips the path and the Send button touches it; after: the row grows, 10 dp above Send, notice text clear of the card's right edge",
+        "Sign APK / App Bundle notices fully visible"
+      ]
     }
   ]
 }

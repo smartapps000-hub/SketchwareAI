@@ -50,6 +50,25 @@ public final class LibraryIntegrity {
     }
 
     /**
+     * Whether {@code jar} holds at least one class D8 would turn into DEX (module-info and package-info don't count).
+     * True when it can't be read, so a damaged jar is still reported.
+     */
+    static boolean hasClasses(File jar) {
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar)) {
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries.nextElement().getName();
+                if (!name.endsWith(".class")) continue;
+                String simple = name.substring(name.lastIndexOf('/') + 1);
+                if (!simple.equals("module-info.class") && !simple.equals("package-info.class")) return true;
+            }
+            return false;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
      * @return what was done or couldn't be done, for the build's warnings; empty when every
      * enabled library is complete
      */
@@ -73,6 +92,12 @@ public final class LibraryIntegrity {
                 boolean jarListedButGone = listedJar instanceof String && !new File((String) listedJar).isFile();
                 if (jar.isFile()) {
                     // Complete but for the dex (an earlier restore that couldn't finish): make it now.
+                    // v1.9.0: a classes.jar without classes needs no dex (AndroidX's -ktx compatibility artifacts of
+                    // 2025-2026, e.g. lifecycle-runtime-ktx 2.9, hold only a META-INF version file): nothing is missing.
+                    if (!dex.isFile() && !hasClasses(jar)) {
+                        if (jarListedButGone) changed |= LibraryAutoResolve.refresh(library, directory);
+                        continue;
+                    }
                     if (!dex.isFile()) {
                         if (progress != null) progress.show("Restoring library " + name + "...");
                         if (finish(directory, null)) {

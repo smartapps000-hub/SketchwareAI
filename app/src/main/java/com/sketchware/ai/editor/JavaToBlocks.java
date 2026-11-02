@@ -111,6 +111,27 @@ public final class JavaToBlocks {
         return target.endsWith(".*") && libraryPackages.contains(target.substring(0, target.length() - 2));
     }
 
+    /**
+     * v1.9.1: an import the generator wrote for a block (java.text.DecimalFormat for a number-to-text block …) goes away
+     * with the last such block: accepted when the edited code doesn't name its class anywhere else.
+     */
+    private boolean unusedGeneratedImport(String line, JavaMembers e) {
+        if (!originalImports.contains(line)) return false;
+        Matcher m = IMPORT.matcher(line);
+        if (!m.matches()) return false;
+        String target = m.group(1).trim();
+        if (target.startsWith("static ") || target.endsWith(".*")) return false;
+        String simple = target.substring(target.lastIndexOf('.') + 1);
+        if (simple.isEmpty()) return false;
+        Pattern use = Pattern.compile("(?<![A-Za-z0-9_$.])" + Pattern.quote(simple) + "(?![A-Za-z0-9_$])");
+        Set<Integer> importLines = new HashSet<>(e.importLines);
+        for (int k = 1; k <= e.count(); k++) {
+            if (importLines.contains(k) || k == e.packageLineNumber) continue;
+            if (use.matcher(e.line(k)).find()) return false;
+        }
+        return true;
+    }
+
     public JavaToBlocks useStatementBlocks(StatementBlocks statements) {
         this.statements = statements;
         return this;
@@ -201,13 +222,18 @@ public final class JavaToBlocks {
         Snapshot before = new Snapshot(data, javaName);
         try {
             apply(e, result);
+            if (statements != null && statements.heldForPermission()) {
+                result.notes.add("FileUtil lines stay code: as File blocks they would make the app ask for storage "
+                        + "permission, which this activity's blocks don't do yet.");
+            }
             if (result.problems.isEmpty()) checkRemovals(result);
             if (result.problems.isEmpty()) {
                 String again = generator.generate();
                 JavaMembers r = new JavaMembers(again);
                 // v1.9.0: with registered variables the blocks write each declaration as its assignment and the
                 // variable as a field: that is the code they must give back exactly
-                JavaMembers expected = autoVariables.isEmpty() ? e : new JavaMembers(expectedText(e));
+                // v1.9.1: and a statement written the block's way (Toast.makeText → the Toast block) as that code
+                JavaMembers expected = autoVariables.isEmpty() && autoRewrites.isEmpty() ? e : new JavaMembers(expectedText(e));
                 String difference = r.problem != null ? r.problem
                         : expected.problem != null ? expected.problem : firstDifference(r, expected);
                 if (difference != null) {
@@ -632,6 +658,7 @@ public final class JavaToBlocks {
         // v1.9.0: variables declared or assigned in the new code are registered before any line becomes a block, so
         // their set blocks and variable blocks can be used everywhere in this save
         planAutoVariables(e, targets, result);
+        planEquivalents(e, targets, result);
         for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
             applyTargets(entry.getKey(), entry.getValue(), e, result);
         }
@@ -792,6 +819,36 @@ public final class JavaToBlocks {
         }
         for (AutoVariables.Variable variable : autoVariables.values()) {
             if (variable.kind != AutoVariables.CUSTOM) statements.declare(variable.name, variable.kind);
+        }
+    }
+
+    /**
+     * v1.9.1: statements that do exactly what a block does but are written differently ({@link StatementBlocks#equivalent}:
+     * {@code Toast.makeText(…, Toast.LENGTH_SHORT).show()}) are stored as that block, when the block takes the statement's
+     * values; the save says so.
+     */
+    private void planEquivalents(JavaMembers e, Map<EditMap.Event, List<Target>> targets, Result result) {
+        if (statements == null) return;
+        java.util.TreeMap<Integer, String[]> lines = new java.util.TreeMap<>();
+        for (Map.Entry<EditMap.Event, List<Target>> entry : targets.entrySet()) {
+            for (Target t : entry.getValue()) statementLines(e, t.eStart, t.eEnd, new String[4], lines);
+        }
+        for (String[] added : moreBlockAdditions) {
+            statementLines(e, Integer.parseInt(added[3]), Integer.parseInt(added[4]), new String[4], lines);
+        }
+        boolean toast = false;
+        for (int line : lines.keySet()) {
+            if (autoRewrites.containsKey(line)) continue;
+            String equivalent = StatementBlocks.equivalent(e.line(line).trim());
+            if (equivalent == null) continue;
+            ArrayList<BlockBean> mapped = statements.map(equivalent, new int[]{1_000_000});
+            if (mapped == null || !"doToast".equals(mapped.get(0).opCode)) continue;
+            autoRewrites.put(line, new AutoVariables.Rewrite(null, equivalent));
+            toast = true;
+        }
+        if (toast) {
+            result.notes.add("Toast.makeText(…, Toast.LENGTH_SHORT).show() became the Toast block (it shows the same short "
+                    + "message; its code is SketchwareUtil.showMessage).");
         }
     }
 
@@ -1314,7 +1371,10 @@ public final class JavaToBlocks {
         }
         for (String line : expected) {
             // an automatic library import that is no longer needed (or would now be ambiguous) goes away by itself
-            if (!got.contains(line) && !(automaticImport(line) && originalImports.contains(line))) return "missing " + line;
+            if (!got.contains(line) && !(automaticImport(line) && originalImports.contains(line))
+                    && !unusedGeneratedImport(line, e)) {
+                return "missing " + line;
+            }
         }
         if (!r.line(r.classLine).trim().equals(e.line(e.classLine).trim())) return "class line";
         Map<String, Integer> counts = new HashMap<>();

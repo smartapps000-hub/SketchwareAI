@@ -74,6 +74,29 @@ public class JavaEdit {
         return s.toString();
     }
 
+    /** "opCode(child,...)" with "_" for a typed value and the slot blocks' own slots. */
+    @SuppressWarnings("unchecked")
+    static String tree21(Object block, Map<String, Object> all) throws Exception {
+        StringBuilder out = new StringBuilder(String.valueOf(get(block, "opCode")));
+        List<String> params = (List<String>) get(block, "parameters");
+        if ("addSourceDirectly".equals(get(block, "opCode")) || "getVar".equals(get(block, "opCode"))) return out.toString();
+        if (params.isEmpty()) return out.toString();
+        out.append('(');
+        boolean first = true;
+        for (String p : params) {
+            if (!first) out.append(',');
+            first = false;
+            Object child = p != null && p.startsWith("@") ? all.get(p.substring(1)) : null;
+            if (child != null) out.append(tree21(child, all));
+            else if (p != null && (p.equals("textview1") || p.equals("checkbox1") || p.equals("items") || p.equals("score")
+                    || p.equals("title") || p.equals("done") || p.equals("store"))) continue;
+            else out.append('_');
+        }
+        // dropdown names are left out: "setText(x)" reads as the value only
+        String text = out.append(')').toString();
+        return text.replace("(,", "(").replace(",)", ")");
+    }
+
     static String sourceOf(Object block) throws Exception {
         @SuppressWarnings("unchecked") List<String> p = (List<String>) get(block, "parameters");
         return p.isEmpty() ? "" : p.get(0);
@@ -596,10 +619,14 @@ public class JavaEdit {
             Object g1 = p1.size() == 2 && p1.get(1).startsWith("@") ? all.get(p1.get(1).substring(1)) : null;
             check("variables: setText(userName) reads the new variable", g1 != null && "getVar".equals(get(g1, "opCode"))
                     && "userName".equals(get(g1, "spec")), String.valueOf(p1));
+            // v1.9.1: true is a true block in the slot (a bare "true" showed an empty slot on the phone)
+            @SuppressWarnings("unchecked") List<String> p3 = (List<String>) get(chain19.get(3), "parameters");
+            Object t3 = p3.size() == 2 && p3.get(1).startsWith("@") ? all.get(p3.get(1).substring(1)) : null;
             check("variables: set blocks' parameters", String.valueOf(get(chain19.get(0), "parameters")).equals("[userName, Ravi]")
                     && String.valueOf(get(chain19.get(2), "parameters")).equals("[total, 2.5]")
-                    && String.valueOf(get(chain19.get(3), "parameters")).equals("[shown, true]"),
-                    get(chain19.get(0), "parameters") + " " + get(chain19.get(2), "parameters") + " " + get(chain19.get(3), "parameters"));
+                    && "shown".equals(p3.get(0)) && t3 != null && "true".equals(get(t3, "opCode")) && "b".equals(get(t3, "type")),
+                    get(chain19.get(0), "parameters") + " " + get(chain19.get(2), "parameters") + " " + p3
+                            + (t3 == null ? "" : " " + get(t3, "opCode")));
             check("variables: locals that stay are one add source block", sourceOf(chain19.get(8)).startsWith("String twice = \"2\";\nString captured = \"x\";"),
                     sourceOf(chain19.get(8)));
             check("variables: decimals stored as numbers, written the generator's way", String.valueOf(get(chain19.get(6), "parameters")).equals("[rating, 4.5]"),
@@ -684,6 +711,184 @@ public class JavaEdit {
                 + refires.invoke(null, "myedittext1.setText(q);", listener, "edittext1");
         check("review locals: only the event's own view, performClick or a MoreBlock re-run it",
                 fires.equals("false true true true false true false"), fires);
+
+        // 21. v1.9.1 (owner's 1 Nov screenshots): values become the Operator / Math / text / List / File blocks that
+        // write them, list and file statements their blocks, true / false a true / false block, and
+        // Toast.makeText(..., LENGTH_SHORT).show() the Toast block; what no block writes exactly stays add source.
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed21 = {
+                "score = score + 1;",
+                "title = userName.concat(\"!\");",
+                "done = score > 3;",
+                "textview1.setText(String.valueOf(score));",
+                "items.add(\"apple\");",
+                "textview1.setText(items.get((int)(0)));",
+                "FileUtil.writeFile(\"/sdcard/a.txt\", title);",
+                "title = FileUtil.readFile(\"/sdcard/a.txt\");",
+                "score = Math.pow(score, 2);",
+                "done = title.contains(\"a\");",
+                "done = (score > 3) && !done;",
+                "checkbox1.setChecked(false);",
+                "Toast.makeText(getApplicationContext(), title, Toast.LENGTH_SHORT).show();",
+                "Toast.makeText(getApplicationContext(), \"Long\", Toast.LENGTH_LONG).show();",
+                "items.clear();",
+                "done = checkbox1.isChecked();",
+                "store.put(\"k\", title);",
+                "title = store.get(\"k\").toString();",
+                "score = items.size();",
+                "score = title.length();"};
+        for (int k = 0; k < typed21.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed21[k]);
+        Object r21 = save(join(l));
+        check("value blocks: saved", ok(r21), report(r21));
+        all.clear();
+        for (Object b : blocks("button2_onClick")) all.put((String) get(b, "id"), b);
+        cur = blocks("button2_onClick").isEmpty() ? null : blocks("button2_onClick").get(0);
+        ops = new StringBuilder();
+        List<Object> chain21 = new ArrayList<>();
+        while (cur != null) {
+            chain21.add(cur);
+            ops.append(get(cur, "opCode")).append(' ');
+            int nx = (Integer) get(cur, "nextBlock");
+            cur = nx < 0 ? null : all.get(String.valueOf(nx));
+        }
+        Main.OUT.println("VALUE BLOCKS " + ops);
+        // each statement's slot blocks, as opCode(child, child ...)
+        StringBuilder tree = new StringBuilder();
+        for (Object b : chain21) tree.append(tree21(b, all)).append(" | ");
+        Main.OUT.println("VALUE TREE " + tree);
+        check("value blocks: one block per statement, the long toast as add source", ops.toString().equals(
+                "setVarInt setVarString setVarBoolean setText addListStr setText addSourceDirectly setVarInt "
+                        + "setVarBoolean setVarBoolean setChecked doToast addSourceDirectly clearList setVarBoolean mapPut "
+                        + "setVarString setVarInt setVarInt "), ops.toString());
+        String t21 = tree.toString();
+        check("value blocks: operators, text, list, file and math blocks in the slots",
+                t21.contains("setVarInt(+(getVar,_)") && t21.contains("setVarString(stringJoin(getVar,_)")
+                        && t21.contains("setVarBoolean(>(getVar,_)") && t21.contains("setText(toStringWithDecimal(getVar)")
+                        && t21.contains("setText(getAtListStr(_)")
+                        && t21.contains("setVarInt(mathPow(getVar,_)") && t21.contains("setVarBoolean(stringContains(getVar,_)")
+                        && t21.contains("setVarBoolean(&&(>(getVar,_),not(getVar))") && t21.contains("setChecked(false)")
+                        && t21.contains("doToast(getVar)") && t21.contains("setVarBoolean(getChecked())")
+                        && t21.contains("mapPut(_,getVar)") && t21.contains("setVarString(mapGet(_))")
+                        && t21.contains("setVarInt(lengthList())") && t21.contains("setVarInt(stringLength(getVar))"), t21);
+        String regenerated21 = code();
+        write("javaedit-21-values.java", regenerated21);
+        boolean same21 = true;
+        StringBuilder missing21 = new StringBuilder();
+        for (String t : typed21) {
+            String expect = t.startsWith("Toast.makeText(getApplicationContext(), title")
+                    ? "SketchwareUtil.showMessage(getApplicationContext(), title);" : t;
+            if (!regenerated21.contains(expect)) {
+                same21 = false;
+                missing21.append(expect).append(' ');
+            }
+        }
+        check("value blocks: generated again as typed (the short toast as the Toast block's code)", same21, missing21.toString());
+        String notes21 = String.valueOf(get(r21, "notes"));
+        check("value blocks: the save says the toast became the Toast block", notes21.contains("became the Toast block"), notes21);
+        // FileUtil code would be File blocks only if they added nothing: here they would add storage permissions
+        Object file21 = chain21.size() > 6 ? chain21.get(6) : null;
+        check("value blocks: FileUtil lines stay code (File blocks would add storage permissions) and the save says so",
+                file21 != null && "addSourceDirectly".equals(get(file21, "opCode"))
+                        && sourceOf(file21).equals("FileUtil.writeFile(\"/sdcard/a.txt\", title);\ntitle = FileUtil.readFile(\"/sdcard/a.txt\");")
+                        && notes21.contains("FileUtil lines stay code"), (file21 == null ? "" : sourceOf(file21)) + " " + notes21);
+        Object r21b = save(regenerated21);
+        check("value blocks: the shown code saves unchanged", ok(r21b) && (Boolean) get(r21b, "unchanged"), report(r21b));
+        // blocks saved by v1.8.9-v1.9.0 with a bare "true" in a boolean slot (an empty slot on the canvas) get a true
+        // block when the logic editor opens the event (StatementBlocks.literalBooleansToBlocks); the code is the same
+        Class<?> sb21 = c("com.sketchware.ai.editor.StatementBlocks");
+        ArrayList<Object> old21 = new ArrayList<>();
+        Object setBool21 = neu("com.besome.sketch.beans.BlockBean", "4", "set %m.varBool to %b", " ", "", "setVarBoolean");
+        @SuppressWarnings("unchecked") List<String> sp21 = (List<String>) get(setBool21, "parameters");
+        sp21.add("done");
+        sp21.add("true");
+        Object text21 = neu("com.besome.sketch.beans.BlockBean", "7", "%m.textview setText %s", " ", "", "setText");
+        @SuppressWarnings("unchecked") List<String> tp21 = (List<String>) get(text21, "parameters");
+        tp21.add("textview1");
+        tp21.add("true");
+        old21.add(setBool21);
+        old21.add(text21);
+        int fixed21 = (Integer) call(sb21, "literalBooleansToBlocks", old21, get(sb21, "ENGLISH_SPECS"));
+        Object lit21 = old21.size() == 3 ? old21.get(2) : null;
+        check("value blocks: an old bare true in a boolean slot becomes a true block (a text slot keeps its text)",
+                fixed21 == 1 && lit21 != null && "true".equals(get(lit21, "opCode")) && "8".equals(get(lit21, "id"))
+                        && String.valueOf(sp21).equals("[done, @8]") && String.valueOf(tp21).equals("[textview1, true]"),
+                fixed21 + " " + sp21 + " " + tp21);
+        // a sum written without the generator's brackets stays code (the blocks would write score + (1 + 2))
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        l.add(on + 1, "\t\t\t\tscore = score + 1 + 2;");
+        Object r21c = save(join(l));
+        Object first21 = blocks("button2_onClick").isEmpty() ? null : blocks("button2_onClick").get(0);
+        check("value blocks: a sum the blocks can't write exactly stays add source", ok(r21c) && first21 != null
+                && "addSourceDirectly".equals(get(first21, "opCode")) && sourceOf(first21).equals("score = score + 1 + 2;"),
+                report(r21c) + " " + (first21 == null ? "" : get(first21, "opCode") + " " + sourceOf(first21)));
+
+        // 22. v1.9.1: the other operator, math, text, list and map blocks, one line each
+        l = lines(code());
+        at = find(l, "button2.setOnClickListener", 0);
+        on = find(l, "public void onClick(", at);
+        stop = on + 1;
+        while (!l.get(stop).trim().equals("}")) stop++;
+        for (int k = stop - 1; k > on; k--) l.remove(k);
+        String[] typed22 = {
+                "score = score - 1;", "score = score * 2;", "score = score / 2;", "score = score % 2;",
+                "done = score < 3;", "done = score == 3;", "done = (score > 1) || done;",
+                "score = Math.sqrt(score);", "score = Math.max(score, 1);", "score = Math.min(score, 1);",
+                "score = Math.abs(score);", "score = Math.round(score);", "score = Math.floor(score);",
+                "done = title.equals(\"x\");", "title = title.substring((int)(0), (int)(1));",
+                "title = title.replace(\"a\", \"b\");", "title = title.trim();", "title = title.toUpperCase();",
+                "title = title.toLowerCase();", "score = title.indexOf(\"a\");", "score = Double.parseDouble(title);",
+                "score = items.indexOf(\"apple\");", "done = items.contains(\"apple\");", "done = store.containsKey(\"k\");",
+                "items.remove((int)(0));", "store.remove(\"k\");", "store.clear();"};
+        for (int k = 0; k < typed22.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed22[k]);
+        Object r22 = save(join(l));
+        check("more value blocks: saved", ok(r22), report(r22));
+        all.clear();
+        for (Object b : blocks("button2_onClick")) all.put((String) get(b, "id"), b);
+        cur = blocks("button2_onClick").isEmpty() ? null : blocks("button2_onClick").get(0);
+        StringBuilder tree22 = new StringBuilder();
+        int count22 = 0;
+        boolean source22 = false;
+        while (cur != null) {
+            count22++;
+            if ("addSourceDirectly".equals(get(cur, "opCode"))) source22 = true;
+            tree22.append(tree21(cur, all)).append(" | ");
+            int nx = (Integer) get(cur, "nextBlock");
+            cur = nx < 0 ? null : all.get(String.valueOf(nx));
+        }
+        Main.OUT.println("VALUE TREE 22 " + tree22);
+        String t22 = tree22.toString();
+        check("more value blocks: every line a block, none add source", !source22 && count22 == typed22.length
+                && t22.contains("setVarInt(-(getVar,_))") && t22.contains("setVarInt(*(getVar,_))") && t22.contains("setVarInt(/(getVar,_))")
+                && t22.contains("setVarInt(%(getVar,_))") && t22.contains("setVarBoolean(<(getVar,_))") && t22.contains("setVarBoolean(=(getVar,_))")
+                && t22.contains("setVarBoolean(||(>(getVar,_),getVar))") && t22.contains("setVarInt(mathSqrt(getVar))")
+                && t22.contains("setVarInt(mathMax(getVar,_))") && t22.contains("setVarInt(mathMin(getVar,_))")
+                && t22.contains("setVarInt(mathAbs(getVar))") && t22.contains("setVarInt(mathRound(getVar))") && t22.contains("setVarInt(mathFloor(getVar))")
+                && t22.contains("setVarBoolean(stringEquals(getVar,_))") && t22.contains("setVarString(stringSub(getVar,_,_))")
+                && t22.contains("setVarString(stringReplace(getVar,_,_))") && t22.contains("setVarString(trim(getVar))")
+                && t22.contains("setVarString(toUpperCase(getVar))") && t22.contains("setVarString(toLowerCase(getVar))")
+                && t22.contains("setVarInt(stringIndex(_,getVar))") && t22.contains("setVarInt(toNumber(getVar))")
+                && t22.contains("setVarInt(indexListStr(_))") && t22.contains("setVarBoolean(containListStr(_))")
+                && t22.contains("setVarBoolean(mapContainKey(_))") && t22.contains("deleteList(_)") && t22.contains("mapRemoveKey(_)")
+                && t22.contains("mapClear()"), count22 + " " + t22);
+        String regenerated22 = code();
+        boolean same22 = true;
+        StringBuilder missing22 = new StringBuilder();
+        for (String t : typed22) {
+            if (!regenerated22.contains(t)) {
+                same22 = false;
+                missing22.append(t).append(' ');
+            }
+        }
+        check("more value blocks: generated again as typed", same22, missing22.toString());
+        Object r22b = save(regenerated22);
+        check("more value blocks: the shown code saves unchanged", ok(r22b) && (Boolean) get(r22b, "unchanged"), report(r22b));
 
         // 9. the generated code is now what was saved; an edit to it saves again
         write("javaedit-9-final.java", code());

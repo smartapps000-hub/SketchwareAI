@@ -500,3 +500,45 @@ Phase 3 Build Doctor as a strategy-ID pipeline with result fingerprints, Phase 4
   override it, the design and logic editors save the project there; target 37 also makes changing a `static final`
   field by reflection throw, requires `System.load` files to be read-only and drops the large-screen orientation opt-out
   (developer.android.com behavior-changes-16 / -17). None of it can be run here (no device, no emulator).
+
+## v1.9.1 additions
+
+Owner's phone report, 1-2 Nov 2026 (18 screenshots, 2 recordings: project #663 "Package APK" failure and an IDE
+restart during "Building APK...", three library warnings, an empty boolean slot, add source for operators / math / list /
+file / Toast lines, the Export screen's Local Path row under the Send button).
+
+- **`project.JavaResources`** (Dp.buildApk): sdklib 25.3.0's ApkBuilder throws DuplicateFileException for a Java-resource
+  path it already packaged (resources.ap_, the DEX, native folders, an earlier jar; META-INF is skipped by
+  SignedJarBuilder.writeZip). Before packaging, each jar's entries are checked with ApkBuilder's own static filters; a jar
+  holding an already-packaged path is replaced by a copy in `bin/java-resources/` without those entries (first copy
+  wins; the copy is deleted in `finally`). The build warning names up to 8 files and their two owners
+  (`ownerOf`: the library folder). Exceptions from ApkBuilder now carry their causes in the By message.
+- **`LibraryIntegrity.hasClasses`**: a library jar with no `.class` (AndroidX -ktx shells of 2025-2026) needs no DEX:
+  no warning, no repair.
+- **`BuildMap.Record.cause`**: the first two non-blank lines of a failed build's log, printed as `failed with:` under
+  the Build map (the owner's screenshots show the log's end; the exception sat at the top).
+- **`editor.StatementBlocks` templates**: `REPORTERS` (value blocks with their type b/d/s) and `STATEMENTS` (one-line
+  statement blocks). A template is made per opcode by generating the block with marker values (`zqv<i>qz` getVar blocks in
+  %s/%d/%b slots, the marker as the value of a dropdown slot) — a value block inside a setVarString/Int/Boolean carrier
+  `zqcarrierqz = …;` — and finding the markers in the code: pieces of literal text with holes in the order the generator
+  writes the slots (fileutilwrite writes slot 2 first). Slot kinds come from the spec (palette, English, or `lq.a`);
+  templates whose code isn't one line, contains `{`, or has a marker missing / twice are not used. Matching splits the
+  text at the pieces at bracket depth 0 outside string / char literals (up to 6 splits per template, a budget of 4,000
+  split steps and depth 8 per statement); each slot text becomes a literal, a variable block, a list / map / view /
+  component name of the right kind (`VIEW_KINDS`, `COMPONENT_KINDS`, lists from eC.f) or, recursively, a value block —
+  also without one pair of outer brackets (the generator brackets an operator inside another: `(a + 7) + bb`). The whole
+  statement is then generated and must equal the typed one. true / false are the palette's true / false blocks (a bare
+  literal showed an empty slot); `literalBooleansToBlocks` repairs blocks saved that way when LogicEditorActivity loads an
+  event. **Storage permissions**: a.a.a.yq adds READ (and WRITE) EXTERNAL_STORAGE plus an onCreate request for any
+  fileutil* / bitmap-file block, so these are only used when the activity already has a block of that kind
+  (`useExistingBlocks`); otherwise the line stays code and the save says so (`heldForPermission`). Other side-effect
+  opcodes (Gson, Glide, webView, intentSetAction CALL) are not in the lists.
+- **Toast rewrite** (`StatementBlocks.equivalent`, `JavaToBlocks.planEquivalents`): `[android.widget.]Toast.makeText(
+  getApplicationContext() | getBaseContext() | [X.]this, text, [android.widget.]Toast.LENGTH_SHORT).show();` is stored
+  as the Toast block when the Toast block takes `text` (a String: literal, String variable or String value block); the
+  proof compares with the rewritten text (`expectedText` whenever `autoRewrites` is non-empty) and the save notes it.
+  `SketchwareUtil.showMessage(Context, String)` is `Toast.makeText(_context, _s, Toast.LENGTH_SHORT).show()` (Lx).
+- **`ui.ExportCards`** (ExportProjectActivity): `addNotice` (pill + subtitle under a card's title, 12 dp right padding,
+  the card's button / loading / result re-anchored below it with copied RelativeLayout params) for Sign APK, Android
+  Studio and App Bundle; `fitResultRows` (result rows wrap their text, 24 dp minimum, 10 dp above Send). The App Bundle
+  button had taken the Android Studio button's LayoutParams object (its margins moved that button too): own params now.

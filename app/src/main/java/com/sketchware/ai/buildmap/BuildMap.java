@@ -67,6 +67,8 @@ public final class BuildMap {
         public String result = RUNNING;
         public int warnings;
         public List<Task> tasks = new ArrayList<>();
+        /** v1.9.1: the first lines of a failed build's error, shown under the map (a screenshot of the log's end has it). */
+        public String cause;
     }
 
     private static Record current;
@@ -150,6 +152,7 @@ public final class BuildMap {
             }
         }
         close(taskStatus, now);
+        if (FAILED.equals(result) && log != null) current.cause = cause(log);
         current.result = result;
         current.warnings = warnings;
         current.durationMs = now - current.startedAt;
@@ -157,6 +160,21 @@ public final class BuildMap {
     }
 
     private static final Pattern ATTEMPT = Pattern.compile("(?m)^Attempt \\d+:");
+
+    /** The first two non-blank lines of an error (each cut to 200 characters), or null. */
+    static String cause(String log) {
+        StringBuilder out = new StringBuilder();
+        int lines = 0;
+        for (String line : log.split("\n")) {
+            String text = line.trim();
+            if (text.isEmpty()) continue;
+            if (text.length() > 200) text = text.substring(0, 200) + "…";
+            if (out.length() > 0) out.append('\n');
+            out.append(text);
+            if (++lines == 2) break;
+        }
+        return out.length() == 0 ? null : out.toString();
+    }
 
     private static void save() {
         try {
@@ -191,6 +209,9 @@ public final class BuildMap {
             text.append('\n');
         }
         text.append("    total ").append(seconds(current.durationMs));
+        if (current.cause != null) {
+            text.append("\n    failed with: ").append(current.cause.replace("\n", "\n        "));
+        }
         String environment = environment();
         if (!environment.isEmpty()) text.append("\n    built with ").append(environment);
         return text.toString();

@@ -502,6 +502,38 @@
       "scope": "Java editor save, logic editor source sheet Apply",
       "verifiedOn": "ART fixture 919 section 19, 925 (eventcode), 908 (javaedit-m3: the owner's String userNotes line)",
       "permanent": true
+    },
+    {
+      "fingerprint": "Build map: Package APK FAILED in about 1 s (a.a.a.By from Dp.buildApk / DuplicateFileException: the same path in two library jars outside META-INF, e.g. DebugProbesKt.bin, kotlin/*.kotlin_builtins, okhttp3/internal/publicsuffix/publicsuffixes.gz)",
+      "rootCause": "sdklib 25.3.0 ApkBuilder registers every Java resource path it packages (resources.ap_, jars, native libraries) and throws DuplicateFileException on the second one; a library installed as a local library next to the built-in copy of an older version (kotlinx-coroutines-core, kotlin-stdlib, OkHttp) carries the same resource files",
+      "repair": "v1.9.1: project.JavaResources pre-scans each jar with ApkBuilder's own filters (checkFolderForPackaging / checkFileForPackaging, META-INF skipped as SignedJarBuilder.writeZip does); a jar with a path already packaged (resources.ap_, classes.dex, native folders, earlier jars) is given to ApkBuilder as a temp copy without it (first copy wins, like a pickFirst rule); the build warning lists the files; temp copies deleted in finally. ApkCreationException messages now carry their causes.",
+      "scope": "Run build, Export APK and AAB (every Dp.buildApk)",
+      "verifiedOn": "ART fixture 930 (lifecycle + a resource-only library dupres_V_1.0 with DebugProbesKt.bin and kotlin/kotlin.kotlin_builtins): 16 steps, 1 warning naming both files; the APK holds the coroutines (1,738 bytes) and stdlib copies and the library's own dupres/own.txt. The owner's #663 log was cut above the exception: cause not confirmed on the phone",
+      "permanent": true
+    },
+    {
+      "fingerprint": "warning: Local library '<name>-ktx…' has no classes.dex and it couldn't be made, so its classes won't be in the app. Download it again in Local library manager.",
+      "rootCause": "AndroidX -ktx artifacts of 2025-2026 (lifecycle-runtime-ktx(-android) 2.9.x, lifecycle-viewmodel-ktx 2.9.x, savedstate-ktx 1.3.x) are empty compatibility shells: classes.jar holds only META-INF/<group>_<artifact>.version, so D8 makes no classes.dex and LibraryIntegrity reported the library as broken",
+      "repair": "v1.9.1: LibraryIntegrity.hasClasses: a classes.jar without a .class entry (module-info / package-info don't count) needs no DEX: no warning, no repair attempt; an unreadable jar still counts as having classes",
+      "scope": "every build's library integrity step",
+      "verifiedOn": "ART fixture 930: the three warnings of v1.9.0 gone (WARNINGS 1, only the duplicate-file one)",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Logic editor: set Boolean x to [ ] (empty boolean slot) after a Java editor save or source sheet Apply",
+      "rootCause": "StatementBlocks (v1.8.9-v1.9.0) stored a literal true / false as the slot's text; a boolean slot only shows a block, so the canvas showed it empty (the code still said true)",
+      "repair": "v1.9.1: true / false become the Operator palette's true / false blocks (\"@id\"); LogicEditorActivity.loadEventBlocks converts a stored bare true / false in a boolean slot (Gx 'boolean') into such a block when the event opens (StatementBlocks.literalBooleansToBlocks)",
+      "scope": "Java editor save, source sheet Apply, opening an event saved by v1.8.9-v1.9.0",
+      "verifiedOn": "ART fixture 919 sections 16, 19, 21 (true block in setVarBoolean / setChecked slots; literalBooleansToBlocks on old data); the logic editor's canvas: not run (Activity)",
+      "permanent": true
+    },
+    {
+      "fingerprint": "Java editor: operators, Math, text, list, map lines and Toast.makeText saved as add source blocks",
+      "rootCause": "StatementBlocks only knew whole statements with literal or variable arguments",
+      "repair": "v1.9.1: value blocks in slots and generic statement blocks from templates read from the generator itself (each block generated with marker values); every statement still checked by generating it; Toast.makeText(ctx, text, Toast.LENGTH_SHORT).show() rewritten to the Toast block's SketchwareUtil.showMessage; FileUtil blocks only when the activity already has a file block of that permission kind (they add storage permissions)",
+      "scope": "Java editor save, source sheet Apply",
+      "verifiedOn": "ART fixture 919 section 21",
+      "permanent": true
     }
   ]
 }

@@ -294,7 +294,10 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
 
         Button btnExportAppBundle = new Button(this);
         {
-            RelativeLayout.LayoutParams btnExportAppBundleParams = (RelativeLayout.LayoutParams) btn_export_src.getLayoutParams();
+            // v1.9.1: its own params (it took the source button's object, so its margins moved that button too)
+            RelativeLayout.LayoutParams btnExportAppBundleParams = new RelativeLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            btnExportAppBundleParams.addRule(RelativeLayout.CENTER_HORIZONTAL, RelativeLayout.TRUE);
             btnExportAppBundleParams.setMargins(
                     0,
                     (int) getDip(48),
@@ -444,6 +447,11 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         titleAppBundlePath.setText(Helper.getResString(R.string.myprojects_export_project_title_local_path));
         btnSendAppBundle.setText("Send AAB");
         layoutExportAppBundle.setVisibility(View.GONE);
+        fitResultRows(layoutExportAppBundle, (View) btnSendAppBundle.getParent());
+        addCardNotice(titleExportAppBundle, "Google Play",
+                "Android App Bundle\u00a0\u00b7 bundletool\u00a01.18.3\u00a0\u00b7 16\u00a0KB page alignment\n"
+                        + "Signed with your keystore or the test key (JAR signature, SHA\u2011256)",
+                btnExportAppBundle, layoutExportAppBundle);
 
         btnExportAppBundle.setOnClickListener(v -> {
             aB dialog = new aB(ExportProjectActivity.this);
@@ -504,6 +512,7 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         loading_export_src.setVisibility(View.GONE);
         layout_export_src.setVisibility(View.GONE);
         addExportStackNotice(title_export_src);
+        fitResultRows(layout_export_src, btn_send_src);
         btn_export_src.setOnClickListener(v -> {
             btn_export_src.setVisibility(View.GONE);
             layout_export_src.setVisibility(View.GONE);
@@ -521,52 +530,26 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
     }
 
     /**
-     * v1.9.0: under the "Export to Android Studio" title, what the exported project is built with and what opens it:
-     * a pill and a line of text (GradleExport's versions). The button, the loading animation and the result move below
-     * it instead of sitting at fixed offsets from the card's top.
+     * v1.9.0: under the "Export to Android Studio" title, what the exported project is built with and what opens it.
+     * v1.9.1: every export card has one (Sign APK, App Bundle too), with room on the right so no word touches the card's
+     * edge.
      */
     private void addExportStackNotice(TextView title) {
-        if (!(title.getParent() instanceof RelativeLayout)) return;
-        RelativeLayout card = (RelativeLayout) title.getParent();
-        float d = getResources().getDisplayMetrics().density;
-        LinearLayout notice = new LinearLayout(this);
-        notice.setId(View.generateViewId());
-        notice.setOrientation(LinearLayout.VERTICAL);
-        TextView badge = new TextView(this);
-        badge.setText("Future-Proof Modern Pipeline");
-        badge.setTextSize(11);
-        badge.setTypeface(Typeface.DEFAULT_BOLD);
-        badge.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.ob_accent));
-        badge.setBackgroundResource(R.drawable.ob_amber_pill);
-        badge.setPadding((int) (10 * d), (int) (3 * d), (int) (10 * d), (int) (3 * d));
-        notice.addView(badge, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        TextView subtitle = new TextView(this);
-        // no-break spaces keep "compileSdk 37" and "JDK 17/21" on one line
-        subtitle.setText("Gradle " + com.sketchware.ai.project.GradleExport.GRADLE + " · AGP "
-                + com.sketchware.ai.project.GradleExport.ANDROID_GRADLE_PLUGIN + " · Kotlin "
-                + com.sketchware.ai.project.GradleExport.KOTLIN_GRADLE_PLUGIN + " · compileSdk\u00a0"
-                + com.sketchware.ai.project.GradleExport.COMPILE_SDK + "\nRequires Android Studio "
-                + com.sketchware.ai.project.GradleExport.ANDROID_STUDIO + "+ & JDK\u00a017/21");
-        subtitle.setTextSize(12);
-        subtitle.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.ob_text_2));
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        subtitleParams.topMargin = (int) (6 * d);
-        notice.addView(subtitle, subtitleParams);
-        RelativeLayout.LayoutParams noticeParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,
-                RelativeLayout.LayoutParams.WRAP_CONTENT);
-        noticeParams.addRule(RelativeLayout.BELOW, title.getId());
-        noticeParams.addRule(RelativeLayout.ALIGN_LEFT, title.getId());
-        noticeParams.topMargin = (int) (8 * d);
-        card.addView(notice, noticeParams);
-        for (View below : new View[]{btn_export_src, loading_export_src, layout_export_src}) {
-            if (!(below.getLayoutParams() instanceof RelativeLayout.LayoutParams)) continue;
-            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) below.getLayoutParams();
-            params.addRule(RelativeLayout.BELOW, notice.getId());
-            params.topMargin = (int) (12 * d);
-            below.setLayoutParams(params);
-        }
+        addCardNotice(title, "Future-Proof Modern Pipeline",
+                "Gradle " + com.sketchware.ai.project.GradleExport.GRADLE + "\u00a0\u00b7 AGP "
+                        + com.sketchware.ai.project.GradleExport.ANDROID_GRADLE_PLUGIN + "\u00a0\u00b7 Kotlin "
+                        + com.sketchware.ai.project.GradleExport.KOTLIN_GRADLE_PLUGIN + "\u00a0\u00b7 compileSdk\u00a0"
+                        + com.sketchware.ai.project.GradleExport.COMPILE_SDK + "\nRequires Android Studio "
+                        + com.sketchware.ai.project.GradleExport.ANDROID_STUDIO.replace(' ', '\u00a0') + "+ & JDK\u00a017/21",
+                btn_export_src, loading_export_src, layout_export_src);
+    }
+
+    private void addCardNotice(TextView title, String badgeText, String subtitleText, View... below) {
+        com.sketchware.ai.ui.ExportCards.addNotice(title, badgeText, subtitleText, below);
+    }
+
+    private void fitResultRows(ViewGroup resultArea, View sendButton) {
+        com.sketchware.ai.ui.ExportCards.fitResultRows(resultArea, sendButton);
     }
 
     /**
@@ -584,14 +567,19 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         title_apk_path.setText(Helper.getResString(R.string.myprojects_export_project_title_local_path));
         loading_sign_apk.setVisibility(View.GONE);
         layout_apk_path.setVisibility(View.GONE);
+        fitResultRows(layout_apk_path, null);
+        addCardNotice(title_sign_apk, "Release APK",
+                "Signed with your keystore: APK signatures v2\u00a0+\u00a0v3 (and v1 below min SDK\u00a024)\n"
+                        + "Release build, DEX files merged", btn_sign_apk, (View) layout_apk_path.getParent());
         btn_sign_apk.setOnClickListener(v -> {
             GetKeyStoreCredentialsDialog credentialsDialog = new GetKeyStoreCredentialsDialog(ExportProjectActivity.this,
                     R.drawable.color_about_96,
                     "Sign an APK",
                     "To sign an APK, you need a keystore. Use your already created one, and copy it to " +
                             "/Internal storage/sketchware/keystore/release_key.jks and enter the alias's password.\n" +
-                            "Note that this only signs your APK using signing scheme V1, to target Android 11+ for example, " +
-                            "use a 3rd-party tool (for now).");
+                            // v1.9.1: the text said "only scheme V1"; since v1.8.2 the export signs v2 + v3 (+ v1)
+                            "The APK gets APK signatures v2 and v3 (and v1 when the min SDK is below 24), " +
+                            "so it installs on Android 11 and newer.");
             credentialsDialog.setListener(credentials -> {
                 btn_sign_apk.setVisibility(View.GONE);
                 layout_apk_path.setVisibility(View.GONE);

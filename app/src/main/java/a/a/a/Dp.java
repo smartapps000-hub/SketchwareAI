@@ -921,18 +921,33 @@ public class Dp {
 
     public void buildApk() throws By {
         String firstDexPath = dexesToAddButNotMerge.isEmpty() ? yq.classesDexPath : dexesToAddButNotMerge.remove(0).getAbsolutePath();
+        /* v1.9.1: a file two libraries both hold (outside META-INF) used to stop the build ("Duplicate files"): the first
+         * copy is packaged, the others are left out of the jar given to ApkBuilder, and the build says which */
+        com.sketchware.ai.project.JavaResources javaResources =
+                new com.sketchware.ai.project.JavaResources(new File(yq.binDirectoryPath, "java-resources"));
         try {
             ApkBuilder apkBuilder = new ApkBuilder(new File(yq.unsignedUnalignedApkPath), new File(yq.resourcesApkPath), new File(firstDexPath), null, null, System.out);
+            javaResources.seedFromZip(new File(yq.resourcesApkPath), "the project's resources");
+            javaResources.seed("classes.dex", "the project's DEX");
+            File projectNativeLibraries = new File(fpu.getPathNativelibs(yq.sc_id));
+            if (projectNativeLibraries.exists()) javaResources.seedNativeFolder(projectNativeLibraries, "the project's native libraries");
+            for (String nativeLibraryDirectory : mll.getNativeLibs()) {
+                javaResources.seedNativeFolder(new File(nativeLibraryDirectory), new File(nativeLibraryDirectory).getParentFile().getName());
+            }
 
             for (Jp library : builtInLibraryManager.a()) {
-                apkBuilder.addResourcesFromJar(BuiltInLibraries.getLibraryClassesJarPath(library.a()));
+                File jar = BuiltInLibraries.getLibraryClassesJarPath(library.a());
+                apkBuilder.addResourcesFromJar(javaResources.prepare(jar, com.sketchware.ai.project.JavaResources.ownerOf(jar)));
             }
 
             for (String jarPath : mll.getJarLocalLibrary().split(":")) {
                 if (!jarPath.trim().isEmpty()) {
-                    apkBuilder.addResourcesFromJar(new File(jarPath));
+                    File jar = new File(jarPath);
+                    apkBuilder.addResourcesFromJar(javaResources.prepare(jar, com.sketchware.ai.project.JavaResources.ownerOf(jar)));
                 }
             }
+            String duplicateWarning = javaResources.warning();
+            if (duplicateWarning != null) com.sketchware.ai.project.BuildWarnings.add(duplicateWarning);
 
             /* Add project's native libraries */
             File nativeLibrariesDirectory = new File(fpu.getPathNativelibs(yq.sc_id));
@@ -967,13 +982,20 @@ public class Dp {
             apkBuilder.setDebugMode(false);
             apkBuilder.sealApk();
         } catch (ApkCreationException | SealedApkException e) {
-            throw new By(e.getMessage());
+            // v1.9.1: the cause too (a bare message was often "null" or only a file name)
+            StringBuilder message = new StringBuilder("Packaging the APK failed: ").append(e.getMessage());
+            for (Throwable cause = e.getCause(); cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+                message.append("\nCaused by: ").append(cause);
+            }
+            throw new By(message.toString());
         } catch (DuplicateFileException e) {
             String message = "Duplicate files from two libraries detected \r\n";
             message += "File1: " + e.getFile1() + " \r\n";
             message += "File2: " + e.getFile2() + " \r\n";
             message += "Archive path: " + e.getArchivePath();
             throw new By(message);
+        } finally {
+            javaResources.cleanUp();
         }
         LogUtil.d(TAG, "Time passed since starting to compile resources until building the unsigned APK: " +
                 (System.currentTimeMillis() - timestampResourceCompilationStarted) + " ms");
@@ -1228,8 +1250,23 @@ public class Dp {
      */
     public void signDebugApk() throws GeneralSecurityException, IOException, ClassNotFoundException, IllegalAccessException, InstantiationException {
         if (Build.VERSION.SDK_INT >= 26) {
+            /* v1.9.1: stored entries (PNGs …) were left unaligned (zipalign -c failed); the signer keeps the input's
+             * alignment, so the unsigned APK is aligned first. On any failure the unaligned one is signed as before. */
+            String input = yq.unsignedUnalignedApkPath;
+            File aligned = new File(yq.unsignedUnalignedApkPath + ".aligned");
+            try (RandomAccessFile in = new RandomAccessFile(yq.unsignedUnalignedApkPath, "r");
+                 FileOutputStream out = new FileOutputStream(aligned)) {
+                ZipAlign.alignZip(in, out);
+                input = aligned.getAbsolutePath();
+            } catch (Throwable t) {
+                LogUtil.e(TAG, "Aligning before signing failed, signing the unaligned APK", t);
+            }
             ApkSigner signer = new ApkSigner();
-            signer.signWithTestKey(yq.unsignedUnalignedApkPath, yq.finalToInstallApkPath, null);
+            try {
+                signer.signWithTestKey(input, yq.finalToInstallApkPath, null);
+            } finally {
+                aligned.delete();
+            }
         } else {
             ZipSigner zipSigner = new ZipSigner();
             KeyStoreFileManager.setProvider(new BouncyCastleProvider());

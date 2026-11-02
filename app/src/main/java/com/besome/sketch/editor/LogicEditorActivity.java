@@ -213,6 +213,13 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     private void loadEventBlocks() {
         ArrayList<BlockBean> eventBlocks = jC.a(this.B).a(this.M.getJavaName(), this.C + "_" + this.D);
         if (eventBlocks != null) {
+            // v1.9.1: a bare true / false in a boolean slot (Java editor v1.8.9-v1.9.0) showed as an empty slot
+            try {
+                com.sketchware.ai.editor.StatementBlocks.literalBooleansToBlocks(eventBlocks,
+                        com.sketchware.ai.editor.JavaEditSession.paletteSpecs(this));
+            } catch (Throwable ignored) {
+                // the blocks stay as stored
+            }
             if (eventBlocks.size() == 0) {
                 e(this.X);
             }
