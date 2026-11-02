@@ -65,6 +65,13 @@ public final class StatementBlocks {
         ENGLISH.put("getText", "%m.textview getText");   // v1.8.13: a value block inside another block's slot
         ENGLISH.put("true", "true");                      // v1.9.1: the Operator palette's true / false blocks
         ENGLISH.put("false", "false");
+        // v1.9.3: the Operator palette's extra blocks (mod.hasrat ExtraBlocks / BlocksHandler specs)
+        ENGLISH.put("strParseInteger", "parse int %s");
+        ENGLISH.put("toHashCode", "toHashCode %s");
+        ENGLISH.put("stringMatches", "%s matches RegExp %s");
+        ENGLISH.put("reverse", "reverse %s");
+        ENGLISH.put("stringSubSingle", "%s subString %d");
+        ENGLISH.put("ternaryString", "%b ? %s : %s");
     }
 
     /**
@@ -78,7 +85,7 @@ public final class StatementBlocks {
     static {
         for (String op : new String[]{"true", "false", "<", ">", "=", "&&", "||", "not", "stringEquals", "stringContains",
                 "fileutilisexist", "fileutilisdir", "fileutilisfile", "fileutilStartsWith", "fileutilEndsWith",
-                "containListStr", "containListInt", "getChecked", "getEnable", "mapContainKey", "mapIsEmpty"}) {
+                "containListStr", "containListInt", "getChecked", "getEnable", "mapContainKey", "mapIsEmpty", "stringMatches"}) {
             REPORTERS.put(op, "b");
         }
         for (String op : new String[]{"+", "-", "*", "/", "%", "stringLength", "toNumber", "stringIndex", "stringLastIndex",
@@ -86,13 +93,13 @@ public final class StatementBlocks {
                 "mathSin", "mathCos", "mathTan", "mathAsin", "mathAcos", "mathAtan", "mathExp", "mathLog", "mathLog10",
                 "mathToRadian", "mathToDegree", "mathPi", "mathE", "mathGetDip", "mathGetDisplayWidth",
                 "mathGetDisplayHeight", "fileutillength", "lengthList", "getAtListInt", "indexListStr", "indexListInt",
-                "mapSize", "seekBarGetProgress", "calendarGetTime"}) {
+                "mapSize", "seekBarGetProgress", "calendarGetTime", "strParseInteger", "toHashCode"}) {
             REPORTERS.put(op, "d");
         }
         for (String op : new String[]{"toString", "toStringWithDecimal", "toStringFormat", "stringJoin", "stringSub",
                 "stringReplace", "stringReplaceFirst", "stringReplaceAll", "trim", "toUpperCase", "toLowerCase",
                 "fileutilread", "fileutilGetLastSegmentPath", "getExternalStorageDir", "getPackageDataDir", "getAtListStr",
-                "getText", "mapGet", "intentGetString"}) {
+                "getText", "mapGet", "intentGetString", "reverse", "stringSubSingle", "ternaryString"}) {
             REPORTERS.put(op, "s");
         }
         java.util.Collections.addAll(STATEMENTS, "setVarString", "setVarInt", "setVarBoolean", "setText", "setHint",

@@ -48,24 +48,24 @@ public class ObLogicTopMenu extends LogicTopMenu {
     @Override
     public void a(boolean active) {
         super.a(active);
-        item(a, b, m, active);
+        item(c, d, n, active);   // v1.9.3: a(boolean) paints the second item (c, d, n), read from the bytecode
     }
 
     @Override
     public void b(boolean active) {
         super.b(active);
-        item(c, d, n, active);
+        item(a, b, m, active);
     }
 
     @Override
     public void c(boolean active) {
         super.c(active);
-        item(e, f, o, active);
+        item(g, h, p, active);
     }
 
     @Override
     public void d(boolean active) {
         super.d(active);
-        item(g, h, p, active);
+        item(e, f, o, active);
     }
 }

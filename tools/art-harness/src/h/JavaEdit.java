@@ -845,7 +845,10 @@ public class JavaEdit {
                 "title = title.replace(\"a\", \"b\");", "title = title.trim();", "title = title.toUpperCase();",
                 "title = title.toLowerCase();", "score = title.indexOf(\"a\");", "score = Double.parseDouble(title);",
                 "score = items.indexOf(\"apple\");", "done = items.contains(\"apple\");", "done = store.containsKey(\"k\");",
-                "items.remove((int)(0));", "store.remove(\"k\");", "store.clear();"};
+                "items.remove((int)(0));", "store.remove(\"k\");", "store.clear();",
+                // v1.9.3: the Operator palette's extra blocks
+                "score = Integer.parseInt(title);", "score = title.hashCode();", "done = title.matches(\"[a-z]+\");",
+                "title = new StringBuilder(title).reverse().toString();"};
         for (int k = 0; k < typed22.length; k++) l.add(on + 1 + k, "\t\t\t\t" + typed22[k]);
         Object r22 = save(join(l));
         check("more value blocks: saved", ok(r22), report(r22));
@@ -876,7 +879,9 @@ public class JavaEdit {
                 && t22.contains("setVarInt(stringIndex(_,getVar))") && t22.contains("setVarInt(toNumber(getVar))")
                 && t22.contains("setVarInt(indexListStr(_))") && t22.contains("setVarBoolean(containListStr(_))")
                 && t22.contains("setVarBoolean(mapContainKey(_))") && t22.contains("deleteList(_)") && t22.contains("mapRemoveKey(_)")
-                && t22.contains("mapClear()"), count22 + " " + t22);
+                && t22.contains("mapClear()") && t22.contains("setVarInt(strParseInteger(getVar))")
+                && t22.contains("setVarInt(toHashCode(getVar))") && t22.contains("setVarBoolean(stringMatches(getVar,_))")
+                && t22.contains("setVarString(reverse(getVar))"), count22 + " " + t22);
         String regenerated22 = code();
         boolean same22 = true;
         StringBuilder missing22 = new StringBuilder();
