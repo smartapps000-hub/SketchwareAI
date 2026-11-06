@@ -353,7 +353,8 @@
         "Run build 14 steps ok",
         "LoadAll: only the 2 coroutines AgentPremain classes fail",
         "DrawerLayout + _drawer_main.xml (header #2E7D32, white app name, 3 rows)",
-        "MaterialComponents Bridge theme"
+        "MaterialComponents Bridge theme",
+        "v1.9.5: Material 3 although the New Project choices had it off (Material 3 only); Light theme because the stored Dark theme setting is off"
       ]
     },
     {
@@ -673,7 +674,8 @@
         "Export to Android Studio built with Gradle 9.8.2 / AGP 9.5.0 (gradle-export-check.sh): R classes 0 missing",
         "v1.9.5: progressbar1 -> LinearProgressIndicator (progress 40, indeterminate false), progressbar2 -> CircularProgressIndicator indeterminate true, no style attribute; button2 -> SketchButton with the Tonal style and no textColor; AppTheme parent Theme.Material3.DayNight.NoActionBar",
         "v1.9.5: onBackPressed = drawer closes -> webview1.goBack() when it can -> super.onBackPressed(); initializer sets DOM storage, database, JavaScript windows, MIXED_CONTENT_COMPATIBILITY_MODE (SDK_INT >= 21)",
-        "v1.9.5: h.CallWeb WEBCALL 19/19 (file endings .mp3 / mp3, *, mixed lists, Content-Disposition filename*= UTF-8 and filename=, no folders, MIME from the ending); export built with Gradle 9.8.2"
+        "v1.9.5: h.CallWeb WEBCALL 19/19 (file endings .mp3 / mp3, *, mixed lists, Content-Disposition filename*= UTF-8 and filename=, no folders, MIME from the ending); export built with Gradle 9.8.2",
+        "v1.9.5 release: WEBCALL 21/21 (also quoted / ISO-8859-1 filename*=)"
       ]
     },
     {
@@ -687,7 +689,8 @@
         "h.LoadAll: every class links except the 2 coroutines AgentPremain classes",
         "Export AAB jar verified; Export to Android Studio built with Gradle",
         "Run-build APK: apksigner v1 + v2 + v3, zipalign -c -P 16 OK",
-        "v1.9.5: h.CallPerm PERMCALL 32/32 (also android.permission.READ_EXTERNAL_STORAGE / BLUETOOTH / BLUETOOTH_CONNECT / POST_NOTIFICATIONS / RECORD_AUDIO resolved as their groups; group() of CAMERA, ACCESS_COARSE_LOCATION, READ_CONTACTS, SMS)"
+        "v1.9.5: h.CallPerm PERMCALL 32/32 (also android.permission.READ_EXTERNAL_STORAGE / BLUETOOTH / BLUETOOTH_CONNECT / POST_NOTIFICATIONS / RECORD_AUDIO resolved as their groups; group() of CAMERA, ACCESS_COARSE_LOCATION, READ_CONTACTS, SMS)",
+        "v1.9.5: PERMCALL 39/39 with the narrowed aliases (SEND_SMS / ACCESS_COARSE_LOCATION stay names, READ_MEDIA_* = READ_EXTERNAL_STORAGE below 13)"
       ]
     },
     {

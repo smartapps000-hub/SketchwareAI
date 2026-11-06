@@ -125,7 +125,10 @@ textColor); field types stay the blocks' types (Material classes extend them); d
 COMPATIBILITY — not ALWAYS_ALLOW), default `onBackPressed` through WebView history (Hx default code, user event wins);
 SketchWeb filter by file ending / `*`, Content-Disposition parsing, MIME from the ending, enqueue on a background thread;
 a `*/*` in a generated doc comment once closed it (compile both helpers with javac -source 8 before a harness run);
-render `V195Test` (Material's indicators draw only when attached: use the Paparazzi snapshot). Local branch
+render `V195Test` (Material's indicators draw only when attached: use the Paparazzi snapshot); review fixes: narrowed
+aliases, DayNight only with M3 widgets on, manifest-editor themes keep plain widgets, own onBackPressed in add-source
+blocks, RemoteViews; PERMCALL 39/39, WEBCALL 21/21; APK v1.9.5-bfa2ed6, versionCode 195, sha256 `bad13e48...6ac42adb1`,
+142,306,831 bytes). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
