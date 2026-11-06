@@ -2,6 +2,15 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.5 (versionCode 195, `v1.9.5-bfa2ed6-minApi26`)
+
+`apk/Sketchware_AI_v1.9.5.apk`, sha256 `bad13e48a1e21bfe2edf270b813e87ae63391ae745164702b42c23d6ac42adb1` (Git LFS). Material 3
+for every AppCompat project, progress indicators, Material 3 button styles, Permission drawer category with a searchable
+permission list, WebView back / settings / downloads. Release notes: `releases/v1.9.5/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.5.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.5.apk
+
 ## v1.9.4 (versionCode 194, `v1.9.4-e33064d-minApi26`)
 
 `apk/Sketchware_AI_v1.9.4.apk`, sha256 `7cf2625edb567834c64ff1dabd98ded7ed121569fb2119a9c0cba33e18dd3a9d` (Git LFS). Runtime
