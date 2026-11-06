@@ -45,6 +45,30 @@ public class CallPerm {
         expect(m, "android.permission.READ_CONTACTS", 35, 35, "READ_CONTACTS");
         expect(m, "", 35, 35, "");
         expect(m, "not a group", 35, 35, "");
+        // v1.9.5: Android permission names picked in the searchable list stand for their group
+        expect(m, "android.permission.READ_EXTERNAL_STORAGE", 34, 35, "READ_MEDIA_IMAGES,READ_MEDIA_VIDEO,READ_MEDIA_AUDIO,READ_MEDIA_VISUAL_USER_SELECTED");
+        expect(m, "android.permission.READ_EXTERNAL_STORAGE", 32, 35, "READ_EXTERNAL_STORAGE");
+        expect(m, "android.permission.BLUETOOTH", 31, 35, "BLUETOOTH_CONNECT,BLUETOOTH_SCAN");
+        expect(m, "android.permission.BLUETOOTH_CONNECT", 30, 35, "ACCESS_FINE_LOCATION");
+        expect(m, "android.permission.POST_NOTIFICATIONS", 32, 35, "");
+        expect(m, "android.permission.RECORD_AUDIO", 35, 35, "RECORD_AUDIO");
+        expect(m, "android.permission.SEND_SMS", 35, 35, "SEND_SMS");
+        expect(m, "android.permission.READ_MEDIA_IMAGES", 32, 35, "READ_EXTERNAL_STORAGE");
+        expect(m, "android.permission.READ_MEDIA_IMAGES", 35, 35, "READ_MEDIA_IMAGES");
+        expect(m, "android.permission.READ_MEDIA_VISUAL_USER_SELECTED", 33, 35, "READ_MEDIA_IMAGES,READ_MEDIA_VIDEO");
+        Method group = m.getDeclaringClass().getMethod("group", String.class);
+        // only names whose meaning moved between versions are groups; SMS / phone / coarse location names stay names
+        String[][] groups = {{"android.permission.CAMERA", "CAMERA"}, {"android.permission.ACCESS_FINE_LOCATION", "LOCATION"},
+                {"android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"},
+                {"android.permission.SEND_SMS", "android.permission.SEND_SMS"}, {"RECORD_AUDIO", "RECORD_AUDIO"},
+                {"android.permission.READ_CONTACTS", "android.permission.READ_CONTACTS"}, {"SMS", "SMS"}};
+        for (String[] g : groups) {
+            Object got = group.invoke(null, g[0]);
+            checks++;
+            boolean ok = g[1].equals(got);
+            if (!ok) fails++;
+            System.out.println((ok ? "ok   " : "FAIL ") + "group(" + g[0] + ") = " + got);
+        }
         System.out.println("PERMCALL " + (checks - fails) + "/" + checks + " ok");
     }
 }

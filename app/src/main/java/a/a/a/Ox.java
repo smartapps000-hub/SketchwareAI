@@ -283,6 +283,12 @@ public class Ox {
             widgetTag = new Nx(buildConfig.packageName + "." + com.sketchware.ai.project.M3Widgets.BUTTON_CLASS);
         } else if (com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3) != null) {
             widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.materialCompound(buildConfig, viewBean, material3));
+        } else if (com.sketchware.ai.project.M3Widgets.styledButton(buildConfig, viewBean, material3)) {
+            // v1.9.5: Tonal / Outlined / Elevated / Text button styles from Custom attributes are MaterialButton styles
+            widgetTag = new Nx(buildConfig.packageName + "." + com.sketchware.ai.project.M3Widgets.BUTTON_CLASS);
+        } else if (com.sketchware.ai.project.M3Widgets.progressIndicator(buildConfig, viewBean, material3) != null) {
+            // v1.9.5: Material 3 progress indicators (they extend ProgressBar)
+            widgetTag = new Nx(com.sketchware.ai.project.M3Widgets.progressIndicator(buildConfig, viewBean, material3));
         }
         if (material3 && com.sketchware.ai.project.M3Widgets.materialCard(viewBean)) {
             // v1.8.9: Material 3 card (MaterialCardView extends CardView: the generated Java keeps its CardView type);
@@ -687,7 +693,11 @@ public class Ox {
                 nx.a("android", "textStyle", "bold|italic");
             }
         }
-        if (viewBean.text.textColor != 0) {
+        // v1.9.5: a Material 3 button style (Tonal, Outlined, Elevated, Text) brings its own label colour; the editor's
+        // default black is not written over it (a colour the user picked still is)
+        boolean styleLabel = material3 && viewBean.text.textColor == com.sketchware.ai.project.M3Widgets.DEFAULT_TEXT_COLOR
+                && com.sketchware.ai.project.M3Widgets.styledButton(buildConfig, viewBean, true);
+        if (viewBean.text.textColor != 0 && !styleLabel) {
             if (!hasAttr("textColor", viewBean) && !toNotAdd.contains("android:textColor")) {
                 String color = String.format("#%06X", viewBean.text.textColor & 0xffffff);
                 if (material3 && viewBean.text.textColor == com.sketchware.ai.project.M3Widgets.DEFAULT_TEXT_COLOR) {
@@ -899,12 +909,17 @@ public class Ox {
                     nx.a("android", "max", String.valueOf(max));
                 }
 
+                String indicator = com.sketchware.ai.project.M3Widgets.progressIndicator(buildConfig, viewBean, material3);
                 String indeterminate = viewBean.indeterminate;
+                if (com.sketchware.ai.project.M3Widgets.CIRCULAR_PROGRESS.equals(indicator)) {
+                    // the framework's circle styles always spin (indeterminate only), whatever the property says
+                    indeterminate = "true";
+                }
                 if (indeterminate != null && indeterminate.length() > 0 && !toNotAdd.contains("android:indeterminate")) {
                     nx.a("android", "indeterminate", indeterminate);
                 }
                 String progressStyle = viewBean.progressStyle;
-                if (progressStyle != null && progressStyle.length() > 0 && !toNotAdd.contains("style")) {
+                if (indicator == null && progressStyle != null && progressStyle.length() > 0 && !toNotAdd.contains("style")) {
                     nx.a(null, "style", progressStyle);
                 }
                 break;

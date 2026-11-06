@@ -948,12 +948,6 @@ public class ExtraPaletteBlock {
                 logicEditor.a("s", "intentGetString");
                 logicEditor.a("f", "finishActivity");
                 logicEditor.a("f", "finishAffinity");
-                // v1.9.4: runtime permissions (SketchPermission)
-                logicEditor.a("Permissions", 0xff555555);
-                logicEditor.a(" ", "requestAutoPermission");
-                logicEditor.a(" ", "requestCustomPermission");
-                logicEditor.a("b", "hasAutoPermission");
-                logicEditor.a("s", "getPermissionStatus");
                 if (extraBlocks.isComponentUsed(ComponentBean.COMPONENT_TYPE_INTENT)
                         || extraBlocks.isCustomVarUsed("Intent")) {
                     logicEditor.a("Intent", 0xff555555);
@@ -1200,6 +1194,17 @@ public class ExtraPaletteBlock {
                     logicEditor.a(" ", "addInitializer");
                     return;
                 }
+                return;
+
+            case com.sketchware.ai.project.PermissionCode.PALETTE_ID:
+                // v1.9.5: the Permission category (v1.9.4 had these rows at the end of Component's first part)
+                logicEditor.a("Ask", 0xff555555);
+                logicEditor.a(" ", "requestAutoPermission");
+                logicEditor.a(" ", "requestCustomPermission");
+                logicEditor.a("Check", 0xff555555);
+                logicEditor.a("b", "hasAutoPermission");
+                logicEditor.a("s", "getPermissionStatus");
+                logicEditor.a("Answers: Add event", 0xff555555);
                 return;
 
             default:

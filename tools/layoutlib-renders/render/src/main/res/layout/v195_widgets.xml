@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v1.9.5: the tags fixture 931's generated main.xml has (SketchButton is a MaterialButton that drops its tint when code
+     sets another background), on the screen background -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical"
+    android:padding="16dp">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="LinearProgressIndicator, progress 40"
+        android:textColor="?attr/colorOnSurface" />
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progressbar1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:indeterminate="false"
+        android:progress="40" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="CircularProgressIndicator, indeterminate"
+        android:textColor="?attr/colorOnSurface" />
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/progressbar2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:indeterminate="true" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="button1 (filled)"
+        android:textColor="?attr/colorOnPrimary"
+        android:textSize="12sp" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button2"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="button2 (Tonal)"
+        android:textSize="12sp" />
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Outlined"
+        android:textSize="12sp" />
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.Material3.Button.ElevatedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Elevated"
+        android:textSize="12sp" />
+</LinearLayout>

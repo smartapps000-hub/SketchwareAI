@@ -597,3 +597,51 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   assignment or bit operator), a comparison operand, or under a primitive cast (`(int) n`,
   `String.valueOf((long)(n))`); shifts are read as shifts, not comparisons. Any other use keeps it a custom int and the
   save names the line. Left: + and - past 2^31 (int wraps, double doesn't).
+
+## v1.9.5 additions
+
+- Review findings applied before release: DayNight only where M3Widgets is on (replaced activity file / layout keeps
+  literal colours: light theme); an app or activity theme from the manifest editor that isn't AppTheme* turns the
+  Material widgets off (`AndroidManifestInjector.usesForeignTheme`); the default back code is not written when an
+  add-source block declares `void onBackPressed()` (`Jx.declaresOnBackPressed`); every ProgressBar stays framework when
+  the project's code uses RemoteViews or sets a progress / indeterminate drawable anywhere; download entries are stored
+  under the receiver's lock; quoted / ISO-8859-1 `filename*=`; the server's own MIME type also passes the filter.
+- **Material 3 only** (owner's directive 3 Nov "Deprecate Material 1 & 2"): `ModernProjectDefaults.material3()` is
+  always true, so every project with AppCompat + Design gets the Material 3 AppTheme, M3Palette colour roles and the
+  M3Widgets tags; the MaterialComponents (Bridge) theme is no longer generated whatever `material3_theme` says.
+  `m3DarkTheme()` is true unless the Dark theme switch stored "false" (DayNight by default, also for projects that never
+  stored it). Projects without AppCompat keep the framework theme: Material 3 needs those libraries (Project Configuration
+  → Convert). The New Project screen hides its Material 3 row; the Library Manager's Material 3 row shows ON and is not
+  clickable while AppCompat is on (OFF: tap offers to turn AppCompat and Design on).
+- **ProgressBar → Material progress indicators** (`M3Widgets.progressIndicator`, Ox): horizontal style →
+  LinearProgressIndicator (stored indeterminate, max, progress), circle styles → CircularProgressIndicator with
+  `indeterminate="true"` (the framework circle styles always spin); no `style` attribute (theme defaults). Both extend
+  ProgressBar, so the Java field type and ProgressBar blocks are unchanged. Kept a framework ProgressBar when converted,
+  with an injected style / drawable / tint, or when code sets or reads its drawables, tints, background or secondary
+  progress (`scanCode` → `touchesProgressDrawables`; Material throws on a framework progress drawable).
+- **Material 3 button styles** (`M3Widgets.styledButton`): a Button whose Custom attributes hold
+  `style="@style/Widget.Material3.Button…"` (TonalButton, OutlinedButton, ElevatedButton, TextButton …) is generated as
+  SketchButton with that style, and the editor's default black label colour is not written over the style's.
+- **Field types**: generated fields keep the type the blocks are written for (Button, CardView, ProgressBar): the Material
+  classes extend them, so every call compiles and the object is the Material class at run time; MaterialSwitch (not a
+  Switch subclass) has been typed since v1.8.5.
+- **Permission category**: the drawer's 10th built-in category "Permission" (`PermissionCode.PALETTE_ID` 100, teal
+  #009688; custom palettes count from 9), rows moved out of Component. The `%m.permissionGroup` slot opens
+  `ExtraMenuBean.permissionPicker`: groups first (with one line each), then every `android.permission.*` of the phone's
+  Manifest.permission, filtered as you type; a typed name of the form `[A-Za-z0-9_.]+` that isn't listed is offered as a
+  custom permission (it needs a dot; Settings-only and system permissions such as SYSTEM_ALERT_WINDOW,
+  MANAGE_EXTERNAL_STORAGE, BIND_* are left out). Only names whose meaning moved between Android versions are aliased to a
+  group (`PermissionCode.groupOf` for the manifest, `SketchPermission.group` at run time): READ/WRITE_EXTERNAL_STORAGE →
+  STORAGE, BLUETOOTH / ADMIN / CONNECT / SCAN → BLUETOOTH, ACCESS_FINE_LOCATION → LOCATION (Android 12+ ignores FINE
+  without COARSE), POST_NOTIFICATIONS, CAMERA, RECORD_AUDIO. Other names (SEND_SMS, READ_PHONE_STATE,
+  ACCESS_COARSE_LOCATION ...) stay one permission (review: widening would declare and ask for more than picked);
+  READ_MEDIA_* names mean READ_EXTERNAL_STORAGE below Android 13 (declared with maxSdkVersion 32 for target 33+).
+- **WebView**: the generated initializer turns on DOM storage, the database, JavaScript windows (window.open loads in the
+  same view) and mixed content COMPATIBILITY mode on 21+ (Chrome's behaviour; ALWAYS_ALLOW would let an http script
+  run on an https page). Activities with a WebView get a default `onBackPressed` (Hx default lifecycle code, so an
+  onBackPressed event of the user's own wins): open drawer closes → each WebView that can go back goes back →
+  `super.onBackPressed()`; generated apps keep `enableOnBackInvokedCallback="false"` (v1.9.0) so it is called on
+  Android 16+. SketchWeb downloads: the filter takes file endings (`.mp3`, `mp3`) and `*` besides MIME types, empty =
+  every file; the file name from Content-Disposition (`filename*=` UTF-8 first, then `filename=`, no folders), the MIME
+  type from the ending when the server sends none or octet-stream; DownloadManager is called on a background thread
+  (the page never waits), completion still on the main thread.

@@ -199,10 +199,9 @@ public class NewProjectActivity extends BaseAppCompatActivity {
                 "The app follows the phone's dark mode with Material 3 dark colours");
         dynamicRow = toggle(R.id.np_dynamic, "Dynamic colour",
                 "Android 12 and newer use the wallpaper's colours instead of the project colours");
-        material3Row.setOnClickListener(v -> {
-            choices.material3 = !choices.material3;
-            refreshToggles();
-        });
+        // v1.9.5: Material 3 is the only theme (ModernProjectDefaults.material3): no switch for it any more
+        material3Row.setVisibility(View.GONE);
+        choices.material3 = true;
         darkRow.setOnClickListener(v -> {
             choices.darkTheme = !choices.darkTheme;
             refreshToggles();
@@ -453,6 +452,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         ((CheckBox) dynamicRow.findViewById(R.id.ob_row_check)).setChecked(choices.dynamicColor);
         darkRow.setVisibility(choices.material3 ? View.VISIBLE : View.GONE);
         dynamicRow.setVisibility(choices.material3 ? View.VISIBLE : View.GONE);
+        material3Row.setVisibility(View.GONE);
         refreshPreview();
     }
 

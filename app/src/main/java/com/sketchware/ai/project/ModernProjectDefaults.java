@@ -54,9 +54,13 @@ public final class ModernProjectDefaults {
      */
     public static final String SETTING_M3_DYNAMIC_COLOR = "m3_dynamic_color";
 
+    /**
+     * v1.9.5 (owner: "Theme.Material3.DayNight for every project"): DayNight unless the project's Dark theme switch was
+     * turned off ("false"). Before, a project that never stored the setting stayed light.
+     */
     public static boolean m3DarkTheme(ProjectSettings settings) {
-        return ProjectSettings.SETTING_GENERIC_VALUE_TRUE.equals(
-                settings.getValue(SETTING_M3_DARK_THEME, ProjectSettings.SETTING_GENERIC_VALUE_FALSE));
+        return !ProjectSettings.SETTING_GENERIC_VALUE_FALSE.equals(
+                settings.getValue(SETTING_M3_DARK_THEME, ProjectSettings.SETTING_GENERIC_VALUE_TRUE));
     }
 
     public static boolean m3DynamicColor(ProjectSettings settings) {
@@ -64,9 +68,14 @@ public final class ModernProjectDefaults {
                 settings.getValue(SETTING_M3_DYNAMIC_COLOR, ProjectSettings.SETTING_GENERIC_VALUE_FALSE));
     }
 
+    /**
+     * v1.9.5 (owner's directive "Deprecate Material 1 & 2"): every project with the AppCompat and Design libraries gets
+     * the Material 3 theme and widgets; the MaterialComponents (Bridge) theme is no longer generated, whatever
+     * {@link #SETTING_MATERIAL3} says. Projects without AppCompat keep the framework theme (Material 3 needs those
+     * libraries: Project Configuration converts them).
+     */
     public static boolean material3(ProjectSettings settings) {
-        return ProjectSettings.SETTING_GENERIC_VALUE_TRUE.equals(
-                settings.getValue(SETTING_MATERIAL3, ProjectSettings.SETTING_GENERIC_VALUE_FALSE));
+        return true;
     }
 
     public static boolean autoHealEnabled(String sc_id) {

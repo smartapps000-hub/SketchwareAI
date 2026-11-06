@@ -85,7 +85,8 @@
       "content": "AppCompat + Firebase (DB, Auth, Storage, phone auth, FCM, Dynamic Links, Google login), AdMob (interstitial, rewarded, AdView), Maps (MapView), SignInButton, RequestNetwork",
       "checks": [
         "full Run build: generate, built-in libraries, AAPT2 compile+link, Kotlin, ECJ (+auto-fix), D8, dex merge, package, sign",
-        "results per release in v<version>-verification.md"
+        "results per release in v<version>-verification.md",
+        "v1.9.5: material3_theme=false is no longer honoured (Material 3 for every AppCompat project): Theme.Material3.DayNight, M3 widgets; 16 steps, 0 warnings"
       ]
     },
     {
@@ -244,7 +245,8 @@
       "checks": [
         "M3Widgets.scanCode: switch1 stays <Switch> (field Switch), edittext1 stays a plain EditText, checkbox1 a plain CheckBox; edittext2 wrapped (SketchTextField), radiobutton1 MaterialRadioButton, button1 SketchButton",
         "the setHint(int) call becomes SketchTextField.hint(edittext2, android.R.string.ok) and compiles (int overload)",
-        "full Run build, 0 warnings; Export AAB; LoadAll"
+        "full Run build, 0 warnings; Export AAB; LoadAll",
+        "v1.9.5: the empty dark setting now means DayNight (values-night written)"
       ]
     },
     {
@@ -662,13 +664,16 @@
     {
       "id": "931",
       "kind": "Sketchware project made by tools/art-harness (spec 'web')",
-      "content": "WebView, Button, TextView; onCreate: webViewLoadUrl, webAllowDownloads(webview1, \"SketchAI\", false block, \"application/pdf, image/*\"), webSetDesktopMode(true block), webClearCookiesAndCache, webEnableFileUpload; webview1 onDownloadStart: Toast url, setText mimeType, button1 setText toString(contentLength); onDownloadComplete: Toast fileName, if success setText",
+      "content": "WebView, Button, TextView; onCreate: webViewLoadUrl, webAllowDownloads(webview1, \"SketchAI\", false block, \"application/pdf, image/*\"), webSetDesktopMode(true block), webClearCookiesAndCache, webEnableFileUpload; webview1 onDownloadStart: Toast url, setText mimeType, button1 setText toString(contentLength); onDownloadComplete: Toast fileName, if success setText; v1.9.5: also a horizontal ProgressBar (progress 40), a circle ProgressBar and button2 with style=\"@style/Widget.Material3.Button.TonalButton\" in its Custom attributes",
       "checks": [
         "Run build 16 steps, 0 warnings; MainActivity calls SketchWeb.* and SketchWeb.setDownloadEvents(webview1, new SketchWeb.DownloadEvents() {...}) with final _url/_mimeType/_contentLength and _url/_fileName/_success",
         "manifest: INTERNET, ACCESS_NETWORK_STATE, WRITE_EXTERNAL_STORAGE maxSdkVersion 22 (allow downloads, min SDK 21: the download manager of Android 4.4-5.1 needs it)",
         "SketchWeb.java generated; h.CallWeb on the built APK: WEBCALL 8/8 (MIME filter incl. image/*, parameters, empty / */*; desktop user agent keeps Chrome's version)",
         "h.LoadAll: every class links except the 2 coroutines AgentPremain classes",
-        "Export to Android Studio built with Gradle 9.8.2 / AGP 9.5.0 (gradle-export-check.sh): R classes 0 missing"
+        "Export to Android Studio built with Gradle 9.8.2 / AGP 9.5.0 (gradle-export-check.sh): R classes 0 missing",
+        "v1.9.5: progressbar1 -> LinearProgressIndicator (progress 40, indeterminate false), progressbar2 -> CircularProgressIndicator indeterminate true, no style attribute; button2 -> SketchButton with the Tonal style and no textColor; AppTheme parent Theme.Material3.DayNight.NoActionBar",
+        "v1.9.5: onBackPressed = drawer closes -> webview1.goBack() when it can -> super.onBackPressed(); initializer sets DOM storage, database, JavaScript windows, MIXED_CONTENT_COMPATIBILITY_MODE (SDK_INT >= 21)",
+        "v1.9.5: h.CallWeb WEBCALL 19/19 (file endings .mp3 / mp3, *, mixed lists, Content-Disposition filename*= UTF-8 and filename=, no folders, MIME from the ending); export built with Gradle 9.8.2"
       ]
     },
     {
@@ -681,7 +686,8 @@
         "h.CallPerm on the built APK: PERMCALL 22/22 (each group for API 23-37 and targets 29-35)",
         "h.LoadAll: every class links except the 2 coroutines AgentPremain classes",
         "Export AAB jar verified; Export to Android Studio built with Gradle",
-        "Run-build APK: apksigner v1 + v2 + v3, zipalign -c -P 16 OK"
+        "Run-build APK: apksigner v1 + v2 + v3, zipalign -c -P 16 OK",
+        "v1.9.5: h.CallPerm PERMCALL 32/32 (also android.permission.READ_EXTERNAL_STORAGE / BLUETOOTH / BLUETOOTH_CONNECT / POST_NOTIFICATIONS / RECORD_AUDIO resolved as their groups; group() of CAMERA, ACCESS_COARSE_LOCATION, READ_CONTACTS, SMS)"
       ]
     },
     {

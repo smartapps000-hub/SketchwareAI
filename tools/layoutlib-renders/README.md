@@ -68,3 +68,10 @@ tests are absolute to /home/claude/pz; change them when the module lives elsewhe
   ViewPane does for parentType 36). With the system property `withPlain` set in the test JVM (`systemProperty` in the test task), the plain LinearLayout throws the owner's ClassCastException
   (`LinearLayout.java:1194`, layoutlib reports it as the test failure); FixedLinear measures and keeps margin and gravity
   (`out/card_params.txt`).
+- v1.9.5: `V195LightTest` / `V195NightTest` (V195Test.kt): fixture 931's Material 3 tags (`layout/v195_widgets.xml`:
+  LinearProgressIndicator at 40, indeterminate CircularProgressIndicator, filled and Tonal SketchButton as MaterialButton,
+  Outlined and Elevated) under its generated DayNight theme. Import the theme first:
+  `import_generated.py <mysc/931/app/src/main> 931 <module>`, then delete `PresetCode931.java` and the `np931_*` layouts
+  (they call SketchWeb). Writes `out/v195_widgets_<mode>.png` (detached view: the indicators don't draw, Material draws
+  them only in a window) and a Paparazzi snapshot per mode under `render/build/reports/paparazzi` (attached: indicators
+  drawn, first animation frame).

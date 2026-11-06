@@ -114,7 +114,18 @@ onDownloadComplete via listener `webDownloadListener`, excluded from Hx's always
 helper, WRITE max 22 for downloads when min SDK < 23); `{host}` in block code = `<Activity>.this` (ExtraBlockCode, the
 new blocks only); `AutoVariables.intUnsafe` (int → Number only for ++/--/+= k/-= k, + and - self-assignments, comparisons,
 casts; shifts read as shifts); fixtures 931 web, 932 perm, 933 permplain, 919 section 23 (101 checks), h.CallPerm 22/22,
-h.CallWeb 8/8; APK v1.9.4-e33064d, versionCode 194, sha256 `7cf2625e...18dd3a9d`, 142,299,995 bytes). Local branch
+h.CallWeb 8/8; APK v1.9.4-e33064d, versionCode 194, sha256 `7cf2625e...18dd3a9d`, 142,299,995 bytes).
+v1.9.5 (owner's 3 Nov directives: Material 3 only + v1.9.4 phone report): `ModernProjectDefaults.material3()` always true
+(every AppCompat project Material 3; `m3DarkTheme()` true unless "false"; New Project row hidden, Library Manager row not
+clickable with AppCompat on); `M3Widgets.progressIndicator` (Linear / Circular, circle forced indeterminate, kept plain when
+code touches drawables / tints) and `styledButton` (injected `Widget.Material3.Button*` style → SketchButton, no default
+textColor); field types stay the blocks' types (Material classes extend them); drawer category "Permission"
+(`PermissionCode.PALETTE_ID` 100) + searchable picker (`ExtraMenuBean.permissionPicker`) + name→group aliasing
+(`PermissionCode.groupOf`, `SketchPermission.group`); WebView initializer (DOM storage, database, JS windows, mixed content
+COMPATIBILITY — not ALWAYS_ALLOW), default `onBackPressed` through WebView history (Hx default code, user event wins);
+SketchWeb filter by file ending / `*`, Content-Disposition parsing, MIME from the ending, enqueue on a background thread;
+a `*/*` in a generated doc comment once closed it (compile both helpers with javac -source 8 before a harness run);
+render `V195Test` (Material's indicators draw only when attached: use the Paparazzi snapshot). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

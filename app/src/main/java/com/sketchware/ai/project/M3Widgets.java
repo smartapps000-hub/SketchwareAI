@@ -103,6 +103,9 @@ public final class M3Widgets {
             return;
         }
         buildConfig.m3Switches = !SWITCH_CODE.matcher(code).find();
+        // v1.9.5: RemoteViews (notification / home-screen widget layouts) can't hold Material's indicators, and a
+        // progress drawable set on any ProgressBar (also one found by findViewById) throws on them: all stay framework
+        boolean progressCode = PROGRESS_CODE.matcher(code).find();
         if (projectData == null || projectData.c == null) return;
         for (ArrayList<ViewBean> views : projectData.c.values()) {
             if (views == null) continue;
@@ -112,6 +115,11 @@ public final class M3Widgets {
                     // v1.8.6: a Button with a background colour becomes a tinted SketchButton; code that reads its
                     // background (a ColorDrawable on a plain Button) keeps it plain
                     if (readsBackground(code, view.id)) buildConfig.m3KeepPlain.add(view.id);
+                    continue;
+                }
+                if (view.type == ViewBean.VIEW_TYPE_WIDGET_PROGRESSBAR) {
+                    // v1.9.5: drawables / tints set or read from code keep a framework ProgressBar (progressIndicator)
+                    if (progressCode || touchesProgressDrawables(code, view.id)) buildConfig.m3KeepPlain.add(view.id);
                     continue;
                 }
                 if (view.type != ViewBean.VIEW_TYPE_WIDGET_EDITTEXT && view.type != ViewBean.VIEW_TYPE_WIDGET_CHECKBOX
@@ -127,6 +135,15 @@ public final class M3Widgets {
     private static boolean readsBackground(String code, String id) {
         String name = "(?<![\\w$.])(_drawer_)?" + Pattern.quote(id) + "(?![\\w$])";
         return Pattern.compile(name + "\\s*\\.\\s*getBackground\\s*\\(").matcher(code).find();
+    }
+
+    private static final Pattern PROGRESS_CODE =
+            Pattern.compile("RemoteViews|set(Progress|Indeterminate)Drawable(Tiled)?\\s*\\(");
+
+    private static boolean touchesProgressDrawables(String code, String id) {
+        String name = "(?<![\\w$.])(_drawer_)?" + Pattern.quote(id) + "(?![\\w$])";
+        return Pattern.compile(name + "\\s*\\.\\s*([sg]et(Progress|Indeterminate)Drawable\\w*|[sg]et\\w*Tint\\w*|setProgressBackgroundTint\\w*|setSecondaryProgress|setBackground\\w*)\\s*\\(")
+                .matcher(code).find();
     }
 
     private static boolean movesOrStyles(String code, String id) {
@@ -205,6 +222,38 @@ public final class M3Widgets {
         return null;
     }
 
+    public static final String LINEAR_PROGRESS = "com.google.android.material.progressindicator.LinearProgressIndicator";
+    public static final String CIRCULAR_PROGRESS = "com.google.android.material.progressindicator.CircularProgressIndicator";
+
+    /**
+     * v1.9.5: a ProgressBar as Material 3's progress indicator: the horizontal style a LinearProgressIndicator, the
+     * circle styles a CircularProgressIndicator. Both extend ProgressBar, so ProgressBar-typed code and setProgress /
+     * setMax / setIndeterminate keep working. Kept a framework ProgressBar when it is converted, has an injected style,
+     * drawable or tint, or the project's code sets / reads its drawables or tints (Material's indicator throws on a
+     * framework progress drawable: "Cannot set framework drawable as progress drawable.").
+     */
+    public static String progressIndicator(jq buildConfig, ViewBean bean, boolean material3) {
+        if (!material3 || bean.type != ViewBean.VIEW_TYPE_WIDGET_PROGRESSBAR || !plain(bean)) return null;
+        if (buildConfig != null && keepsPlain(buildConfig, bean)) return null;
+        String inject = inject(bean);
+        if (inject.contains("style") || inject.contains("Drawable") || inject.contains("Tint") || inject.contains("tint")) return null;
+        return ViewBean.PROGRESSBAR_STYLE_HORIZONTAL.equals(bean.progressStyle) ? LINEAR_PROGRESS : CIRCULAR_PROGRESS;
+    }
+
+    private static final Pattern MATERIAL3_BUTTON_STYLE =
+            Pattern.compile("style\\s*=\\s*\"@style/Widget\\.Material3\\.Button(\\.[A-Za-z.]+)?\"");
+
+    /**
+     * v1.9.5: a Button whose Custom attributes give it a Material 3 button style (Widget.Material3.Button.TonalButton,
+     * .OutlinedButton, .ElevatedButton, .TextButton ...) is generated as SketchButton with that style: those styles are
+     * MaterialButton styles and draw wrong on a plain Button.
+     */
+    public static boolean styledButton(jq buildConfig, ViewBean bean, boolean material3) {
+        return material3 && bean.type == ViewBean.VIEW_TYPE_WIDGET_BUTTON && plain(bean)
+                && MATERIAL3_BUTTON_STYLE.matcher(inject(bean)).find()
+                && (buildConfig == null || !keepsPlain(buildConfig, bean));
+    }
+
     /** {@link #materialCompound(ViewBean, boolean)} for a generation, with what the project's code does. */
     public static String materialCompound(jq buildConfig, ViewBean bean, boolean material3) {
         return keepsPlain(buildConfig, bean) ? null : materialCompound(bean, material3);
@@ -227,6 +276,8 @@ public final class M3Widgets {
         }
         try {
             if (!ModernProjectDefaults.material3(new ProjectSettings(sc_id))) return false;
+            // v1.9.5: an activity or the app with a theme of its own (manifest editor) can't inflate Material widgets
+            if (mod.hilal.saif.android_manifest.AndroidManifestInjector.usesForeignTheme(sc_id)) return false;
             mod.agus.jcoderz.lib.FilePathUtil paths = new mod.agus.jcoderz.lib.FilePathUtil();
             if (stylesReplaced(sc_id)) return false;
             if (projectFiles != null) {

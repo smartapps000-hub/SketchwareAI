@@ -1132,6 +1132,25 @@ public class Lx {
 
         switch (eventName) {
             case "onBackPressed":
+                if (viewType.equals("WebView")) {
+                    // v1.9.5: back goes through the pages the WebViews visited before it closes the screen (as in a
+                    // browser); a drawer that is open closes first. viewId: ["_drawer,"] + the WebView ids
+                    StringBuilder chain = new StringBuilder();
+                    boolean first = true;
+                    for (String id : viewId.split(",")) {
+                        chain.append(first ? "if (" : "} else if (");
+                        if (id.equals("_drawer")) {
+                            chain.append("_drawer.isDrawerOpen(GravityCompat.START)) {\r\n")
+                                    .append("_drawer.closeDrawer(GravityCompat.START);\r\n");
+                        } else {
+                            chain.append(id).append(" != null && ").append(id).append(".canGoBack()) {\r\n")
+                                    .append(id).append(".goBack();\r\n");
+                        }
+                        first = false;
+                    }
+                    chain.append("} else {\r\n").append("super.onBackPressed();\r\n").append("}");
+                    return chain.toString();
+                }
                 if (viewType.equals("DrawerLayout")) {
                     code.append("if (").append(viewId).append(".isDrawerOpen(GravityCompat.START)) {\r\n");
                     code.append(viewId).append(".closeDrawer(GravityCompat.START);").append("\r\n");
@@ -1203,9 +1222,17 @@ public class Lx {
 
         switch (type) {
             case "WebView":
+                // v1.9.5: what pages expect of a browser (localStorage / IndexedDB, window.open in the same view);
+                // mixed content as Chrome does it (images over http on an https page load, scripts don't)
                 return initializer + "\r\n" +
                         name + ".getSettings().setJavaScriptEnabled(true);\r\n" +
-                        name + ".getSettings().setSupportZoom(true);";
+                        name + ".getSettings().setSupportZoom(true);\r\n" +
+                        name + ".getSettings().setDomStorageEnabled(true);\r\n" +
+                        name + ".getSettings().setDatabaseEnabled(true);\r\n" +
+                        name + ".getSettings().setJavaScriptCanOpenWindowsAutomatically(true);\r\n" +
+                        "if (android.os.Build.VERSION.SDK_INT >= 21) {\r\n" +
+                        name + ".getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);\r\n" +
+                        "}";
 
             case "MapView":
                 return initializer + "\r\n" +

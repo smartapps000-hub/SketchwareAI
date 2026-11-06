@@ -320,10 +320,12 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
         material3ItemView.l.setImageResource(R.drawable.ob_ic_material3);
         material3ItemView.m.setText("Material 3");
         material3ItemView.n.setText(compat
-                ? "Material 3 theme and widgets: filled buttons, outlined text fields, switches, checkboxes. Colours made from the project colours"
-                : "Material 3 theme and widgets. Needs AppCompat and Design");
+                ? "Always on with AppCompat: Material 3 theme and widgets, colours made from the project colours"
+                : "Material 3 theme and widgets. Needs AppCompat and Design: tap to turn them on");
         material3ItemView.o.setText(on ? "ON" : "OFF");
         material3ItemView.o.setSelected(on);
+        // v1.9.5: nothing to switch while AppCompat is on (ModernProjectDefaults.material3)
+        material3ItemView.setClickable(!on);
 
         mod.hey.studios.project.ProjectSettings settings = new mod.hey.studios.project.ProjectSettings(sc_id);
         boolean dark = com.sketchware.ai.project.ModernProjectDefaults.m3DarkTheme(settings);
@@ -365,11 +367,9 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
 
     private void toggleMaterial3() {
         boolean compat = compatLibraryBean != null && "Y".equals(compatLibraryBean.useYn);
-        boolean on = compat && isMaterial3();
-        if (on) {
-            setMaterial3(false);
-        } else if (compat) {
-            setMaterial3(true);
+        if (compat) {
+            // v1.9.5: Material 3 is always on with AppCompat (the row isn't clickable then)
+            return;
         } else {
             // Material 3 is a Material Components theme: it needs the AppCompat and Design libraries
             aB dialog = new aB(this);

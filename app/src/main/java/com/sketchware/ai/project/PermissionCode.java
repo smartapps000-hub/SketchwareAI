@@ -36,6 +36,38 @@ public final class PermissionCode {
     public static final String[] GROUPS = {"STORAGE", "CAMERA", "MICROPHONE", "LOCATION", "BLUETOOTH", "NOTIFICATIONS",
             "PHONE", "SMS"};
 
+    /** v1.9.5: the drawer's Permission category (custom palettes count from 9, so this id is never theirs). */
+    public static final int PALETTE_ID = 100;
+    public static final int PALETTE_COLOR = 0xff009688;
+
+    /**
+     * v1.9.5: Android permission names that stand for a group: picking one in the searchable list (or typing it into
+     * "request permission name") asks for what that group means on the phone's Android version (READ_EXTERNAL_STORAGE
+     * is the media permissions on Android 13+, BLUETOOTH is CONNECT + SCAN on 12+ ...).
+     */
+    private static final String[][] ALIASES = {
+            // only names whose meaning moved between Android versions, or that Android asks for together: a name such
+            // as SEND_SMS, READ_PHONE_STATE or ACCESS_COARSE_LOCATION stays that one permission (review: widening it
+            // to the group would declare and ask for more than the user picked)
+            {"STORAGE", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"},
+            {"CAMERA", "CAMERA"},
+            {"MICROPHONE", "RECORD_AUDIO"},
+            {"LOCATION", "ACCESS_FINE_LOCATION"},   // Android 12+ ignores FINE asked without COARSE
+            {"BLUETOOTH", "BLUETOOTH", "BLUETOOTH_ADMIN", "BLUETOOTH_CONNECT", "BLUETOOTH_SCAN"},
+            {"NOTIFICATIONS", "POST_NOTIFICATIONS"}};
+
+    /** The group a block value stands for: a group itself, or an Android permission name of one; else null. */
+    public static String groupOf(String value) {
+        if (value == null) return null;
+        if (isGroup(value)) return value;
+        if (!value.startsWith(P)) return null;
+        String name = value.substring(P.length());
+        for (String[] alias : ALIASES) {
+            for (int i = 1; i < alias.length; i++) if (alias[i].equals(name)) return alias[0];
+        }
+        return null;
+    }
+
     public static final String OP_REQUEST = "requestAutoPermission";
     public static final String OP_REQUEST_NAME = "requestCustomPermission";
     public static final String OP_HAS = "hasAutoPermission";
@@ -49,6 +81,30 @@ public final class PermissionCode {
     private static final String P = "android.permission.";
 
     private PermissionCode() {
+    }
+
+    /** One line about a group for the searchable list. */
+    public static String describe(String group) {
+        switch (group) {
+            case "STORAGE":
+                return "photos, videos, music (Android 13+), files before";
+            case "CAMERA":
+                return "camera";
+            case "MICROPHONE":
+                return "record audio";
+            case "LOCATION":
+                return "precise or approximate location";
+            case "BLUETOOTH":
+                return "connect / scan (Android 12+), location before";
+            case "NOTIFICATIONS":
+                return "show notifications (Android 13+)";
+            case "PHONE":
+                return "calls, phone state";
+            case "SMS":
+                return "send / receive / read SMS";
+            default:
+                return "";
+        }
     }
 
     public static boolean isGroup(String group) {
@@ -201,7 +257,17 @@ public final class PermissionCode {
                 default:
             }
         }
-        for (String name : names) put(out, name, null, null);
+        for (String name : names) {
+            put(out, name, null, null);
+            // v1.9.5: a media permission picked by name means storage below Android 13 (SketchPermission.permissions)
+            if (name.startsWith(P + "READ_MEDIA_")) {
+                put(out, P + "READ_EXTERNAL_STORAGE", target >= 33 ? "32" : null, null);
+                if (name.equals(P + "READ_MEDIA_VISUAL_USER_SELECTED") && target >= 33) {
+                    put(out, P + "READ_MEDIA_IMAGES", null, null);
+                    put(out, P + "READ_MEDIA_VIDEO", null, null);
+                }
+            }
+        }
         if (downloadsBelow23) put(out, P + "WRITE_EXTERNAL_STORAGE", "22", null);
         return out;
     }
@@ -309,6 +375,14 @@ public final class PermissionCode {
                 + "    private static final int NAME_CODE = 7500;\n"
                 + "    private static final String PREFS = \"sketch_permissions\";\n"
                 + "    private static final String P = \"android.permission.\";\n"
+                + "    /** {group, the Android permissions that stand for it ...} */\n"
+                + "    private static final String[][] ALIASES = {\n"
+                + "            {\"STORAGE\", \"READ_EXTERNAL_STORAGE\", \"WRITE_EXTERNAL_STORAGE\"},\n"
+                + "            {\"CAMERA\", \"CAMERA\"},\n"
+                + "            {\"MICROPHONE\", \"RECORD_AUDIO\"},\n"
+                + "            {\"LOCATION\", \"ACCESS_FINE_LOCATION\"},\n"
+                + "            {\"BLUETOOTH\", \"BLUETOOTH\", \"BLUETOOTH_ADMIN\", \"BLUETOOTH_CONNECT\", \"BLUETOOTH_SCAN\"},\n"
+                + "            {\"NOTIFICATIONS\", \"POST_NOTIFICATIONS\"}};\n"
                 + "    /** A request still waiting for its answer; later requests wait in the queue (one dialog at a time). */\n"
                 + "    private static WeakReference<Activity> asking;\n"
                 + "    private static String askingGroup;\n"
@@ -320,8 +394,24 @@ public final class PermissionCode {
                 + "    private SketchPermission() {\n"
                 + "    }\n"
                 + "\n"
+                + "    /**\n"
+                + "     * The group a value stands for: a group, or an Android permission of one (android.permission.CAMERA is\n"
+                + "     * CAMERA, READ_EXTERNAL_STORAGE is STORAGE ...); any other permission name stays itself.\n"
+                + "     */\n"
+                + "    public static String group(String value) {\n"
+                + "        if (value == null) return null;\n"
+                + "        String name = value.startsWith(P) ? value.substring(P.length()) : value;\n"
+                + "        for (int i = 0; i < ALIASES.length; i++) {\n"
+                + "            for (int j = 0; j < ALIASES[i].length; j++) {\n"
+                + "                if (ALIASES[i][j].equals(name) && (j > 0 ? value.startsWith(P) : !value.startsWith(P))) return ALIASES[i][0];\n"
+                + "            }\n"
+                + "        }\n"
+                + "        return value;\n"
+                + "    }\n"
+                + "\n"
                 + "    /** The permissions a group needs on a device with API level sdk, for an app with target SDK target. */\n"
                 + "    public static String[] permissions(String group, int sdk, int target) {\n"
+                + "        group = group(group);\n"
                 + "        if (\"STORAGE\".equals(group)) {\n"
                 + "            if (sdk >= 34 && target >= 34) {\n"
                 + "                return new String[]{P + \"READ_MEDIA_IMAGES\", P + \"READ_MEDIA_VIDEO\", P + \"READ_MEDIA_AUDIO\",\n"
@@ -348,12 +438,20 @@ public final class PermissionCode {
                 + "        }\n"
                 + "        if (\"PHONE\".equals(group)) return new String[]{P + \"CALL_PHONE\", P + \"READ_PHONE_STATE\"};\n"
                 + "        if (\"SMS\".equals(group)) return new String[]{P + \"SEND_SMS\", P + \"RECEIVE_SMS\", P + \"READ_SMS\"};\n"
+                + "        if (group != null && group.startsWith(P + \"READ_MEDIA_\")) {\n"
+                + "            // a media permission means storage below Android 13; partial access exists from 14\n"
+                + "            if (sdk < 33 || target < 33) return new String[]{P + \"READ_EXTERNAL_STORAGE\"};\n"
+                + "            if (group.equals(P + \"READ_MEDIA_VISUAL_USER_SELECTED\") && (sdk < 34 || target < 34)) {\n"
+                + "                return new String[]{P + \"READ_MEDIA_IMAGES\", P + \"READ_MEDIA_VIDEO\"};\n"
+                + "            }\n"
+                + "        }\n"
                 + "        if (isName(group)) return new String[]{group};\n"
                 + "        return new String[0];\n"
                 + "    }\n"
                 + "\n"
                 + "    /** Whether the group (or permission name) is granted now. */\n"
                 + "    public static boolean has(Object host, String group) {\n"
+                + "        group = group(group);\n"
                 + "        Context context = context(host);\n"
                 + "        if (context == null || !known(group)) return false;\n"
                 + "        int sdk = Build.VERSION.SDK_INT;\n"
@@ -377,6 +475,7 @@ public final class PermissionCode {
                 + "\n"
                 + "    /** GRANTED, DENIED or NEVER_ASK_AGAIN (denied with \"Don't ask again\", or blocked by the system). */\n"
                 + "    public static String status(Object host, String group) {\n"
+                + "        group = group(group);\n"
                 + "        if (has(host, group)) return GRANTED;\n"
                 + "        Context context = context(host);\n"
                 + "        if (context != null && Build.VERSION.SDK_INT >= 23 && known(group)\n"
@@ -389,6 +488,7 @@ public final class PermissionCode {
                 + "\n"
                 + "    /** After a denial: whether Android won't show the dialog again for the group. */\n"
                 + "    public static boolean neverAskAgain(Object host, String group) {\n"
+                + "        group = group(group);\n"
                 + "        Activity activity = activity(host);\n"
                 + "        if (activity == null || Build.VERSION.SDK_INT < 23) return false;\n"
                 + "        // Android answers with nothing when the dialog was interrupted: not a refusal\n"
@@ -406,6 +506,7 @@ public final class PermissionCode {
                 + "     * event. While a dialog is open, a second request waits for it.\n"
                 + "     */\n"
                 + "    public static void request(Object host, String group) {\n"
+                + "        group = group(group);\n"
                 + "        Activity activity = activity(host);\n"
                 + "        if (activity == null) return;\n"
                 + "        Activity busy = asking == null ? null : asking.get();\n"

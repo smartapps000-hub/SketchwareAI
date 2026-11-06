@@ -175,8 +175,9 @@ public class Fixtures {
             // v1.8.8: Button, TextView (the Library Resolver's test project; v1.9.0 lifecycle the same)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("web")) {
-            // v1.9.4: WebView, Button, TextView (the web blocks' test project)
-            for (int t : new int[]{7, 3, 4}) widgets.add(new int[]{t});
+            // v1.9.4: WebView, Button, TextView (the web blocks' test project); v1.9.5: a horizontal ProgressBar
+            // (LinearProgressIndicator), a circle one (CircularProgressIndicator) and a Button with the Tonal style
+            for (int[] t : new int[][]{{7}, {3}, {4}, {8}, {8, 2}, {3, 2}}) widgets.add(t);
         } else if (spec.equals("perm") || spec.equals("permplain")) {
             // v1.9.4: Button, TextView (the permission blocks' test project)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
@@ -208,6 +209,14 @@ public class Fixtures {
                     set(get(vb, "text"), "hint", "Telugu language title create");
                     for (String side : new String[]{"paddingLeft", "paddingTop", "paddingRight", "paddingBottom"}) set(layout, side, 8);
                 }
+            }
+            if (spec.equals("web")) {
+                String id = (String) get(vb, "id");
+                if (id.equals("progressbar1")) {
+                    set(vb, "progressStyle", "?android:progressBarStyleHorizontal");
+                    set(vb, "progress", 40);
+                }
+                if (id.equals("button2")) set(vb, "inject", "style=\"@style/Widget.Material3.Button.TonalButton\"");
             }
             set(vb, "parent", "linear1");
             set(vb, "parentType", LINEAR);

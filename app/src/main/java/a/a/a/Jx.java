@@ -573,7 +573,20 @@ public class Jx {
             sb.append("}").append(EOL);
         }
 
-        if (projectFileBean.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_DRAWER)) {
+        // v1.9.5: Back goes through a WebView's history first (an onBackPressed event of the user's own wins: Hx; so
+        // does one declared in an add-source block, a common trick: a second declaration would not compile)
+        StringBuilder webViews = new StringBuilder();
+        boolean ownBack = declaresOnBackPressed(projectFileBean.getJavaName());
+        if (!isFragment && !ownBack) {
+            for (ViewBean view : projectDataManager.d(projectFileBean.getXmlName())) {
+                if (view.type == ViewBean.VIEW_TYPE_WIDGET_WEBVIEW) webViews.append(',').append(view.id);
+            }
+        }
+        if (webViews.length() > 0) {
+            eventManager.a("onBackPressed", "WebView",
+                    (projectFileBean.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_DRAWER) ? "_drawer" : "")
+                            + (projectFileBean.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_DRAWER) ? webViews : webViews.substring(1)));
+        } else if (projectFileBean.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_DRAWER) && !ownBack) {
             eventManager.a("onBackPressed", "DrawerLayout", "_drawer");
         }
 
@@ -666,6 +679,23 @@ public class Jx {
         code = com.sketchware.ai.project.FontCode.rewrite(code);
 
         return Lx.j(code, false);
+    }
+
+    /** v1.9.5: whether a block of the activity (add source, custom code) declares its own onBackPressed() method. */
+    private boolean declaresOnBackPressed(String javaName) {
+        java.util.HashMap<String, ArrayList<BlockBean>> blocks = projectDataManager.b(javaName);
+        if (blocks == null) return false;
+        java.util.regex.Pattern declaration = java.util.regex.Pattern.compile("void\\s+onBackPressed\\s*\\(\\s*\\)");
+        for (ArrayList<BlockBean> list : blocks.values()) {
+            if (list == null) continue;
+            for (BlockBean block : list) {
+                if (block == null || block.parameters == null) continue;
+                for (String parameter : block.parameters) {
+                    if (parameter != null && parameter.contains("onBackPressed") && declaration.matcher(parameter).find()) return true;
+                }
+            }
+        }
+        return false;
     }
 
     private String getListDeclarationAndAddImports(int listType, String listName) {

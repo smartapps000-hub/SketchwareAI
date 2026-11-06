@@ -41,6 +41,24 @@ public class AndroidManifestInjector {
                         "Injection" + File.separator + "androidmanifest" + File.separator + "app_components.txt");
     }
 
+    /**
+     * v1.9.5: whether the manifest editor gives the application or an activity a theme that isn't the generated
+     * AppTheme (or one of its AppTheme.* children): Material widgets need a Material theme (M3Widgets.decide).
+     */
+    public static boolean usesForeignTheme(String sc_id) {
+        java.util.regex.Pattern theme = java.util.regex.Pattern.compile("android:theme\\s*=\\s*\"([^\"]*)\"");
+        for (HashMap<String, Object> attribute : readAndroidManifestAttributeInjections(sc_id)) {
+            Object value = attribute.get("value");
+            if (!(value instanceof String)) continue;
+            java.util.regex.Matcher m = theme.matcher((String) value);
+            while (m.find()) {
+                String style = m.group(1).trim();
+                if (!style.equals("@style/AppTheme") && !style.startsWith("@style/AppTheme.")) return true;
+            }
+        }
+        return false;
+    }
+
     private static ArrayList<HashMap<String, Object>> readAndroidManifestAttributeInjections(String sc_id) {
         ArrayList<HashMap<String, Object>> attributes;
 

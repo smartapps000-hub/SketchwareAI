@@ -133,3 +133,11 @@ Whether a generated APK runs on a given Android version depends on that project'
   palette rows, drop-down and events: NOT TESTED here (no device, no emulator). Which permissions a generated app gets on a
   given Android version is decided at run time from the table above; that it asks correctly on Android 6-17 is not
   proven by a compile.
+
+## v1.9.5 (6 Nov 2026)
+- Material 3 for every AppCompat project, progress indicators, Material 3 button styles, Permission drawer category and
+  searchable picker, WebView back / settings / downloads. Fixtures 931, 932, 902 (old project now Material 3), 908 and
+  the release suite on the Android 12 (API 31) ART harness with the release APK's classes; h.CallWeb / h.CallPerm on the
+  built apps; layoutlib renders of the new tags under 931's generated DayNight theme. Results in `v1.9.5-verification.md`.
+- The drawer category and picker dialog, the Library Manager / New Project rows, back navigation, downloads and the
+  WebView settings on a phone: NOT TESTED here (no device, no emulator).

@@ -639,17 +639,27 @@ public class yq {
                         case com.sketchware.ai.project.PermissionCode.OP_HAS:
                         case com.sketchware.ai.project.PermissionCode.OP_STATUS:
                             N.permissionBlocksUsed = true;
-                            if (bean.parameters.size() > 0
-                                    && com.sketchware.ai.project.PermissionCode.isGroup(bean.parameters.get(0))) {
-                                N.permissionGroups.add(bean.parameters.get(0));
+                            // v1.9.5: a group, or a permission name from the searchable list (a group's own names
+                            // count as that group: android.permission.CAMERA is CAMERA)
+                            if (bean.parameters.size() > 0) {
+                                String group = com.sketchware.ai.project.PermissionCode.groupOf(bean.parameters.get(0));
+                                if (group != null) {
+                                    N.permissionGroups.add(group);
+                                } else if (com.sketchware.ai.project.PermissionCode.isPermissionName(bean.parameters.get(0))) {
+                                    N.permissionNames.add(bean.parameters.get(0));
+                                }
                             }
                             break;
 
                         case com.sketchware.ai.project.PermissionCode.OP_REQUEST_NAME:
                             N.permissionBlocksUsed = true;
-                            if (bean.parameters.size() > 0
-                                    && com.sketchware.ai.project.PermissionCode.isPermissionName(bean.parameters.get(0))) {
-                                N.permissionNames.add(bean.parameters.get(0));
+                            if (bean.parameters.size() > 0) {
+                                String group = com.sketchware.ai.project.PermissionCode.groupOf(bean.parameters.get(0));
+                                if (group != null) {
+                                    N.permissionGroups.add(group);
+                                } else if (com.sketchware.ai.project.PermissionCode.isPermissionName(bean.parameters.get(0))) {
+                                    N.permissionNames.add(bean.parameters.get(0));
+                                }
                             }
                             break;
 
@@ -904,7 +914,10 @@ public class yq {
                     CommandBlock.applyCommands("colors.xml", colorsFileBuilder.toCode())));
 
             boolean material3 = com.sketchware.ai.project.ModernProjectDefaults.material3(projectSettings);
-            boolean m3Dark = material3 && com.sketchware.ai.project.ModernProjectDefaults.m3DarkTheme(projectSettings);
+            // v1.9.5: DayNight only where the Material 3 widgets and theme text colours are written (M3Widgets): with a
+            // replaced activity file or layout the generator keeps literal colours, black text on a dark window at night
+            boolean m3Dark = material3 && com.sketchware.ai.project.ModernProjectDefaults.m3DarkTheme(projectSettings)
+                    && N.m3Widgets;
             Mx stylesFileBuilder = new Mx();
             if (material3) {
                 // Material 3 (Material 1.13, built against android-34). v1.8.6: the colour roles come from the project's

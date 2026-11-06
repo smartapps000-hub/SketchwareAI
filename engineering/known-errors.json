@@ -552,6 +552,18 @@
       "rootCause": "AOSP DownloadProvider up to 5.1 enforces WRITE_EXTERNAL_STORAGE for any file destination, the app's own folder too (6.0+ only for shared folders)",
       "repair": "v1.9.4: WRITE_EXTERNAL_STORAGE maxSdkVersion 22 declared when the block is used and min SDK < 23 (listed in the build log)",
       "scope": "generated apps"
+    },
+    {
+      "fingerprint": "SketchWeb.java: Syntax error on tokens, every cannot be resolved to a type (dev build, before release)",
+      "rootCause": "the generated helper's doc comment said \"*/*\", which ends a Java comment",
+      "repair": "v1.9.5: comment reworded; both helpers are now generated and compiled with javac -source 8 against the android-37 jar before the harness run",
+      "scope": "generated apps using the web blocks"
+    },
+    {
+      "fingerprint": "Permission blocks not visible in the logic editor's drawer (owner, v1.9.4 on an Android 15 phone)",
+      "rootCause": "v1.9.4 put them at the end of the Component category's first part; the drawer's category list showed no Permission entry",
+      "repair": "v1.9.5: a Permission category of its own (id 100, after More Block), with a searchable picker on the group slot",
+      "scope": "logic editor"
     }
   ]
 }
