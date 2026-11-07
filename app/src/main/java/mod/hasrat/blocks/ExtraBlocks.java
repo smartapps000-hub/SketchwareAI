@@ -86,6 +86,14 @@ public class ExtraBlocks {
         arrayList.add(addBlock("webSetDesktopMode", " ", "", "SketchWeb.setDesktopMode(%1$s, %2$s);", "#4a6cd4", "%m.webview desktop mode %b"));
         arrayList.add(addBlock("webClearCookiesAndCache", " ", "", "SketchWeb.clearCookiesAndCache(%s);", "#4a6cd4", "%m.webview clear cookies and cache"));
         arrayList.add(addBlock("webEnableFileUpload", " ", "", "SketchWeb.enableFileUpload({host}, %s);", "#4a6cd4", "%m.webview enable file upload"));
+        // v1.9.6: ad and pop-up blocking, mixed content, search, history, user agent; downloads without a WebView
+        arrayList.add(addBlock("webSetAdBlock", " ", "", "SketchWeb.setAdBlockEnabled(%1$s, %2$s);", "#4a6cd4", "%m.webview block ads %b"));
+        arrayList.add(addBlock("webSetPopupBlock", " ", "", "SketchWeb.setPopupBlockEnabled(%1$s, %2$s);", "#4a6cd4", "%m.webview block pop-ups %b"));
+        arrayList.add(addBlock("webSetMixedContent", " ", "", "SketchWeb.setMixedContent(%1$s, \"%2$s\");", "#4a6cd4", "%m.webview mixed content %m.mixedContentMode"));
+        arrayList.add(addBlock("webSearchGoogle", " ", "", "SketchWeb.searchGoogle(%1$s, %2$s);", "#4a6cd4", "%m.webview search Google for %s"));
+        arrayList.add(addBlock("webGetHistory", " ", "", "SketchWeb.history(%1$s, %2$s);", "#4a6cd4", "%m.webview history to list %m.listStr"));
+        arrayList.add(addBlock("webSetUserAgent", " ", "", "SketchWeb.setUserAgent(%1$s, %2$s);", "#4a6cd4", "%m.webview user agent %s"));
+        arrayList.add(addBlock("downloadFile", " ", "", "SketchWeb.downloadFile({host}, %1$s, %2$s, %3$s, %4$s);", "#a1887f", "download file %s to folder %s name %s notify %b"));
     }
 
     /**

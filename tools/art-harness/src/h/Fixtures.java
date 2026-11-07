@@ -609,15 +609,28 @@ public class Fixtures {
         Object desktop = block("12", "%m.webview desktop mode %b", " ", "webSetDesktopMode", "webview1", "@21");
         Object clear = block("13", "%m.webview clear cookies and cache", " ", "webClearCookiesAndCache", "webview1");
         Object upload = block("14", "%m.webview enable file upload", " ", "webEnableFileUpload", "webview1");
+        // v1.9.6: ad and pop-up block, mixed content, user agent (before loadUrl in a real app; order is free here)
+        Object ads = block("15", "%m.webview block ads %b", " ", "webSetAdBlock", "webview1", "@21");
+        Object popups = block("16", "%m.webview block pop-ups %b", " ", "webSetPopupBlock", "webview1", "@21");
+        Object mixed = block("17", "%m.webview mixed content %m.mixedContentMode", " ", "webSetMixedContent", "webview1", "NEVER_ALLOW");
+        Object agent = block("18", "%m.webview user agent %s", " ", "webSetUserAgent", "webview1", "");
         set(load, "nextBlock", 11);
         set(allow, "nextBlock", 12);
         set(desktop, "nextBlock", 13);
         set(clear, "nextBlock", 14);
+        set(upload, "nextBlock", 15);
+        set(ads, "nextBlock", 16);
+        set(popups, "nextBlock", 17);
+        set(mixed, "nextBlock", 18);
         create.add(load);
         create.add(allow);
         create.add(desktop);
         create.add(clear);
         create.add(upload);
+        create.add(ads);
+        create.add(popups);
+        create.add(mixed);
+        create.add(agent);
         create.add(block("20", "false", "b", "false"));
         create.add(block("21", "true", "b", "true"));
         call(proj, "a", javaName, "onCreate_initializeLogic", create);
@@ -649,6 +662,23 @@ public class Fixtures {
         done.add(block("20", "fileName", "s", "getArg"));
         done.add(block("21", "success", "b", "getArg"));
         call(proj, "a", javaName, "webview1_onDownloadComplete", done);
+
+        // v1.9.6: button1 searches Google, copies the history into a list, downloads a file without the WebView
+        HashMap<String, ArrayList<Object>> lists = (HashMap<String, ArrayList<Object>>) get(proj, "f");
+        lists.computeIfAbsent(javaName, k -> new ArrayList<>()).add(neu("android.util.Pair", 2, "pages"));
+        ev.add(neu("com.besome.sketch.beans.EventBean", 1, 3, "button1", "onClick"));
+        ArrayList<Object> click = new ArrayList<>();
+        Object search = block("10", "%m.webview search Google for %s", " ", "webSearchGoogle", "webview1", "sketchware ai");
+        Object history = block("11", "%m.webview history to list %m.listStr", " ", "webGetHistory", "webview1", "pages");
+        Object file = block("12", "download file %s to folder %s name %s notify %b", " ", "downloadFile",
+                "https://example.com/media/Endhayya%20Saami", "SketchAI", "", "@20");
+        set(search, "nextBlock", 11);
+        set(history, "nextBlock", 12);
+        click.add(search);
+        click.add(history);
+        click.add(file);
+        click.add(block("20", "true", "b", "true"));
+        call(proj, "a", javaName, "button1_onClick", click);
     }
 
     /**

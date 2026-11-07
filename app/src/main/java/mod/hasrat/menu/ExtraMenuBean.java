@@ -252,82 +252,28 @@ public class ExtraMenuBean {
             "DIAGNOSTIC", "MANAGE_ONGOING_CALLS", "READ_PRIVILEGED_PHONE_STATE"));
 
     private void permissionPicker(Ss menu) {
-        android.content.Context context = logicEditor;
-        final ArrayList<String[]> all = new ArrayList<>();   // {value, text shown}
+        // v1.9.6: the "Select widget" look (com.sketchware.ai.ui.PermissionPicker): one tap picks and closes
+        ArrayList<com.sketchware.ai.ui.PermissionPicker.Item> items = new ArrayList<>();
         for (String group : com.sketchware.ai.project.PermissionCode.GROUPS) {
-            all.add(new String[]{group, group + "  \u00b7  " + com.sketchware.ai.project.PermissionCode.describe(group)});
+            items.add(new com.sketchware.ai.ui.PermissionPicker.Item(group, group,
+                    "Group \u00b7 " + com.sketchware.ai.project.PermissionCode.describe(group)));
         }
         for (String name : permission) {
             // permissions an app can't ask for in a dialog (Settings screens, system-only, services' BIND_*) are left out
             if (name.startsWith("BIND_") || SPECIAL_PERMISSIONS.contains(name)) continue;
             String value = "android.permission." + name;
             String group = com.sketchware.ai.project.PermissionCode.groupOf(value);
-            all.add(new String[]{value, group == null ? value : value + "  \u00b7  as " + group});
+            items.add(new com.sketchware.ai.ui.PermissionPicker.Item(value, name,
+                    group == null ? value : value + " \u00b7 asks the " + group + " group"));
         }
-        final ArrayList<String[]> shown = new ArrayList<>(all);
-        final ArrayList<String> texts = new ArrayList<>();
-        for (String[] item : shown) texts.add(item[1]);
-
-        android.widget.LinearLayout root = new android.widget.LinearLayout(context);
-        root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = (int) getDip(16);
-        root.setPadding(pad, pad / 2, pad, 0);
-        EditText search = new EditText(context);
-        search.setSingleLine(true);
-        search.setHint("Search: blue, notif, media, camera ...");
-        search.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        root.addView(search, new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        android.widget.ListView list = new android.widget.ListView(context);
-        final android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(context,
-                android.R.layout.simple_list_item_1, texts);
-        list.setAdapter(adapter);
-        // at most half the screen's height (landscape keeps the search field and buttons visible)
-        int listHeight = Math.min((int) getDip(380), context.getResources().getDisplayMetrics().heightPixels / 2);
-        root.addView(list, new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, listHeight));
-
-        final android.app.AlertDialog dialog = new com.sketchware.ai.ui.ObAlertBuilder(context)
-                .setTitle("Select a permission")
-                .setView(root)
-                .setNegativeButton(Helper.getResString(R.string.common_word_cancel), null)
-                .create();
-        search.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {
-                String typed = s.toString().trim();
-                String query = typed.toLowerCase(java.util.Locale.US);
-                shown.clear();
-                texts.clear();
-                boolean listed = false;
-                for (String[] item : all) {
-                    if (item[0].equalsIgnoreCase(typed)) listed = true;
-                    if (query.isEmpty() || item[1].toLowerCase(java.util.Locale.US).contains(query)) {
-                        shown.add(item);
-                        texts.add(item[1]);
-                    }
-                }
-                if (!typed.isEmpty() && !listed && typed.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) {
-                    // a permission the list doesn't have (a library's own, e.g. com.google.android.c2dm.permission.RECEIVE)
-                    shown.add(0, new String[]{typed, "Use \"" + typed + "\" (custom permission)"});
-                    texts.add(0, "Use \"" + typed + "\" (custom permission)");
-                }
-                adapter.notifyDataSetChanged();
-            }
-        });
-        list.setOnItemClickListener((parent, view, position, id) -> {
-            if (position < 0 || position >= shown.size()) return;
-            logicEditor.a(menu, (Object) shown.get(position)[0]);
-            dialog.dismiss();
-        });
-        dialog.show();
+        String current = menu.getArgValue() == null ? "" : menu.getArgValue().toString();
+        com.sketchware.ai.ui.PermissionPicker.show(logicEditor, "Select permission", items, current,
+                typed -> typed.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")
+                        // a permission the list doesn't have (a library's own, e.g. com.google.android.c2dm.permission.RECEIVE)
+                        ? new com.sketchware.ai.ui.PermissionPicker.Item(typed, "Use \"" + typed + "\"",
+                        "Custom permission (declared by a library or another app)")
+                        : null,
+                value -> logicEditor.a(menu, (Object) value));
     }
 
     private void defaultMenus(Ss menu) {
@@ -680,6 +626,14 @@ public class ExtraMenuBean {
                 menus.add("COLOR_AUTO");
                 menus.add("COLOR_DARK");
                 menus.add("COLOR_LIGHT");
+                break;
+
+            case "mixedContentMode":
+                // v1.9.6: SketchWeb.setMixedContent (COMPATIBILITY = Chrome's rule)
+                title = "Mixed content (http on https pages)";
+                menus.add("COMPATIBILITY");
+                menus.add("NEVER_ALLOW");
+                menus.add("ALWAYS_ALLOW");
                 break;
 
             case "SignButtonSize":

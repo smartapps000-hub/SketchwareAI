@@ -100,7 +100,7 @@ public class ExtraBlockCode {
         String code = blockInfo.getCode();
         // v1.9.4: {host} = the activity or fragment the block is in, also from inside a listener (Activity.this)
         if (code != null && code.contains("{host}") && (com.sketchware.ai.project.PermissionCode.isOpCode(blockBean.opCode)
-                || com.sketchware.ai.project.WebCode.OP_FILE_UPLOAD.equals(blockBean.opCode))) {
+                || com.sketchware.ai.project.WebCode.usesHost(blockBean.opCode))) {
             code = code.replace("{host}", fx.c == null || fx.c.isEmpty() ? "this" : fx.c + ".this");
         }
         String formattedCode;

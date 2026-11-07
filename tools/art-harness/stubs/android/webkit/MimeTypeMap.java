@@ -3,7 +3,7 @@ package android.webkit;
 import java.util.HashMap;
 import java.util.Locale;
 
-/** Harness stand-in (v1.9.5, SketchWeb's download filter): a few entries of Android's extension table. */
+/** Harness stand-in (v1.9.5; v1.9.6 reverse lookup; SketchWeb's download filter): a few entries of Android's extension table. */
 public class MimeTypeMap {
     private static final MimeTypeMap INSTANCE = new MimeTypeMap();
     private static final HashMap<String, String> TYPES = new HashMap<>();
@@ -21,6 +21,16 @@ public class MimeTypeMap {
 
     public static MimeTypeMap getSingleton() {
         return INSTANCE;
+    }
+
+    /** v1.9.6: the reverse lookup (Android answers "mp3" for audio/mpeg, "bin" for application/octet-stream). */
+    public String getExtensionFromMimeType(String mimeType) {
+        if (mimeType == null) return null;
+        if (mimeType.equals("application/octet-stream")) return "bin";
+        for (java.util.Map.Entry<String, String> e : TYPES.entrySet()) {
+            if (e.getValue().equals(mimeType)) return e.getKey();
+        }
+        return null;
     }
 
     public String getMimeTypeFromExtension(String extension) {

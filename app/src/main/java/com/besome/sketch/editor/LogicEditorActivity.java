@@ -2637,6 +2637,11 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
                     Rs rs = (Rs) v;
                     if (rs.getBlockType() == 0) {
                         a(rs, event.getX(), event.getY());
+                    } else if (rs.getBlockType() == 1 && com.sketchware.ai.ui.BlockGuide.has(v.getTag())) {
+                        // v1.9.6: a tap on a web or permission block in the drawer shows its three-step guide
+                        // (a long press there drags the block)
+                        String opCode = (String) v.getTag();
+                        com.sketchware.ai.ui.BlockGuide.show(this, "How to use this block", opCode);
                     }
                 }
                 return false;

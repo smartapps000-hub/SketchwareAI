@@ -53,6 +53,47 @@ public class CallWeb {
         Method type = web.getMethod("mimeType", String.class, String.class);
         check("octet-stream + .mp3 -> audio/mpeg", "audio/mpeg".equals(type.invoke(null, "application/octet-stream", "a.mp3")), type.invoke(null, "application/octet-stream", "a.mp3"));
         check("server type kept", "application/pdf".equals(type.invoke(null, "application/pdf", "a.mp3")), type.invoke(null, "application/pdf", "a.mp3"));
+        // v1.9.6: names from the link (query parameter, path), never ".bin"; endings from the first bytes; ad hosts
+        String n7 = (String) name.invoke(null, "https://cdn.x.org/media/Endhayya%20Saami", null, "application/octet-stream");
+        check("octet-stream, no ending: no .bin", "Endhayya Saami".equals(n7), n7);
+        String n8 = (String) name.invoke(null, "https://x.org/download.php?id=5&file=song.mp3", null, "application/octet-stream");
+        check("file= query parameter", "song.mp3".equals(n8), n8);
+        String n9 = (String) name.invoke(null, "https://x.org/get?x=1&title=My%20Song.m4a", null, null);
+        check("title= query parameter, decoded", "My Song.m4a".equals(n9), n9);
+        String n10 = (String) name.invoke(null, "https://x.org/v/abc", null, "video/mp4");
+        check("no ending: from the MIME type", "abc.mp4".equals(n10), n10);
+        String n11 = (String) name.invoke(null, "https://x.org/d?name=report&id=2", null, "application/pdf");
+        check("query value without an ending is skipped", "d.pdf".equals(n11), n11);
+        String n12 = (String) name.invoke(null, "https://x.org/", null, null);
+        check("no name at all", "download".equals(n12), n12);
+        Method withExt = web.getMethod("withMimeExtension", String.class, String.class);
+        check("octet-stream adds nothing", "x".equals(withExt.invoke(null, "x", "application/octet-stream")), withExt.invoke(null, "x", "application/octet-stream"));
+        check("audio/mpeg adds .mp3", "x.mp3".equals(withExt.invoke(null, "x", "audio/mpeg")), withExt.invoke(null, "x", "audio/mpeg"));
+        Method bytes = web.getMethod("extensionFromBytes", byte[].class, int.class);
+        Object[][] magic = {
+                {"ID3", new byte[]{'I', 'D', '3', 4, 0, 0, 0, 0}, "mp3"},
+                {"MPEG frame", new byte[]{(byte) 0xFF, (byte) 0xFB, (byte) 0x90, 0x64}, "mp3"},
+                {"AAC ADTS", new byte[]{(byte) 0xFF, (byte) 0xF1, 0x50, (byte) 0x80}, "aac"},
+                {"ftyp isom", new byte[]{0, 0, 0, 0x20, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm'}, "mp4"},
+                {"ftyp M4A", new byte[]{0, 0, 0, 0x20, 'f', 't', 'y', 'p', 'M', '4', 'A', ' '}, "m4a"},
+                {"PDF", new byte[]{'%', 'P', 'D', 'F', '-', '1'}, "pdf"},
+                {"ZIP / APK", new byte[]{'P', 'K', 3, 4, 20, 0}, "zip"},
+                {"PNG", new byte[]{(byte) 0x89, 'P', 'N', 'G', 13, 10}, "png"},
+                {"JPEG", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0}, "jpg"},
+                {"WebP", new byte[]{'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'}, "webp"},
+                {"SVG", "<svg xmlns=\"http://www.w3.org/2000/svg\">".getBytes(), "svg"},
+                {"text", "hello world".getBytes(), null}};
+        for (Object[] m : magic) {
+            byte[] b = (byte[]) m[1];
+            Object got = bytes.invoke(null, b, b.length);
+            check("bytes " + m[0], m[2] == null ? got == null : m[2].equals(got), got);
+        }
+        Method ad = web.getMethod("isAdHost", String.class);
+        check("ad subdomain blocked", (Boolean) ad.invoke(null, "pagead2.googlesyndication.com"), true);
+        check("ad domain blocked", (Boolean) ad.invoke(null, "DoubleClick.net"), true);
+        check("google.com allowed", !(Boolean) ad.invoke(null, "www.google.com"), false);
+        check("look-alike allowed", !(Boolean) ad.invoke(null, "notdoubleclick.net"), false);
+        check("null host allowed", !(Boolean) ad.invoke(null, (Object) null), false);
         System.out.println("WEBCALL " + (checks - fails) + "/" + checks + " ok");
     }
 }

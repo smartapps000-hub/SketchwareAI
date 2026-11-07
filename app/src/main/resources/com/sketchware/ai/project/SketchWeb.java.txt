@@ -1,0 +1,1020 @@
+package __PACKAGE__;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.net.http.SslError;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.view.KeyEvent;
+import android.view.View;
+import android.webkit.ClientCertRequest;
+import android.webkit.CookieManager;
+import android.webkit.DownloadListener;
+import android.webkit.HttpAuthHandler;
+import android.webkit.MimeTypeMap;
+import android.webkit.RenderProcessGoneDetail;
+import android.webkit.SslErrorHandler;
+import android.webkit.ValueCallback;
+import android.webkit.WebBackForwardList;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
+import android.webkit.WebStorage;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.lang.ref.WeakReference;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
+
+/**
+ * WebView downloads, ad and pop-up blocking, desktop mode, search, history, clearing data and file upload for the web
+ * blocks of Sketchware AI; downloadFile also works without a WebView.
+ */
+public class SketchWeb {
+
+    /** The WebView's download events; a block event overrides the ones it uses. */
+    public static class DownloadEvents {
+        public void onDownloadStart(String url, String mimeType, double contentLength) {
+        }
+
+        public void onDownloadComplete(String url, String fileName, boolean success) {
+        }
+    }
+
+    private static class State {
+        boolean downloads;
+        String folder = "";
+        boolean notify = true;
+        String mimeFilter = "";
+        DownloadEvents events;
+        boolean listening;
+        boolean adBlock;
+        boolean popupBlock;
+        boolean uploads;
+        WeakReference<Activity> activity;
+        Chrome chrome;
+    }
+
+    private static final Map<WebView, State> states = new WeakHashMap<WebView, State>();
+    /** download id -> {WebView (weak) or null, url, file name} */
+    private static final Map<Long, Object[]> pending = new HashMap<Long, Object[]>();
+    private static BroadcastReceiver receiver;
+    private static final int UPLOAD_CODE = 7601;
+
+    /** Ad and tracker hosts (and their subdomains): a built-in list, not a full filter list. */
+    private static final String[] AD_HOSTS = {
+            "doubleclick.net", "googlesyndication.com", "googleadservices.com", "googletagservices.com",
+            "adservice.google.com", "google-analytics.com", "2mdn.net", "adnxs.com", "adsrvr.org", "advertising.com",
+            "adform.net", "adroll.com", "amazon-adsystem.com", "applovin.com", "appnexus.com", "criteo.com",
+            "criteo.net", "casalemedia.com", "contextweb.com", "moatads.com", "adsafeprotected.com", "doubleverify.com",
+            "outbrain.com", "taboola.com", "revcontent.com", "mgid.com", "propellerads.com", "propellerclick.com",
+            "popads.net", "popcash.net", "popunder.net", "adsterra.com", "adsterratech.com", "exoclick.com",
+            "exosrv.com", "juicyads.com", "trafficjunky.net", "trafficstars.com", "hilltopads.net", "clickadu.com",
+            "adcash.com", "admaven.com", "ad-maven.com", "onclickads.net", "onclickalgo.com", "adskeeper.com",
+            "adskeeper.co.uk", "bidvertiser.com", "infolinks.com", "media.net", "yieldmo.com", "pubmatic.com",
+            "rubiconproject.com", "openx.net", "openx.com", "smartadserver.com", "sharethrough.com", "spotxchange.com",
+            "spotx.tv", "teads.tv", "tremorhub.com", "yieldlab.net", "zedo.com", "33across.com", "sovrn.com",
+            "lijit.com", "gumgum.com", "indexww.com", "3lift.com", "triplelift.com", "bidswitch.net", "rlcdn.com",
+            "scorecardresearch.com", "quantserve.com", "quantcount.com", "chartbeat.com", "chartbeat.net",
+            "hotjar.com", "adcolony.com", "unityads.unity3d.com", "vungle.com", "chartboost.com", "inmobi.com",
+            "startappservice.com", "supersonicads.com", "mopub.com", "flurry.com", "an.facebook.com",
+            "serving-sys.com", "adtechus.com", "atdmt.com", "adzerk.net", "buysellads.com", "carbonads.com",
+            "adblade.com", "adbrite.com", "adengage.com", "adgrx.com", "adhigh.net", "admixer.net", "adocean.pl",
+            "adotmob.com", "adperium.com", "adpushup.com", "adreactor.com", "adscale.de", "adspirit.de",
+            "adtelligent.com", "adtiming.com", "advertserve.com", "adxpansion.com", "yllix.com", "a-ads.com",
+            "coinzilla.com", "cointraffic.io", "galaksion.com", "monetag.com", "richpush.co", "pushground.com",
+            "evadav.com", "realsrv.com", "tsyndicate.com", "adsco.re", "dtscout.com", "dtscdn.com"};
+    private static Set<String> adHosts;
+
+    private SketchWeb() {
+    }
+
+    private static State state(WebView webView) {
+        State state = states.get(webView);
+        if (state == null) {
+            state = new State();
+            states.put(webView, state);
+        }
+        return state;
+    }
+
+    // ------------------------------------------------------------------------------------------------ downloads
+
+    /**
+     * Downloads the files a page offers with Android's download manager: into Downloads/folder (Android 10+, or with
+     * storage permission), else the app's own Downloads folder. mimeFilter: empty, a star or the any-type pattern for
+     * every file; otherwise MIME types or file endings separated by commas. A long press on an image offers to
+     * download it too.
+     */
+    public static void allowDownloads(WebView webView, String folder, boolean notify, String mimeFilter) {
+        if (webView == null) return;
+        State state = state(webView);
+        state.downloads = true;
+        state.folder = folder == null ? "" : folder.trim();
+        state.notify = notify;
+        state.mimeFilter = mimeFilter == null ? "" : mimeFilter.trim();
+        listen(webView, state);
+        imageLongPress(webView, state);
+    }
+
+    public static void setDownloadEvents(WebView webView, DownloadEvents events) {
+        if (webView == null) return;
+        State state = state(webView);
+        state.events = events;
+        listen(webView, state);
+    }
+
+    private static void listen(final WebView webView, final State state) {
+        if (state.listening) return;
+        state.listening = true;
+        webView.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                String fileName = fileName(url, contentDisposition, mimeType);
+                String type = mimeType(mimeType, fileName);
+                if (state.events != null) state.events.onDownloadStart(url, type, (double) contentLength);
+                if (state.downloads && (mimeAllowed(type, fileName, state.mimeFilter)
+                        || mimeType != null && mimeAllowed(mimeType, fileName, state.mimeFilter))) {
+                    enqueue(webView.getContext(), webView, state, url, userAgent, fileName, type, state.folder, state.notify);
+                }
+            }
+        });
+    }
+
+    /**
+     * Downloads a file from a link with Android's download manager, without a WebView. fileName: empty to take the
+     * server's name; folder: inside Downloads.
+     */
+    public static void downloadFile(Object host, String url, String folder, String fileName, boolean notify) {
+        Context context = context(host);
+        if (context == null || url == null || url.trim().length() == 0) return;
+        url = url.trim();
+        String name = fileName == null || fileName.trim().length() == 0 ? fileName(url, null, null) : safeName(fileName.trim());
+        enqueue(context, null, null, url, null, name, mimeType(null, name), folder == null ? "" : folder.trim(), notify);
+    }
+
+    /** Whether a file of this MIME type passes the filter (comma-separated, type/* allowed, case ignored). */
+    public static boolean mimeAllowed(String mimeType, String filter) {
+        return mimeAllowed(mimeType, null, filter);
+    }
+
+    /**
+     * Whether a file passes the filter: an empty filter, a star or the any-type pattern = every file (like a
+     * browser); otherwise MIME types (application/pdf, audio/ with a star) or file endings (.mp3, mp3, .apk),
+     * separated by commas, case ignored.
+     */
+    public static boolean mimeAllowed(String mimeType, String fileName, String filter) {
+        if (filter == null || filter.trim().length() == 0) return true;
+        String name = fileName == null ? "" : fileName.toLowerCase(Locale.US);
+        String type = mimeType == null ? "" : mimeType.trim().toLowerCase(Locale.US);
+        int semicolon = type.indexOf(';');
+        if (semicolon >= 0) type = type.substring(0, semicolon).trim();
+        String[] allowed = filter.toLowerCase(Locale.US).split(",");
+        for (int i = 0; i < allowed.length; i++) {
+            String a = allowed[i].trim();
+            if (a.length() == 0) continue;
+            if (a.equals("*") || a.equals("*/*") || a.equals(type)) return true;
+            if (a.indexOf('/') < 0) {
+                // a file ending: .mp3 or mp3
+                String ending = a.startsWith(".") ? a : "." + a;
+                if (name.endsWith(ending)) return true;
+                String byEnding = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ending.substring(1));
+                if (byEnding != null && byEnding.equalsIgnoreCase(type)) return true;
+                continue;
+            }
+            if (a.endsWith("/*") && type.startsWith(a.substring(0, a.length() - 1))) return true;
+        }
+        return false;
+    }
+
+    /**
+     * The file name, in three stages: the server's Content-Disposition (filename*= with its charset first, then
+     * filename=); else a name in the link (a query parameter such as file= or name= that has an ending, else the
+     * path's last part); then, without an ending, the one the MIME type stands for. Never ".bin": a name still
+     * without an ending gets it from the file's first bytes when it is downloaded.
+     */
+    public static String fileName(String url, String contentDisposition, String mimeType) {
+        String name = dispositionName(contentDisposition);
+        if (name == null) name = urlName(url);
+        if (name == null) name = "download";
+        return withMimeExtension(name, mimeType);
+    }
+
+    /** The name with the ending its MIME type stands for when it has none (never "bin": octet-stream says nothing). */
+    public static String withMimeExtension(String name, String mimeType) {
+        if (hasExtension(name)) return name;
+        String type = baseType(mimeType);
+        if (type.length() > 0 && !type.equals("application/octet-stream") && !type.equals("binary/octet-stream")) {
+            String ending = MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
+            if (ending != null && !ending.equals("bin")) return name + "." + ending;
+        }
+        return name;
+    }
+
+    /** The name in a Content-Disposition header, or null. */
+    public static String dispositionName(String contentDisposition) {
+        if (contentDisposition == null) return null;
+        String name = null;
+        String[] parts = contentDisposition.split(";");
+        for (int i = 0; i < parts.length && name == null; i++) {
+            String part = parts[i].trim();
+            if (part.toLowerCase(Locale.US).startsWith("filename*=")) {
+                String value = unquote(part.substring(10).trim());
+                String charset = "UTF-8";
+                int quote = value.indexOf("''");
+                if (quote >= 0) {
+                    if (value.substring(0, quote).trim().equalsIgnoreCase("ISO-8859-1")) charset = "ISO-8859-1";
+                    value = value.substring(quote + 2);
+                }
+                try {
+                    name = java.net.URLDecoder.decode(value.replace("+", "%2B"), charset);
+                } catch (Exception e) {
+                    name = value;
+                }
+            }
+        }
+        for (int i = 0; i < parts.length && name == null; i++) {
+            String part = parts[i].trim();
+            if (part.toLowerCase(Locale.US).startsWith("filename=")) {
+                name = unquote(part.substring(9).trim());
+            }
+        }
+        return name == null ? null : safeName(name);
+    }
+
+    private static final String[] NAME_PARAMETERS = {"filename", "file_name", "file", "name", "title", "fn", "f",
+            "download", "dl", "attachment", "media", "song", "video"};
+
+    /** A file name in a link: a query parameter that names a file with an ending, else the path's last part. */
+    public static String urlName(String url) {
+        if (url == null) return null;
+        String link = url;
+        int hash = link.indexOf('#');
+        if (hash >= 0) link = link.substring(0, hash);
+        int question = link.indexOf('?');
+        String query = question >= 0 ? link.substring(question + 1) : "";
+        String path = question >= 0 ? link.substring(0, question) : link;
+        if (query.length() > 0) {
+            String[] pairs = query.split("&");
+            for (int k = 0; k < NAME_PARAMETERS.length; k++) {
+                for (int i = 0; i < pairs.length; i++) {
+                    int equals = pairs[i].indexOf('=');
+                    if (equals <= 0) continue;
+                    if (!pairs[i].substring(0, equals).equalsIgnoreCase(NAME_PARAMETERS[k])) continue;
+                    String value = decode(pairs[i].substring(equals + 1));
+                    int slash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'));
+                    if (slash >= 0) value = value.substring(slash + 1);
+                    if (hasExtension(value)) return safeName(value);
+                }
+            }
+        }
+        int scheme = path.indexOf("://");
+        if (scheme >= 0) {
+            int slash = path.indexOf('/', scheme + 3);
+            path = slash >= 0 ? path.substring(slash) : "";
+        }
+        int semicolon = path.indexOf(';');
+        if (semicolon >= 0) path = path.substring(0, semicolon);
+        while (path.endsWith("/")) path = path.substring(0, path.length() - 1);
+        String last = path.substring(path.lastIndexOf('/') + 1);
+        last = decode(last);
+        return last.trim().length() == 0 ? null : safeName(last.trim());
+    }
+
+    private static String decode(String value) {
+        try {
+            return java.net.URLDecoder.decode(value.replace("+", "%2B"), "UTF-8");
+        } catch (Exception e) {
+            return value;
+        }
+    }
+
+    /** Whether a name ends in a file ending (.mp3, .tar.gz's .gz): 1 to 5 letters or digits after the last dot. */
+    public static boolean hasExtension(String name) {
+        if (name == null) return false;
+        int dot = name.lastIndexOf('.');
+        if (dot <= 0 || dot == name.length() - 1 || name.length() - dot - 1 > 5) return false;
+        for (int i = dot + 1; i < name.length(); i++) {
+            if (!Character.isLetterOrDigit(name.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private static String safeName(String name) {
+        // no folders from a server or a link
+        String clean = name.replace('/', '_').replace('\\', '_').replace(':', '_').trim();
+        if (clean.length() == 0 || clean.equals(".") || clean.equals("..")) return "download";
+        return clean;
+    }
+
+    private static String unquote(String value) {
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
+    }
+
+    private static String baseType(String mimeType) {
+        String type = mimeType == null ? "" : mimeType.trim().toLowerCase(Locale.US);
+        int semicolon = type.indexOf(';');
+        return semicolon >= 0 ? type.substring(0, semicolon).trim() : type;
+    }
+
+    /** The MIME type the server sent, or the one the file name's ending stands for when it sent none. */
+    public static String mimeType(String mimeType, String fileName) {
+        String type = mimeType == null ? "" : mimeType.trim();
+        if (type.length() > 0 && !type.equalsIgnoreCase("application/octet-stream")) return type;
+        int dot = fileName == null ? -1 : fileName.lastIndexOf('.');
+        if (dot >= 0) {
+            String byEnding = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileName.substring(dot + 1).toLowerCase(Locale.US));
+            if (byEnding != null) return byEnding;
+        }
+        return type.length() > 0 ? type : "application/octet-stream";
+    }
+
+    /** The file ending a file's first bytes show (mp3, mp4, m4a, pdf, zip, png, jpg ...), or null. */
+    public static String extensionFromBytes(byte[] b, int n) {
+        if (b == null || n < 4) return null;
+        if (b[0] == 'I' && b[1] == 'D' && b[2] == '3') return "mp3";
+        if ((b[0] & 0xFF) == 0xFF && ((b[1] & 0xE0) == 0xE0) && ((b[1] & 0x06) != 0)) {
+            // an MPEG audio frame (layer bits set); AAC ADTS has the layer bits 0
+            return "mp3";
+        }
+        if ((b[0] & 0xFF) == 0xFF && ((b[1] & 0xF6) == 0xF0)) return "aac";
+        if (b[0] == '%' && b[1] == 'P' && b[2] == 'D' && b[3] == 'F') return "pdf";
+        if (b[0] == 'P' && b[1] == 'K' && (b[2] == 3 || b[2] == 5 || b[2] == 7)) return "zip";
+        if ((b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') return "png";
+        if ((b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) return "jpg";
+        if (b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8') return "gif";
+        if (b[0] == 'O' && b[1] == 'g' && b[2] == 'g' && b[3] == 'S') return "ogg";
+        if (b[0] == 'f' && b[1] == 'L' && b[2] == 'a' && b[3] == 'C') return "flac";
+        if ((b[0] & 0xFF) == 0x1A && (b[1] & 0xFF) == 0x45 && (b[2] & 0xFF) == 0xDF && (b[3] & 0xFF) == 0xA3) return "webm";
+        if (n >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F') {
+            if (b[8] == 'W' && b[9] == 'A' && b[10] == 'V' && b[11] == 'E') return "wav";
+            if (b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') return "webp";
+            if (b[8] == 'A' && b[9] == 'V' && b[10] == 'I') return "avi";
+        }
+        if (n >= 12 && b[4] == 'f' && b[5] == 't' && b[6] == 'y' && b[7] == 'p') {
+            String brand = new String(b, 8, 4);
+            if (brand.startsWith("M4A")) return "m4a";
+            if (brand.startsWith("qt")) return "mov";
+            if (brand.startsWith("3g")) return "3gp";
+            return "mp4";
+        }
+        String text = new String(b, 0, Math.min(n, 64)).trim().toLowerCase(Locale.US);
+        if (text.startsWith("<svg") || text.startsWith("<?xml") && text.contains("<svg")) return "svg";
+        if (text.startsWith("<!doctype html") || text.startsWith("<html")) return "html";
+        return null;
+    }
+
+    private static void enqueue(final Context context, final WebView webView, final State state, final String url,
+                                final String userAgent, final String fileName, final String mimeType, final String folder,
+                                final boolean notify) {
+        final Context app = context.getApplicationContext();
+        String cookieHeader = null;
+        try {
+            cookieHeader = CookieManager.getInstance().getCookie(url);
+        } catch (Exception ignored) {
+            // no WebView installed on the phone
+        }
+        final String cookies = cookieHeader;
+        register(app);
+        // asked off the screen's thread: the page never waits, and a name without an ending can be checked online
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String name = fileName;
+                String type = mimeType;
+                try {
+                    if (!hasExtension(name) && (url.startsWith("http://") || url.startsWith("https://"))) {
+                        String[] probe = probe(url, cookies, userAgent);
+                        if (probe[0] != null) {
+                            name = probe[0];
+                        } else if (probe[2] != null) {
+                            name = name + "." + probe[2];
+                        } else if (probe[1] != null) {
+                            name = withMimeExtension(name, probe[1]);
+                        }
+                        type = mimeType(probe[1] != null ? probe[1] : type, name);
+                    }
+                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                    if (type != null && type.length() > 0) request.setMimeType(type);
+                    if (cookies != null) request.addRequestHeader("Cookie", cookies);
+                    if (userAgent != null) request.addRequestHeader("User-Agent", userAgent);
+                    request.setTitle(name);
+                    request.setNotificationVisibility(notify
+                            ? DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                            : DownloadManager.Request.VISIBILITY_VISIBLE);
+                    String path = folder.length() == 0 ? name : folder + "/" + name;
+                    boolean shared = Build.VERSION.SDK_INT >= 29 || app.checkPermission(
+                            "android.permission.WRITE_EXTERNAL_STORAGE", android.os.Process.myPid(), android.os.Process.myUid())
+                            == PackageManager.PERMISSION_GRANTED;
+                    if (shared) {
+                        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, path);
+                        if (Build.VERSION.SDK_INT < 29) allowScanning(request);
+                    } else {
+                        request.setDestinationInExternalFilesDir(app, Environment.DIRECTORY_DOWNLOADS, path);
+                    }
+                    DownloadManager manager = (DownloadManager) app.getSystemService(Context.DOWNLOAD_SERVICE);
+                    synchronized (pending) {
+                        // under the receiver's lock: a download that ends at once still finds its entry
+                        long id = manager.enqueue(request);
+                        pending.put(id, new Object[]{webView == null ? null : new WeakReference<WebView>(webView), url, name});
+                    }
+                } catch (Exception e) {
+                    // blob: and data: links, a missing download manager, a refused folder
+                    final String failed = name;
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (state != null && state.events != null) state.events.onDownloadComplete(url, failed, false);
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void allowScanning(DownloadManager.Request request) {
+        request.allowScanningByMediaScanner();
+    }
+
+    /**
+     * Asks the server about a link whose name has no ending (the same cookies and user agent): {name from its
+     * Content-Disposition, its MIME type, the ending the first bytes show}, each null when unknown. A HEAD request
+     * first; only when it tells nothing, the first 64 bytes (Range).
+     */
+    private static String[] probe(String url, String cookies, String userAgent) {
+        String[] result = new String[3];
+        ask(url, cookies, userAgent, false, result);
+        if (result[0] == null && result[1] == null) ask(url, cookies, userAgent, true, result);
+        return result;
+    }
+
+    private static void ask(String url, String cookies, String userAgent, boolean bytes, String[] result) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setConnectTimeout(6000);
+            connection.setReadTimeout(6000);
+            connection.setInstanceFollowRedirects(true);
+            if (bytes) {
+                connection.setRequestProperty("Range", "bytes=0-63");
+            } else {
+                connection.setRequestMethod("HEAD");
+            }
+            if (cookies != null) connection.setRequestProperty("Cookie", cookies);
+            if (userAgent != null) connection.setRequestProperty("User-Agent", userAgent);
+            int code = connection.getResponseCode();
+            if (code < 200 || code >= 300) return;
+            String name = dispositionName(connection.getHeaderField("Content-Disposition"));
+            if (name != null && hasExtension(name)) result[0] = name;
+            String type = baseType(connection.getContentType());
+            if (type.length() > 0 && !type.equals("application/octet-stream") && !type.equals("binary/octet-stream")) {
+                result[1] = type;
+            }
+            if (!bytes) return;
+            InputStream in = connection.getInputStream();
+            byte[] first = new byte[64];
+            int n = 0;
+            while (n < first.length) {
+                int read = in.read(first, n, first.length - n);
+                if (read < 0) break;
+                n += read;
+            }
+            in.close();
+            result[2] = extensionFromBytes(first, n);
+        } catch (Exception ignored) {
+            // no answer: the name stays as it is
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private static void register(Context context) {
+        if (receiver != null) return;
+        receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context c, Intent intent) {
+                long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                Object[] entry;
+                synchronized (pending) {
+                    entry = pending.remove(id);
+                }
+                if (entry == null || entry[0] == null) return;
+                boolean success = false;
+                Cursor cursor = null;
+                try {
+                    DownloadManager manager = (DownloadManager) c.getSystemService(Context.DOWNLOAD_SERVICE);
+                    cursor = manager.query(new DownloadManager.Query().setFilterById(id));
+                    if (cursor != null && cursor.moveToFirst()) {
+                        int column = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
+                        success = column >= 0 && cursor.getInt(column) == DownloadManager.STATUS_SUCCESSFUL;
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    if (cursor != null) cursor.close();
+                }
+                @SuppressWarnings("unchecked")
+                WebView webView = ((WeakReference<WebView>) entry[0]).get();
+                State state = webView == null ? null : states.get(webView);
+                if (state != null && state.events != null) {
+                    state.events.onDownloadComplete((String) entry[1], (String) entry[2], success);
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            // sent by the system's download app: exported (Android 14 asks for the flag)
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            context.registerReceiver(receiver, filter);
+        }
+    }
+
+    /** A long press on an image (also an image inside a link) offers "Download image". */
+    private static void imageLongPress(final WebView webView, final State state) {
+        webView.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                WebView.HitTestResult hit = webView.getHitTestResult();
+                if (hit == null) return false;
+                if (hit.getType() == WebView.HitTestResult.IMAGE_TYPE) {
+                    offerImage(webView, state, hit.getExtra());
+                    return true;
+                }
+                if (hit.getType() == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+                    // the image's own address (not the link's) comes back in a message ("url")
+                    Handler handler = new Handler(Looper.getMainLooper()) {
+                        @Override
+                        public void handleMessage(Message message) {
+                            Bundle data = message.getData();
+                            String src = data == null ? null : data.getString("url");
+                            if (src == null && data != null) src = data.getString("src");
+                            offerImage(webView, state, src);
+                        }
+                    };
+                    webView.requestImageRef(handler.obtainMessage());
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    private static void offerImage(final WebView webView, final State state, final String src) {
+        if (src == null || !(src.startsWith("http://") || src.startsWith("https://"))) return;
+        try {
+            new AlertDialog.Builder(webView.getContext())
+                    .setItems(new String[]{"Download image"}, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            String name = fileName(src, null, null);
+                            enqueue(webView.getContext(), webView, state, src, webView.getSettings().getUserAgentString(),
+                                    name, mimeType(null, name), state.folder, state.notify);
+                        }
+                    })
+                    .show();
+        } catch (Exception ignored) {
+            // the screen is closing
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------ ads and pop-ups
+
+    /** Whether the host or one of its parent domains is on the built-in ad and tracker list. */
+    public static boolean isAdHost(String host) {
+        if (host == null) return false;
+        if (adHosts == null) adHosts = new HashSet<String>(Arrays.asList(AD_HOSTS));
+        String h = host.toLowerCase(Locale.US);
+        while (h.length() > 0) {
+            if (adHosts.contains(h)) return true;
+            int dot = h.indexOf('.');
+            if (dot < 0) return false;
+            h = h.substring(dot + 1);
+        }
+        return false;
+    }
+
+    /**
+     * Blocks requests to ad and tracker hosts (Android 8+: the WebView's own client is kept and wrapped; on older
+     * Android the WebView's client can't be read, so nothing is blocked there).
+     */
+    public static void setAdBlockEnabled(WebView webView, boolean enabled) {
+        if (webView == null) return;
+        State state = state(webView);
+        state.adBlock = enabled;
+        if (enabled && Build.VERSION.SDK_INT >= 26) {
+            WebViewClient current = webView.getWebViewClient();
+            if (!(current instanceof Client)) webView.setWebViewClient(new Client(current, state));
+        }
+    }
+
+    /**
+     * On: a page opens a new window (pop-up) only after a tap, and then in this WebView; pop-ups a script opens on its
+     * own are blocked. Off: scripts may open them (they load in this WebView).
+     */
+    public static void setPopupBlockEnabled(WebView webView, boolean enabled) {
+        if (webView == null) return;
+        State state = state(webView);
+        state.popupBlock = enabled;
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptCanOpenWindowsAutomatically(!enabled);
+        settings.setSupportMultipleWindows(enabled);
+        if (enabled) chrome(webView, state);
+    }
+
+    private static void chrome(WebView webView, State state) {
+        if (state.chrome == null) {
+            state.chrome = new Chrome(webView, state);
+            webView.setWebChromeClient(state.chrome);
+        }
+    }
+
+    /** Wraps the WebView's own client (page events of the blocks) and adds ad blocking. Android 8+. */
+    private static class Client extends WebViewClient {
+        private final WebViewClient original;
+        private final State state;
+
+        Client(WebViewClient original, State state) {
+            this.original = original == null ? new WebViewClient() : original;
+            this.state = state;
+        }
+
+        private boolean blocked(String url) {
+            return state.adBlock && url != null && isAdHost(Uri.parse(url).getHost());
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            return blocked(url) || original.shouldOverrideUrlLoading(view, url);
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            return blocked(request.getUrl().toString()) || original.shouldOverrideUrlLoading(view, request);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+            if (blocked(url)) return empty();
+            return original.shouldInterceptRequest(view, url);
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (blocked(request.getUrl().toString())) return empty();
+            return original.shouldInterceptRequest(view, request);
+        }
+
+        private static WebResourceResponse empty() {
+            return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
+        }
+
+        @Override
+        public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            original.onPageStarted(view, url, favicon);
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            original.onPageFinished(view, url);
+        }
+
+        @Override
+        public void onLoadResource(WebView view, String url) {
+            original.onLoadResource(view, url);
+        }
+
+        @Override
+        public void onPageCommitVisible(WebView view, String url) {
+            original.onPageCommitVisible(view, url);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+            original.onReceivedError(view, errorCode, description, failingUrl);
+        }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            original.onReceivedError(view, request, error);
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            original.onReceivedHttpError(view, request, errorResponse);
+        }
+
+        @Override
+        public void onFormResubmission(WebView view, Message dontResend, Message resend) {
+            original.onFormResubmission(view, dontResend, resend);
+        }
+
+        @Override
+        public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+            original.doUpdateVisitedHistory(view, url, isReload);
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            original.onReceivedSslError(view, handler, error);
+        }
+
+        @Override
+        public void onReceivedClientCertRequest(WebView view, ClientCertRequest request) {
+            original.onReceivedClientCertRequest(view, request);
+        }
+
+        @Override
+        public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host, String realm) {
+            original.onReceivedHttpAuthRequest(view, handler, host, realm);
+        }
+
+        @Override
+        public boolean shouldOverrideKeyEvent(WebView view, KeyEvent event) {
+            return original.shouldOverrideKeyEvent(view, event);
+        }
+
+        @Override
+        public void onUnhandledKeyEvent(WebView view, KeyEvent event) {
+            original.onUnhandledKeyEvent(view, event);
+        }
+
+        @Override
+        public void onScaleChanged(WebView view, float oldScale, float newScale) {
+            original.onScaleChanged(view, oldScale, newScale);
+        }
+
+        @Override
+        public void onReceivedLoginRequest(WebView view, String realm, String account, String args) {
+            original.onReceivedLoginRequest(view, realm, account, args);
+        }
+
+        @Override
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            return original.onRenderProcessGone(view, detail);
+        }
+    }
+
+    /** One WebChromeClient for file upload and pop-ups. */
+    private static class Chrome extends WebChromeClient {
+        private final WeakReference<WebView> webView;
+        private final State state;
+
+        Chrome(WebView webView, State state) {
+            this.webView = new WeakReference<WebView>(webView);
+            this.state = state;
+        }
+
+        @Override
+        public boolean onCreateWindow(final WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+            if (state.popupBlock && !isUserGesture) return false;
+            // the new window's address opens in this WebView (download pages often use one)
+            WebView popup = new WebView(view.getContext());
+            popup.setWebViewClient(new WebViewClient() {
+                @Override
+                @SuppressWarnings("deprecation")
+                public boolean shouldOverrideUrlLoading(WebView w, String url) {
+                    if (!(state.adBlock && isAdHost(Uri.parse(url).getHost()))) view.loadUrl(url);
+                    w.stopLoading();
+                    return true;
+                }
+            });
+            WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+            transport.setWebView(popup);
+            resultMsg.sendToTarget();
+            return true;
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+            Activity activity = state.activity == null ? null : state.activity.get();
+            if (!state.uploads || activity == null) return false;
+            Intent intent;
+            try {
+                intent = params.createIntent();
+                if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+            } catch (Exception e) {
+                intent = new Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+            }
+            return Chooser.open(activity, intent, callback);
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------ browser controls
+
+    /** COMPATIBILITY (Chrome's rule: http images on an https page load, scripts don't), NEVER_ALLOW or ALWAYS_ALLOW. */
+    public static void setMixedContent(WebView webView, String mode) {
+        if (webView == null || Build.VERSION.SDK_INT < 21) return;
+        int value = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE;
+        if ("NEVER_ALLOW".equals(mode)) value = WebSettings.MIXED_CONTENT_NEVER_ALLOW;
+        if ("ALWAYS_ALLOW".equals(mode)) value = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW;
+        webView.getSettings().setMixedContentMode(value);
+    }
+
+    /** Opens Google's results for the text. */
+    public static void searchGoogle(WebView webView, String query) {
+        if (webView == null || query == null) return;
+        try {
+            webView.loadUrl("https://www.google.com/search?q=" + java.net.URLEncoder.encode(query.trim(), "UTF-8"));
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** Puts the addresses the WebView visited (oldest first) into the list. */
+    public static void history(WebView webView, ArrayList<String> list) {
+        if (webView == null || list == null) return;
+        list.clear();
+        WebBackForwardList pages = webView.copyBackForwardList();
+        for (int i = 0; i < pages.getSize(); i++) list.add(pages.getItemAtIndex(i).getUrl());
+    }
+
+    /** A user agent of your own; empty: the WebView's. */
+    public static void setUserAgent(WebView webView, String userAgent) {
+        if (webView == null) return;
+        webView.getSettings().setUserAgentString(userAgent == null || userAgent.trim().length() == 0 ? null : userAgent.trim());
+    }
+
+    /** A desktop browser's user agent with this WebView's Chrome version. */
+    public static String desktopUserAgent(String mobile) {
+        String chrome = "";
+        if (mobile != null) {
+            int at = mobile.indexOf("Chrome/");
+            if (at >= 0) {
+                int end = mobile.indexOf(' ', at);
+                chrome = (end < 0 ? mobile.substring(at) : mobile.substring(at, end)) + " ";
+            }
+        }
+        return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " + chrome + "Safari/537.36";
+    }
+
+    /** Desktop mode on: desktop user agent and wide view port; off: the WebView's own. Reloads the page. */
+    public static void setDesktopMode(WebView webView, boolean desktop) {
+        if (webView == null) return;
+        WebSettings settings = webView.getSettings();
+        settings.setUserAgentString(desktop ? desktopUserAgent(WebSettings.getDefaultUserAgent(webView.getContext())) : null);
+        settings.setUseWideViewPort(desktop);
+        settings.setLoadWithOverviewMode(desktop);
+        if (webView.getUrl() != null) webView.reload();
+    }
+
+    /** Clears the cache, cookies, web storage, form data and history. */
+    @SuppressWarnings("deprecation")
+    public static void clearCookiesAndCache(WebView webView) {
+        if (webView != null) {
+            webView.clearCache(true);
+            webView.clearFormData();
+            webView.clearHistory();
+        }
+        CookieManager cookies = CookieManager.getInstance();
+        if (Build.VERSION.SDK_INT >= 21) {
+            cookies.removeAllCookies(null);
+            cookies.flush();
+        } else {
+            cookies.removeAllCookie();
+        }
+        WebStorage.getInstance().deleteAllData();
+    }
+
+    /**
+     * Lets the page's file inputs open the file picker (Android 5+). Sets the WebView's WebChromeClient (shared with
+     * the pop-up block): one set by code before is replaced.
+     */
+    public static void enableFileUpload(Object host, WebView webView) {
+        Activity activity = activity(host);
+        if (activity == null || webView == null) return;
+        State state = state(webView);
+        state.uploads = true;
+        state.activity = new WeakReference<Activity>(activity);
+        chrome(webView, state);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Activity activity(Object host) {
+        if (host instanceof Activity) return (Activity) host;
+        if (host instanceof android.app.Fragment) return ((android.app.Fragment) host).getActivity();
+        if (host instanceof View && ((View) host).getContext() instanceof Activity) {
+            return (Activity) ((View) host).getContext();
+        }
+        try {
+            Object activity = host.getClass().getMethod("getActivity").invoke(host);
+            if (activity instanceof Activity) return (Activity) activity;
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private static Context context(Object host) {
+        if (host instanceof Context) return (Context) host;
+        return activity(host);
+    }
+
+    /**
+     * Opens the picker from a fragment of its own, so the answer reaches it whatever the activity's
+     * onActivityResult does.
+     */
+    @SuppressWarnings("deprecation")
+    public static class Chooser extends android.app.Fragment {
+        private static final String TAG = "sketch_web_chooser";
+        private static ValueCallback<Uri[]> callback;
+        private static Intent intent;
+
+        public Chooser() {
+        }
+
+        static boolean open(Activity activity, Intent pick, ValueCallback<Uri[]> answer) {
+            if (callback != null) callback.onReceiveValue(null);
+            callback = answer;
+            intent = pick;
+            try {
+                android.app.FragmentManager manager = activity.getFragmentManager();
+                android.app.Fragment old = manager.findFragmentByTag(TAG);
+                if (old != null) manager.beginTransaction().remove(old).commitAllowingStateLoss();
+                manager.beginTransaction().add(new Chooser(), TAG).commitAllowingStateLoss();
+                return true;
+            } catch (Exception e) {
+                callback = null;
+                answer.onReceiveValue(null);
+                return true;
+            }
+        }
+
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            if (savedInstanceState != null || intent == null) {
+                // the activity was recreated: the page that asked is gone
+                finish(null);
+                return;
+            }
+            try {
+                startActivityForResult(Intent.createChooser(intent, null), UPLOAD_CODE);
+            } catch (Exception e) {
+                finish(null);
+            }
+            intent = null;
+        }
+
+        @Override
+        public void onActivityResult(int requestCode, int resultCode, Intent data) {
+            if (requestCode != UPLOAD_CODE) return;
+            Uri[] uris = null;
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                ClipData clip = data.getClipData();
+                if (clip != null && clip.getItemCount() > 0) {
+                    uris = new Uri[clip.getItemCount()];
+                    for (int i = 0; i < uris.length; i++) uris[i] = clip.getItemAt(i).getUri();
+                } else if (data.getData() != null) {
+                    uris = new Uri[]{data.getData()};
+                }
+            }
+            finish(uris);
+        }
+
+        private void finish(Uri[] uris) {
+            ValueCallback<Uri[]> answer = callback;
+            callback = null;
+            if (answer != null) answer.onReceiveValue(uris);
+            try {
+                getFragmentManager().beginTransaction().remove(this).commitAllowingStateLoss();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+}

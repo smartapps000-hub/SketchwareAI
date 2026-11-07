@@ -645,3 +645,58 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   every file; the file name from Content-Disposition (`filename*=` UTF-8 first, then `filename=`, no folders), the MIME
   type from the ending when the server sends none or octet-stream; DownloadManager is called on a background thread
   (the page never waits), completion still on the main thread.
+
+## v1.9.6 additions
+
+- **SketchWeb is a real Java file** (`app/src/main/resources/com/sketchware/ai/project/SketchWeb.java.txt`, packaged as
+  a Java resource; `WebCode.helperClass(package, appCompat)` fills in `package __PACKAGE__;` and, with AppCompat, makes
+  the image dialog a `MaterialAlertDialogBuilder`). Compile the template on the host before a harness run (javac
+  `-source 8 -Xlint:all` against the android-37 jar; it compiles without a warning).
+- **Download names, never ".bin"** (owner's 7 Nov report "Endhayya Saami.bin": no Content-Disposition, an extension-less
+  link and `application/octet-stream` made `URLUtil.guessFileName` append ".bin"). `fileName(url, disposition, mime)`:
+  (1) Content-Disposition, `filename*=` (UTF-8 / ISO-8859-1, quoted or not) before `filename=`; (2) the link: a query
+  parameter named filename, file_name, file, name, title, fn, f, download, dl, attachment, media, song or video whose
+  value has an ending, else the path's last part (decoded, `;` parameters and `#` dropped); (3) "download". Then
+  `withMimeExtension`: an ending from the MIME type unless it is octet-stream or would be "bin". URLUtil is no longer
+  used. A name still without an ending is checked at enqueue time on the download thread: a HEAD request (same Cookie
+  and User-Agent), and only if it tells nothing, a GET of bytes 0-63 (`Range`), 6 s timeouts each; the server's
+  Content-Disposition, its MIME type, or the first bytes (`extensionFromBytes`: ID3 / MPEG frame → mp3, ADTS → aac,
+  ftyp brands → mp4 / m4a / mov / 3gp, %PDF, PK → zip, PNG, JPEG, GIF, OggS, fLaC, WebM, RIFF WAVE / WEBP / AVI, `<svg`,
+  html) give the ending. No answer: the name stays without an ending (still not ".bin"). A single-use link could be
+  spent by that probe (release notes).
+- Downloads forward the WebView's cookies and user agent to DownloadManager (as before) and the probe; empty, `*` and
+  `*/*` filters pass every file. **Image long press** (`allowDownloads` sets the WebView's OnLongClickListener):
+  IMAGE_TYPE uses the hit test's extra, SRC_IMAGE_ANCHOR_TYPE asks `requestImageRef` (Bundle key "url"); http(s) images
+  only; a one-item dialog "Download image" enqueues with the allowDownloads folder / notify. Other long presses keep the
+  WebView's own behaviour (return false).
+- **`downloadFile({host}, url, folder, name, notify)`** (block `downloadFile`, File drawer → "Download"): no WebView;
+  empty name = server / link name; INTERNET and the < 23 WRITE entry like webAllowDownloads (`yq`: `webDownloadsUsed`).
+  `{host}` replaced for it (`WebCode.usesHost`).
+- **Ad block** (`setAdBlockEnabled`, block `webSetAdBlock`): 125 ad / tracker domains, matched with their subdomains
+  (`isAdHost` walks the host's suffixes), answered with an empty `WebResourceResponse("text/plain", "UTF-8")`, and
+  navigation to them is refused. Android 8+ only: the WebView's current client (the generated page-event client) is read
+  with `getWebViewClient()` and wrapped by `SketchWeb.Client`, which forwards every WebViewClient callback the platform
+  has (two shouldOverrideUrlLoading, two shouldInterceptRequest, page started / finished / commit visible, load resource,
+  both onReceivedError, HTTP error, form resubmission, visited history, SSL error, client cert, HTTP auth, key events,
+  scale, login, render process gone). Below Android 8 the block does nothing (documented in the guide). A client set
+  by code after the block replaces the wrapper.
+- **Pop-up block** (`setPopupBlockEnabled`, `webSetPopupBlock`): on = `setJavaScriptCanOpenWindowsAutomatically(false)`
+  + `setSupportMultipleWindows(true)` and the shared `SketchWeb.Chrome`: `onCreateWindow` refuses windows without a user
+  gesture; a tapped window's first address is loaded in the same WebView through a throw-away WebView (ad domains
+  dropped when ad block is on). Off = v1.9.5's defaults (JavaScript windows load in the same view). `Chrome` also
+  carries file upload: `enableFileUpload` and the pop-up block share one WebChromeClient (either replaces one set by
+  code before it).
+- `setMixedContent(webView, mode)` (`webSetMixedContent`, menu `mixedContentMode`: COMPATIBILITY default / NEVER_ALLOW /
+  ALWAYS_ALLOW, API 21+), `searchGoogle` (`https://www.google.com/search?q=` + URL-encoded text; INTERNET and
+  ACCESS_NETWORK_STATE), `history(webView, list)` (`webGetHistory`, `%m.listStr`: the back/forward list's URLs, oldest
+  first), `setUserAgent` (`webSetUserAgent`; empty = the WebView's own). The stock `webViewClearHistory` block stays.
+- **Permission picker** (`ui.PermissionPicker`, owner's "Select widget" screenshot): Dialog with a #252528 container,
+  16dp corners, compact search field (#1C1C1F, 12dp corners, hint #8E8E93), rows with a radio bubble (checked = the
+  slot's current value, accent #FF7A29), bold white name, #B0B0B0 subtitle; one tap picks and dismisses (no Save /
+  Cancel; Back or outside closes unchanged). Groups first ("Group · …"), then `android.permission.*` names (short name
+  bold, full name and alias in the subtitle); a typed dotted name gets a "Use …" row. Android classes only.
+- **Block guide** (`ui.BlockGuide`): three steps per block (Where to drop / What to plug / What you get) under the
+  block drawn in its colour, for the 11 web blocks of the WebView section + downloadFile and the 4 permission blocks.
+  Opened by a tap on such a block in the drawer (`LogicEditorActivity.onTouch` ACTION_UP without a drag on a palette
+  block, `getBlockType() == 1`; a long press there is the drag) or the "ⓘ … guide" button rows in the WebView section
+  and the Permission category.

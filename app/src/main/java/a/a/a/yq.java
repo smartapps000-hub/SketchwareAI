@@ -664,8 +664,15 @@ public class yq {
                             break;
 
                         case com.sketchware.ai.project.WebCode.OP_ALLOW_DOWNLOADS:
+                        case com.sketchware.ai.project.WebCode.OP_DOWNLOAD_FILE:
                             N.addPermission(jq.PERMISSION_INTERNET);
                             N.webDownloadsUsed = true;
+                            break;
+
+                        // v1.9.6: a Google search loads a page
+                        case com.sketchware.ai.project.WebCode.OP_SEARCH_GOOGLE:
+                            N.addPermission(jq.PERMISSION_INTERNET);
+                            N.addPermission(jq.PERMISSION_ACCESS_NETWORK_STATE);
                             break;
 
                         default:
@@ -822,7 +829,7 @@ public class yq {
         addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.PermissionCode.CLASS_NAME,
                 com.sketchware.ai.project.PermissionCode.helperClass(packageName, N.g));
         addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.WebCode.CLASS_NAME,
-                com.sketchware.ai.project.WebCode.helperClass(packageName));
+                com.sketchware.ai.project.WebCode.helperClass(packageName, N.g));
 
         // Generate layouts unless a custom version of it exists already
         // at /Internal storage/.sketchware/data/<sc_id>/files/resource/layout/

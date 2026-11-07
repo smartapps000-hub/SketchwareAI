@@ -494,6 +494,9 @@ public class ExtraPaletteBlock {
                 logicEditor.a(" ", "setBitmapFileBrightness");
                 logicEditor.a(" ", "setBitmapFileContrast");
                 logicEditor.a("d", "getJpegRotate");
+                // v1.9.6: downloads without a WebView (SketchWeb.downloadFile)
+                logicEditor.a("Download", 0xff555555);
+                logicEditor.a(" ", "downloadFile");
                 return;
 
             case 6:
@@ -662,6 +665,15 @@ public class ExtraPaletteBlock {
                         logicEditor.a(" ", "webSetDesktopMode");
                         logicEditor.a(" ", "webClearCookiesAndCache");
                         logicEditor.a(" ", "webEnableFileUpload");
+                        // v1.9.6: ad / pop-up block, mixed content, search, history, user agent; tap a block for its guide
+                        logicEditor.a(" ", "webSetAdBlock");
+                        logicEditor.a(" ", "webSetPopupBlock");
+                        logicEditor.a(" ", "webSetMixedContent");
+                        logicEditor.a(" ", "webSearchGoogle");
+                        logicEditor.a(" ", "webGetHistory");
+                        logicEditor.a(" ", "webSetUserAgent");
+                        logicEditor.b("\u24d8 Web blocks guide", "webGuide", v -> com.sketchware.ai.ui.BlockGuide.show(
+                                logicEditor, "Web blocks", com.sketchware.ai.ui.BlockGuide.WEB_BLOCKS));
                     }
                 }
             }
@@ -1205,6 +1217,9 @@ public class ExtraPaletteBlock {
                 logicEditor.a("b", "hasAutoPermission");
                 logicEditor.a("s", "getPermissionStatus");
                 logicEditor.a("Answers: Add event", 0xff555555);
+                // v1.9.6: three-step guide (also a tap on a block above)
+                logicEditor.b("\u24d8 Permission blocks guide", "permissionGuide", v -> com.sketchware.ai.ui.BlockGuide.show(
+                        logicEditor, "Permission blocks", com.sketchware.ai.ui.BlockGuide.PERMISSION_BLOCKS));
                 return;
 
             default:
