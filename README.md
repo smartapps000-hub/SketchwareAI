@@ -2,6 +2,16 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.6 (versionCode 196, `v1.9.6-a76e9dc-minApi26`)
+
+`apk/Sketchware_AI_v1.9.6.apk`, sha256 `86af1443ad821b47bb9ab2ad78b3f7500ada22038c35808c2f9203976b3975a8` (Git LFS). Download
+names without ".bin", download file without a WebView, image long press, WebView ad / pop-up blocking, mixed content,
+Google search, history, user agent; Select-widget permission picker; three-step guide for web and permission blocks.
+Release notes: `releases/v1.9.6/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.6.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.6.apk
+
 ## v1.9.5 (versionCode 195, `v1.9.5-bfa2ed6-minApi26`)
 
 `apk/Sketchware_AI_v1.9.5.apk`, sha256 `bad13e48a1e21bfe2edf270b813e87ae63391ae745164702b42c23d6ac42adb1` (Git LFS). Material 3
