@@ -201,6 +201,18 @@
       "file": "Android API reference (android-37.0 android.jar): Activity.requestPermissions / onRequestPermissionsResult / shouldShowRequestPermissionRationale (API 23), READ_MEDIA_* (33), READ_MEDIA_VISUAL_USER_SELECTED (34), POST_NOTIFICATIONS (33), BLUETOOTH_CONNECT / SCAN (31), Context.RECEIVER_EXPORTED (33)",
       "purpose": "v1.9.4: SketchPermission group tables and SketchWeb's download receiver",
       "available": true
+    },
+    {
+      "id": "android-webkit-api37",
+      "file": "Android API reference (android-37.0 android.jar): WebView.getWebViewClient / getWebChromeClient (API 26), WebViewClient and WebChromeClient callbacks (onSafeBrowsingHit 27, onRenderProcessGone 26, onShowFileChooser 21), WebView.HitTestResult IMAGE_TYPE / SRC_IMAGE_ANCHOR_TYPE, requestImageRef, WebViewTransport, MimeTypeMap, DownloadManager.Query status",
+      "purpose": "v1.9.6: SketchWeb's ad-block client wrapper, shared WebChromeClient, pop-up handling, image long press and download receiver; Chromium's AwContents.requestImageRef puts the address under the Bundle key \"url\"",
+      "available": true
+    },
+    {
+      "id": "rfc6266-rfc5987",
+      "file": "RFC 6266 (Content-Disposition in HTTP) and RFC 5987 (filename*= charset''value)",
+      "purpose": "v1.9.4-v1.9.6: SketchWeb.dispositionName (filename*= before filename=, UTF-8 / ISO-8859-1)",
+      "available": false
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

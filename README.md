@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.9.5** (versionCode 195). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.9.6** (versionCode 196). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,7 +27,7 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.9.5)
+## Shipped (v1.0 – v1.9.6)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -53,6 +53,8 @@ Everything in this section is in the released APK and was exercised as described
 | Java editor variables | Saving the Java editor (or Apply in the logic editor's source sheet) turns a local `String` / `double` / `boolean` declaration into a project variable with set blocks (`String name = "x";` → String variable + set block); an assignment to an undeclared name becomes a variable of the type its value shows; other types (int, Intent, library classes) become custom variables with the assignment kept as code. A local whose meaning would change as a field (declared twice, used by a listener opened after it, recursive MoreBlock) stays code, and the save says why | v1.9.0 |
 | Java values to blocks | Values in the Java editor (and the source sheet's Apply) become the blocks that write them: Operator (`+ - * / %`, `< > ==`, `&&`, `||`, `!`, true / false), Math (`Math.pow`, `Math.sqrt`, min / max …), text (`String.valueOf`, `.length()`, `.concat`, `.contains`, `.equals`, `.substring`, `.replace`, `.trim` …), List (`add`, `get`, `size`, `contains`, `indexOf`, `clear`), Map (`put`, `get`, `containsKey` …) and widget getters, nested as deep as the code; `Toast.makeText(…, Toast.LENGTH_SHORT).show()` becomes the Toast block. A block is used only when it writes back exactly the typed line; FileUtil lines become File blocks only when the activity already has one (File blocks add storage permissions) | v1.9.1 |
 | Material 3 only | Every project with AppCompat gets the Material 3 theme (DayNight unless its Dark theme switch is off) and widgets; the MaterialComponents theme is no longer generated. ProgressBar → LinearProgressIndicator / CircularProgressIndicator; a Button with a Material 3 style in its Custom attributes (`Widget.Material3.Button.TonalButton`, `.OutlinedButton`, `.ElevatedButton`, `.TextButton`) becomes a MaterialButton with that style. Projects without AppCompat keep the framework theme (Project Configuration → Convert) | v1.9.5 |
+| Browser blocks | WebView *block ads* (125 ad / tracker domains and their subdomains get an empty answer; Android 8+), *block pop-ups* (a window opens only after a tap, in the same WebView; a file it answers with is downloaded), *mixed content* (COMPATIBILITY = Chrome's rule, NEVER_ALLOW, ALWAYS_ALLOW), *search Google*, *history to list*, *user agent*; File → *download file* (link, folder, name, notify) without a WebView. Download names come from the server, the link (path or a `file=` / `name=` / `title=` parameter) or the MIME type, else the file's first bytes: never `.bin`. A long press on an image offers *Download image*. Tap a web or permission block in the drawer (or *ⓘ guide*) for three steps: where to drop it, what to plug, what you get | v1.9.6 |
+| Permission picker | The permission slot's list looks like *Select widget*: dark rounded box, search field, radio bubbles, bold name and grey line; one tap picks and closes | v1.9.6 |
 | WebView like a browser | Back goes through the pages visited before it closes the screen (an *onBackPressed* event of your own wins); DOM storage, `window.open` and Chrome's mixed-content rule on; downloads take file endings (`.mp3`) or `*`, get the file name from the server, and never hold up the page | v1.9.5 |
 | Runtime permissions | Drawer → *Permission* (v1.9.4: Component palette → *Permissions*); the slot opens a searchable list of groups and every Android permission, or a typed name: request a group (Storage/Media, Camera, Microphone, Location, Bluetooth, Notifications, Phone, SMS) or a permission by name, *permission granted*, *permission status* (GRANTED / DENIED / NEVER_ASK_AGAIN). The app asks for what the group means on the phone's Android version (Android 14+: photos, videos and music, partial photo access counts; 13: the three media permissions; older: storage), one dialog at a time. Activity events *When permission granted* / *When permission denied* (with *never ask again*). The manifest gets the group's permissions, with `maxSdkVersion` where newer Android ignores them; the build log lists them | v1.9.4 |
 | WebView blocks | *allow downloads* (Android's download manager into Downloads/folder, notification on completion, file types filter), *desktop mode*, *clear cookies and cache*, *enable file upload* (a page's file input opens the file picker); WebView events *download starts* (URL, type, size) and *download completes* (URL, file name, success) | v1.9.4 |
@@ -77,7 +79,7 @@ Everything in this section is in the released APK and was exercised as described
   screen's own code; 919 edited through the Java editor's save; 920 with libraries installed by the Library Resolver) and
   AAB exports (aapt2,
   ECJ, Kotlin, D8/L8, DEX merge, packaging, signing); the generated permission helper's group table for API 23-37 and the
-  web helper's filters run there from built apps (931-933). This is not a device test and says nothing about other
+  web helper's filters, download names, file-type sniffing and ad-host list run there from built apps (931-933). This is not a device test and says nothing about other
   Android versions.
 - **layoutlib** (`tools/layoutlib-renders`): Android 14's view, theme and text code on a desktop JVM, for generated
   layouts and themes (on light and night-mode device settings, large font and bold-text settings), Telugu text and IDE
@@ -127,9 +129,13 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
   events answer). *Storage/Media* on target 33+ declares READ_MEDIA_IMAGES / VIDEO, which Google Play accepts only for
   apps whose core feature needs broad photo access (otherwise the photo picker). A custom event or MoreBlock named
   onPermissionGranted / onPermissionDenied clashes with the new events.
-- WebView blocks: *enable file upload* sets the WebView's WebChromeClient (one set by code before is replaced);
-  downloads need http(s) links (blob: / data: links report a failed download); there is no block that ignores SSL
-  errors.
+- WebView blocks: *enable file upload* and *block pop-ups* share one WebChromeClient; on Android 8+ a client set by
+  code before them keeps working inside it, on older Android it is replaced; a WebViewClient set by code after *block
+  ads* replaces the ad blocker. *block ads* is a built-in list of 125 domains (not a full filter list such as
+  EasyList) and does nothing below Android 8. A link whose name has no ending is asked once for its type and first 64
+  bytes before the download (a link that works only once can be used up by that). Downloads need http(s) links
+  (blob: / data: links report a failed download). A form with `target=_blank` sent as POST reopens as a plain page
+  (GET) when pop-ups are blocked. There is no block that ignores SSL errors.
 - Library Resolver: a library that needs a different major version of a built-in library (Retrofit 3 needs OkHttp 4;
   OkHttp 3.14.9 is built in) may not work; the install plan says so. Libraries compiled for Java 8+ can't be dexed on
   Android 7.1 and older (Dx).

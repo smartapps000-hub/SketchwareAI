@@ -564,6 +564,24 @@
       "rootCause": "v1.9.4 put them at the end of the Component category's first part; the drawer's category list showed no Permission entry",
       "repair": "v1.9.5: a Permission category of its own (id 100, after More Block), with a searchable picker on the group slot",
       "scope": "logic editor"
+    },
+    {
+      "fingerprint": "WebView download saved as \"<name>.bin\" (owner, v1.9.5 on an Android 15 phone: \"Endhayya Saami.bin\")",
+      "rootCause": "no Content-Disposition, a link without an ending and application/octet-stream: URLUtil.guessFileName appends .bin for octet-stream",
+      "repair": "v1.9.6: SketchWeb.fileName (Content-Disposition, link query parameters and path, MIME ending never bin) and, for a name still without an ending, a HEAD / 64-byte probe on the download thread (server name, type or the file's first bytes); URLUtil is not used",
+      "scope": "generated apps using the web blocks"
+    },
+    {
+      "fingerprint": "Built-in block opcode named like a common user block (review, before release)",
+      "rootCause": "\"downloadFile\" is a frequent custom-block name; ExtraBlockFile lists user blocks first, but yq and the guide match the opcode, and a project-only custom block of that name would resolve to the built-in",
+      "repair": "v1.9.6: opcode sketchDownloadFile",
+      "scope": "logic editor, generator"
+    },
+    {
+      "fingerprint": "A throw-away pop-up WebView never destroyed (review, before release)",
+      "rootCause": "View.post on a WebView that is never attached queues the Runnable until attach, which never happens",
+      "repair": "v1.9.6: destroyed through a main-looper Handler (address, download, onCloseWindow, or 30 s)",
+      "scope": "generated apps using the pop-up block"
     }
   ]
 }

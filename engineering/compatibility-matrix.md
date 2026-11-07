@@ -141,3 +141,14 @@ Whether a generated APK runs on a given Android version depends on that project'
   built apps; layoutlib renders of the new tags under 931's generated DayNight theme. Results in `v1.9.5-verification.md`.
 - The drawer category and picker dialog, the Library Manager / New Project rows, back navigation, downloads and the
   WebView settings on a phone: NOT TESTED here (no device, no emulator).
+
+## v1.9.6 (7 Nov 2026)
+- SketchWeb from a resource template: download names without ".bin", downloadFile without a WebView, image long press,
+  ad block (Android 8+ only), pop-up block, mixed content, Google search, history, user agent; Select-widget permission
+  picker; block guide. Fixture 931 (all new blocks) built on the Android 12 (API 31) ART harness with the release APK's
+  classes; h.CallWeb on the built app; both helper variants compiled with javac -source 8 against android-37 (+ Material
+  / AppCompat / fragment jars for the AppCompat variant); layoutlib renders of the picker and guide. Results in
+  `v1.9.6-verification.md`.
+- Ad block below Android 8 (API 26): does nothing by design (the WebView's client can't be read there).
+- The picker, the guide (tap on a drawer block), the image long press, pop-ups, ad blocking and downloads on real pages
+  and a phone: NOT TESTED here (no device, no emulator, no network page run).
