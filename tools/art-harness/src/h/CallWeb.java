@@ -86,6 +86,10 @@ public class CallWeb {
         check("at most 150 characters, ending kept", n19.length() == 150 && n19.endsWith(".mp3"), n19.length());
         String n20 = (String) name.invoke(null, "https://x.org/x.xapk", null, "application/octet-stream");
         check("lower-case unknown ending kept", "x.xapk".equals(n20), n20);
+        String n21 = (String) name.invoke(null, "https://x.org/a/Still%20D.R.E", null, "audio/mpeg");
+        check("one letter is no ending", "Still D.R.E.mp3".equals(n21), n21);
+        String n22 = (String) name.invoke(null, "https://x.org/a/song.feat", null, "audio/mpeg");
+        check("unknown ending + audio type: .mp3 added", "song.feat.mp3".equals(n22), n22);
         Method withExt = web.getMethod("withMimeExtension", String.class, String.class);
         check("octet-stream adds nothing", "x".equals(withExt.invoke(null, "x", "application/octet-stream")), withExt.invoke(null, "x", "application/octet-stream"));
         check("audio/mpeg adds .mp3", "x.mp3".equals(withExt.invoke(null, "x", "audio/mpeg")), withExt.invoke(null, "x", "audio/mpeg"));

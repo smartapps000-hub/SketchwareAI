@@ -718,3 +718,12 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   that is gone = cancelled = failed); `onSafeBrowsingHit` forwarded; ad host set built once (static final), flags
   volatile; the picker window is anchored at the top so the search field stays put while the list changes height;
   a missing template resource makes a stub class (only projects using SketchWeb fail, with a reinstall note).
+- Second review pass (before the release build): links a pop-up hands to Android lose every flag (no URI permission
+  grants) and are refused with `content:` / `file:` / `javascript:` data; the probe sends the Cookie only while host and
+  protocol stay the link's (no Secure cookie after an https → http redirect); a pop-up whose answer is a file goes to
+  the page's download handling (`download()`, shared with the page's DownloadListener); the throw-away pop-up WebView is
+  destroyed through the main looper (a detached view's `post` never runs) after its address, its download, its
+  `onCloseWindow`, or 30 s; endings Android doesn't know need 2+ characters ("Still D.R.E" has none), and an unknown
+  ending gets the server's audio / video / image / PDF type's ending added (`song.feat` → `song.feat.mp3`); an
+  unreadable download status counts as failed; a cut name never splits a surrogate pair. Known limit: a POST form with
+  `target=_blank` reopens its address as a GET (the form data is not resent).

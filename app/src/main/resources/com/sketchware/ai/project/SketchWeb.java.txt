@@ -164,15 +164,21 @@ public class SketchWeb {
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
-                String fileName = fileName(url, contentDisposition, mimeType);
-                String type = mimeType(mimeType, fileName);
-                if (state.events != null) state.events.onDownloadStart(url, type, (double) contentLength);
-                if (state.downloads && (mimeAllowed(type, fileName, state.mimeFilter)
-                        || mimeType != null && mimeAllowed(mimeType, fileName, state.mimeFilter))) {
-                    enqueue(webView.getContext(), webView, state, url, userAgent, fileName, type, state.folder, state.notify);
-                }
+                download(webView, state, url, userAgent, contentDisposition, mimeType, contentLength);
             }
         });
+    }
+
+    /** A download the page (or a window it opened) starts: the event, then the download manager when allowed. */
+    private static void download(WebView webView, State state, String url, String userAgent, String contentDisposition,
+                                 String mimeType, long contentLength) {
+        String fileName = fileName(url, contentDisposition, mimeType);
+        String type = mimeType(mimeType, fileName);
+        if (state.events != null) state.events.onDownloadStart(url, type, (double) contentLength);
+        if (state.downloads && (mimeAllowed(type, fileName, state.mimeFilter)
+                || mimeType != null && mimeAllowed(mimeType, fileName, state.mimeFilter))) {
+            enqueue(webView.getContext(), webView, state, url, userAgent, fileName, type, state.folder, state.notify);
+        }
     }
 
     /**
@@ -243,7 +249,7 @@ public class SketchWeb {
             String ending = MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
             if (ending != null && !ending.equals("bin")) return name.substring(0, name.lastIndexOf('.')) + "." + ending;
         }
-        if (hasExtension(name)) return name;
+        if (hasExtension(name) && !(unknownEnding(name) && mediaType(type))) return name;
         if (type.length() > 0 && !type.equals("application/octet-stream") && !type.equals("binary/octet-stream")) {
             String ending = MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
             if (ending != null && !ending.equals("bin")) return name + "." + ending;
@@ -284,6 +290,15 @@ public class SketchWeb {
 
     /** Endings a server script has in its link (download.php): the file it sends is something else. */
     private static final String[] SCRIPT_ENDINGS = {"php", "asp", "aspx", "jsp", "cgi", "pl", "do", "action", "htm", "html"};
+
+    private static boolean unknownEnding(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot > 0 && MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substring(dot + 1).toLowerCase(Locale.US)) == null;
+    }
+
+    private static boolean mediaType(String type) {
+        return type.startsWith("audio/") || type.startsWith("video/") || type.startsWith("image/") || type.equals("application/pdf");
+    }
 
     private static boolean scriptEnding(String name) {
         int dot = name == null ? -1 : name.lastIndexOf('.');
@@ -352,8 +367,8 @@ public class SketchWeb {
     }
 
     /**
-     * Whether a name ends in a file ending: one Android knows (mp3, torrent ...), or 1 to 8 letters and digits with a
-     * letter, all lower or all upper case (xapk, MKV). "Mr.Bean" and "Invoice 12.2026" have none.
+     * Whether a name ends in a file ending: one Android knows (mp3, torrent ...), or 2 to 8 letters and digits with a
+     * letter, all lower or all upper case (xapk, MKV). "Mr.Bean", "Still D.R.E" and "Invoice 12.2026" have none.
      */
     public static boolean hasExtension(String name) {
         if (name == null) return false;
@@ -361,7 +376,7 @@ public class SketchWeb {
         if (dot <= 0 || dot == name.length() - 1) return false;
         String ending = name.substring(dot + 1);
         if (MimeTypeMap.getSingleton().getMimeTypeFromExtension(ending.toLowerCase(Locale.US)) != null) return true;
-        if (ending.length() > 8) return false;
+        if (ending.length() < 2 || ending.length() > 8) return false;
         boolean letter = false;
         for (int i = 0; i < ending.length(); i++) {
             char c = ending.charAt(i);
@@ -391,7 +406,9 @@ public class SketchWeb {
         if (result.length() > 150) {
             int dot = result.lastIndexOf('.');
             String ending = dot > 0 && result.length() - dot <= 10 ? result.substring(dot) : "";
-            result = result.substring(0, 150 - ending.length()) + ending;
+            int cut = 150 - ending.length();
+            if (Character.isHighSurrogate(result.charAt(cut - 1))) cut--;
+            result = result.substring(0, cut) + ending;
         }
         return result;
     }
@@ -548,6 +565,7 @@ public class SketchWeb {
         try {
             URL target = new URL(url);
             String host = target.getHost();
+            String protocol = target.getProtocol();
             for (int hop = 0; hop < 6; hop++) {
                 connection = (HttpURLConnection) target.openConnection();
                 connection.setConnectTimeout(4000);
@@ -558,7 +576,9 @@ public class SketchWeb {
                 } else {
                     connection.setRequestMethod("HEAD");
                 }
-                if (cookies != null && host.equalsIgnoreCase(target.getHost())) connection.setRequestProperty("Cookie", cookies);
+                if (cookies != null && host.equalsIgnoreCase(target.getHost()) && protocol.equals(target.getProtocol())) {
+                    connection.setRequestProperty("Cookie", cookies);
+                }
                 if (userAgent != null) connection.setRequestProperty("User-Agent", userAgent);
                 int code = connection.getResponseCode();
                 String location = connection.getHeaderField("Location");
@@ -624,6 +644,7 @@ public class SketchWeb {
                 } finally {
                     if (cursor != null) cursor.close();
                 }
+                if (status == -1) status = DownloadManager.STATUS_FAILED;
                 if (status != DownloadManager.STATUS_SUCCESSFUL && status != DownloadManager.STATUS_FAILED) return;
                 Object[] entry;
                 synchronized (pending) {
@@ -906,20 +927,24 @@ public class SketchWeb {
             // a tapped window's address opens in this WebView (download pages often use one)
             final String referer = view.getUrl();
             final WebView popup = new WebView(view.getContext());
+            final boolean[] done = new boolean[1];
+            final Handler main = new Handler(Looper.getMainLooper());
+            final Runnable destroy = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        popup.destroy();
+                    } catch (Exception ignored) {
+                    }
+                }
+            };
             popup.setWebViewClient(new WebViewClient() {
-                private boolean done;
-
-                private void open(final WebView w, String url) {
-                    if (done || url == null || url.length() == 0 || url.equals("about:blank")) return;
-                    done = true;
+                private void open(WebView w, String url) {
+                    if (done[0] || url == null || url.length() == 0 || url.equals("about:blank")) return;
+                    done[0] = true;
                     w.stopLoading();
                     if (!(state.adBlock && isAdHost(Uri.parse(url).getHost()))) openUrl(view, url, referer);
-                    w.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            w.destroy();
-                        }
-                    });
+                    main.post(destroy);
                 }
 
                 @Override
@@ -935,6 +960,32 @@ public class SketchWeb {
                     open(w, url);
                 }
             });
+            popup.setDownloadListener(new DownloadListener() {
+                @Override
+                public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType,
+                                            long contentLength) {
+                    // the window's answer is a file (a download button with target=_blank)
+                    if (done[0]) return;
+                    done[0] = true;
+                    download(view, state, url, userAgent, contentDisposition, mimeType, contentLength);
+                    main.post(destroy);
+                }
+            });
+            popup.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onCloseWindow(WebView window) {
+                    done[0] = true;
+                    main.post(destroy);
+                }
+            });
+            main.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (done[0]) return;
+                    done[0] = true;
+                    destroy.run();
+                }
+            }, 30000);
             WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
             transport.setWebView(popup);
             resultMsg.sendToTarget();
@@ -1084,13 +1135,18 @@ public class SketchWeb {
             Intent intent;
             if (url.startsWith("intent:")) {
                 intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-                // like a browser: no component or selector from a web page
+                // like a browser: no component, selector or flags (no permission grants) from a web page
                 intent.setComponent(null);
                 intent.setSelector(null);
+                intent.setFlags(0);
                 intent.addCategory(Intent.CATEGORY_BROWSABLE);
             } else {
                 intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             }
+            Uri data = intent.getData();
+            String scheme = data == null || data.getScheme() == null ? "" : data.getScheme().toLowerCase(Locale.US);
+            // the app's own files never go out through a web page's link
+            if (scheme.equals("content") || scheme.equals("file") || scheme.equals("javascript")) return;
             if (!(view.getContext() instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             view.getContext().startActivity(intent);
         } catch (Exception ignored) {
