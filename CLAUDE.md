@@ -128,7 +128,26 @@ a `*/*` in a generated doc comment once closed it (compile both helpers with jav
 render `V195Test` (Material's indicators draw only when attached: use the Paparazzi snapshot); review fixes: narrowed
 aliases, DayNight only with M3 widgets on, manifest-editor themes keep plain widgets, own onBackPressed in add-source
 blocks, RemoteViews; PERMCALL 39/39, WEBCALL 21/21; APK v1.9.5-bfa2ed6, versionCode 195, sha256 `bad13e48...6ac42adb1`,
-142,306,831 bytes). Local branch
+142,306,831 bytes).
+v1.9.6 (owner's 7 Nov directive "Chrome-grade web overhaul, ad/popup blocker, standalone downloader & Select-widget
+permission UI"): SketchWeb is a real Java file in the IDE's resources (`app/src/main/resources/com/sketchware/ai/project/
+SketchWeb.java.txt`, `package __PACKAGE__;`, `/*@ANDROIDX_FRAGMENT*/` marker; `WebCode.helperClass(pkg, appCompat)`
+swaps in `MaterialAlertDialogBuilder` with AppCompat); download names never ".bin" (Content-Disposition → link query
+parameter / path → MIME ending; still no ending → HEAD then 64-byte Range probe on the download thread: server name,
+type or first bytes `extensionFromBytes`; own redirects, Cookie only on the same host + protocol); `hasExtension` = an
+ending MimeTypeMap knows or 2-8 ASCII letters/digits in one case; script endings (php …) replaced; `safeName` (no
+`/ \ : * ? " < > | % #`, 150 chars); blocks webSetAdBlock (125 domains, empty WebResourceResponse, Android 8+: wraps
+`getWebViewClient()` in `SketchWeb.Client`), webSetPopupBlock (onCreateWindow only with a user gesture, address loaded in
+the same view with Referer, a file answer downloaded, the throw-away WebView destroyed via a main-looper Handler: a
+detached view's `post` never runs), webSetMixedContent (menu `mixedContentMode`), webSearchGoogle, webGetHistory
+(`%m.listStr`), webSetUserAgent, `sketchDownloadFile` (File drawer; opcode prefixed: user packs use "downloadFile");
+shared `SketchWeb.Chrome` wraps `getWebChromeClient()` on 8+; image long press "Download image"; exported receiver ends an
+entry only at a final DownloadManager status; `ui.PermissionPicker` (#252528, 16dp, search, radio bubble, bold white /
+#B0B0B0, one tap, window anchored at the top) and `ui.BlockGuide` (3 steps; tap on a drawer block in
+`LogicEditorActivity.onTouch` ACTION_UP with `getBlockType() == 1`, or ⓘ rows); WEBCALL 56/56, PERMCALL 39/39,
+JAVAEDIT 101/101; render `V196Test` (rows from `DumpItems`); two review passes; harness lanes can collide on
+`cacheDir/compiledLibs` (aapt2 writes in place, the harness rebuilds every run: rerun alone); APK v1.9.6-a76e9dc,
+versionCode 196, sha256 `86af1443...6b3975a8`, 142,325,713 bytes). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

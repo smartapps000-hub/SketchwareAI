@@ -582,6 +582,12 @@
       "rootCause": "View.post on a WebView that is never attached queues the Runnable until attach, which never happens",
       "repair": "v1.9.6: destroyed through a main-looper Handler (address, download, onCloseWindow, or 30 s)",
       "scope": "generated apps using the pop-up block"
+    },
+    {
+      "fingerprint": "STEP resources FAILED: ... cache/compiledLibs/<library>.zip is not zip (harness, two lanes, v1.9.6 suite)",
+      "rootCause": "ResourceCompiler.compileBuiltInLibraryResources lets aapt2 write cacheDir/compiledLibs/<library>.zip in place; in the harness getPackageInfo throws, so every build rebuilds them and two builds at the same second read a half-written archive. On a phone they are rebuilt only after an IDE update (lastUpdateTime), so it needs two builds at once right after an update",
+      "repair": "not changed in v1.9.6 (unchanged since v1.9.0); rerun alone passed. Proposed: compile to a per-run temp name and rename",
+      "scope": "IDE build cache (harness lanes)"
     }
   ]
 }
