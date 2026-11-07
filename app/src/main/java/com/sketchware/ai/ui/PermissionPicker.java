@@ -134,8 +134,10 @@ public final class PermissionPicker {
         list.setOnItemClickListener((parent, view, position, id) -> {
             if (position >= 0 && position < shown.size()) listener.onPicked(shown.get(position).value);
         });
+        // as tall as its rows, at most 420dp / 55% of the screen (a search with one hit leaves no empty box)
         int height = Math.min(dp(context, 420), context.getResources().getDisplayMetrics().heightPixels * 55 / 100);
-        root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
+        root.addView(new Capped(context, list, height), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         search.addTextChangedListener(new TextWatcher() {
             @Override
@@ -249,6 +251,25 @@ public final class PermissionPicker {
         texts.addView(subtitle);
         row.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         return row;
+    }
+
+    /** Holds one child and caps its height (wrap content up to {@code maxHeight}). */
+    static final class Capped extends LinearLayout {
+        private final int maxHeight;
+
+        Capped(Context context, View child, int maxHeight) {
+            super(context);
+            this.maxHeight = maxHeight;
+            addView(child, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            int mode = MeasureSpec.getMode(heightMeasureSpec);
+            int size = MeasureSpec.getSize(heightMeasureSpec);
+            int limit = mode == MeasureSpec.UNSPECIFIED ? maxHeight : Math.min(size, maxHeight);
+            super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(limit, MeasureSpec.AT_MOST));
+        }
     }
 
     static int dp(Context context, float value) {

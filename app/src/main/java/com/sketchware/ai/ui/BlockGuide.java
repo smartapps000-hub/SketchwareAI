@@ -184,7 +184,7 @@ public final class BlockGuide {
             if (entry != null) cards.addView(card(context, entry));
         }
         int maxHeight = context.getResources().getDisplayMetrics().heightPixels * 70 / 100;
-        root.addView(new Bounded(context, scroll, maxHeight), new LinearLayout.LayoutParams(
+        root.addView(new PermissionPicker.Capped(context, scroll, maxHeight), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return root;
     }
@@ -246,24 +246,5 @@ public final class BlockGuide {
         if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
         view.setLineSpacing(0, 1.1f);
         return view;
-    }
-
-    /** Wraps its child and caps its height (the guide never pushes past the screen). */
-    private static final class Bounded extends LinearLayout {
-        private final int maxHeight;
-
-        Bounded(Context context, View child, int maxHeight) {
-            super(context);
-            this.maxHeight = maxHeight;
-            addView(child, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        }
-
-        @Override
-        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            int mode = MeasureSpec.getMode(heightMeasureSpec);
-            int size = MeasureSpec.getSize(heightMeasureSpec);
-            int limit = mode == MeasureSpec.UNSPECIFIED ? maxHeight : Math.min(size, maxHeight);
-            super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(limit, MeasureSpec.AT_MOST));
-        }
     }
 }
