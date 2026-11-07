@@ -66,7 +66,7 @@ class V196Test {
     @Test fun guide() {
         val ctx = paparazzi.context
         save(BlockGuide.content(ctx, "How to use this block", "webAllowDownloads"), "v196_guide_download")
-        save(BlockGuide.content(ctx, "Web blocks", "downloadFile", "webSetAdBlock", "webSetPopupBlock"), "v196_guide_web")
+        save(BlockGuide.content(ctx, "Web blocks", "sketchDownloadFile", "webSetAdBlock", "webSetPopupBlock"), "v196_guide_web")
         save(BlockGuide.content(ctx, "Permission blocks", *BlockGuide.PERMISSION_BLOCKS), "v196_guide_permission")
     }
 }

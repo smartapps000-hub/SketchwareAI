@@ -93,7 +93,7 @@ public class ExtraBlocks {
         arrayList.add(addBlock("webSearchGoogle", " ", "", "SketchWeb.searchGoogle(%1$s, %2$s);", "#4a6cd4", "%m.webview search Google for %s"));
         arrayList.add(addBlock("webGetHistory", " ", "", "SketchWeb.history(%1$s, %2$s);", "#4a6cd4", "%m.webview history to list %m.listStr"));
         arrayList.add(addBlock("webSetUserAgent", " ", "", "SketchWeb.setUserAgent(%1$s, %2$s);", "#4a6cd4", "%m.webview user agent %s"));
-        arrayList.add(addBlock("downloadFile", " ", "", "SketchWeb.downloadFile({host}, %1$s, %2$s, %3$s, %4$s);", "#a1887f", "download file %s to folder %s name %s notify %b"));
+        arrayList.add(addBlock("sketchDownloadFile", " ", "", "SketchWeb.downloadFile({host}, %1$s, %2$s, %3$s, %4$s);", "#a1887f", "download file %s to folder %s name %s notify %b"));
     }
 
     /**

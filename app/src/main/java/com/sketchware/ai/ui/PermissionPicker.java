@@ -78,6 +78,11 @@ public final class PermissionPicker {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             int width = Math.min(context.getResources().getDisplayMetrics().widthPixels - dp(context, 32), dp(context, 480));
             window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+            // anchored at the top: the list grows and shrinks while typing, the search field stays under the finger
+            window.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+            android.view.WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.y = context.getResources().getDisplayMetrics().heightPixels / 10;
+            window.setAttributes(attributes);
         }
         dialog.show();
         return dialog;

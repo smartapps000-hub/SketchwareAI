@@ -669,7 +669,8 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   IMAGE_TYPE uses the hit test's extra, SRC_IMAGE_ANCHOR_TYPE asks `requestImageRef` (Bundle key "url"); http(s) images
   only; a one-item dialog "Download image" enqueues with the allowDownloads folder / notify. Other long presses keep the
   WebView's own behaviour (return false).
-- **`downloadFile({host}, url, folder, name, notify)`** (block `downloadFile`, File drawer → "Download"): no WebView;
+- **`downloadFile({host}, url, folder, name, notify)`** (block opcode `sketchDownloadFile`: user block packs often use
+  "downloadFile", and a built-in of the same name would win over them; File drawer → "Download"): no WebView;
   empty name = server / link name; INTERNET and the < 23 WRITE entry like webAllowDownloads (`yq`: `webDownloadsUsed`).
   `{host}` replaced for it (`WebCode.usesHost`).
 - **Ad block** (`setAdBlockEnabled`, block `webSetAdBlock`): 125 ad / tracker domains, matched with their subdomains
@@ -700,3 +701,20 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   Opened by a tap on such a block in the drawer (`LogicEditorActivity.onTouch` ACTION_UP without a drag on a palette
   block, `getBlockType() == 1`; a long press there is the drag) or the "ⓘ … guide" button rows in the WebView section
   and the Permission category.
+- Review findings applied before the release build (separate agent): opcode renamed (above); the pop-up / upload
+  client wraps the app's own WebChromeClient on Android 8+ (`Chrome(state, original)` forwards progress, title, icons,
+  full-screen video, JS dialogs, geolocation, permission requests, console, video poster, visited history; below 8 a
+  client set by code is replaced as in v1.9.5); the throw-away pop-up WebView is destroyed after its first address,
+  which loads with the page as Referer (`loadUrl(url, headers)`), also when only `onPageStarted` sees it; non-http
+  links from a pop-up go to Android (`intent:` parsed browser-style: component and selector cleared, BROWSABLE); an
+  empty or dot-only server name falls back to the link; `hasExtension` = an ending Android's MimeTypeMap knows, or 1-8
+  ASCII letters / digits with a letter in one case (xapk, MKV), so "Mr.Bean" and "Invoice 12.2026" get the MIME ending;
+  a script ending (php, asp, aspx, jsp, cgi, pl, do, action, htm, html) is replaced by the MIME type's and makes the
+  probe run; names lose control characters and `/ \ : * ? " < > | % #`, leading dots, and are cut to 150 characters
+  (ending kept); the probe follows redirects itself (Cookie only to the link's host), 4 s timeouts, a HEAD answer of
+  text/html is ignored; the image dialog falls back to the framework AlertDialog when the Material one throws (a theme
+  without Material colours); an androidx Fragment host is resolved directly with AppCompat (`/*@ANDROIDX_FRAGMENT*/`);
+  the exported download-complete receiver ends an entry only when DownloadManager reports SUCCESSFUL or FAILED (a row
+  that is gone = cancelled = failed); `onSafeBrowsingHit` forwarded; ad host set built once (static final), flags
+  volatile; the picker window is anchored at the top so the search field stays put while the list changes height;
+  a missing template resource makes a stub class (only projects using SketchWeb fail, with a reinstall note).

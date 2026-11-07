@@ -24,7 +24,7 @@ public final class WebCode {
     public static final String OP_SEARCH_GOOGLE = "webSearchGoogle";
     public static final String OP_HISTORY = "webGetHistory";
     public static final String OP_USER_AGENT = "webSetUserAgent";
-    public static final String OP_DOWNLOAD_FILE = "downloadFile";
+    public static final String OP_DOWNLOAD_FILE = "sketchDownloadFile";
 
     /** Blocks whose code passes {@code {host}} (the activity or fragment). */
     public static boolean usesHost(String opCode) {
@@ -74,10 +74,21 @@ public final class WebCode {
      * the package line is filled in, and with AppCompat (Material) the image dialog is a MaterialAlertDialogBuilder.
      */
     public static String helperClass(String packageName, boolean appCompat) {
-        String source = template().replace("package __PACKAGE__;", "package " + packageName + ";");
+        String template;
+        try {
+            template = template();
+        } catch (IllegalStateException e) {
+            // an IDE without the resource: only a project that uses SketchWeb fails, at compile time, with this text
+            return "package " + packageName + ";\n\n/** " + e.getMessage() + ": reinstall Sketchware AI. */\npublic class SketchWeb {\n}\n";
+        }
+        String source = template.replace("package __PACKAGE__;", "package " + packageName + ";");
         if (appCompat) {
             source = source.replace("new AlertDialog.Builder(",
                     "new com.google.android.material.dialog.MaterialAlertDialogBuilder(");
+            source = source.replace("/*@ANDROIDX_FRAGMENT*/", "if (host instanceof androidx.fragment.app.Fragment) "
+                    + "return ((androidx.fragment.app.Fragment) host).getActivity();");
+        } else {
+            source = source.replace("        /*@ANDROIDX_FRAGMENT*/\n", "");
         }
         return source;
     }

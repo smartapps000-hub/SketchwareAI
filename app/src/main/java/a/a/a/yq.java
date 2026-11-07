@@ -672,7 +672,6 @@ public class yq {
                         // v1.9.6: a Google search loads a page
                         case com.sketchware.ai.project.WebCode.OP_SEARCH_GOOGLE:
                             N.addPermission(jq.PERMISSION_INTERNET);
-                            N.addPermission(jq.PERMISSION_ACCESS_NETWORK_STATE);
                             break;
 
                         default:

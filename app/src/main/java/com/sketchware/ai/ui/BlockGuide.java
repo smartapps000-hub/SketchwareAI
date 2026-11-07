@@ -49,7 +49,7 @@ public final class BlockGuide {
 
     private static final Map<String, Entry> ENTRIES = new LinkedHashMap<>();
     /** The opCodes of the Web section, in the drawer's order. */
-    public static final String[] WEB_BLOCKS = {"webAllowDownloads", "downloadFile", "webSetAdBlock", "webSetPopupBlock",
+    public static final String[] WEB_BLOCKS = {"webAllowDownloads", "sketchDownloadFile", "webSetAdBlock", "webSetPopupBlock",
             "webSetMixedContent", "webSearchGoogle", "webGetHistory", "webSetUserAgent", "webSetDesktopMode",
             "webClearCookiesAndCache", "webEnableFileUpload"};
     public static final String[] PERMISSION_BLOCKS = {"requestAutoPermission", "requestCustomPermission",
@@ -63,7 +63,7 @@ public final class BlockGuide {
                 "Files the page offers are saved by Android's download manager with their real name and ending (from "
                         + "the server, else the link, else the file's first bytes). A long press on an image offers "
                         + "\"Download image\". WebView events: On download start / complete.");
-        put("downloadFile", "download file [link] to folder [MyApp] name [ ] notify [true]", FILE,
+        put("sketchDownloadFile", "download file [link] to folder [MyApp] name [ ] notify [true]", FILE,
                 "Any event, e.g. a button's onClick. No WebView needed.",
                 "The file's link (http or https); a folder inside Downloads; a name (empty: the server's or the "
                         + "link's name); notify true or false.",

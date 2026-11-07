@@ -66,6 +66,26 @@ public class CallWeb {
         check("query value without an ending is skipped", "d.pdf".equals(n11), n11);
         String n12 = (String) name.invoke(null, "https://x.org/", null, null);
         check("no name at all", "download".equals(n12), n12);
+        // review fixes: an empty server name falls back to the link; endings Android doesn't know need one case;
+        // a script's ending is replaced by the type's; + in a query value is a space; no % # ? in names; 150 chars
+        String n13 = (String) name.invoke(null, "https://x.org/files/song.mp3", "attachment; filename=\"\"", null);
+        check("empty filename= falls back to the link", "song.mp3".equals(n13), n13);
+        String n14 = (String) name.invoke(null, "https://x.org/a/Mr.Bean", null, "audio/mpeg");
+        check("Mr.Bean has no ending", "Mr.Bean.mp3".equals(n14), n14);
+        String n15 = (String) name.invoke(null, "https://x.org/a/Invoice%2012.2026", null, "application/pdf");
+        check("digits are no ending", "Invoice 12.2026.pdf".equals(n15), n15);
+        String n16 = (String) name.invoke(null, "https://x.org/download.php?id=4", null, "application/pdf");
+        check("download.php sent as PDF", "download.pdf".equals(n16), n16);
+        String n17 = (String) name.invoke(null, "https://x.org/get?file=My+Song.mp3", null, null);
+        check("+ in a query value is a space", "My Song.mp3".equals(n17), n17);
+        String n18 = (String) name.invoke(null, "https://x.org/a", "attachment; filename=\"Track #1 100%?.mp3\"", null);
+        check("no # % ? in a name", "Track _1 100__.mp3".equals(n18), n18);
+        StringBuilder longName = new StringBuilder();
+        for (int i = 0; i < 40; i++) longName.append("abcdef");
+        String n19 = (String) name.invoke(null, "https://x.org/a", "attachment; filename=\"" + longName + ".mp3\"", null);
+        check("at most 150 characters, ending kept", n19.length() == 150 && n19.endsWith(".mp3"), n19.length());
+        String n20 = (String) name.invoke(null, "https://x.org/x.xapk", null, "application/octet-stream");
+        check("lower-case unknown ending kept", "x.xapk".equals(n20), n20);
         Method withExt = web.getMethod("withMimeExtension", String.class, String.class);
         check("octet-stream adds nothing", "x".equals(withExt.invoke(null, "x", "application/octet-stream")), withExt.invoke(null, "x", "application/octet-stream"));
         check("audio/mpeg adds .mp3", "x.mp3".equals(withExt.invoke(null, "x", "audio/mpeg")), withExt.invoke(null, "x", "audio/mpeg"));

@@ -496,7 +496,7 @@ public class ExtraPaletteBlock {
                 logicEditor.a("d", "getJpegRotate");
                 // v1.9.6: downloads without a WebView (SketchWeb.downloadFile)
                 logicEditor.a("Download", 0xff555555);
-                logicEditor.a(" ", "downloadFile");
+                logicEditor.a(" ", "sketchDownloadFile");
                 return;
 
             case 6:

@@ -23,6 +23,12 @@ import android.os.Message;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.ClientCertRequest;
+import android.webkit.ConsoleMessage;
+import android.webkit.GeolocationPermissions;
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
+import android.webkit.PermissionRequest;
+import android.webkit.SafeBrowsingResponse;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.HttpAuthHandler;
@@ -76,8 +82,8 @@ public class SketchWeb {
         String mimeFilter = "";
         DownloadEvents events;
         boolean listening;
-        boolean adBlock;
-        boolean popupBlock;
+        volatile boolean adBlock;
+        volatile boolean popupBlock;
         boolean uploads;
         WeakReference<Activity> activity;
         Chrome chrome;
@@ -112,7 +118,7 @@ public class SketchWeb {
             "adtelligent.com", "adtiming.com", "advertserve.com", "adxpansion.com", "yllix.com", "a-ads.com",
             "coinzilla.com", "cointraffic.io", "galaksion.com", "monetag.com", "richpush.co", "pushground.com",
             "evadav.com", "realsrv.com", "tsyndicate.com", "adsco.re", "dtscout.com", "dtscdn.com"};
-    private static Set<String> adHosts;
+    private static final Set<String> adHosts = new HashSet<String>(Arrays.asList(AD_HOSTS));
 
     private SketchWeb() {
     }
@@ -177,7 +183,8 @@ public class SketchWeb {
         Context context = context(host);
         if (context == null || url == null || url.trim().length() == 0) return;
         url = url.trim();
-        String name = fileName == null || fileName.trim().length() == 0 ? fileName(url, null, null) : safeName(fileName.trim());
+        String name = fileName == null ? null : safeName(fileName.trim());
+        if (name == null) name = fileName(url, null, null);
         enqueue(context, null, null, url, null, name, mimeType(null, name), folder == null ? "" : folder.trim(), notify);
     }
 
@@ -230,8 +237,13 @@ public class SketchWeb {
 
     /** The name with the ending its MIME type stands for when it has none (never "bin": octet-stream says nothing). */
     public static String withMimeExtension(String name, String mimeType) {
-        if (hasExtension(name)) return name;
         String type = baseType(mimeType);
+        if (scriptEnding(name) && type.length() > 0 && !type.equals("text/html") && !type.equals("application/octet-stream")
+                && !type.equals("binary/octet-stream")) {
+            String ending = MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
+            if (ending != null && !ending.equals("bin")) return name.substring(0, name.lastIndexOf('.')) + "." + ending;
+        }
+        if (hasExtension(name)) return name;
         if (type.length() > 0 && !type.equals("application/octet-stream") && !type.equals("binary/octet-stream")) {
             String ending = MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
             if (ending != null && !ending.equals("bin")) return name + "." + ending;
@@ -270,6 +282,19 @@ public class SketchWeb {
         return name == null ? null : safeName(name);
     }
 
+    /** Endings a server script has in its link (download.php): the file it sends is something else. */
+    private static final String[] SCRIPT_ENDINGS = {"php", "asp", "aspx", "jsp", "cgi", "pl", "do", "action", "htm", "html"};
+
+    private static boolean scriptEnding(String name) {
+        int dot = name == null ? -1 : name.lastIndexOf('.');
+        if (dot < 0) return false;
+        String ending = name.substring(dot + 1).toLowerCase(Locale.US);
+        for (int i = 0; i < SCRIPT_ENDINGS.length; i++) {
+            if (SCRIPT_ENDINGS[i].equals(ending)) return true;
+        }
+        return false;
+    }
+
     private static final String[] NAME_PARAMETERS = {"filename", "file_name", "file", "name", "title", "fn", "f",
             "download", "dl", "attachment", "media", "song", "video"};
 
@@ -289,7 +314,7 @@ public class SketchWeb {
                     int equals = pairs[i].indexOf('=');
                     if (equals <= 0) continue;
                     if (!pairs[i].substring(0, equals).equalsIgnoreCase(NAME_PARAMETERS[k])) continue;
-                    String value = decode(pairs[i].substring(equals + 1));
+                    String value = decodeQuery(pairs[i].substring(equals + 1));
                     int slash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'));
                     if (slash >= 0) value = value.substring(slash + 1);
                     if (hasExtension(value)) return safeName(value);
@@ -309,6 +334,15 @@ public class SketchWeb {
         return last.trim().length() == 0 ? null : safeName(last.trim());
     }
 
+    private static String decodeQuery(String value) {
+        // form encoding: + is a space
+        try {
+            return java.net.URLDecoder.decode(value, "UTF-8");
+        } catch (Exception e) {
+            return value;
+        }
+    }
+
     private static String decode(String value) {
         try {
             return java.net.URLDecoder.decode(value.replace("+", "%2B"), "UTF-8");
@@ -317,22 +351,49 @@ public class SketchWeb {
         }
     }
 
-    /** Whether a name ends in a file ending (.mp3, .tar.gz's .gz): 1 to 5 letters or digits after the last dot. */
+    /**
+     * Whether a name ends in a file ending: one Android knows (mp3, torrent ...), or 1 to 8 letters and digits with a
+     * letter, all lower or all upper case (xapk, MKV). "Mr.Bean" and "Invoice 12.2026" have none.
+     */
     public static boolean hasExtension(String name) {
         if (name == null) return false;
         int dot = name.lastIndexOf('.');
-        if (dot <= 0 || dot == name.length() - 1 || name.length() - dot - 1 > 5) return false;
-        for (int i = dot + 1; i < name.length(); i++) {
-            if (!Character.isLetterOrDigit(name.charAt(i))) return false;
+        if (dot <= 0 || dot == name.length() - 1) return false;
+        String ending = name.substring(dot + 1);
+        if (MimeTypeMap.getSingleton().getMimeTypeFromExtension(ending.toLowerCase(Locale.US)) != null) return true;
+        if (ending.length() > 8) return false;
+        boolean letter = false;
+        for (int i = 0; i < ending.length(); i++) {
+            char c = ending.charAt(i);
+            if (c > 127 || !Character.isLetterOrDigit(c)) return false;
+            if (Character.isLetter(c)) letter = true;
         }
-        return true;
+        return letter && (ending.equals(ending.toLowerCase(Locale.US)) || ending.equals(ending.toUpperCase(Locale.US)));
     }
 
+    /**
+     * A name for the download folder: no folders and no characters a path or a Uri reads (% # ? : * " < > |, control
+     * characters), no leading dots, at most 150 characters (the ending kept); null when nothing is left.
+     */
     private static String safeName(String name) {
-        // no folders from a server or a link
-        String clean = name.replace('/', '_').replace('\\', '_').replace(':', '_').trim();
-        if (clean.length() == 0 || clean.equals(".") || clean.equals("..")) return "download";
-        return clean;
+        StringBuilder clean = new StringBuilder();
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c < 32 || c == 127 || "/\\:*?\"<>|%#".indexOf(c) >= 0) {
+                clean.append('_');
+            } else {
+                clean.append(c);
+            }
+        }
+        String result = clean.toString().trim();
+        while (result.startsWith(".")) result = result.substring(1).trim();
+        if (result.length() == 0) return null;
+        if (result.length() > 150) {
+            int dot = result.lastIndexOf('.');
+            String ending = dot > 0 && result.length() - dot <= 10 ? result.substring(dot) : "";
+            result = result.substring(0, 150 - ending.length()) + ending;
+        }
+        return result;
     }
 
     private static String unquote(String value) {
@@ -414,12 +475,13 @@ public class SketchWeb {
                 String name = fileName;
                 String type = mimeType;
                 try {
-                    if (!hasExtension(name) && (url.startsWith("http://") || url.startsWith("https://"))) {
+                    if ((!hasExtension(name) || scriptEnding(name)) && (url.startsWith("http://") || url.startsWith("https://"))) {
                         String[] probe = probe(url, cookies, userAgent);
+                        String base = scriptEnding(name) ? name.substring(0, name.lastIndexOf('.')) : name;
                         if (probe[0] != null) {
                             name = probe[0];
-                        } else if (probe[2] != null) {
-                            name = name + "." + probe[2];
+                        } else if (probe[2] != null && !(scriptEnding(name) && probe[2].equals("html"))) {
+                            name = base + "." + probe[2];
                         } else if (probe[1] != null) {
                             name = withMimeExtension(name, probe[1]);
                         }
@@ -471,7 +533,8 @@ public class SketchWeb {
     /**
      * Asks the server about a link whose name has no ending (the same cookies and user agent): {name from its
      * Content-Disposition, its MIME type, the ending the first bytes show}, each null when unknown. A HEAD request
-     * first; only when it tells nothing, the first 64 bytes (Range).
+     * first; only when it tells nothing, the first 64 bytes (Range). Redirects are followed here, and the cookies go
+     * only to the link's own host. A link that works only once can be used up by this.
      */
     private static String[] probe(String url, String cookies, String userAgent) {
         String[] result = new String[3];
@@ -483,36 +546,51 @@ public class SketchWeb {
     private static void ask(String url, String cookies, String userAgent, boolean bytes, String[] result) {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setConnectTimeout(6000);
-            connection.setReadTimeout(6000);
-            connection.setInstanceFollowRedirects(true);
-            if (bytes) {
-                connection.setRequestProperty("Range", "bytes=0-63");
-            } else {
-                connection.setRequestMethod("HEAD");
+            URL target = new URL(url);
+            String host = target.getHost();
+            for (int hop = 0; hop < 6; hop++) {
+                connection = (HttpURLConnection) target.openConnection();
+                connection.setConnectTimeout(4000);
+                connection.setReadTimeout(4000);
+                connection.setInstanceFollowRedirects(false);
+                if (bytes) {
+                    connection.setRequestProperty("Range", "bytes=0-63");
+                } else {
+                    connection.setRequestMethod("HEAD");
+                }
+                if (cookies != null && host.equalsIgnoreCase(target.getHost())) connection.setRequestProperty("Cookie", cookies);
+                if (userAgent != null) connection.setRequestProperty("User-Agent", userAgent);
+                int code = connection.getResponseCode();
+                String location = connection.getHeaderField("Location");
+                if (code >= 300 && code < 400 && location != null) {
+                    connection.disconnect();
+                    connection = null;
+                    target = new URL(target, location);
+                    if (!"http".equals(target.getProtocol()) && !"https".equals(target.getProtocol())) return;
+                    continue;
+                }
+                if (code < 200 || code >= 300) return;
+                String name = dispositionName(connection.getHeaderField("Content-Disposition"));
+                if (name != null && hasExtension(name)) result[0] = name;
+                String type = baseType(connection.getContentType());
+                // a script often answers HEAD with a web page whatever it sends to GET
+                if (type.length() > 0 && !type.equals("application/octet-stream") && !type.equals("binary/octet-stream")
+                        && !(type.equals("text/html") && !bytes)) {
+                    result[1] = type;
+                }
+                if (!bytes) return;
+                InputStream in = connection.getInputStream();
+                byte[] first = new byte[64];
+                int n = 0;
+                while (n < first.length) {
+                    int read = in.read(first, n, first.length - n);
+                    if (read < 0) break;
+                    n += read;
+                }
+                in.close();
+                result[2] = extensionFromBytes(first, n);
+                return;
             }
-            if (cookies != null) connection.setRequestProperty("Cookie", cookies);
-            if (userAgent != null) connection.setRequestProperty("User-Agent", userAgent);
-            int code = connection.getResponseCode();
-            if (code < 200 || code >= 300) return;
-            String name = dispositionName(connection.getHeaderField("Content-Disposition"));
-            if (name != null && hasExtension(name)) result[0] = name;
-            String type = baseType(connection.getContentType());
-            if (type.length() > 0 && !type.equals("application/octet-stream") && !type.equals("binary/octet-stream")) {
-                result[1] = type;
-            }
-            if (!bytes) return;
-            InputStream in = connection.getInputStream();
-            byte[] first = new byte[64];
-            int n = 0;
-            while (n < first.length) {
-                int read = in.read(first, n, first.length - n);
-                if (read < 0) break;
-                n += read;
-            }
-            in.close();
-            result[2] = extensionFromBytes(first, n);
         } catch (Exception ignored) {
             // no answer: the name stays as it is
         } finally {
@@ -526,24 +604,33 @@ public class SketchWeb {
             @Override
             public void onReceive(Context c, Intent intent) {
                 long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-                Object[] entry;
                 synchronized (pending) {
-                    entry = pending.remove(id);
+                    if (!pending.containsKey(id)) return;
                 }
-                if (entry == null || entry[0] == null) return;
-                boolean success = false;
+                // the broadcast can come from any app: only the download manager's own final status ends an entry
+                int status = -1;
                 Cursor cursor = null;
                 try {
                     DownloadManager manager = (DownloadManager) c.getSystemService(Context.DOWNLOAD_SERVICE);
                     cursor = manager.query(new DownloadManager.Query().setFilterById(id));
                     if (cursor != null && cursor.moveToFirst()) {
                         int column = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
-                        success = column >= 0 && cursor.getInt(column) == DownloadManager.STATUS_SUCCESSFUL;
+                        if (column >= 0) status = cursor.getInt(column);
+                    } else {
+                        // removed from the download manager (cancelled in the notification)
+                        status = DownloadManager.STATUS_FAILED;
                     }
                 } catch (Exception ignored) {
                 } finally {
                     if (cursor != null) cursor.close();
                 }
+                if (status != DownloadManager.STATUS_SUCCESSFUL && status != DownloadManager.STATUS_FAILED) return;
+                Object[] entry;
+                synchronized (pending) {
+                    entry = pending.remove(id);
+                }
+                if (entry == null || entry[0] == null) return;
+                boolean success = status == DownloadManager.STATUS_SUCCESSFUL;
                 @SuppressWarnings("unchecked")
                 WebView webView = ((WeakReference<WebView>) entry[0]).get();
                 State state = webView == null ? null : states.get(webView);
@@ -569,7 +656,9 @@ public class SketchWeb {
                 WebView.HitTestResult hit = webView.getHitTestResult();
                 if (hit == null) return false;
                 if (hit.getType() == WebView.HitTestResult.IMAGE_TYPE) {
-                    offerImage(webView, state, hit.getExtra());
+                    String src = hit.getExtra();
+                    if (src == null || !(src.startsWith("http://") || src.startsWith("https://"))) return false;
+                    offerImage(webView, state, src);
                     return true;
                 }
                 if (hit.getType() == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
@@ -593,19 +682,24 @@ public class SketchWeb {
 
     private static void offerImage(final WebView webView, final State state, final String src) {
         if (src == null || !(src.startsWith("http://") || src.startsWith("https://"))) return;
+        final String name = fileName(src, null, null);
+        DialogInterface.OnClickListener download = new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                enqueue(webView.getContext(), webView, state, src, webView.getSettings().getUserAgentString(),
+                        name, mimeType(null, name), state.folder, state.notify);
+            }
+        };
+        String[] items = {"Download image"};
         try {
-            new AlertDialog.Builder(webView.getContext())
-                    .setItems(new String[]{"Download image"}, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            String name = fileName(src, null, null);
-                            enqueue(webView.getContext(), webView, state, src, webView.getSettings().getUserAgentString(),
-                                    name, mimeType(null, name), state.folder, state.notify);
-                        }
-                    })
-                    .show();
-        } catch (Exception ignored) {
-            // the screen is closing
+            new AlertDialog.Builder(webView.getContext()).setItems(items, download).show();
+        } catch (Exception e) {
+            // a theme without Material's colours: the framework dialog
+            try {
+                new android.app.AlertDialog.Builder(webView.getContext()).setItems(items, download).show();
+            } catch (Exception ignored) {
+                // the screen is closing
+            }
         }
     }
 
@@ -614,7 +708,6 @@ public class SketchWeb {
     /** Whether the host or one of its parent domains is on the built-in ad and tracker list. */
     public static boolean isAdHost(String host) {
         if (host == null) return false;
-        if (adHosts == null) adHosts = new HashSet<String>(Arrays.asList(AD_HOSTS));
         String h = host.toLowerCase(Locale.US);
         while (h.length() > 0) {
             if (adHosts.contains(h)) return true;
@@ -654,10 +747,12 @@ public class SketchWeb {
     }
 
     private static void chrome(WebView webView, State state) {
-        if (state.chrome == null) {
-            state.chrome = new Chrome(webView, state);
-            webView.setWebChromeClient(state.chrome);
-        }
+        WebChromeClient current = Build.VERSION.SDK_INT >= 26 ? webView.getWebChromeClient() : null;
+        if (current instanceof Chrome) return;
+        if (Build.VERSION.SDK_INT < 26 && state.chrome != null) return;
+        // Android 8+: the app's own client (progress, title, full screen video) keeps working inside this one
+        state.chrome = new Chrome(state, current);
+        webView.setWebChromeClient(state.chrome);
     }
 
     /** Wraps the WebView's own client (page events of the blocks) and adds ad blocking. Android 8+. */
@@ -787,30 +882,57 @@ public class SketchWeb {
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
             return original.onRenderProcessGone(view, detail);
         }
+
+        @Override
+        public void onSafeBrowsingHit(WebView view, WebResourceRequest request, int threatType, SafeBrowsingResponse callback) {
+            original.onSafeBrowsingHit(view, request, threatType, callback);
+        }
     }
 
-    /** One WebChromeClient for file upload and pop-ups. */
+    /** One WebChromeClient for file upload and pop-ups; everything else goes to the app's own client (Android 8+). */
     private static class Chrome extends WebChromeClient {
-        private final WeakReference<WebView> webView;
         private final State state;
+        private final WebChromeClient original;
 
-        Chrome(WebView webView, State state) {
-            this.webView = new WeakReference<WebView>(webView);
+        Chrome(State state, WebChromeClient original) {
             this.state = state;
+            this.original = original == null ? new WebChromeClient() : original;
         }
 
         @Override
         public boolean onCreateWindow(final WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-            if (state.popupBlock && !isUserGesture) return false;
-            // the new window's address opens in this WebView (download pages often use one)
-            WebView popup = new WebView(view.getContext());
+            if (!state.popupBlock) return original.onCreateWindow(view, isDialog, isUserGesture, resultMsg);
+            if (!isUserGesture) return false;
+            // a tapped window's address opens in this WebView (download pages often use one)
+            final String referer = view.getUrl();
+            final WebView popup = new WebView(view.getContext());
             popup.setWebViewClient(new WebViewClient() {
+                private boolean done;
+
+                private void open(final WebView w, String url) {
+                    if (done || url == null || url.length() == 0 || url.equals("about:blank")) return;
+                    done = true;
+                    w.stopLoading();
+                    if (!(state.adBlock && isAdHost(Uri.parse(url).getHost()))) openUrl(view, url, referer);
+                    w.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            w.destroy();
+                        }
+                    });
+                }
+
                 @Override
                 @SuppressWarnings("deprecation")
                 public boolean shouldOverrideUrlLoading(WebView w, String url) {
-                    if (!(state.adBlock && isAdHost(Uri.parse(url).getHost()))) view.loadUrl(url);
-                    w.stopLoading();
+                    open(w, url);
                     return true;
+                }
+
+                @Override
+                public void onPageStarted(WebView w, String url, Bitmap favicon) {
+                    // a first address that never went through shouldOverrideUrlLoading
+                    open(w, url);
                 }
             });
             WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
@@ -820,10 +942,9 @@ public class SketchWeb {
         }
 
         @Override
-        @SuppressWarnings("deprecation")
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
             Activity activity = state.activity == null ? null : state.activity.get();
-            if (!state.uploads || activity == null) return false;
+            if (!state.uploads || activity == null) return original.onShowFileChooser(view, callback, params);
             Intent intent;
             try {
                 intent = params.createIntent();
@@ -834,6 +955,146 @@ public class SketchWeb {
                 intent = new Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
             }
             return Chooser.open(activity, intent, callback);
+        }
+
+        @Override
+        public void onProgressChanged(WebView view, int newProgress) {
+            original.onProgressChanged(view, newProgress);
+        }
+
+        @Override
+        public void onReceivedTitle(WebView view, String title) {
+            original.onReceivedTitle(view, title);
+        }
+
+        @Override
+        public void onReceivedIcon(WebView view, Bitmap icon) {
+            original.onReceivedIcon(view, icon);
+        }
+
+        @Override
+        public void onReceivedTouchIconUrl(WebView view, String url, boolean precomposed) {
+            original.onReceivedTouchIconUrl(view, url, precomposed);
+        }
+
+        @Override
+        public void onShowCustomView(View view, CustomViewCallback callback) {
+            original.onShowCustomView(view, callback);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public void onShowCustomView(View view, int requestedOrientation, CustomViewCallback callback) {
+            original.onShowCustomView(view, requestedOrientation, callback);
+        }
+
+        @Override
+        public void onHideCustomView() {
+            original.onHideCustomView();
+        }
+
+        @Override
+        public void onRequestFocus(WebView view) {
+            original.onRequestFocus(view);
+        }
+
+        @Override
+        public void onCloseWindow(WebView window) {
+            original.onCloseWindow(window);
+        }
+
+        @Override
+        public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+            return original.onJsAlert(view, url, message, result);
+        }
+
+        @Override
+        public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+            return original.onJsConfirm(view, url, message, result);
+        }
+
+        @Override
+        public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
+            return original.onJsPrompt(view, url, message, defaultValue, result);
+        }
+
+        @Override
+        public boolean onJsBeforeUnload(WebView view, String url, String message, JsResult result) {
+            return original.onJsBeforeUnload(view, url, message, result);
+        }
+
+        @Override
+        public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+            original.onGeolocationPermissionsShowPrompt(origin, callback);
+        }
+
+        @Override
+        public void onGeolocationPermissionsHidePrompt() {
+            original.onGeolocationPermissionsHidePrompt();
+        }
+
+        @Override
+        public void onPermissionRequest(PermissionRequest request) {
+            original.onPermissionRequest(request);
+        }
+
+        @Override
+        public void onPermissionRequestCanceled(PermissionRequest request) {
+            original.onPermissionRequestCanceled(request);
+        }
+
+        @Override
+        public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+            return original.onConsoleMessage(consoleMessage);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public void onConsoleMessage(String message, int lineNumber, String sourceID) {
+            original.onConsoleMessage(message, lineNumber, sourceID);
+        }
+
+        @Override
+        public Bitmap getDefaultVideoPoster() {
+            return original.getDefaultVideoPoster();
+        }
+
+        @Override
+        public View getVideoLoadingProgressView() {
+            return original.getVideoLoadingProgressView();
+        }
+
+        @Override
+        public void getVisitedHistory(ValueCallback<String[]> callback) {
+            original.getVisitedHistory(callback);
+        }
+    }
+
+    /** http(s) loads in the WebView with the page as Referer; other links (intent:, mailto:, apps) go to Android. */
+    private static void openUrl(WebView view, String url, String referer) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            Map<String, String> headers = new HashMap<String, String>();
+            if (referer != null && (referer.startsWith("http://") || referer.startsWith("https://"))) {
+                headers.put("Referer", referer);
+            }
+            view.loadUrl(url, headers);
+            return;
+        }
+        try {
+            Intent intent;
+            if (url.startsWith("intent:")) {
+                intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                // like a browser: no component or selector from a web page
+                intent.setComponent(null);
+                intent.setSelector(null);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+            } else {
+                intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            }
+            if (!(view.getContext() instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            view.getContext().startActivity(intent);
+        } catch (Exception ignored) {
+            // no app for the link
         }
     }
 
@@ -928,6 +1189,7 @@ public class SketchWeb {
     @SuppressWarnings("deprecation")
     private static Activity activity(Object host) {
         if (host instanceof Activity) return (Activity) host;
+        /*@ANDROIDX_FRAGMENT*/
         if (host instanceof android.app.Fragment) return ((android.app.Fragment) host).getActivity();
         if (host instanceof View && ((View) host).getContext() instanceof Activity) {
             return (Activity) ((View) host).getContext();
