@@ -27,5 +27,19 @@ public class Uri {
 
     public String getScheme() { int i = s.indexOf(':'); return i > 0 ? s.substring(0, i) : null; }
 
+    public String getHost() {
+        int i = s.indexOf("://");
+        if (i < 0) return null;
+        String rest = s.substring(i + 3);
+        int at = rest.indexOf('@'); if (at >= 0) rest = rest.substring(at + 1);
+        int end = rest.length();
+        for (int k = 0; k < rest.length(); k++) {
+            char c = rest.charAt(k);
+            if (c == '/' || c == ':' || c == '?' || c == '#') { end = k; break; }
+        }
+        String host = rest.substring(0, end);
+        return host.isEmpty() ? null : host;
+    }
+
     @Override public String toString() { return s; }
 }
