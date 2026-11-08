@@ -228,6 +228,11 @@ public class ExtraMenuBean {
                         permissionPicker(ss);
                         return;
 
+                    case "downloadType":
+                        // v1.9.7: the standalone downloader's file-type selector (Default / categories / custom)
+                        downloadTypePicker(ss);
+                        return;
+
                     default:
                         defaultMenus(ss);
                 }
@@ -250,6 +255,26 @@ public class ExtraMenuBean {
             "INSTALL_LOCATION_PROVIDER", "MODIFY_PHONE_STATE", "UPDATE_DEVICE_STATS", "CAPTURE_AUDIO_OUTPUT",
             "BROADCAST_SMS", "BROADCAST_WAP_PUSH", "CALL_PRIVILEGED", "CONTROL_LOCATION_UPDATES",
             "DIAGNOSTIC", "MANAGE_ONGOING_CALLS", "READ_PRIVILEGED_PHONE_STATE"));
+
+    private void downloadTypePicker(Ss menu) {
+        // v1.9.7: the "download file" block's type slot, in the Select-widget look (com.sketchware.ai.ui.PermissionPicker)
+        ArrayList<com.sketchware.ai.ui.PermissionPicker.Item> items = new ArrayList<>();
+        items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Default (*/*)", "Default (*/*)",
+                "Chrome-grade name: server, link or type; never .bin"));
+        items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Audio", "Audio", "mp3, m4a, wav, flac, ogg, aac"));
+        items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Video", "Video", "mp4, mkv, webm, avi, mov"));
+        items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Images", "Images", "png, jpg, webp, gif"));
+        items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Packages", "Packages", "apk, aab, zip, rar, 7z"));
+        items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Documents", "Documents", "pdf, docx, doc, txt"));
+        String current = menu.getArgValue() == null ? "" : menu.getArgValue().toString();
+        com.sketchware.ai.ui.PermissionPicker.show(logicEditor, "Download type", items, current,
+                // a custom ending (.flac) or a MIME (application/json)
+                typed -> typed.startsWith(".") || typed.indexOf('/') > 0 || typed.matches("[A-Za-z0-9]{1,8}")
+                        ? new com.sketchware.ai.ui.PermissionPicker.Item(typed, "Use \"" + typed + "\"",
+                        "Custom ending or MIME type")
+                        : null,
+                value -> logicEditor.a(menu, (Object) value));
+    }
 
     private void permissionPicker(Ss menu) {
         // v1.9.6: the "Select widget" look (com.sketchware.ai.ui.PermissionPicker): one tap picks and closes

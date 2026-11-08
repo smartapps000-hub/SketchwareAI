@@ -1144,7 +1144,8 @@ public class Lx {
                                     .append("_drawer.closeDrawer(GravityCompat.START);\r\n");
                         } else {
                             chain.append(id).append(" != null && ").append(id).append(".canGoBack()) {\r\n")
-                                    .append(id).append(".goBack();\r\n");
+                                    // v1.9.7: skip ad / redirect pages so Back doesn't land on a bounce page
+                                    .append("SketchWeb.goBack(").append(id).append(");\r\n");
                         }
                         first = false;
                     }

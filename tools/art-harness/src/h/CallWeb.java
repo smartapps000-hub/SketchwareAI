@@ -118,6 +118,23 @@ public class CallWeb {
         check("google.com allowed", !(Boolean) ad.invoke(null, "www.google.com"), false);
         check("look-alike allowed", !(Boolean) ad.invoke(null, "notdoubleclick.net"), false);
         check("null host allowed", !(Boolean) ad.invoke(null, (Object) null), false);
+        // v1.9.7: the broad ad-URL matcher (host list + distinctive fragments), not fooled by look-alikes
+        Method adUrl = web.getMethod("isAdUrl", String.class);
+        check("doubleclick url blocked", (Boolean) adUrl.invoke(null, "https://ad.doubleclick.net/x"), true);
+        check("googlesyndication blocked", (Boolean) adUrl.invoke(null, "https://pagead2.googlesyndication.com/pagead/js/ads.js"), true);
+        check("popads blocked", (Boolean) adUrl.invoke(null, "https://www.popads.net/pop.js"), true);
+        check("analytics host blocked", (Boolean) adUrl.invoke(null, "https://www.google-analytics.com/collect"), true);
+        check("normal page allowed", !(Boolean) adUrl.invoke(null, "https://en.wikipedia.org/wiki/Advertising"), false);
+        check("downloads path not blocked", !(Boolean) adUrl.invoke(null, "https://cdn.site.com/downloads/song.mp3"), false);
+        check("null url not blocked", !(Boolean) adUrl.invoke(null, (Object) null), false);
+        // v1.9.7: the download-type selector maps a token to endings; a custom value passes through; Default = none
+        Method cat = web.getMethod("categoryExtensions", String.class);
+        check("Default -> no filter", "".equals(cat.invoke(null, "Default (*/*)")), cat.invoke(null, "Default (*/*)"));
+        check("empty -> no filter", "".equals(cat.invoke(null, "")), cat.invoke(null, ""));
+        check("Audio -> endings", ((String) cat.invoke(null, "Audio")).startsWith("mp3,"), cat.invoke(null, "Audio"));
+        check("Packages -> apk first", ((String) cat.invoke(null, "Packages")).startsWith("apk,"), cat.invoke(null, "Packages"));
+        check("custom .flac kept", ".flac".equals(cat.invoke(null, ".flac")), cat.invoke(null, ".flac"));
+        check("custom MIME kept", "application/json".equals(cat.invoke(null, "application/json")), cat.invoke(null, "application/json"));
         System.out.println("WEBCALL " + (checks - fails) + "/" + checks + " ok");
     }
 }

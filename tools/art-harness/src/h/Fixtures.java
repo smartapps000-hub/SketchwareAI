@@ -670,8 +670,8 @@ public class Fixtures {
         ArrayList<Object> click = new ArrayList<>();
         Object search = block("10", "%m.webview search Google for %s", " ", "webSearchGoogle", "webview1", "sketchware ai");
         Object history = block("11", "%m.webview history to list %m.listStr", " ", "webGetHistory", "webview1", "pages");
-        Object file = block("12", "download file %s to folder %s name %s notify %b", " ", "sketchDownloadFile",
-                "https://example.com/media/Endhayya%20Saami", "SketchAI", "", "@20");
+        Object file = block("12", "download file %s to folder %s name %s notify %b type %m.downloadType", " ", "sketchDownloadFile",
+                "https://example.com/media/Endhayya%20Saami", "SketchAI", "", "@20", "Audio");
         set(search, "nextBlock", 11);
         set(history, "nextBlock", 12);
         click.add(search);

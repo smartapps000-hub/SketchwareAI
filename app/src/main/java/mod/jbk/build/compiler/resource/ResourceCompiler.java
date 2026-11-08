@@ -523,20 +523,32 @@ public class ResourceCompiler {
                     compilingAssertDirectoryExists(libraryResources);
 
                     if (isBuiltInLibraryRecompilingNeeded(cachedCompiledResources)) {
-                        ArrayList<String> commands = new ArrayList<>();
-                        commands.add(aapt2.getAbsolutePath());
-                        commands.add("compile");
-                        commands.add("--dir");
-                        commands.add(libraryResources);
-                        commands.add("-o");
-                        commands.add(cachedCompiledResources.getAbsolutePath());
+                        // v1.9.7: compile to a per-run temp file, then publish it with an atomic rename, so a Run
+                        // build and an Export that recompile the same cache at once never read a half-written archive
+                        File temp = new File(compiledBuiltInLibraryResourcesDirectory, builtInLibrary.a()
+                                + ".tmp-" + Thread.currentThread().getId() + "-" + System.nanoTime() + ".zip");
+                        try {
+                            ArrayList<String> commands = new ArrayList<>();
+                            commands.add(aapt2.getAbsolutePath());
+                            commands.add("compile");
+                            commands.add("--dir");
+                            commands.add(libraryResources);
+                            commands.add("-o");
+                            commands.add(temp.getAbsolutePath());
 
-                        LogUtil.d(TAG + ":cBILR", "Now executing: " + commands);
-                        BinaryExecutor executor = new BinaryExecutor();
-                        executor.setCommands(commands);
-                        if (!executor.execute().isEmpty()) {
-                            LogUtil.e(TAG + ":cBILR", executor.getLog());
-                            throw new zy(executor.getLog());
+                            LogUtil.d(TAG + ":cBILR", "Now executing: " + commands);
+                            BinaryExecutor executor = new BinaryExecutor();
+                            executor.setCommands(commands);
+                            if (!executor.execute().isEmpty()) {
+                                LogUtil.e(TAG + ":cBILR", executor.getLog());
+                                throw new zy(executor.getLog());
+                            }
+                            if (!temp.renameTo(cachedCompiledResources)) {
+                                // another build published its copy first (or a cross-filesystem rename): copy over
+                                FileUtil.copyFile(temp.getAbsolutePath(), cachedCompiledResources.getAbsolutePath());
+                            }
+                        } finally {
+                            if (temp.exists()) temp.delete();
                         }
                     } else {
                         LogUtil.d(TAG + ":cBILR", "Skipped resource recompilation for built-in library " + builtInLibrary.a());

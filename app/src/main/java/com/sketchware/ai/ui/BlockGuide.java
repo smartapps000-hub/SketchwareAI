@@ -63,17 +63,20 @@ public final class BlockGuide {
                 "Files the page offers are saved by Android's download manager with their real name and ending (from "
                         + "the server, else the link, else the file's first bytes). A long press on an image offers "
                         + "\"Download image\". WebView events: On download start / complete.");
-        put("sketchDownloadFile", "download file [link] to folder [MyApp] name [ ] notify [true]", FILE,
+        put("sketchDownloadFile", "download file [link] to folder [MyApp] name [ ] notify [true] type [Default]", FILE,
                 "Any event, e.g. a button's onClick. No WebView needed.",
                 "The file's link (http or https); a folder inside Downloads; a name (empty: the server's or the "
-                        + "link's name); notify true or false.",
+                        + "link's name); notify true or false; type: Default, a category (Audio, Video, Images, "
+                        + "Packages, Documents) or a custom ending.",
                 "Android's download manager saves the file in Downloads/folder (Android 10+; older Android without "
-                        + "storage permission: the app's own Downloads folder) and shows a notification when done.");
+                        + "storage permission: the app's own Downloads folder) and shows a notification when done. "
+                        + "The name keeps the right ending (never .bin); the file's own bytes are read after it lands.");
         put("webSetAdBlock", "webview1 block ads [true]", WEB,
                 "onCreate, before \"loadUrl\" and after the WebView's page events (its own client is kept).",
                 "The WebView; true to block, false to allow again.",
-                "Requests to 125 known ad and tracker domains (and their subdomains) get an empty answer, so their ads don't load. "
-                        + "A built-in list, not a full filter list. Android 8+ (on older Android nothing is blocked).");
+                "Two layers: requests to known ad / tracker hosts and ad-looking URLs get an empty answer, and a "
+                        + "style sheet hides ad boxes the page still drew. A built-in list, not a full filter list "
+                        + "like EasyList. Android 8+ (on older Android nothing is blocked).");
         put("webSetPopupBlock", "webview1 block pop-ups [true]", WEB,
                 "onCreate, before \"loadUrl\".",
                 "The WebView; true to block, false to allow.",
@@ -152,6 +155,7 @@ public final class BlockGuide {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(content(context, title, opCodes));
         Window window = dialog.getWindow();
+        final View content = dialog.findViewById(android.R.id.content);
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             int width = Math.min(context.getResources().getDisplayMetrics().widthPixels - PermissionPicker.dp(context, 32),
@@ -159,6 +163,12 @@ public final class BlockGuide {
             window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
         dialog.show();
+        // v1.9.7: a short Material enter (rise + fade); layoutlib runs no animation, so the sheet still renders
+        if (content != null) {
+            content.setAlpha(0f);
+            content.setTranslationY(PermissionPicker.dp(context, 24));
+            content.animate().alpha(1f).translationY(0f).setDuration(220).start();
+        }
         return dialog;
     }
 
@@ -194,17 +204,11 @@ public final class BlockGuide {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(0, PermissionPicker.dp(context, 14), 0, PermissionPicker.dp(context, 6));
 
-        // the block as it looks in the drawer: its colour, white text, rounded like a block
-        TextView block = text(context, entry.block, 13, Color.WHITE, true);
-        GradientDrawable shape = new GradientDrawable();
-        shape.setColor(entry.color);
-        shape.setCornerRadius(PermissionPicker.dp(context, 6));
-        block.setBackground(shape);
-        int h = PermissionPicker.dp(context, 10);
-        block.setPadding(h, h / 2 + 2, h, h / 2 + 2);
+        // v1.9.7: the block drawn the way it looks on the canvas (shape, connector notches, parameter slots)
+        BlockShapeView block = new BlockShapeView(context, entry.block, entry.color);
         LinearLayout.LayoutParams blockParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        blockParams.bottomMargin = PermissionPicker.dp(context, 8);
+        blockParams.bottomMargin = PermissionPicker.dp(context, 10);
         card.addView(block, blockParams);
 
         card.addView(step(context, 1, "Where to drop", entry.where, entry.color));
