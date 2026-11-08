@@ -113,7 +113,7 @@ public final class PermissionPicker {
 
         final EditText search = new EditText(context);
         search.setSingleLine(true);
-        search.setHint("Search permissions");
+        search.setHint("Search");
         search.setHintTextColor(HINT);
         search.setTextColor(NAME);
         search.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
