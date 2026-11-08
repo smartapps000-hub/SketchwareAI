@@ -268,8 +268,9 @@ public class ExtraMenuBean {
         items.add(new com.sketchware.ai.ui.PermissionPicker.Item("Documents", "Documents", "pdf, docx, doc, txt"));
         String current = menu.getArgValue() == null ? "" : menu.getArgValue().toString();
         com.sketchware.ai.ui.PermissionPicker.show(logicEditor, "Download type", items, current,
-                // a custom ending (.flac) or a MIME (application/json)
-                typed -> typed.startsWith(".") || typed.indexOf('/') > 0 || typed.matches("[A-Za-z0-9]{1,8}")
+                // a custom ending (.flac, flac) or a MIME (application/json); a strict charset so the generated string stays valid
+                typed -> typed.matches("\\.?[A-Za-z0-9][A-Za-z0-9]{0,11}")
+                        || typed.matches("[A-Za-z0-9][A-Za-z0-9.+-]*/[A-Za-z0-9][A-Za-z0-9.+-]*")
                         ? new com.sketchware.ai.ui.PermissionPicker.Item(typed, "Use \"" + typed + "\"",
                         "Custom ending or MIME type")
                         : null,

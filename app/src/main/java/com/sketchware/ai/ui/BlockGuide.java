@@ -61,7 +61,7 @@ public final class BlockGuide {
                 "The WebView; a folder inside Downloads (empty: Downloads itself); notify true or false; types: empty "
                         + "or * for every file, else endings or MIME types separated by commas (.mp3, .pdf, audio/*).",
                 "Files the page offers are saved by Android's download manager with their real name and ending (from "
-                        + "the server, else the link, else the file's first bytes). A long press on an image offers "
+                        + "the server's headers, else the link). A long press on an image offers "
                         + "\"Download image\". WebView events: On download start / complete.");
         put("sketchDownloadFile", "download file [link] to folder [MyApp] name [ ] notify [true] type [Default]", FILE,
                 "Any event, e.g. a button's onClick. No WebView needed.",
@@ -70,7 +70,7 @@ public final class BlockGuide {
                         + "Packages, Documents) or a custom ending.",
                 "Android's download manager saves the file in Downloads/folder (Android 10+; older Android without "
                         + "storage permission: the app's own Downloads folder) and shows a notification when done. "
-                        + "The name keeps the right ending (never .bin); the file's own bytes are read after it lands.");
+                        + "The name keeps the right ending from the server or the link (never .bin).");
         put("webSetAdBlock", "webview1 block ads [true]", WEB,
                 "onCreate, before \"loadUrl\" and after the WebView's page events (its own client is kept).",
                 "The WebView; true to block, false to allow again.",

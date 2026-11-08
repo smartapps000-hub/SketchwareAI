@@ -228,7 +228,11 @@ public class SketchWeb {
         for (int i = 0; i < parts.length; i++) {
             String part = parts[i].trim();
             if (part.startsWith(".")) part = part.substring(1);
-            if (part.length() > 0 && part.indexOf('/') < 0) return part.toLowerCase(Locale.US);
+            if (part.length() == 0) continue;
+            if (part.indexOf('/') < 0) return part.toLowerCase(Locale.US);
+            // a MIME type: its registered ending
+            String byMime = MimeTypeMap.getSingleton().getExtensionFromMimeType(part.toLowerCase(Locale.US));
+            if (byMime != null && !byMime.equals("bin")) return byMime;
         }
         return null;
     }
@@ -477,7 +481,10 @@ public class SketchWeb {
         return type.length() > 0 ? type : "application/octet-stream";
     }
 
-    /** The file ending a file's first bytes show (mp3, mp4, m4a, pdf, zip, png, jpg ...), or null. */
+    /**
+     * The file ending a file's first bytes show (mp3, mp4, m4a, pdf, zip, png, jpg ...), or null. A public utility for
+     * your own code: the download path itself asks the server with HEAD only (v1.9.7) and never reads the body.
+     */
     public static String extensionFromBytes(byte[] b, int n) {
         if (b == null || n < 4) return null;
         if (b[0] == 'I' && b[1] == 'D' && b[2] == '3') return "mp3";
@@ -586,8 +593,8 @@ public class SketchWeb {
     /**
      * Asks the server about a link whose name has no ending, with a HEAD request only (owner's v1.9.7 choice: a GET
      * could spend a one-time download link): {name from its Content-Disposition, its MIME type}, each null when
-     * unknown. Redirects are followed here, and the cookies go only to the link's own host and protocol. The file's
-     * own bytes are read after the download instead (renameBySniff), which spends nothing.
+     * unknown. Redirects are followed here, and the cookies go only to the link's own host and protocol. When the
+     * server tells nothing, the name keeps no ending (never ".bin") rather than reading the body.
      */
     private static String[] probe(String url, String cookies, String userAgent) {
         String[] result = new String[2];
@@ -633,35 +640,6 @@ public class SketchWeb {
         return result;
     }
 
-    /**
-     * After a download, when the saved file still has no ending and it is a real file we can read (the app's own
-     * folder, or the public folder before Android 10), reads its first bytes and renames it with the ending they show.
-     * This spends no network request. Returns the final name.
-     */
-    private static String renameBySniff(String localUri, String name) {
-        if (localUri == null || hasExtension(name)) return name;
-        if (!localUri.startsWith("file://")) return name;
-        try {
-            java.io.File file = new java.io.File(Uri.parse(localUri).getPath());
-            if (!file.isFile()) return name;
-            byte[] first = new byte[64];
-            int read;
-            java.io.FileInputStream in = new java.io.FileInputStream(file);
-            try {
-                read = in.read(first);
-            } finally {
-                in.close();
-            }
-            String ending = extensionFromBytes(first, read);
-            if (ending == null) return name;
-            java.io.File renamed = new java.io.File(file.getParentFile(), name + "." + ending);
-            if (!renamed.exists() && file.renameTo(renamed)) return name + "." + ending;
-        } catch (Exception ignored) {
-            // a content:// file, no read permission: keep the name
-        }
-        return name;
-    }
-
     private static void register(Context context) {
         if (receiver != null) return;
         receiver = new BroadcastReceiver() {
@@ -673,7 +651,6 @@ public class SketchWeb {
                 }
                 // the broadcast can come from any app: only the download manager's own final status ends an entry
                 int status = -1;
-                String localUri = null;
                 Cursor cursor = null;
                 try {
                     DownloadManager manager = (DownloadManager) c.getSystemService(Context.DOWNLOAD_SERVICE);
@@ -681,8 +658,6 @@ public class SketchWeb {
                     if (cursor != null && cursor.moveToFirst()) {
                         int column = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
                         if (column >= 0) status = cursor.getInt(column);
-                        int uriColumn = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
-                        if (uriColumn >= 0) localUri = cursor.getString(uriColumn);
                     } else {
                         // removed from the download manager (cancelled in the notification)
                         status = DownloadManager.STATUS_FAILED;
@@ -699,13 +674,11 @@ public class SketchWeb {
                 }
                 if (entry == null || entry[0] == null) return;
                 boolean success = status == DownloadManager.STATUS_SUCCESSFUL;
-                String fileName = (String) entry[2];
-                if (success) fileName = renameBySniff(localUri, fileName);
                 @SuppressWarnings("unchecked")
                 WebView webView = ((WeakReference<WebView>) entry[0]).get();
                 State state = webView == null ? null : states.get(webView);
                 if (state != null && state.events != null) {
-                    state.events.onDownloadComplete((String) entry[1], fileName, success);
+                    state.events.onDownloadComplete((String) entry[1], (String) entry[2], success);
                 }
             }
         };
@@ -775,23 +748,30 @@ public class SketchWeb {
 
     // ------------------------------------------------------------------------------------------------ ads and pop-ups
 
-    /** Distinctive ad / tracker fragments matched anywhere in a request URL (a broad second layer over the host list). */
+    /**
+     * Distinctive ad / tracker fragments matched anywhere in a request URL (a broad second layer over the host list).
+     * Only distinctive strings unlikely in a legitimate page URL are kept here, and a fragment match blocks only a
+     * sub-resource, never a top-level navigation, so a loose guess can never blank a whole page.
+     */
     private static final String[] AD_URL_FRAGMENTS = {"doubleclick", "popads", "popcash", "popunder", "adservice",
-            "adserver", "adsystem", "adsense", "googlesyndication", "googleadservices", "googletagservices",
-            "googletagmanager", "google-analytics", "/pagead", "/adsales", "zedo", "adnxs", "taboola", "outbrain",
-            "/ad_", "/ads/", "/ads?", "/adx/", "=ads&", "scorecardresearch", "quantserve", "moatads", "adroll",
-            "criteo", "/tracking/", "/telemetry/", "/beacon"};
+            "adserver.", "adsystem", "adsense", "googlesyndication", "googleadservices", "googletagservices",
+            "googletagmanager", "google-analytics", "/pagead/", "zedo.", "adnxs", "taboola", "outbrain",
+            "/adx/", "scorecardresearch", "quantserve", "moatads", "adroll", "criteo"};
 
-    /** A broad check: an ad / tracker host, or a URL that carries a distinctive ad fragment. */
-    public static boolean isAdUrl(String url) {
+    /** Whether a URL carries one of the distinctive ad fragments. */
+    private static boolean hasAdFragment(String url) {
         if (url == null) return false;
-        String host = Uri.parse(url).getHost();
-        if (isAdHost(host)) return true;
         String lower = url.toLowerCase(Locale.US);
         for (int i = 0; i < AD_URL_FRAGMENTS.length; i++) {
             if (lower.contains(AD_URL_FRAGMENTS[i])) return true;
         }
         return false;
+    }
+
+    /** A broad check: an ad / tracker host, or a URL that carries a distinctive ad fragment. */
+    public static boolean isAdUrl(String url) {
+        if (url == null) return false;
+        return isAdHost(Uri.parse(url).getHost()) || hasAdFragment(url);
     }
 
     /** Whether the host or one of its parent domains is on the built-in ad and tracker list. */
@@ -854,31 +834,39 @@ public class SketchWeb {
             this.state = state;
         }
 
-        private boolean blocked(String url) {
-            return state.adBlock && isAdUrl(url);
+        // a navigation is only stopped for a known ad host (never a loose fragment, which would blank a page)
+        private boolean blockedNavigation(String url) {
+            return state.adBlock && url != null && isAdHost(Uri.parse(url).getHost());
         }
 
         @Override
         @SuppressWarnings("deprecation")
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            return blocked(url) || original.shouldOverrideUrlLoading(view, url);
+            return blockedNavigation(url) || original.shouldOverrideUrlLoading(view, url);
         }
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            return blocked(request.getUrl().toString()) || original.shouldOverrideUrlLoading(view, request);
+            return blockedNavigation(request.getUrl().toString()) || original.shouldOverrideUrlLoading(view, request);
         }
 
         @Override
         @SuppressWarnings("deprecation")
         public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-            if (blocked(url)) return empty();
+            // the deprecated overload (Android < 21) can't tell the frame; block known ad hosts only
+            if (state.adBlock && url != null && isAdHost(Uri.parse(url).getHost())) return empty();
             return original.shouldInterceptRequest(view, url);
         }
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            if (blocked(request.getUrl().toString())) return empty();
+            if (state.adBlock) {
+                String url = request.getUrl().toString();
+                // a known ad host is always blocked; a loose fragment only blocks a sub-resource
+                if (isAdHost(request.getUrl().getHost()) || (!request.isForMainFrame() && hasAdFragment(url))) {
+                    return empty();
+                }
+            }
             return original.shouldInterceptRequest(view, request);
         }
 

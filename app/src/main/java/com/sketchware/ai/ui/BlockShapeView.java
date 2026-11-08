@@ -105,8 +105,8 @@ public final class BlockShapeView extends View {
             if (c == '[') {
                 flush(word);
                 int end = block.indexOf(']', i);
-                if (end < 0) end = block.length() - 1;
-                tokens.add(new Slot(block.substring(i + 1, end)));
+                if (end < 0) end = block.length();
+                tokens.add(new Slot(i + 1 <= end ? block.substring(i + 1, end) : ""));
                 i = end + 1;
             } else if (c == ' ') {
                 flush(word);
