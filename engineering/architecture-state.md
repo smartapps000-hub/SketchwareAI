@@ -727,3 +727,44 @@ file / Toast lines, the Export screen's Local Path row under the Send button).
   ending gets the server's audio / video / image / PDF type's ending added (`song.feat` → `song.feat.mp3`); an
   unreadable download status counts as failed; a cut name never splits a surrogate pair. Known limit: a POST form with
   `target=_blank` reopens its address as a GET (the form data is not resent).
+
+## v1.9.7 additions
+
+Scope agreed with the owner (8 Nov 2026): HEAD-only download probe + cache-race fix, 2-layer ad / pop-up blocker with
+redirect-free Back, download-type selector, visual block shapes in the guide. Deferred to v1.9.8: multi-tab WebView
+blocks, the security settings sheet, the PWA shortcut. Declined (standing rules): an OAuth client secret in the APK
+(GitHub sign-in needs PKCE without a secret: later milestone), anti-tamper / re-sign kill switch, R8 full mode.
+
+- **Download probe is HEAD only** (owner: never spend a one-time link with a pre-flight GET). `SketchWeb.probe` sends
+  one HEAD (own redirects, Cookie only while host and protocol stay the link's, 4 s timeouts) and reads
+  Content-Disposition and Content-Type; a HEAD answer of text/html or octet-stream tells nothing. The ranged GET and the
+  byte sniff on the network path are gone. A name the server and the link give no ending keeps none (never ".bin").
+  `extensionFromBytes` stays as a public utility with no internal caller. A post-download rename by the file's bytes
+  was written and removed after review: DownloadManager keeps the old path (its notification would open a missing
+  file) and there is no API to update it.
+- **Built-in library resource cache** (`ResourceCompiler.compileBuiltInLibraryResources`): aapt2 compiles into
+  `<library>.tmp-<thread>-<nanoTime>.zip` in the same folder, then `renameTo` the cached name (copy as fallback), temp
+  deleted in `finally`. A Run build and an Export that rebuild the cache at once can no longer read a half-written
+  archive (v1.9.6 harness collision, known-errors).
+- **Ad blocker, two layers** (`SketchWeb.Client`, Android 8+ as before): (1) network: `isAdHost` (125 domains and
+  their subdomains) blocks any request and stops a navigation; `hasAdFragment` (24 distinctive strings such as
+  doubleclick, googlesyndication, popads, adservice, google-analytics, `/pagead/`) blocks **sub-resources only**
+  (`!request.isForMainFrame()`), so a loose match can never blank a page; `isAdUrl` = either. (2) cosmetic:
+  `injectHidingCss` on page start and finish adds one style element (id `sketch_adblock_css`) through
+  `evaluateJavascript` that hides `.adsbygoogle`, `[id^="google_ads"]`, `[id^="div-gpt-ad"]`, `[class*="advert"]`,
+  ad iframes, `.popunder` ... with `display:none !important`. Needs JavaScript (on by the WebView initializer).
+- **Redirect-free Back**: `SketchWeb.goBack(webView)` reads `copyBackForwardList()` and steps back past entries
+  `isAdUrl` matches (`goBackOrForward(delta)`; when every earlier page matches, one step). The generated default
+  `onBackPressed` (`Lx.getDefaultActivityLifecycleCode`) calls `SketchWeb.goBack(id)` inside
+  `if (id != null && id.canGoBack())`, so every project with a WebView now gets the SketchWeb helper (inert until
+  called).
+- **Download type** (`sketchDownloadFile` has a fifth slot `type %m.downloadType`; code
+  `SketchWeb.downloadFile({host}, url, folder, name, notify, "<type>")`): `ExtraMenuBean.downloadTypePicker` shows
+  Default, Audio, Video, Images, Packages, Documents in the Select-widget picker, or a typed ending / MIME (strict
+  characters only, so the generated string literal stays valid). `SketchWeb.categoryExtensions` maps the token to
+  endings; `downloadFile` gives a name **without** an ending the category's first ending (a MIME: its registered
+  ending) and never blocks the download. A v1.9.6 block with four slots still generates (empty type = Default).
+- **Visual block guide**: `ui.BlockShapeView` draws the block on a Canvas: rounded body in the category colour, a notch
+  in the top edge and a bump under the bottom edge (where blocks stack), white label, one rounded slot per `[hint]` in
+  the block text, wrapped over lines. `BlockGuide.card` uses it instead of a coloured TextView; `BlockGuide.show` adds
+  a 220 ms rise-and-fade. The shared picker's search hint is "Search".
