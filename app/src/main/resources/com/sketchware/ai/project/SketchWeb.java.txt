@@ -47,7 +47,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -177,7 +176,7 @@ public class SketchWeb {
         if (state.events != null) state.events.onDownloadStart(url, type, (double) contentLength);
         if (state.downloads && (mimeAllowed(type, fileName, state.mimeFilter)
                 || mimeType != null && mimeAllowed(mimeType, fileName, state.mimeFilter))) {
-            enqueue(webView.getContext(), webView, state, url, userAgent, fileName, type, state.folder, state.notify);
+            enqueue(webView.getContext(), webView, state, url, userAgent, fileName, type, state.folder, state.notify, null);
         }
     }
 
@@ -203,11 +202,9 @@ public class SketchWeb {
         String name = fileName == null ? null : safeName(fileName.trim());
         if (name == null) name = fileName(url, null, null);
         String extensions = categoryExtensions(typeFilter);
-        if (!hasExtension(name) && extensions.length() > 0) {
-            String ending = firstEnding(extensions);
-            if (ending != null) name = name + "." + ending;
-        }
-        enqueue(context, null, null, url, null, name, mimeType(null, name), folder == null ? "" : folder.trim(), notify);
+        // only when neither the link nor the server (HEAD) gives an ending
+        String fallback = extensions.length() > 0 ? firstEnding(extensions) : null;
+        enqueue(context, null, null, url, null, name, mimeType(null, name), folder == null ? "" : folder.trim(), notify, fallback);
     }
 
     /** The comma list of endings a download-type token stands for; a custom value is returned as it is. */
@@ -275,7 +272,7 @@ public class SketchWeb {
      * The file name, in three stages: the server's Content-Disposition (filename*= with its charset first, then
      * filename=); else a name in the link (a query parameter such as file= or name= that has an ending, else the
      * path's last part); then, without an ending, the one the MIME type stands for. Never ".bin": a name still
-     * without an ending gets it from the file's first bytes when it is downloaded.
+     * without an ending is asked from the server with one HEAD request when it is downloaded.
      */
     public static String fileName(String url, String contentDisposition, String mimeType) {
         String name = dispositionName(contentDisposition);
@@ -521,7 +518,7 @@ public class SketchWeb {
 
     private static void enqueue(final Context context, final WebView webView, final State state, final String url,
                                 final String userAgent, final String fileName, final String mimeType, final String folder,
-                                final boolean notify) {
+                                final boolean notify, final String fallbackEnding) {
         final Context app = context.getApplicationContext();
         String cookieHeader = null;
         try {
@@ -546,6 +543,11 @@ public class SketchWeb {
                             name = withMimeExtension(scriptEnding(name) ? name.substring(0, name.lastIndexOf('.')) : name, probe[1]);
                         }
                         type = mimeType(probe[1] != null ? probe[1] : type, name);
+                    }
+                    if (!hasExtension(name) && fallbackEnding != null) {
+                        // the download-type slot's ending, when the link and the server gave none
+                        name = name + "." + fallbackEnding;
+                        type = mimeType(null, name);
                     }
                     DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                     if (type != null && type.length() > 0) request.setMimeType(type);
@@ -730,7 +732,7 @@ public class SketchWeb {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 enqueue(webView.getContext(), webView, state, src, webView.getSettings().getUserAgentString(),
-                        name, mimeType(null, name), state.folder, state.notify);
+                        name, mimeType(null, name), state.folder, state.notify, null);
             }
         };
         String[] items = {"Download image"};
@@ -749,29 +751,45 @@ public class SketchWeb {
     // ------------------------------------------------------------------------------------------------ ads and pop-ups
 
     /**
-     * Distinctive ad / tracker fragments matched anywhere in a request URL (a broad second layer over the host list).
-     * Only distinctive strings unlikely in a legitimate page URL are kept here, and a fragment match blocks only a
-     * sub-resource, never a top-level navigation, so a loose guess can never blank a whole page.
+     * Second network layer over the host list: ad / tracker brand words in a request's HOST, at the start of a label
+     * (after the start, a dot or a hyphen: adservice.google.co.in, pagead2.googlesyndication.com, but not
+     * uploadserver.example.com), and two ad paths. It blocks sub-resources only, never a top-level navigation.
      */
-    private static final String[] AD_URL_FRAGMENTS = {"doubleclick", "popads", "popcash", "popunder", "adservice",
-            "adserver.", "adsystem", "adsense", "googlesyndication", "googleadservices", "googletagservices",
-            "googletagmanager", "google-analytics", "/pagead/", "zedo.", "adnxs", "taboola", "outbrain",
-            "/adx/", "scorecardresearch", "quantserve", "moatads", "adroll", "criteo"};
+    private static final String[] AD_HOST_WORDS = {"doubleclick", "popads", "popcash", "popunder", "adservice",
+            "adserver", "adsystem", "adsense", "googlesyndication", "googleadservices", "googletagservices",
+            "google-analytics", "zedo", "adnxs", "taboola", "outbrain", "scorecardresearch", "quantserve", "moatads",
+            "adroll", "criteo"};
+    private static final String[] AD_PATHS = {"/pagead/", "/adx/"};
 
-    /** Whether a URL carries one of the distinctive ad fragments. */
-    private static boolean hasAdFragment(String url) {
-        if (url == null) return false;
-        String lower = url.toLowerCase(Locale.US);
-        for (int i = 0; i < AD_URL_FRAGMENTS.length; i++) {
-            if (lower.contains(AD_URL_FRAGMENTS[i])) return true;
+    /** Whether a host carries an ad brand word at the start of one of its labels. */
+    private static boolean adWordHost(String host) {
+        if (host == null) return false;
+        String h = host.toLowerCase(Locale.US);
+        for (int i = 0; i < AD_HOST_WORDS.length; i++) {
+            int at = h.indexOf(AD_HOST_WORDS[i]);
+            while (at >= 0) {
+                if (at == 0 || h.charAt(at - 1) == '.' || h.charAt(at - 1) == '-') return true;
+                at = h.indexOf(AD_HOST_WORDS[i], at + 1);
+            }
         }
         return false;
     }
 
-    /** A broad check: an ad / tracker host, or a URL that carries a distinctive ad fragment. */
+    private static boolean adPath(String path) {
+        if (path == null) return false;
+        String lower = path.toLowerCase(Locale.US);
+        for (int i = 0; i < AD_PATHS.length; i++) {
+            if (lower.contains(AD_PATHS[i])) return true;
+        }
+        return false;
+    }
+
+    /** A broad check for a sub-resource: an ad / tracker host, an ad brand word in the host, or an ad path. */
     public static boolean isAdUrl(String url) {
         if (url == null) return false;
-        return isAdHost(Uri.parse(url).getHost()) || hasAdFragment(url);
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        return isAdHost(host) || adWordHost(host) || adPath(uri.getPath());
     }
 
     /** Whether the host or one of its parent domains is on the built-in ad and tracker list. */
@@ -862,8 +880,8 @@ public class SketchWeb {
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             if (state.adBlock) {
                 String url = request.getUrl().toString();
-                // a known ad host is always blocked; a loose fragment only blocks a sub-resource
-                if (isAdHost(request.getUrl().getHost()) || (!request.isForMainFrame() && hasAdFragment(url))) {
+                // a listed ad host is always blocked; the broader match only blocks a sub-resource
+                if (isAdHost(request.getUrl().getHost()) || (!request.isForMainFrame() && isAdUrl(url))) {
                     return empty();
                 }
             }
@@ -973,10 +991,11 @@ public class SketchWeb {
      * JavaScript (the WebView's initializer turns it on); does nothing when it is off.
      */
     private static final String HIDING_CSS =
-            ".adsbygoogle,[id^=\"google_ads\"],[id^=\"div-gpt-ad\"],[class*=\"ad-box\"],[class*=\"ad-banner\"],"
-                    + "[class*=\"advert\"],[class*=\"-ads\"],[class*=\"ads-\"],ins.adsbygoogle,iframe[src*=\"doubleclick\"],"
-                    + "iframe[src*=\"googlesyndication\"],iframe[id*=\"google_ads\"],.popunder,.pop-under,div[id*=\"popup-ad\"],"
-                    + "div[class*=\"popup-ad\"]{display:none !important;height:0 !important;max-height:0 !important;"
+            ".adsbygoogle,ins.adsbygoogle,[id^=\"google_ads\"],[id^=\"div-gpt-ad\"],"
+                    + "[class^=\"ad-\"],[class*=\" ad-\"],[class^=\"ads-\"],[class*=\" ads-\"],"
+                    + "[class^=\"advert\"],[class*=\" advert\"],iframe[src*=\"doubleclick.net\"],"
+                    + "iframe[src*=\"googlesyndication.com\"],iframe[id^=\"google_ads\"],.popunder,.pop-under"
+                    + "{display:none !important;height:0 !important;max-height:0 !important;"
                     + "pointer-events:none !important;visibility:hidden !important;}";
 
     private static void injectHidingCss(WebView view) {
@@ -1005,19 +1024,21 @@ public class SketchWeb {
     }
 
     /**
-     * Goes back, skipping ad / redirect pages so Back doesn't land on a bounce page (owner's v1.9.7 "redirect-free
-     * back"). Returns whether it moved; false when there is no earlier real page (the caller then lets the screen
-     * close).
+     * Goes back. While this WebView's ad blocking is on, pages on a listed ad host are stepped over, so Back doesn't
+     * land on a bounce page (owner's v1.9.7 "redirect-free back"); otherwise it is the WebView's own goBack. Returns
+     * whether it moved.
      */
     public static boolean goBack(WebView webView) {
         if (webView == null) return false;
+        State state = states.get(webView);
+        boolean skipAds = state != null && state.adBlock;
         WebBackForwardList list = webView.copyBackForwardList();
         int current = list.getCurrentIndex();
         int target = current - 1;
-        while (target >= 0 && isAdUrl(list.getItemAtIndex(target).getUrl())) target--;
+        while (skipAds && target >= 0 && adPage(list.getItemAtIndex(target).getUrl())) target--;
         if (target < 0) {
             if (current <= 0) return false;
-            target = current - 1;   // every earlier page looked like an ad: step back one rather than get stuck
+            target = current - 1;   // every earlier page is on an ad host: step back one rather than get stuck
         }
         int delta = target - current;
         if (webView.canGoBackOrForward(delta)) {
@@ -1025,6 +1046,10 @@ public class SketchWeb {
             return true;
         }
         return false;
+    }
+
+    private static boolean adPage(String url) {
+        return url != null && isAdHost(Uri.parse(url).getHost());
     }
 
     /** One WebChromeClient for file upload and pop-ups; everything else goes to the app's own client (Android 8+). */

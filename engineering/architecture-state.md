@@ -747,24 +747,36 @@ blocks, the security settings sheet, the PWA shortcut. Declined (standing rules)
   deleted in `finally`. A Run build and an Export that rebuild the cache at once can no longer read a half-written
   archive (v1.9.6 harness collision, known-errors).
 - **Ad blocker, two layers** (`SketchWeb.Client`, Android 8+ as before): (1) network: `isAdHost` (125 domains and
-  their subdomains) blocks any request and stops a navigation; `hasAdFragment` (24 distinctive strings such as
-  doubleclick, googlesyndication, popads, adservice, google-analytics, `/pagead/`) blocks **sub-resources only**
-  (`!request.isForMainFrame()`), so a loose match can never blank a page; `isAdUrl` = either. (2) cosmetic:
-  `injectHidingCss` on page start and finish adds one style element (id `sketch_adblock_css`) through
-  `evaluateJavascript` that hides `.adsbygoogle`, `[id^="google_ads"]`, `[id^="div-gpt-ad"]`, `[class*="advert"]`,
-  ad iframes, `.popunder` ... with `display:none !important`. Needs JavaScript (on by the WebView initializer).
-- **Redirect-free Back**: `SketchWeb.goBack(webView)` reads `copyBackForwardList()` and steps back past entries
-  `isAdUrl` matches (`goBackOrForward(delta)`; when every earlier page matches, one step). The generated default
-  `onBackPressed` (`Lx.getDefaultActivityLifecycleCode`) calls `SketchWeb.goBack(id)` inside
+  their subdomains) blocks any request and stops a navigation; the broader `isAdUrl` (also an ad brand word at the
+  start of a host label: `adservice.google.co.in`, `stats.g.doubleclick.net`, 21 words in `AD_HOST_WORDS`; or the
+  paths `/pagead/`, `/adx/`) blocks **sub-resources only** (`!request.isForMainFrame()`), so a loose match can never
+  blank a page. Words are matched in the host, never anywhere in the URL (review: `adservice` matched
+  `/FileUploadService/`, `adroll` matched `breadrolls.jpg`); googletagmanager is not blocked (sites ship consent
+  banners and widgets through it). (2) cosmetic: `injectHidingCss` on page start and finish adds one style element
+  (id `sketch_adblock_css`) through `evaluateJavascript` that hides `.adsbygoogle`, `[id^="google_ads"]`,
+  `[id^="div-gpt-ad"]`, classes that start with `ad-`, `ads-` or `advert` (anchored on whole class names, so
+  `download-box` and `uploads-list` stay), DoubleClick / AdSense iframes and `.popunder`, with
+  `display:none !important`. Needs JavaScript (on by the WebView initializer).
+- **Redirect-free Back**: `SketchWeb.goBack(webView)`: while that WebView's ad blocking is on, it reads
+  `copyBackForwardList()` and steps back past pages on a listed ad host (`goBackOrForward(delta)`; when every earlier
+  page is one, a single step); with ad blocking off it is the WebView's plain back step, so projects without the block
+  behave as in v1.9.6. Host list only (review: a fragment match skipped `google.com/search?q=adsense`). The generated
+  default `onBackPressed` (`Lx.getDefaultActivityLifecycleCode`) calls `SketchWeb.goBack(id)` inside
   `if (id != null && id.canGoBack())`, so every project with a WebView now gets the SketchWeb helper (inert until
   called).
 - **Download type** (`sketchDownloadFile` has a fifth slot `type %m.downloadType`; code
   `SketchWeb.downloadFile({host}, url, folder, name, notify, "<type>")`): `ExtraMenuBean.downloadTypePicker` shows
   Default, Audio, Video, Images, Packages, Documents in the Select-widget picker, or a typed ending / MIME (strict
   characters only, so the generated string literal stays valid). `SketchWeb.categoryExtensions` maps the token to
-  endings; `downloadFile` gives a name **without** an ending the category's first ending (a MIME: its registered
-  ending) and never blocks the download. A v1.9.6 block with four slots still generates (empty type = Default).
+  endings; a name the link **and** the server's HEAD answer leave without an ending gets the category's first ending
+  (a MIME: its registered ending; `enqueue(..., fallbackEnding)`), and the download is never blocked. A v1.9.6 block with four slots still generates (empty type = Default).
 - **Visual block guide**: `ui.BlockShapeView` draws the block on a Canvas: rounded body in the category colour, a notch
   in the top edge and a bump under the bottom edge (where blocks stack), white label, one rounded slot per `[hint]` in
-  the block text, wrapped over lines. `BlockGuide.card` uses it instead of a coloured TextView; `BlockGuide.show` adds
+  the block text, wrapped over lines; a boolean block (`permission … granted`) has pointed ends and a value block
+  (`permission status`) round ends, as on the canvas (`Entry.kind`). `BlockGuide.card` uses it instead of a coloured TextView; `BlockGuide.show` adds
   a 220 ms rise-and-fade. The shared picker's search hint is "Search".
+- Review (separate agent, two passes, before the final build), applied: no post-download rename; ad words in the
+  host only and never for a navigation; anchored hiding CSS; Back by ad host and only with ad blocking on; the category
+  ending after the HEAD answer; strict custom type characters (valid ICU regex, checked on ART); a `[` without `]`
+  in a block text; guide texts that promise only what runs. Clean in both passes: receiver, cache rename, generated
+  back chain for several WebViews and a drawer, String.format slots, API levels.

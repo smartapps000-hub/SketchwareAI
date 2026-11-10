@@ -127,6 +127,15 @@ public class CallWeb {
         check("normal page allowed", !(Boolean) adUrl.invoke(null, "https://en.wikipedia.org/wiki/Advertising"), false);
         check("downloads path not blocked", !(Boolean) adUrl.invoke(null, "https://cdn.site.com/downloads/song.mp3"), false);
         check("null url not blocked", !(Boolean) adUrl.invoke(null, (Object) null), false);
+        // second review pass: brand words only in the host, at the start of a label; two ad paths
+        check("adservice.google.co.in blocked (host word)", (Boolean) adUrl.invoke(null, "https://adservice.google.co.in/adsid/integrator.js"), true);
+        check("stats.g.doubleclick.net blocked", (Boolean) adUrl.invoke(null, "https://stats.g.doubleclick.net/r/collect"), true);
+        check("/pagead/ path blocked", (Boolean) adUrl.invoke(null, "https://example.com/pagead/show_ads.js"), true);
+        check("uploadserver host allowed", !(Boolean) adUrl.invoke(null, "https://uploadserver.example.com/put"), false);
+        check("FileUploadService path allowed", !(Boolean) adUrl.invoke(null, "https://site.com/FileUploadService/upload"), false);
+        check("jquery.doubleclick.min.js allowed", !(Boolean) adUrl.invoke(null, "https://cdn.site.com/js/jquery.doubleclick.min.js"), false);
+        check("breadrolls image allowed", !(Boolean) adUrl.invoke(null, "https://bakery.com/img/breadrolls.jpg"), false);
+        check("search for adsense allowed", !(Boolean) adUrl.invoke(null, "https://www.google.com/search?q=adsense+login"), false);
         // v1.9.7: the download-type selector maps a token to endings; a custom value passes through; Default = none
         Method cat = web.getMethod("categoryExtensions", String.class);
         check("Default -> no filter", "".equals(cat.invoke(null, "Default (*/*)")), cat.invoke(null, "Default (*/*)"));

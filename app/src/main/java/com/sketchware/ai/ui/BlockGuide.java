@@ -70,16 +70,17 @@ public final class BlockGuide {
                 "Any event, e.g. a button's onClick. No WebView needed.",
                 "The file's link (http or https); a folder inside Downloads; a name (empty: the server's or the "
                         + "link's name); notify true or false; type: Default, a category (Audio, Video, Images, "
-                        + "Packages, Documents) or a custom ending.",
+                        + "Packages, Documents) or a custom ending / MIME type; it only names a file the link and "
+                        + "the server left without an ending.",
                 "Android's download manager saves the file in Downloads/folder (Android 10+; older Android without "
                         + "storage permission: the app's own Downloads folder) and shows a notification when done. "
                         + "The name keeps the right ending from the server or the link (never .bin).");
         put("webSetAdBlock", "webview1 block ads [true]", WEB,
                 "onCreate, before \"loadUrl\" and after the WebView's page events (its own client is kept).",
                 "The WebView; true to block, false to allow again.",
-                "Two layers: requests to known ad / tracker hosts and ad-looking URLs get an empty answer, and a "
-                        + "style sheet hides ad boxes the page still drew. A built-in list, not a full filter list "
-                        + "like EasyList. Android 8+ (on older Android nothing is blocked).");
+                "Two layers: requests to known ad / tracker hosts get an empty answer, and a style sheet hides ad "
+                        + "boxes the page still drew; Back steps over ad pages. A built-in list, not a full filter "
+                        + "list like EasyList. Android 8+ (on older Android nothing is blocked).");
         put("webSetPopupBlock", "webview1 block pop-ups [true]", WEB,
                 "onCreate, before \"loadUrl\".",
                 "The WebView; true to block, false to allow.",
