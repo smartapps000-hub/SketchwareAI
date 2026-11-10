@@ -586,8 +586,26 @@
     {
       "fingerprint": "STEP resources FAILED: ... cache/compiledLibs/<library>.zip is not zip (harness, two lanes, v1.9.6 suite)",
       "rootCause": "ResourceCompiler.compileBuiltInLibraryResources lets aapt2 write cacheDir/compiledLibs/<library>.zip in place; in the harness getPackageInfo throws, so every build rebuilds them and two builds at the same second read a half-written archive. On a phone they are rebuilt only after an IDE update (lastUpdateTime), so it needs two builds at once right after an update",
-      "repair": "not changed in v1.9.6 (unchanged since v1.9.0); rerun alone passed. Proposed: compile to a per-run temp name and rename",
+      "repair": "v1.9.7: aapt2 compiles to <library>.tmp-<thread>-<nanoTime>.zip and the file is renamed over the cached name (temp deleted in finally)",
       "scope": "IDE build cache (harness lanes)"
+    },
+    {
+      "fingerprint": "SketchWeb.java: illegal start of type / invalid method declaration at a doc comment (host compile, before any build)",
+      "rootCause": "the any-type pattern (star slash star) written inside a Javadoc comment of the helper template ends the comment (second time: v1.9.5)",
+      "repair": "v1.9.7: comment reworded; the host javac of both helper variants runs before every build and caught it",
+      "scope": "generated apps using the web blocks"
+    },
+    {
+      "fingerprint": "Ad block matched ordinary URLs (review, before release): /FileUploadService/, breadrolls.jpg, jquery.doubleclick.min.js, a search for adsense",
+      "rootCause": "ad brand words were matched as substrings anywhere in the URL, and Back used the same match to skip history entries",
+      "repair": "v1.9.7: words only in the host at the start of a label, only for sub-resources; Back skips listed ad hosts only and only while ad blocking is on; hiding CSS anchored on whole class names",
+      "scope": "generated apps using the ad block"
+    },
+    {
+      "fingerprint": "Renaming a finished download leaves the notification pointing at a missing file (review, before release)",
+      "rootCause": "DownloadManager stores the local path at enqueue time and has no API to change it",
+      "repair": "v1.9.7: no post-download rename; the name is settled before enqueue (link, HEAD answer, download-type fallback)",
+      "scope": "generated apps using downloads"
     }
   ]
 }

@@ -152,3 +152,13 @@ Whether a generated APK runs on a given Android version depends on that project'
 - Ad block below Android 8 (API 26): does nothing by design (the WebView's client can't be read there).
 - The picker, the guide (tap on a drawer block), the image long press, pop-ups, ad blocking and downloads on real pages
   and a phone: NOT TESTED here (no device, no emulator, no network page run).
+
+## v1.9.7 (10 Nov 2026)
+- HEAD-only download probe, library cache rename, two-layer ad blocker with Back over ad hosts, download-type slot,
+  block shapes in the guide. Fixture 931 and the release suite on the Android 12 (API 31) ART harness with the release
+  APK's classes; h.CallWeb on the built app; both helper variants compiled with javac -source 8 against android-37;
+  layoutlib renders of the guide (command, boolean and value shapes) and the download-type picker. Results in
+  `v1.9.7-verification.md`.
+- Ad blocking (network and style sheet) and the Back step-over: Android 8+ (API 26) only, by design.
+- On a phone or a real page: NOT TESTED here (no device, no emulator): ad blocking, hidden ad boxes, Back, downloads
+  and the HEAD request against a server, the type dialog, the guide and its animation in the logic editor.
