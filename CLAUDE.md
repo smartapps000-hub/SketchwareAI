@@ -147,7 +147,22 @@ entry only at a final DownloadManager status; `ui.PermissionPicker` (#252528, 16
 `LogicEditorActivity.onTouch` ACTION_UP with `getBlockType() == 1`, or ⓘ rows); WEBCALL 56/56, PERMCALL 39/39,
 JAVAEDIT 101/101; render `V196Test` (rows from `DumpItems`); two review passes; harness lanes can collide on
 `cacheDir/compiledLibs` (aapt2 writes in place, the harness rebuilds every run: rerun alone); APK v1.9.6-a76e9dc,
-versionCode 196, sha256 `86af1443...6b3975a8`, 142,325,713 bytes). Local branch
+versionCode 196, sha256 `86af1443...6b3975a8`, 142,325,713 bytes).
+v1.9.7 (owner's 8 Nov "all-in-one" directive, scope agreed: HEAD-only probe + cache fix, 2-layer ad blocker + Back,
+download type, block shapes; multi-tab / security sheet / PWA shortcut → v1.9.8; **declined**: an OAuth client secret in
+the APK (he pasted one and revoked it; sign-in = PKCE later), anti-tamper kill switch, R8 full mode): `SketchWeb.probe`
+= one HEAD (no GET: a one-time link is never spent; no post-download rename: DownloadManager keeps the old path);
+`ResourceCompiler` built-in library cache via temp file + rename (the v1.9.6 lane collision is gone: lanes may share a
+root again); ad block = `isAdHost` (125 domains, any request, stops navigation) + `isAdUrl` (21 `AD_HOST_WORDS` at the
+start of a host label, paths `/pagead/` `/adx/`; sub-resources only via `isForMainFrame`) + `injectHidingCss`
+(anchored class selectors, `evaluateJavascript`); `SketchWeb.goBack` (skips listed ad hosts only while that WebView's ad
+block is on) is what the generated default `onBackPressed` calls (`Lx`), so every WebView project includes SketchWeb;
+`sketchDownloadFile` fifth slot `%m.downloadType` (`ExtraMenuBean.downloadTypePicker`, `categoryExtensions`, fallback
+ending applied after the HEAD answer, never blocks); `ui.BlockShapeView` (command notch + bump, boolean pointed, value
+round; slots from `[hint]`) in `BlockGuide`; never write the any-type pattern (star slash star) in a template doc
+comment (second time: the host javac of both helper variants caught it); harness `Uri` stub has `getHost()`;
+WEBCALL 77/77, PERMCALL 39/39, JAVAEDIT 101/101; render `V197Test`; two review passes; APK v1.9.7-34fabe7,
+versionCode 197, sha256 `067a92b3...ab90c488`, 142,331,909 bytes). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

@@ -1,6 +1,7 @@
 # Sketchware AI v1.9.7
 
-versionCode 197. APK name, size and sha256: `SHA256SUMS` in this folder. Installs over v1.9.6 (same test key).
+versionCode 197, `v1.9.7-34fabe7-minApi26`, 142331909 bytes, sha256
+`067a92b3ccf56a48381d419115929444acc6b00aae2eccc0b683c8f2ab90c488`. Installs over v1.9.6 (same test key).
 
 ## Download
 
