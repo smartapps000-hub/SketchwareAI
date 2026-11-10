@@ -33,13 +33,16 @@ public final class BlockGuide {
     /** One block's guide. */
     public static final class Entry {
         public final String block;
+        /** " " command, "b" boolean, "s" value: the block's shape on the canvas. */
+        public final String kind;
         public final int color;
         public final String where;
         public final String plug;
         public final String result;
 
-        Entry(String block, int color, String where, String plug, String result) {
+        Entry(String block, String kind, int color, String where, String plug, String result) {
             this.block = block;
+            this.kind = kind;
             this.color = color;
             this.where = where;
             this.plug = plug;
@@ -135,7 +138,9 @@ public final class BlockGuide {
     }
 
     private static void put(String opCode, String block, int color, String where, String plug, String result) {
-        ENTRIES.put(opCode, new Entry(block, color, where, plug, result));
+        // the two permission checks are a boolean and a value block; every other guided block is a command
+        String kind = "hasAutoPermission".equals(opCode) ? "b" : "getPermissionStatus".equals(opCode) ? "s" : " ";
+        ENTRIES.put(opCode, new Entry(block, kind, color, where, plug, result));
     }
 
     private BlockGuide() {
@@ -205,7 +210,7 @@ public final class BlockGuide {
         card.setPadding(0, PermissionPicker.dp(context, 14), 0, PermissionPicker.dp(context, 6));
 
         // v1.9.7: the block drawn the way it looks on the canvas (shape, connector notches, parameter slots)
-        BlockShapeView block = new BlockShapeView(context, entry.block, entry.color);
+        BlockShapeView block = new BlockShapeView(context, entry.block, entry.color, entry.kind);
         LinearLayout.LayoutParams blockParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         blockParams.bottomMargin = PermissionPicker.dp(context, 10);

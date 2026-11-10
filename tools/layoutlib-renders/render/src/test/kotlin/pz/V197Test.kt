@@ -50,6 +50,12 @@ class V197Test {
         save(BlockGuide.content(paparazzi.context, "Permission blocks", *BlockGuide.PERMISSION_BLOCKS), "v197_guide_permission")
     }
 
+    @Test fun guideShapes() {
+        // a boolean block (pointed ends) and a value block (round ends) next to a command block
+        save(BlockGuide.content(paparazzi.context, "Block shapes",
+                "hasAutoPermission", "getPermissionStatus", "webSetAdBlock"), "v197_guide_shapes")
+    }
+
     @Test fun downloadType() {
         val items = listOf(
                 PermissionPicker.Item("Default (*/*)", "Default (*/*)", "Chrome-grade name: server, link or type; never .bin"),

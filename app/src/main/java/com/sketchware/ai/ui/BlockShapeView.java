@@ -13,14 +13,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * v1.9.7: draws a logic-editor block the way it looks on the canvas, for the guide sheet: a rounded body in the
- * category colour with a top notch and a bottom bump (the stacking grooves), the label text, and a rounded slot for
- * every parameter. The block string is the human text with each slot written as {@code [hint]} (e.g.
+ * v1.9.7: draws a logic-editor block the way it looks on the canvas, for the guide sheet. A command block (kind
+ * " ") is a rounded body in the category colour with a notch in its top edge and a bump under its bottom edge (the
+ * stacking grooves); a boolean block ("b") has pointed ends; a value block ("s", "d") has round ends. The label text
+ * and a rounded slot for every parameter sit inside. The block string is the human text with each slot written as {@code [hint]} (e.g.
  * {@code "download file [link] to folder [MyApp] notify [true]"}). Plain Android drawing, so layoutlib renders it.
  */
 public final class BlockShapeView extends View {
 
     private final int color;
+    private final boolean command;
+    private final boolean bool;
     private final List<Object> tokens = new ArrayList<Object>();   // String = word, Slot = parameter
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -66,10 +69,18 @@ public final class BlockShapeView extends View {
     }
 
     public BlockShapeView(Context context, String block, int color) {
+        this(context, block, color, " ");
+    }
+
+    /** kind: " " command (stacks), "b" boolean, "s" / "d" value. */
+    public BlockShapeView(Context context, String block, int color, String kind) {
         super(context);
         this.color = color;
+        bool = "b".equals(kind);
+        command = !bool && !"s".equals(kind) && !"d".equals(kind);
         density = context.getResources().getDisplayMetrics().density;
-        padX = 14 * density;
+        // boolean and value blocks keep the text clear of their pointed / round ends
+        padX = (command ? 14 : 22) * density;
         padY = 10 * density;
         gap = 5 * density;
         notch = 6 * density;
@@ -156,17 +167,17 @@ public final class BlockShapeView extends View {
 
         bodyWidth = 0;
         for (Line l : lines) bodyWidth = Math.max(bodyWidth, l.width + padX);
-        bodyWidth = Math.max(bodyWidth, 60 * density);
         bodyHeight = padY * 2 + lines.size() * lineHeight + (lines.size() - 1) * (4 * density);
+        bodyWidth = Math.max(bodyWidth, Math.max(60 * density, command ? 0 : bodyHeight * 1.5f));
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int maxWidth = MeasureSpec.getSize(widthMeasureSpec);
         if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.UNSPECIFIED || maxWidth <= 0) maxWidth = (int) (320 * density);
-        layout(maxWidth - notch);
-        int width = (int) Math.ceil(Math.min(bodyWidth, maxWidth - notch)) + (int) Math.ceil(notch);
-        int height = (int) Math.ceil(bodyHeight + notch);
+        layout(maxWidth);
+        int width = (int) Math.ceil(Math.min(bodyWidth, maxWidth));
+        int height = (int) Math.ceil(bodyHeight + (command ? notch : 0));
         setMeasuredDimension(width, height);
     }
 
@@ -179,6 +190,25 @@ public final class BlockShapeView extends View {
         float tabX = left + 20 * density;   // the connector sits near the left, as on the canvas
 
         Path path = new Path();
+        if (!command) {
+            float half = bodyHeight / 2f;
+            if (bool) {
+                // a boolean block: pointed ends
+                path.moveTo(left + half, top);
+                path.lineTo(right - half, top);
+                path.lineTo(right, top + half);
+                path.lineTo(right - half, bottom);
+                path.lineTo(left + half, bottom);
+                path.lineTo(left, top + half);
+                path.close();
+            } else {
+                // a value block: round ends
+                path.addRoundRect(new RectF(left, top, right, bottom), half, half, Path.Direction.CW);
+            }
+            canvas.drawPath(path, fill);
+            drawLabel(canvas);
+            return;
+        }
         path.moveTo(left + radius, top);
         // top edge with a concave notch (where the block above plugs in)
         path.lineTo(tabX, top);
@@ -200,7 +230,10 @@ public final class BlockShapeView extends View {
         path.quadTo(left, top, left + radius, top);
         path.close();
         canvas.drawPath(path, fill);
+        drawLabel(canvas);
+    }
 
+    private void drawLabel(Canvas canvas) {
         float baseShift = -text.ascent();
         for (int li = 0; li < lines.size(); li++) {
             Line line = lines.get(li);
