@@ -2,6 +2,15 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.7 (versionCode 197, `v1.9.7-34fabe7-minApi26`)
+
+`apk/Sketchware_AI_v1.9.7.apk`, sha256 `067a92b3ccf56a48381d419115929444acc6b00aae2eccc0b683c8f2ab90c488` (Git LFS). HEAD-only
+download check (a one-time link is never spent), library cache fix, two-layer ad blocker with Back over ad pages,
+download-type slot, real block shapes in the guide sheet. Release notes: `releases/v1.9.7/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.7.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.7.apk
+
 ## v1.9.6 (versionCode 196, `v1.9.6-a76e9dc-minApi26`)
 
 `apk/Sketchware_AI_v1.9.6.apk`, sha256 `86af1443ad821b47bb9ab2ad78b3f7500ada22038c35808c2f9203976b3975a8` (Git LFS). Download
