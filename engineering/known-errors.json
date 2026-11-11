@@ -606,6 +606,30 @@
       "rootCause": "DownloadManager stores the local path at enqueue time and has no API to change it",
       "repair": "v1.9.7: no post-download rename; the name is settled before enqueue (link, HEAD answer, download-type fallback)",
       "scope": "generated apps using downloads"
+    },
+    {
+      "fingerprint": "Android Studio lint: 'Class referenced in the manifest, <package>.DebugActivity, was not found' in an exported project",
+      "rootCause": "the manifest always declared .DebugActivity; the export leaves DebugActivity.java out",
+      "repair": "v1.9.7.1: declared for Run builds, or when the project has its own DebugActivity.java",
+      "scope": "Export to Android Studio, Export AAB / APK"
+    },
+    {
+      "fingerprint": "Android Studio lint errors NewApi / UnspecifiedRegisterReceiverFlag (SketchWeb.java), RestrictedApi (SketchButton.java), WrongConstant (SketchwareUtil.java) in an exported project",
+      "rootCause": "generated helper code is correct at run time (calls guarded by the API level that makes them) but carried no annotations lint understands",
+      "repair": "v1.9.7.1: @TargetApi(27) on SketchWeb.Client, @SuppressLint on SketchWeb.register and SketchButton.setBackgroundDrawable, SHOW_IMPLICIT (same value) in hideKeyboard",
+      "scope": "Export to Android Studio"
+    },
+    {
+      "fingerprint": "Android Studio lint error SuspiciousIndentation in _getCheckedItemPositionsToArray of every exported activity",
+      "rootCause": "the activity template writes a braceless if; the formatter indents by braces",
+      "repair": "open: needs a change to the activity template (reviewed with the source-map and Java-editor fixtures)",
+      "scope": "Export to Android Studio"
+    },
+    {
+      "fingerprint": "White label on the orange call-to-action below WCAG AA (3.75:1 down to 2.80:1)",
+      "rootCause": "the gradient #E8501C to #F97316 is too light for white text",
+      "repair": "v1.9.7.1: gradient #D34115 to #C64F14 (4.6:1), label stays white (owner's decision; a dark label was rejected)",
+      "scope": "IDE"
     }
   ]
 }

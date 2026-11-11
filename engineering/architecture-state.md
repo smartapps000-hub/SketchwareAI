@@ -780,3 +780,29 @@ blocks, the security settings sheet, the PWA shortcut. Declined (standing rules)
   ending after the HEAD answer; strict custom type characters (valid ICU regex, checked on ART); a `[` without `]`
   in a block text; guide texts that promise only what runs. Clean in both passes: receiver, cache rename, generated
   back chain for several WebViews and a drawer, String.format slots, API levels.
+
+## v1.9.7.1 (11 Nov 2026): toolchain / Material 3 / Play audit with small fixes
+
+Record and test results: `v1.9.7.1-toolchain-m3-play-audit.md`.
+
+- **Call-to-action colour** (owner's decision, 11 Nov): button labels stay pure white; the surfaces `ob_cta`,
+  `ob_cta_pressed` (both resource folders), `ob_safe_cta`, `ob_safe_cta_pressed` are #D34115 → #C64F14 (pressed
+  #C83D13 → #BC4A12) instead of #E8501C → #F97316, so white reaches 4.6:1. Every other orange is unchanged. A dark label
+  on orange is not to be proposed again.
+- **Block guide**: `BlockShapeView.readable(color)` deepens a block colour until white reaches 4.6:1 (teal → #008377,
+  brown → #857169); `BlockGuide` uses it for the step badge.
+- **Generated manifest** (`Ix`): `legacyStorageMaxSdk()` caps READ / WRITE_EXTERNAL_STORAGE of File blocks and
+  components at `maxSdkVersion="32"` for target 33+; `.DebugActivity` is declared for Run builds or when the project has
+  its own `DebugActivity.java` (exports no longer name a missing class).
+- **Network security configuration**: `Ix` adds `android:networkSecurityConfig="@xml/sketch_network_security_config"`
+  wherever `usesCleartextTraffic="true"` is written and nothing else set one; `jq.networkSecurityConfig` carries that
+  to `yq`, which adds the `SrcCodeBean` `Ix.NETWORK_SECURITY_CONFIG` (routed to `res/xml` by `yq.a(String, String)`).
+  `Ix.settleNetworkSecurityConfig` runs after `CommandBlock.applyCommands`, on both manifest paths (generation and
+  `getFileSrc`), and removes the generated attribute and file when a command block set the attribute too.
+- **Helper sources**: `SketchWeb.Client` carries `@TargetApi(27)`, `SketchWeb.register` and
+  `SketchButton.setBackgroundDrawable` a `@SuppressLint`; `SketchwareUtil.hideKeyboard` passes `SHOW_IMPLICIT`. No
+  behaviour change; they remove ten Android Studio lint errors from exported projects.
+- **Export check**: `gradle-export-check.sh` can run `lintDebug` (`LINT=1`). Fixture 908's export: 4 lint errors left
+  (two from the fixture's layout, `SuspiciousIndentation` in the activity template's helper, the camera feature tag).
+- Measured for the record: a Run build's APK verifies with v1, v2, v3 and v4 (`.idsig` beside it); an exported APK has
+  v1 + v2 + v3 and no v4 file; D8 8.13.25 never writes a DEX version above 039.

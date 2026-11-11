@@ -162,3 +162,14 @@ Whether a generated APK runs on a given Android version depends on that project'
 - Ad blocking (network and style sheet) and the Back step-over: Android 8+ (API 26) only, by design.
 - On a phone or a real page: NOT TESTED here (no device, no emulator): ad blocking, hidden ad boxes, Back, downloads
   and the HEAD request against a server, the type dialog, the guide and its animation in the logic editor.
+
+## v1.9.7.1 (11 Nov 2026)
+- Audit pass with small fixes (deeper orange under the white button labels, storage permissions capped at Android 12L
+  for target 33+, network security configuration, lint errors of exported projects). Eleven fixture builds (903, 907,
+  908, 913, 919, 920, 922, 931, 932, 933 and 908's AAB), the open / save lane on ten projects, h.CallWeb and h.CallPerm
+  on the Android 12 (API 31) ART harness with the final APK's classes; fixture 908's export built and linted with
+  Gradle 9.8.2 / AGP 9.5.0; layoutlib renders of the buttons and the guide. Results in
+  `v1.9.7.1-toolchain-m3-play-audit.md`.
+- On a phone: NOT TESTED here (no device, no emulator): the deeper orange on the IDE's screens, generated apps on
+  Android 13 to 17 (storage tags, cleartext through the configuration file), a Play Console upload.
+
