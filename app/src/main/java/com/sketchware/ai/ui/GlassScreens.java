@@ -94,6 +94,8 @@ public final class GlassScreens {
                 button.setBackgroundTintList(null);
                 button.setBackgroundResource(R.drawable.ob_safe_cta_state);
                 button.setTextColor(0xFF0B0B0D); // ob_on_cta: white on the orange was 2.8:1 to 3.75:1
+                // Android 10+ force dark would lighten the dark label again on these classic screens
+                if (android.os.Build.VERSION.SDK_INT >= 29) button.setForceDarkAllowed(false);
                 button.setAllCaps(false);
                 button.setStateListAnimator(null);
                 button.setMinWidth(0);

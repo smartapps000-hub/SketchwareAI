@@ -537,6 +537,7 @@ public final class M3Widgets {
                 + "\n"
                 + "    @Override\n"
                 + "    @SuppressWarnings(\"deprecation\")\n"
+                + "    @android.annotation.SuppressLint(\"RestrictedApi\")\n"
                 + "    public void setBackgroundDrawable(Drawable background) {\n"
                 + "        Drawable before = getBackground();\n"
                 + "        super.setBackgroundDrawable(background);\n"

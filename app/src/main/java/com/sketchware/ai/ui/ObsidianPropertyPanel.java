@@ -27,7 +27,7 @@ public final class ObsidianPropertyPanel {
     }
 
     /**
-     * A Basic / Recent / Event pill: amber with a white label when selected, dark glass with a
+     * A Basic / Recent / Event pill: amber with a near-black label (ob_on_cta) when selected, dark glass with a
      * light label otherwise (the pill itself is the ob_seg_pill selector). Both keep full size
      * and opacity; the classic panel shrank and faded the unselected tabs, which made their
      * labels hard to read.
@@ -38,7 +38,7 @@ public final class ObsidianPropertyPanel {
         item.setScaleY(1f);
         item.setAlpha(1f);
         item.setSelected(selected);
-        title.setTextColor(selected ? 0xFFFFFFFF : TEXT_DIM);
+        title.setTextColor(selected ? 0xFF0B0B0D /* ob_on_cta: white on this orange was 3.5:1 */ : TEXT_DIM);
     }
 
     /** The floating "See All" tile: amber dots and label. */

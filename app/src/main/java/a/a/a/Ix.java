@@ -95,6 +95,38 @@ public class Ix {
     /** v1.9.7.1: file name of the generated network security configuration (res/xml) */
     public static final String NETWORK_SECURITY_CONFIG = "sketch_network_security_config.xml";
 
+    private static final java.util.regex.Pattern CLEARTEXT_OFF =
+            java.util.regex.Pattern.compile("usesCleartextTraffic\\s*=\\s*[\"']false");
+
+    private static final String NETWORK_SECURITY_ATTRIBUTE = "android:networkSecurityConfig=\"@xml/"
+            + NETWORK_SECURITY_CONFIG.substring(0, NETWORK_SECURITY_CONFIG.indexOf('.')) + "\"";
+
+    /**
+     * The manifest as it goes to disk, after the XML command blocks ran on it: when something else (a command block)
+     * also set {@code android:networkSecurityConfig}, the generated attribute is taken out again (two would stop
+     * aapt2) and {@code generated[0]} becomes false, so the generated file is not written either.
+     */
+    public static String settleNetworkSecurityConfig(String manifest, boolean[] generated) {
+        if (!generated[0]) return manifest;
+        int first = manifest.indexOf("android:networkSecurityConfig");
+        if (first < 0 || manifest.indexOf("android:networkSecurityConfig", first + 1) < 0) return manifest;
+        int own = manifest.indexOf(NETWORK_SECURITY_ATTRIBUTE);
+        if (own < 0) return manifest;
+        int from = own;
+        while (from > 0 && (manifest.charAt(from - 1) == ' ' || manifest.charAt(from - 1) == '\t')) from--;
+        int to = own + NETWORK_SECURITY_ATTRIBUTE.length();
+        boolean lineEnds = to < manifest.length() && (manifest.charAt(to) == '\n' || manifest.charAt(to) == '\r');
+        if (from > 0 && manifest.charAt(from - 1) == '\n' && lineEnds) {
+            // the attribute had a line of its own: the line goes with it
+            if (manifest.charAt(to) == '\r') to++;
+            if (to < manifest.length() && manifest.charAt(to) == '\n') to++;
+        } else {
+            from = own;
+        }
+        generated[0] = false;
+        return manifest.substring(0, from) + manifest.substring(to);
+    }
+
     /** The generated configuration: cleartext permitted, as {@code usesCleartextTraffic="true"} does. */
     public static String networkSecurityConfigXml() {
         return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -399,7 +431,7 @@ public class Ix {
         c.networkSecurityConfig = false;
         if (applicationTag.hasAttributeContaining("usesCleartextTraffic")
                 && !applicationTag.hasAttributeContaining("networkSecurityConfig")
-                && !applicationTag.toCode().contains("usesCleartextTraffic=\"false\"")) {
+                && !CLEARTEXT_OFF.matcher(applicationTag.toCode()).find()) {
             applicationTag.a("android", "networkSecurityConfig",
                     "@xml/" + NETWORK_SECURITY_CONFIG.substring(0, NETWORK_SECURITY_CONFIG.indexOf('.')));
             c.networkSecurityConfig = true;
@@ -477,7 +509,10 @@ public class Ix {
                 applicationTag.a(activityTag);
             }
         }
-        {
+        // v1.9.7.1: the crash screen exists in Run builds only (yq writes DebugActivity.java for them; an export leaves
+        // it out), so an exported manifest no longer names a class the project does not have. A DebugActivity.java
+        // of the user's own is still declared.
+        if (c.isDebugBuild || new File(fpu.getPathJava(c.sc_id), "DebugActivity.java").exists()) {
             Nx activityTag = new Nx("activity");
             activityTag.a("android", "name", ".DebugActivity");
             activityTag.a("android", "screenOrientation", "portrait");

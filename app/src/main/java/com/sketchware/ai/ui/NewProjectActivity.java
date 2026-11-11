@@ -332,7 +332,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     private void refreshEngine() {
         boolean d8 = BuildSettings.SETTING_DEXER_D8.equals(choices.dexer);
         engineModern.setSelected(true);
-        engineModern.setTextColor(0xFFFFFFFF);
+        engineModern.setTextColor(0xFF0B0B0D); // ob_on_cta on the selected orange segment
         engineModern.setText(d8 ? "On the phone: D8 / R8 8.13" : "On the phone: Dx");
         engineCaption.setText((d8
                 ? "Core library desugaring (java.time, streams on old Android versions), Java 7 to 11. "

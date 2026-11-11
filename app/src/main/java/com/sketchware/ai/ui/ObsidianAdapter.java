@@ -137,10 +137,11 @@ public final class ObsidianAdapter {
         } else if (background instanceof GlassDrawable
                 || background instanceof android.graphics.drawable.RippleDrawable
                 || background instanceof android.graphics.drawable.StateListDrawable && isPressOverlay(view)) {
-            // v1.9.7.1: a label drawn directly on an accent-filled glass surface (the orange call-to-action, whose
-            // label is near-black for contrast) is not "dark text on a dark sheet": leave its colour alone.
+            // v1.9.7.1: what sits on an accent-filled glass surface (the orange call-to-action, the selected segment
+            // pill of the property panel: near-black labels for contrast) is not "dark text on a dark sheet": its
+            // colours are left alone.
             Drawable shown = background.getCurrent();
-            if (view instanceof TextView && shown instanceof GlassDrawable && ((GlassDrawable) shown).isAccentFill()) {
+            if (shown instanceof GlassDrawable && ((GlassDrawable) shown).isAccentFill()) {
                 return false;
             }
             return onDark;

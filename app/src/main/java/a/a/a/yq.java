@@ -904,8 +904,12 @@ public class yq {
             }
         }
 
-        srcCodeBeans.add(new SrcCodeBean("AndroidManifest.xml",
-                CommandBlock.applyCommands("AndroidManifest.xml", ix.a())));
+        boolean[] networkConfig = {false};
+        String manifestText = CommandBlock.applyCommands("AndroidManifest.xml", ix.a());
+        networkConfig[0] = N.networkSecurityConfig;
+        manifestText = Ix.settleNetworkSecurityConfig(manifestText, networkConfig);
+        N.networkSecurityConfig = networkConfig[0];
+        srcCodeBeans.add(new SrcCodeBean("AndroidManifest.xml", manifestText));
         if (N.networkSecurityConfig) {
             srcCodeBeans.add(new SrcCodeBean(Ix.NETWORK_SECURITY_CONFIG, Ix.networkSecurityConfigXml()));
         }
@@ -1091,7 +1095,8 @@ public class yq {
         if (isManifestFile) {
             Ix ix = new Ix(N, projectFileManager.b());
             ix.setYq(this);
-            return CommandBlock.applyCommands("AndroidManifest.xml", ix.a());
+            String manifestText = CommandBlock.applyCommands("AndroidManifest.xml", ix.a());
+            return Ix.settleNetworkSecurityConfig(manifestText, new boolean[]{N.networkSecurityConfig});
         }
 
         for (ProjectFileBean file : files) {

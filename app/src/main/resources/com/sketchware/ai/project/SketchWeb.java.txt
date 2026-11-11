@@ -642,6 +642,7 @@ public class SketchWeb {
         return result;
     }
 
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag") // the flag is passed on Android 13+ below
     private static void register(Context context) {
         if (receiver != null) return;
         receiver = new BroadcastReceiver() {
@@ -843,6 +844,7 @@ public class SketchWeb {
     }
 
     /** Wraps the WebView's own client (page events of the blocks) and adds ad blocking. Android 8+. */
+    @android.annotation.TargetApi(27) // each override is called by the system only from the API level that added it
     private static class Client extends WebViewClient {
         private final WebViewClient original;
         private final State state;

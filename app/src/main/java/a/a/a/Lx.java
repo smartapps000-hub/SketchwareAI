@@ -3088,7 +3088,7 @@ public class Lx {
                 "\r\n" +
                 "    public static void hideKeyboard(Context _context) {\r\n" +
                 "        InputMethodManager _inputMethodManager = (InputMethodManager) _context.getSystemService(Context.INPUT_METHOD_SERVICE);\r\n" +
-                "        _inputMethodManager.toggleSoftInput(InputMethodManager.HIDE_IMPLICIT_ONLY, 0);\r\n" +
+                "        _inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);\r\n" +
                 "    }\r\n" +
                 "    \r\n" +
                 "    public static void showKeyboard(Context _context) {\r\n" +
