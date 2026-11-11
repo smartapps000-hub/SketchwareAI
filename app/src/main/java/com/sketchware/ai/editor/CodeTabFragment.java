@@ -97,8 +97,7 @@ public class CodeTabFragment extends Fragment {
         TextView create = (TextView) LayoutInflater.from(getContext()).inflate(R.layout.ob_lib_tab, list, false);
         create.setText("+ New class");
         create.setBackgroundResource(R.drawable.ob_cta_state);
-        create.setTextColor(0xFF0B0B0D); // ob_on_cta
-        if (android.os.Build.VERSION.SDK_INT >= 29) create.setForceDarkAllowed(false); // force dark would lighten it
+        create.setTextColor(0xFFFFFFFF);
         create.setOnClickListener(v -> showCreateDialog());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
         lp.topMargin = dp(4);

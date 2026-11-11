@@ -15,8 +15,8 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * v1.9.7.1 contrast pass: the call-to-action label before (white) and after (ob_on_cta #0B0B0D) on the normal and the
- * pressed orange surface (the plain-shape versions of the drawables). Writes out/v1971_cta.png.
+ * v1.9.7.1 contrast pass: the call-to-action with its white label on the original orange gradient (before) and on
+ * the deepened one (after), normal and pressed (the plain-shape versions of the drawables). Writes out/v1971_cta.png.
  */
 class V1971Test {
     @get:Rule val paparazzi = Paparazzi(
@@ -24,19 +24,26 @@ class V1971Test {
 
     private fun dp(v: Int) = (v * paparazzi.context.resources.displayMetrics.density).toInt()
 
-    private fun button(text: String, color: Int, bg: Int, icon: Boolean): TextView {
+    private fun original(): android.graphics.drawable.Drawable {
+        // ob_safe_cta as it was up to v1.9.7: #E8501C to #F97316, angle 315
+        val g = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.parseColor("#E8501C"), Color.parseColor("#F97316")))
+        g.cornerRadius = dp(16).toFloat()
+        g.setStroke(dp(1), Color.parseColor("#80FFFFFF"))
+        return g
+    }
+
+    private fun button(text: String, bg: android.graphics.drawable.Drawable, icon: Boolean): TextView {
         val c = paparazzi.context
         val b = TextView(c)
         b.text = text
-        b.setTextColor(color)
+        b.setTextColor(Color.WHITE)
         b.textSize = 16f
         b.typeface = c.resources.getFont(R.font.manrope_extrabold)
         b.gravity = Gravity.CENTER
-        b.setBackgroundResource(bg)
+        b.background = bg
         if (icon) {
-            val d = c.getDrawable(R.drawable.ob_ic_play_small)!!.mutate()
-            d.setTint(color)
-            b.setCompoundDrawablesWithIntrinsicBounds(d, null, null, null)
+            b.setCompoundDrawablesWithIntrinsicBounds(c.getDrawable(R.drawable.ob_ic_play_small), null, null, null)
             b.compoundDrawablePadding = dp(6)
         }
         b.setPadding(dp(22), 0, dp(22), 0)
@@ -58,18 +65,18 @@ class V1971Test {
         col.orientation = LinearLayout.VERTICAL
         col.setBackgroundColor(Color.parseColor("#0B0B0D"))
         col.setPadding(dp(20), dp(12), dp(20), dp(20))
-        fun row(label: String, color: Int, bg: Int) {
+        fun row(label: String, bg: () -> android.graphics.drawable.Drawable) {
             col.addView(caption(label))
             val r = LinearLayout(c)
             r.orientation = LinearLayout.HORIZONTAL
             val lp = LinearLayout.LayoutParams(0, dp(48), 1f); lp.rightMargin = dp(10)
-            r.addView(button("Create project", color, bg, false), lp)
-            r.addView(button("Run", color, bg, true), LinearLayout.LayoutParams(dp(110), dp(48)))
+            r.addView(button("Create project", bg(), false), lp)
+            r.addView(button("Run", bg(), true), LinearLayout.LayoutParams(dp(110), dp(48)))
             col.addView(r)
         }
-        row("Before: white label (2.8:1 to 3.75:1)", Color.WHITE, R.drawable.ob_safe_cta)
-        row("After: #0B0B0D label (5.2:1 to 7.0:1)", Color.parseColor("#0B0B0D"), R.drawable.ob_safe_cta)
-        row("After, pressed (4.8:1 to 5.9:1)", Color.parseColor("#0B0B0D"), R.drawable.ob_safe_cta_pressed)
+        row("Before: white on #E8501C to #F97316 (3.75:1 to 2.80:1)") { original() }
+        row("After: white on #D34115 to #C64F14 (4.6:1)") { c.getDrawable(R.drawable.ob_safe_cta)!! }
+        row("After, pressed: #C83D13 to #BC4A12 (5.1:1)") { c.getDrawable(R.drawable.ob_safe_cta_pressed)!! }
         val w = dp(400)
         col.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
         col.layout(0, 0, w, col.measuredHeight)

@@ -86,8 +86,8 @@ public final class BlockShapeView extends View {
         notch = 6 * density;
         radius = 7 * density;
 
-        fill.setColor(color);
-        text.setColor(onColor(color));
+        fill.setColor(readable(color));
+        text.setColor(Color.WHITE);
         text.setTypeface(Typeface.DEFAULT_BOLD);
         text.setTextSize(13.5f * density);
         lineHeight = text.descent() - text.ascent();
@@ -101,14 +101,26 @@ public final class BlockShapeView extends View {
     }
 
     /**
-     * The label colour for text on {@code color}: white where white reaches WCAG AA (4.5:1), otherwise the Obsidian
-     * near-black. White on the permission teal was 3.67:1 and on the file brown 3.31:1; the block colours themselves
-     * stay the editor's.
+     * v1.9.7.1: the body colour the guide draws a block in. The label stays white; a block colour on which white does
+     * not reach WCAG AA is deepened (same hue and saturation, lower value) just far enough: permission teal #009688
+     * (3.67:1) becomes #008377 (4.65:1), file brown #A1887F (3.31:1) becomes #857169 (4.60:1); web blue #4A6CD4
+     * (4.79:1) is drawn as it is.
      */
-    public static int onColor(int color) {
+    public static int readable(int color) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+        int result = color;
+        for (int i = 0; i < 250 && whiteContrast(result) < 4.6; i++) {
+            hsv[2] = Math.max(0f, hsv[2] - 0.002f);
+            result = Color.HSVToColor(Color.alpha(color), hsv);
+        }
+        return result;
+    }
+
+    private static double whiteContrast(int color) {
         double l = 0.2126 * channel(Color.red(color)) + 0.7152 * channel(Color.green(color))
                 + 0.0722 * channel(Color.blue(color));
-        return 1.05 / (l + 0.05) >= 4.5 ? Color.WHITE : 0xFF0B0B0D;
+        return 1.05 / (l + 0.05);
     }
 
     private static double channel(int value) {

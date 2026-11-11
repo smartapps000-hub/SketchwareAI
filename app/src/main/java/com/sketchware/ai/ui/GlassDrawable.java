@@ -94,15 +94,6 @@ public class GlassDrawable extends Drawable {
         onBoundsChange(getBounds());
     }
 
-    /**
-     * v1.9.7.1: whether the body is an opaque, saturated colour (the orange call-to-action, the red pill, the orange
-     * tiles) rather than dark or translucent glass. A label on such a surface carries its own colour.
-     */
-    public boolean isAccentFill() {
-        int r = Color.red(fillTop), g = Color.green(fillTop), b = Color.blue(fillTop);
-        return Color.alpha(fillTop) >= 0xC0 && Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b)) >= 40;
-    }
-
     /** Programmatic setup, for views built in code. */
     public GlassDrawable set(float radiusPx, int fillTop, int fillBottom, int rimTop, int rimBottom) {
         this.radius = radiusPx;

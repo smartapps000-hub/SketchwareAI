@@ -228,11 +228,11 @@ public final class BlockGuide {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(0, PermissionPicker.dp(context, 4), 0, PermissionPicker.dp(context, 4));
 
-        TextView badge = text(context, String.valueOf(number), 12, BlockShapeView.onColor(color), true);
+        TextView badge = text(context, String.valueOf(number), 12, Color.WHITE, true);
         badge.setGravity(Gravity.CENTER);
         GradientDrawable circle = new GradientDrawable();
         circle.setShape(GradientDrawable.OVAL);
-        circle.setColor(color);
+        circle.setColor(BlockShapeView.readable(color)); // white number: same deepened colour as the block
         badge.setBackground(circle);
         int size = PermissionPicker.dp(context, 22);
         LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(size, size);

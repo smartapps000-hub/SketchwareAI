@@ -186,7 +186,7 @@
                 android:background="@drawable/ob_safe_cta_state"
                 android:gravity="center"
                 android:text="Share report"
-                android:textColor="@color/ob_on_cta"
+                android:textColor="#FFFFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>

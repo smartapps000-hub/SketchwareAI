@@ -1,6 +1,6 @@
 #!/bin/bash
-# v1.9.7.1: copies what V197Test (guide sheet: label colour by contrast) and V1971Test (call-to-action label before /
-# after) need from the IDE. Usage: setup_v1971.sh <repo root>; then
+# v1.9.7.1: copies what V197Test (guide sheet: white labels on block colours deepened for contrast) and V1971Test
+# (call-to-action: white label on the original and on the deepened orange) need from the IDE. Usage: setup_v1971.sh <repo root>; then
 # ./gradlew :render:testDebugUnitTest --tests 'pz.V197Test' --tests 'pz.V1971Test'   (writes /home/claude/pz/out/*.png)
 # The other tests need their own setup scripts' files: run in a copy that holds only these two tests, or after them.
 set -e

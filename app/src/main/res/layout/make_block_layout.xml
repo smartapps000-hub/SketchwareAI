@@ -226,14 +226,13 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             android:background="@drawable/ob_safe_cta_state"
-                            android:forceDarkAllowed="false"
                             android:gravity="center"
                             android:minWidth="0dp"
                             android:paddingLeft="14dp"
                             android:paddingRight="14dp"
                             android:stateListAnimator="@null"
                             android:textAllCaps="false"
-                            android:textColor="@color/ob_on_cta"
+                            android:textColor="#ffffffff"
                             android:textSize="12.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -283,7 +282,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:background="@drawable/ob_safe_cta_state"
-                        android:forceDarkAllowed="false"
                         android:gravity="center"
                         android:minWidth="0dp"
                         android:paddingLeft="14dp"
@@ -291,7 +289,7 @@
                         android:stateListAnimator="@null"
                         android:textAllCaps="false"
                         android:textStyle="bold"
-                        android:textColor="@color/ob_on_cta"
+                        android:textColor="#ffffffff"
                         android:textSize="12.5sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -368,7 +366,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:background="@drawable/ob_safe_cta_state"
-                        android:forceDarkAllowed="false"
                         android:gravity="center"
                         android:minWidth="0dp"
                         android:paddingLeft="14dp"
@@ -377,7 +374,7 @@
                         android:textAllCaps="false"
                         android:textStyle="bold"
                         android:text="Add"
-                        android:textColor="@color/ob_on_cta"
+                        android:textColor="#ffffffff"
                         android:textSize="12.5sp" />
                 </LinearLayout>
             </LinearLayout>

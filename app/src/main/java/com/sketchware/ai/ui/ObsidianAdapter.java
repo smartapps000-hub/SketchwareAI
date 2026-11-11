@@ -34,7 +34,7 @@ public final class ObsidianAdapter {
 
     private static final int TEXT = 0xFFF5F5F7;
     private static final int TEXT_2 = 0xFFA1A1AA;
-    private static final int HINT = 0xFF8E8E93; // v1.9.7.1: was #71717A, 4.07:1 on the dark ground
+    private static final int HINT = 0xFF8E8E93; // v1.9.7.1: was #71717A, 4.07:1 on the dark ground; now 6.03:1
     private static final int ACCENT = 0xFFFF7A29;
 
     private ObsidianAdapter() {
@@ -137,13 +137,6 @@ public final class ObsidianAdapter {
         } else if (background instanceof GlassDrawable
                 || background instanceof android.graphics.drawable.RippleDrawable
                 || background instanceof android.graphics.drawable.StateListDrawable && isPressOverlay(view)) {
-            // v1.9.7.1: what sits on an accent-filled glass surface (the orange call-to-action, the selected segment
-            // pill of the property panel: near-black labels for contrast) is not "dark text on a dark sheet": its
-            // colours are left alone.
-            Drawable shown = background.getCurrent();
-            if (shown instanceof GlassDrawable && ((GlassDrawable) shown).isAccentFill()) {
-                return false;
-            }
             return onDark;
         } else {
             // Unknown artwork (9-patch, card, image): assume it's light, leave text alone.
