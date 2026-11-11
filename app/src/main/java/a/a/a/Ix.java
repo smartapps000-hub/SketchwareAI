@@ -92,6 +92,27 @@ public class Ix {
         manifestTag.a(queries);
     }
 
+    /** v1.9.7.1: file name of the generated network security configuration (res/xml) */
+    public static final String NETWORK_SECURITY_CONFIG = "sketch_network_security_config.xml";
+
+    /** The generated configuration: cleartext permitted, as {@code usesCleartextTraffic="true"} does. */
+    public static String networkSecurityConfigXml() {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                + "<network-security-config>\n"
+                + "    <base-config cleartextTrafficPermitted=\"true\" />\n"
+                + "</network-security-config>\n";
+    }
+
+    /**
+     * v1.9.7.1: READ / WRITE_EXTERNAL_STORAGE of the File blocks and components. An app that targets API 33+ is never
+     * granted either of them on Android 13+ (the request is answered "denied" without a dialog), so there the
+     * declaration is limited to Android 12L and older, where it still works as before. Projects with a lower
+     * target keep the plain declaration.
+     */
+    private String legacyStorageMaxSdk() {
+        return com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings) >= 33 ? "32" : null;
+    }
+
     private void writePermission(Nx manifestTag, String permissionName) {
         writePermission(manifestTag, permissionName, null);
     }
@@ -294,10 +315,10 @@ public class Ix {
                     }
                 } catch (NumberFormatException ignored) {
                 }
-                writePermission(a, Manifest.permission.READ_EXTERNAL_STORAGE);
+                writePermission(a, Manifest.permission.READ_EXTERNAL_STORAGE, legacyStorageMaxSdk());
             }
             if (c.hasPermission(jq.PERMISSION_WRITE_EXTERNAL_STORAGE)) {
-                writePermission(a, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                writePermission(a, Manifest.permission.WRITE_EXTERNAL_STORAGE, legacyStorageMaxSdk());
             }
             if (c.hasPermission(jq.PERMISSION_RECORD_AUDIO)) {
                 writePermission(a, Manifest.permission.RECORD_AUDIO);
@@ -371,6 +392,18 @@ public class Ix {
             applicationTag.a("android", "usesCleartextTraffic", "true");
         }
         AndroidManifestInjector.getAppAttrs(applicationTag, c.sc_id);
+        // v1.9.7.1: Android 17 announces the end of usesCleartextTraffic; the documented replacement is a network
+        // security configuration (API 24+; below that the attribute above still applies). The generated file
+        // permits what the attribute permits, so http:// keeps working exactly where it works today. A
+        // configuration the user set in the manifest editor wins.
+        c.networkSecurityConfig = false;
+        if (applicationTag.hasAttributeContaining("usesCleartextTraffic")
+                && !applicationTag.hasAttributeContaining("networkSecurityConfig")
+                && !applicationTag.toCode().contains("usesCleartextTraffic=\"false\"")) {
+            applicationTag.a("android", "networkSecurityConfig",
+                    "@xml/" + NETWORK_SECURITY_CONFIG.substring(0, NETWORK_SECURITY_CONFIG.indexOf('.')));
+            c.networkSecurityConfig = true;
+        }
         com.sketchware.ai.project.DeviceTargets.application(applicationTag, settings);
         if (com.sketchware.ai.project.ModernProjectDefaults.targetSdk(settings) >= 33) {
             // Android 16 turns on predictive back for apps targeting API 36+, which stops

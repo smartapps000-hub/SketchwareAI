@@ -3,6 +3,8 @@
 <resources>
     <color name="ob_bg">#FF0B0B0D</color>
     <color name="ob_text">#FFF5F5F7</color>
+    <!-- label and icon on the orange call-to-action surfaces (ob_cta*, ob_safe_cta*): 5.2:1 to 7.0:1; white was 2.8:1 to 3.75:1 -->
+    <color name="ob_on_cta">#FF0B0B0D</color>
     <color name="ob_text_2">#FFA1A1AA</color>
     <color name="ob_text_3">#FFD4D4D8</color>
     <color name="ob_text_4">#FFE4E4E7</color>

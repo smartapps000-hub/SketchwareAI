@@ -441,7 +441,7 @@ public class yq {
             // v1.8.6: the dark colour roles (M3Palette), values-night/m3_colors.xml
             fileUtil.b(resDirectoryPath + File.separator + "values-night" + File.separator
                     + com.sketchware.ai.project.M3Widgets.M3_COLORS_FILE, fileContent);
-        } else if (fileName.equals("provider_paths.xml")) {
+        } else if (fileName.equals("provider_paths.xml") || fileName.equals(Ix.NETWORK_SECURITY_CONFIG)) {
             fileUtil.b(resDirectoryPath + File.separator + "xml" + File.separator + fileName, fileContent);
         } else {
             fileUtil.b(layoutFilesPath + File.separator + fileName, fileContent);
@@ -906,6 +906,9 @@ public class yq {
 
         srcCodeBeans.add(new SrcCodeBean("AndroidManifest.xml",
                 CommandBlock.applyCommands("AndroidManifest.xml", ix.a())));
+        if (N.networkSecurityConfig) {
+            srcCodeBeans.add(new SrcCodeBean(Ix.NETWORK_SECURITY_CONFIG, Ix.networkSecurityConfigXml()));
+        }
         if (N.g) {
             boolean useNewMaterialComponentsTheme = projectSettings.getValue(ProjectSettings.SETTING_ENABLE_BRIDGELESS_THEMES,
                     BuildSettings.SETTING_GENERIC_VALUE_FALSE).equals(BuildSettings.SETTING_GENERIC_VALUE_TRUE);

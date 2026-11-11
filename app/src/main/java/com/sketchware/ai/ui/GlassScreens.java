@@ -93,7 +93,7 @@ public final class GlassScreens {
                 float d = view.getResources().getDisplayMetrics().density;
                 button.setBackgroundTintList(null);
                 button.setBackgroundResource(R.drawable.ob_safe_cta_state);
-                button.setTextColor(Color.WHITE);
+                button.setTextColor(0xFF0B0B0D); // ob_on_cta: white on the orange was 2.8:1 to 3.75:1
                 button.setAllCaps(false);
                 button.setStateListAnimator(null);
                 button.setMinWidth(0);

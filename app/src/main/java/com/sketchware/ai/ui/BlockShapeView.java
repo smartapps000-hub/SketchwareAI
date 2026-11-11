@@ -87,7 +87,7 @@ public final class BlockShapeView extends View {
         radius = 7 * density;
 
         fill.setColor(color);
-        text.setColor(Color.WHITE);
+        text.setColor(onColor(color));
         text.setTypeface(Typeface.DEFAULT_BOLD);
         text.setTextSize(13.5f * density);
         lineHeight = text.descent() - text.ascent();
@@ -98,6 +98,22 @@ public final class BlockShapeView extends View {
         slotText.setTextSize(12.5f * density);
 
         parse(block);
+    }
+
+    /**
+     * The label colour for text on {@code color}: white where white reaches WCAG AA (4.5:1), otherwise the Obsidian
+     * near-black. White on the permission teal was 3.67:1 and on the file brown 3.31:1; the block colours themselves
+     * stay the editor's.
+     */
+    public static int onColor(int color) {
+        double l = 0.2126 * channel(Color.red(color)) + 0.7152 * channel(Color.green(color))
+                + 0.0722 * channel(Color.blue(color));
+        return 1.05 / (l + 0.05) >= 4.5 ? Color.WHITE : 0xFF0B0B0D;
+    }
+
+    private static double channel(int value) {
+        double c = value / 255.0;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
     private static int tint(int color) {

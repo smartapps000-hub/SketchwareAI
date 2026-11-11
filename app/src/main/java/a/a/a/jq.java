@@ -244,6 +244,9 @@ public class jq {
     public java.util.LinkedHashSet<String> permissionNames = new java.util.LinkedHashSet<>();
     /** v1.9.4: a file of the project uses a permission block: every activity passes answers to SketchPermission */
     public boolean permissionBlocksUsed;
+    /** v1.9.7.1: the manifest written last refers to the generated network security configuration (Ix) */
+    public boolean networkSecurityConfig;
+
     /** v1.9.4: a web "allow downloads" block is used (DownloadManager needs WRITE_EXTERNAL_STORAGE below Android 6) */
     public boolean webDownloadsUsed;
     /** v1.9.4: the build log's note on the permissions the blocks added to the manifest, or null */

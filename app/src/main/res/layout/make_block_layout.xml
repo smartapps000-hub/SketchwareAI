@@ -232,7 +232,7 @@
                             android:paddingRight="14dp"
                             android:stateListAnimator="@null"
                             android:textAllCaps="false"
-                            android:textColor="#ffffffff"
+                            android:textColor="@color/ob_on_cta"
                             android:textSize="12.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -289,7 +289,7 @@
                         android:stateListAnimator="@null"
                         android:textAllCaps="false"
                         android:textStyle="bold"
-                        android:textColor="#ffffffff"
+                        android:textColor="@color/ob_on_cta"
                         android:textSize="12.5sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -374,7 +374,7 @@
                         android:textAllCaps="false"
                         android:textStyle="bold"
                         android:text="Add"
-                        android:textColor="#ffffffff"
+                        android:textColor="@color/ob_on_cta"
                         android:textSize="12.5sp" />
                 </LinearLayout>
             </LinearLayout>

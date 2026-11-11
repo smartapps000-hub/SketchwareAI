@@ -44,7 +44,7 @@
     </style>
     <style name="Ob.Text.Button.Cta">
         <item name="android:fontFamily">@font/manrope_extrabold</item>
-        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:textColor">@color/ob_on_cta</item>
     </style>
     <style name="Ob.Text.Mono">
         <item name="android:fontFamily">@font/jetbrains_mono</item>

@@ -207,7 +207,7 @@
                             android:paddingRight="22dp"
                             android:stateListAnimator="@animator/sw_press"
                             android:textAllCaps="false"
-                            android:textColor="#FFFFFFFF"
+                            android:textColor="@color/ob_on_cta"
                             android:textSize="17sp" />
                     </FrameLayout>
                 </LinearLayout>

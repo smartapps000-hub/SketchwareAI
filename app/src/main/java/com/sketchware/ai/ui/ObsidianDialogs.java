@@ -102,7 +102,7 @@ public final class ObsidianDialogs {
     private static void styleButton(Button button, boolean primary, float density) {
         if (button == null || button.getVisibility() != View.VISIBLE) return;
         button.setBackgroundResource(primary ? R.drawable.ob_safe_cta_state : R.drawable.ob_safe_pill_state);
-        button.setTextColor(primary ? 0xFFFFFFFF : 0xFFF5F5F7);
+        button.setTextColor(primary ? 0xFF0B0B0D /* ob_on_cta */ : 0xFFF5F5F7);
         button.setAllCaps(false);
         button.setTypeface(Typeface.DEFAULT_BOLD);
         button.setMinHeight((int) (44 * density));

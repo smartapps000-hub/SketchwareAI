@@ -228,7 +228,7 @@ public final class BlockGuide {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(0, PermissionPicker.dp(context, 4), 0, PermissionPicker.dp(context, 4));
 
-        TextView badge = text(context, String.valueOf(number), 12, Color.WHITE, true);
+        TextView badge = text(context, String.valueOf(number), 12, BlockShapeView.onColor(color), true);
         badge.setGravity(Gravity.CENTER);
         GradientDrawable circle = new GradientDrawable();
         circle.setShape(GradientDrawable.OVAL);
