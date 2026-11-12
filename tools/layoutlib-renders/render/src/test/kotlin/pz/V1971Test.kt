@@ -85,4 +85,44 @@ class V1971Test {
         java.io.File("/home/claude/pz/out").mkdirs()
         java.io.FileOutputStream("/home/claude/pz/out/v1971_cta.png").use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+
+    /** The selected segment pill (property panel): white on ob_tile_orange (before) and on ob_seg_pill_on (after). */
+    @Test fun pills() {
+        val c = paparazzi.context
+        val col = LinearLayout(c)
+        col.orientation = LinearLayout.VERTICAL
+        col.setBackgroundColor(Color.parseColor("#0B0B0D"))
+        col.setPadding(dp(20), dp(12), dp(20), dp(20))
+        fun pill(text: String, selected: Boolean, on: () -> android.graphics.drawable.Drawable): TextView {
+            val t = TextView(c)
+            t.text = text
+            t.textSize = 12f
+            t.typeface = c.resources.getFont(R.font.manrope_bold)
+            t.gravity = Gravity.CENTER
+            t.setTextColor(if (selected) Color.WHITE else Color.parseColor("#D4D4D8"))
+            t.background = if (selected) on() else c.getDrawable(R.drawable.ob_pill)!!
+            t.setPadding(dp(14), 0, dp(14), 0)
+            t.minWidth = dp(64)
+            return t
+        }
+        fun row(label: String, on: () -> android.graphics.drawable.Drawable) {
+            col.addView(caption(label))
+            val r = LinearLayout(c)
+            r.orientation = LinearLayout.HORIZONTAL
+            for ((i, name) in listOf("Basic", "Recent", "Event").withIndex()) {
+                val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(30)); lp.rightMargin = dp(8)
+                r.addView(pill(name, i == 0, on), lp)
+            }
+            col.addView(r)
+        }
+        row("Before: white on ob_tile_orange #F4511E (3.5:1 down to 2.9:1)") { c.getDrawable(R.drawable.ob_tile_orange)!! }
+        row("After: white on ob_seg_pill_on #D34115 to #C64F14 (4.6:1)") { c.getDrawable(R.drawable.ob_seg_pill_on)!! }
+        val w = dp(360)
+        col.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        col.layout(0, 0, w, col.measuredHeight)
+        val bmp = Bitmap.createBitmap(w, col.measuredHeight, Bitmap.Config.ARGB_8888)
+        col.draw(Canvas(bmp))
+        java.io.File("/home/claude/pz/out").mkdirs()
+        java.io.FileOutputStream("/home/claude/pz/out/v1971_pills.png").use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Liquid glass surface, see com.sketchware.ai.ui.GlassDrawable. The selected segment pill (property panel Basic /
+     Recent / Event, New Project engine row) with its white label: the call-to-action's deeper orange (4.6:1 for white;
+     ob_tile_orange, which the pills used before, is 3.48:1 down to 2.9:1). ob_tile_orange itself stays as it is. -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="14dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFD34115"
+    app:swFillBottom="#FFC64F14"
+    app:swRimTop="#73FFFFFF"
+    app:swRimBottom="#1AFFFFFF" />

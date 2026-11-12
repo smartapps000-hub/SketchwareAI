@@ -10,5 +10,7 @@ for c in BlockGuide BlockShapeView PermissionPicker; do
   sed 's/^import com\.sketchware\.remod\.R;/import pz.render.R;/' $SRC/java/com/sketchware/ai/ui/$c.java > $DST/java/com/sketchware/ai/ui/$c.java
 done
 cp $SRC/res/drawable/ob_safe_cta.xml $SRC/res/drawable/ob_safe_cta_pressed.xml $SRC/res/drawable/ob_ic_play_small.xml $DST/res/drawable/
+# the plain-shape (pre-API 24) versions: layoutlib can not inflate the GlassDrawable class of drawable-v24
+cp $SRC/res/drawable/ob_seg_pill_on.xml $SRC/res/drawable/ob_tile_orange.xml $SRC/res/drawable/ob_pill.xml $DST/res/drawable/
 cp $SRC/res/font/manrope_extrabold.ttf $SRC/res/font/manrope_bold.ttf $DST/res/font/
 echo copied

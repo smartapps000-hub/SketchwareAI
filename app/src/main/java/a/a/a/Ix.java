@@ -92,6 +92,25 @@ public class Ix {
         manifestTag.a(queries);
     }
 
+    private static final java.util.regex.Pattern CAMERA_FEATURE = java.util.regex.Pattern.compile(
+            "<uses-feature[^>]*android:name=\"android\\.hardware\\.camera\"");
+
+    /**
+     * v1.9.7.1 (owner's go, 11 Nov): CAMERA makes Google Play treat a camera as required and hide the app from devices
+     * without one (Chromebooks, TVs). Wherever the manifest asks for CAMERA (Camera component, permission blocks, the
+     * Permission Manager, raw injections) it also gets {@code <uses-feature android:name="android.hardware.camera"
+     * android:required="false"/>}, unless the manifest already has a feature tag for the camera. Install on a phone is
+     * not affected; only Play's device filter.
+     */
+    private void addCameraFeature(Nx manifest) {
+        if (!writtenPermissions.contains(Manifest.permission.CAMERA)) return;
+        if (CAMERA_FEATURE.matcher(manifest.toCode()).find()) return;
+        Nx feature = new Nx("uses-feature");
+        feature.a("android", "name", "android.hardware.camera");
+        feature.a("android", "required", "false");
+        manifest.a(feature);
+    }
+
     /** v1.9.7.1: file name of the generated network security configuration (res/xml) */
     public static final String NETWORK_SECURITY_CONFIG = "sketch_network_security_config.xml";
 
@@ -405,6 +424,7 @@ public class Ix {
         }
         // v1.9.0: Wear OS / Android TV features, only for a project whose target device is set to one of them
         com.sketchware.ai.project.DeviceTargets.addFeatures(a, settings);
+        addCameraFeature(a);
 
         Nx applicationTag = new Nx("application");
         applicationTag.a("android", "allowBackup", "true");
