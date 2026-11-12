@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v1.9.8: the call-to-action as a pill (same deepened orange as ob_cta, white label 4.6:1), see GlassDrawable. -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="26dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFD34115"
+    app:swFillBottom="#FFC64F14"
+    app:swRimTop="#B3FFFFFF"
+    app:swRimBottom="#52FFFFFF"
+    app:swGlowColor="#80FF7428"
+    app:swGlowRadius="9dp"
+    app:swGlowDy="3dp" />

@@ -29,6 +29,8 @@ public final class DeviceFlow {
         public String deviceCode;
         public String userCode;
         public String verificationUri;
+        /** The page with the code already filled in, when GitHub sends one (https://github.com/... only). */
+        public String verificationUriComplete;
         public int expiresIn;
         public int interval;
     }
@@ -59,9 +61,11 @@ public final class DeviceFlow {
         code.expiresIn = integer(json, "expires_in", 900);
         code.interval = Math.max(5, integer(json, "interval", 5));
         if (code.deviceCode == null || code.userCode == null) throw failure("bad_answer", "GitHub's answer had no code.");
-        if (code.verificationUri == null || !code.verificationUri.startsWith("https://")) {
+        if (code.verificationUri == null || !code.verificationUri.startsWith("https://github.com/")) {
             code.verificationUri = GitHubHttp.DEFAULT_WEB + "/login/device";
         }
+        String complete = string(json, "verification_uri_complete");
+        code.verificationUriComplete = complete != null && complete.startsWith("https://github.com/") ? complete : null;
         return code;
     }
 

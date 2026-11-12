@@ -237,6 +237,9 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         boolean hasStorageAccess = j();
         if (!hasStorageAccess) {
             showNoticeNeedStorageAccess();
+        } else {
+            // v1.9.8: release notices from config/app-control.json (background, notices only, never a lock)
+            com.sketchware.ai.github.AppControl.check(this);
         }
 
         if (Intent.ACTION_VIEW.equals(getIntent().getAction())) {

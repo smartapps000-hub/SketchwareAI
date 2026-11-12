@@ -16,15 +16,14 @@ import javax.crypto.spec.GCMParameterSpec;
 /**
  * v1.9.8: the GitHub access token, encrypted with AES-256-GCM under a key that lives in the Android Keystore (it never
  * leaves the phone's keystore, and isn't part of a backup). The app's private preferences hold only the IV and the
- * ciphertext ({@code "v1:" + base64(iv) + ":" + base64(ciphertext+tag)}), the user's login and the public OAuth Client
- * ID. Not EncryptedSharedPreferences (deprecated): the Keystore directly.
+ * ciphertext ({@code "v1:" + base64(iv) + ":" + base64(ciphertext+tag)}) and the user's login. Not
+ * EncryptedSharedPreferences (deprecated): the Keystore directly.
  */
 public final class TokenStore {
 
     static final String PREFS = "sketchware_ai_github";
     static final String KEY_TOKEN = "token";
     static final String KEY_LOGIN = "login";
-    static final String KEY_CLIENT_ID = "client_id";
     static final String KEY_ALIAS = "sketchware_ai_github_token";
 
     /** Where the AES key comes from: the Android Keystore in the app, a software key in tests. */
@@ -90,20 +89,10 @@ public final class TokenStore {
         return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_LOGIN, null);
     }
 
-    /** Signs out: the token, the login and the key are deleted. The Client ID stays. */
+    /** Signs out: the token, the login and the key are deleted. */
     public synchronized void clear() {
         prefs.edit().remove(KEY_TOKEN).remove(KEY_LOGIN).commit();
         keys.delete();
-    }
-
-    /** The OAuth app's public Client ID: the one typed in the GitHub screen, else the build's own (strings.xml). */
-    public String clientId(String builtIn) {
-        String typed = prefs.getString(KEY_CLIENT_ID, null);
-        return typed != null && !typed.trim().isEmpty() ? typed.trim() : builtIn == null ? "" : builtIn.trim();
-    }
-
-    public void setClientId(String clientId) {
-        prefs.edit().putString(KEY_CLIENT_ID, clientId == null ? "" : clientId.trim()).apply();
     }
 
     /** The stored token can never be read again (no key, unknown format): signed out. */

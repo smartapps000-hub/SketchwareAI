@@ -34,7 +34,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:singleLine="true"
-                android:text="GitHub" />
+                android:text="Account" />
 
             <TextView
                 android:id="@+id/gh_subtitle"
@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
                 android:singleLine="true"
-                android:text="Sign-in and cloud backup" />
+                android:text="Not signed in" />
         </LinearLayout>
     </LinearLayout>
 

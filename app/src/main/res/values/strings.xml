@@ -1687,9 +1687,10 @@ But, components should be added manually for working correctly."</string>
     <string name="main_drawer_title_export_urls">Export URLs</string>
     <string name="main_drawer_title_language_settings">Language Settings</string>
     <string name="main_drawer_title_program_information">Program information</string>
-    <!-- v1.9.8: public Client ID of the GitHub OAuth app used for sign-in (Device Flow). Public by design; never put a
-         client secret anywhere in the app. Empty: the GitHub screen asks for it. -->
-    <string name="github_client_id" translatable="false"></string>
+    <!-- v1.9.8: public Client ID of the owner's GitHub OAuth app "SketchwareAI" (smartapps000-hub), used for sign-in
+         with the Device Flow. Public by design; never put a client secret anywhere in the app. The OAuth app needs
+         "Enable Device Flow" ticked on github.com. -->
+    <string name="github_client_id" translatable="false">Ov23liRZYoX7Y9YTJmfJ</string>
     <string name="main_drawer_title_purchase_list">Purchase List</string>
     <string name="main_drawer_title_remove_ads">Remove Ads</string>
     <string name="main_drawer_title_save_sketchware">Save Sketchware</string>

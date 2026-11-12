@@ -25,6 +25,8 @@ import com.sketchware.ai.ui.ObAlertBuilder;
 import com.sketchware.ai.ui.ObsidianWindow;
 import com.sketchware.remod.R;
 
+import mod.jbk.util.LogUtil;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,7 +86,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     private void render() {
         if (closed) return;
         String login = store.login();
-        ((TextView) findViewById(R.id.gh_subtitle)).setText(login == null ? "Sign-in and cloud backup" : "Signed in as @" + login);
+        ((TextView) findViewById(R.id.gh_subtitle)).setText(login == null ? "Not signed in" : "@" + login);
         GitHubScreen.State s = new GitHubScreen.State();
         s.supported = TokenStore.supported();
         s.login = login;
@@ -92,8 +94,6 @@ public class GitHubActivity extends BaseAppCompatActivity {
         s.status = status;
         s.statusIsError = statusIsError;
         s.busy = busy;
-        s.clientId = store.clientId(getString(R.string.github_client_id));
-        s.repository = CloudBackup.REPO;
         s.loadingBackups = loadingBackups;
         s.backupsError = backupsError;
         if (backups != null) {
@@ -107,10 +107,8 @@ public class GitHubActivity extends BaseAppCompatActivity {
         }
         GitHubScreen.render(this, list, s, new GitHubScreen.Actions() {
             @Override
-            public void signIn(String clientId) {
-                if (busy) return;
-                store.setClientId(clientId);
-                startSignIn();
+            public void signIn() {
+                if (!busy) startSignIn();
             }
 
             @Override
@@ -156,7 +154,8 @@ public class GitHubActivity extends BaseAppCompatActivity {
     // ------------------------------------------------------------------ sign-in
 
     private void startSignIn() {
-        String clientId = store.clientId(getString(R.string.github_client_id));
+        // the app's own public Client ID (strings.xml); users never see or type it
+        String clientId = getString(R.string.github_client_id);
         busy = true;
         setStatus(null, false);
         render();
@@ -168,6 +167,8 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     busy = false;
                     shownCode = code;
                     render();
+                    // one tap: the code is on the clipboard and GitHub's page opens
+                    openVerification();
                 });
                 String token = DeviceFlow.waitForToken(clientId, code, new DeviceFlow.Waiting() {
                     @Override
@@ -199,7 +200,8 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     busy = false;
                     waiting = false;
                     shownCode = null;
-                    setStatus("cancelled".equals(e.code) ? null : e.getMessage(), true);
+                    LogUtil.e("GitHubActivity", "Sign-in failed: " + e.code + ": " + e.getMessage());
+                    setStatus("cancelled".equals(e.code) ? null : shortMessage(e), true);
                     render();
                 });
             } catch (Exception e) {
@@ -207,22 +209,50 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     busy = false;
                     waiting = false;
                     shownCode = null;
-                    setStatus(networkText(e), true);
+                    LogUtil.e("GitHubActivity", "Sign-in failed", e);
+                    setStatus(shortNetworkText(e), true);
                     render();
                 });
             }
         });
     }
 
+    /** One short line for the user; the full text is in the log. */
+    static String shortMessage(GitHubException e) {
+        switch (e.code) {
+            case "access_denied":
+                return "Sign-in was cancelled.";
+            case "expired_token":
+            case "token_expired":
+                return "The code expired. Tap Sign in again.";
+            case "device_flow_disabled":
+            case "incorrect_client_credentials":
+            case "http_404":
+            case "no_client_id":
+                return "GitHub sign-in isn't available yet. Please try later.";
+            default:
+                return "Sign-in didn't work. Please try again.";
+        }
+    }
+
+    static String shortNetworkText(Exception e) {
+        if (e instanceof java.net.UnknownHostException || e instanceof java.net.ConnectException
+                || e instanceof java.net.SocketTimeoutException) {
+            return "No internet connection.";
+        }
+        return "Sign-in didn't work. Please try again.";
+    }
+
     private void openVerification() {
         if (shownCode == null) return;
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("GitHub code", shownCode.userCode));
+        String url = shownCode.verificationUriComplete != null ? shownCode.verificationUriComplete : shownCode.verificationUri;
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(shownCode.verificationUri)));
-            toast("Code " + shownCode.userCode + " copied");
+            startActivity(customTab(url));
+            toast("Code copied — paste on GitHub");
         } catch (android.content.ActivityNotFoundException e) {
-            setStatus("No browser found. Open " + shownCode.verificationUri + " on any device and enter the code.", true);
+            setStatus("No browser found. Open github.com/login/device", true);
             render();
         }
     }
@@ -230,8 +260,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     private void signOut() {
         new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("Sign out of GitHub?")
-                .setMessage("The token and its key are deleted from this phone. To withdraw the app's access completely, "
-                        + "open github.com > Settings > Applications > Authorized OAuth Apps. Backups in your repository stay.")
+                .setMessage("Your backups on GitHub stay.")
                 .setPositiveButton("Sign out", (d, w) -> {
                     store.clear();
                     backups = null;
@@ -456,6 +485,21 @@ public class GitHubActivity extends BaseAppCompatActivity {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * A Chrome Custom Tab for {@code url} without the androidx.browser library: the documented extras of the Custom
+     * Tabs protocol (a session key, here none, and the toolbar colour). A browser without Custom Tabs opens it as a
+     * normal page.
+     */
+    private static Intent customTab(String url) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        Bundle extras = new Bundle();
+        extras.putBinder("android.support.customtabs.extra.SESSION", null);
+        intent.putExtras(extras);
+        intent.putExtra("android.support.customtabs.extra.TOOLBAR_COLOR", 0xFF0B0B0D);
+        intent.putExtra("androidx.browser.customtabs.extra.SHARE_STATE", 2);
+        return intent;
+    }
 
     /** The token, read on the worker thread (a Keystore decryption). */
     private String requireToken() throws GitHubException {
