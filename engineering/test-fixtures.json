@@ -736,6 +736,22 @@
       "checks": [
         "GITHUBCLIENT 20/20: device code; token after authorization_pending + slow_down with 5/5/10 s waits; client_id and grant type sent, no client secret, no Authorization header to github.com; device_flow_disabled explained; empty Client ID refused before a request; cancel stops waiting; login; bad token refused; a public SketchwareAI-Projects refused; private repository created with auto_init; upload: blob bytes = file (streamed), one tree with the .swb and index.json on the head's tree, retried once after a 422; list from index.json (read raw); history; raw download = upload; every API request carried the token; over 95 MB refused before upload"
       ]
+    },
+    {
+      "id": "940 (githubtest, v1.9.9)",
+      "kind": "`githubtest 940` (h.GitHubTest), ART, offline (any existing project id works; the dev runs used 908)",
+      "content": "v1.9.9: the device-bound token store, the sign-in gate rules and the v1.9.8 checks (project 908 backed up and restored)",
+      "checks": [
+        "GITHUBTEST 34/34: v2:iv:ciphertext with associated data from a DeviceBinding stand-in; read back with login and user id; new IV per save; another key -> signed out; another ANDROID_ID (copied app data), another signing certificate, another user id -> signed out and the stored sign-in removed; a v1.9.8 v1: token -> signed out; sign-out removes token, login, user id and key; AuthGuard: never read app-control.json -> not required, require_login true but not read online in this run -> not required, true and read online -> required, no stored sign-in -> no session, a sign-in that can't work (cannotWork: device_flow_disabled, no_client_id, keystore, incorrect_client_credentials; not network / access_denied / expired_token) lifts it for the run, false -> not required; SignIn.isPassing (http_5xx, 429, 403 yes; unauthorized, 404, bad_answer no); SignIn.shortMessage lines; the repository's config/app-control.json (min 200): no notice for 200, Update to the v1.9.9 APK for 199; the v1.9.8 notice, backup/restore, ProjectIds and zip-slip checks"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v1.9.9)",
+      "kind": "tools/jvm-tests/GitHubClientTest.java (JVM 17, the app's github sources compiled, fake GitHub on 127.0.0.1)",
+      "content": "v1.9.9: polling that survives the background, account id and avatar",
+      "checks": [
+        "GITHUBCLIENT 26/26: the v1.9.8 checks plus: a dropped connection and an HTTP 502 while waiting are reported to Waiting.networkTrouble and waiting goes on to the token (4 polls); access_denied ends the sign-in; a saved code past expires_at ends as expired_token without a request; expires_at = now + expires_in; account(): login, numeric id 583231, avatar from avatars.githubusercontent.com, an avatar on another host dropped"
+      ]
     }
   ]
 }

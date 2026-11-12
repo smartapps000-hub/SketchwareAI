@@ -239,6 +239,18 @@
       "available": false
     },
     {
+      "id": "android-background-activity-starts",
+      "file": "developer.android.com/guide/components/activities/background-starts (read 12 Nov 2026)",
+      "purpose": "v1.9.9: the exceptions for starting an activity from the background no longer list 'an activity in the back stack of the foreground task'; PendingIntent creator/sender opt-ins (targets 34/35); task-hijacking rules for targets 37+ (opt-in). Why SignIn closes the Custom Tab with finishActivity instead of relying on a background start",
+      "available": false
+    },
+    {
+      "id": "android-15-behavior-changes",
+      "file": "developer.android.com/about/versions/15/behavior-changes-15 (read 12 Nov 2026)",
+      "purpose": "v1.9.9: secured background activity launches (non-visible windows not considered; PendingIntent senders/creators), for apps targeting 35 such as the IDE. The background network restriction (requests outside a valid process lifecycle fail with UnknownHostException or another IOException) is reported in secondary sources for Android 15; SignIn treats every network error while waiting as passing",
+      "available": false
+    },
+    {
       "id": "app-control",
       "file": "config/app-control.json (this repository, main branch; read by the app from raw.githubusercontent.com)",
       "purpose": "v1.9.8: AppControl notices (app_enabled, min_version_code, require_login, status_message, message_url, update_url)",

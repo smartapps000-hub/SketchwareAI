@@ -198,7 +198,28 @@ workspace locked until sign-in; not built: Google One-Tap / e-mail code (needs a
 release key, newer AndroidX, a mail server), Discussions store. ART here can't open sockets (libcore IPv6): network code
 runs in `tools/jvm-tests/GitHubClientTest` against a fake GitHub; the session proxy also refuses github.com/login/* from
 the shell. CACHETEST 31/31, GITHUBTEST 22/22, DOCTORTEST 19/19, GITHUBCLIENT 20/20, JAVAEDIT 101/101; two review passes;
-APK v1.9.8-90559c6, versionCode 199 (v1.9.9 takes 200), sha256 `42dd8414...9605195c`, 142,386,084 bytes. Local branch
+APK v1.9.8-90559c6, versionCode 199 (v1.9.9 takes 200), sha256 `42dd8414...9605195c`, 142,386,084 bytes.
+v1.9.9 (owner's 12 Nov evening directive after the phone test: GitHub "you're all set", app "Sign-in didn't work";
+record `engineering/v1.9.9-verification.md`): cause = v1.9.8 polled from the screen and gave up on the first
+IOException while Chrome was in front (Android 15 cuts a background app's network). `github.SignIn` (app-wide; own
+thread; network errors / 5xx while waiting = keep waiting until `expires_at`; code saved and resumed after a process
+stop; `pollNow` on resume, never two checks closer than the interval; account read retried on 5xx/429/403; avatar
+downloaded by SignIn). Auto-return: the Custom Tab is opened with `startActivityForResult(…, 7311)` and closed with
+`finishActivity` when the token arrives (not an activity start: Android 15 refuses most background starts; the
+"activity in the back stack of the foreground task" exception is gone from the docs); CLEAR_TOP | SINGLE_TOP start only
+as fallback when no screen of the app is resumed (`ResumedCounter`); KEEP_ALIVE extra naming `KeepAliveService`
+(best effort). `TokenStore` v2: GCM associated data = SHA-256(ANDROID_ID | signing-cert SHA-256 | GitHub user id);
+v1 tokens = signed out. `AuthGuard.check` at MainActivity.onResume, New Project / MyProjectSetting (new), DesignActivity
+(open + Run), ExportProjectActivity, BackupRestoreManager.restore/doRestore; required only when app-control.json says
+`require_login` **and** was fetched online in this process **and** sign-in can work (`markUnavailable` for Device Flow
+off / no Client ID / Keystore / no browser): never a permanent lock-out (review finding). Repository keeps
+`"require_login": false` until the owner confirms sign-in on his phone; no account-name bypass (a backdoor). "Cloud Sync &
+Account" (drawer + title), drawer-card look, every project with Back up / Restore, "Only on GitHub"; render `V199Test`.
+`config/app-control.json` min 200 + v1.9.9 link (push `binaries` before `main`). GITHUBTEST 34/34, GITHUBCLIENT 26/26,
+CACHETEST 31/31, DOCTORTEST 19/19, JAVAEDIT 101/101; two review passes (a restore-watcher crash, gate lock-out, a second
+screen after the gate, a lost approval on 5xx: all fixed). APK v1.9.9-6071ad5, versionCode 200 (v1.9.10 takes 201),
+sha256 `85d8d75a...28592d589`, 142,398,392 bytes. The relcheck API step's grep doesn't match api_level.py's output:
+compare `MISSING|NOCLASS` lines by member (`apimembers.sh`: v1.9.8 vs v1.9.9 0 new). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

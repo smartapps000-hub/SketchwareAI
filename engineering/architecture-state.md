@@ -876,3 +876,79 @@ same day "no Client ID box, one-tap login, remote control & integrity gate"). Re
 - Not built (owner's 12 Nov asks, reasons in the verification record): native/Java APK integrity gate, remote kill switch
   that locks the IDE, 45-day build expiry, workspace locked until sign-in, Google One-Tap / e-mail code sign-in, GitHub
   Discussions store.
+
+## v1.9.9 additions (12 Nov 2026): sign-in that survives the browser, Cloud Sync & Account, sign-in gate, device-bound session
+
+Owner's 12 Nov evening directive after the v1.9.8 phone test (GitHub: "Congratulations, you're all set!", the app:
+"Sign-in didn't work"). Record with results: `v1.9.9-verification.md`.
+
+- **Cause of the phone failure**: v1.9.8 polled the token endpoint from `GitHubActivity`'s executor and ended the
+  sign-in on the first `IOException`. While the Custom Tab is in front the app is in the background, and Android 15
+  cuts a background app's network (and freezes cached apps): the first poll after the user approved failed, so the
+  approval was never picked up.
+- **`github.SignIn`** (process singleton, application context): `start(clientId)` / `resumeSaved(clientId)` /
+  `pollNow()` / `cancel()`; its own daemon thread per sign-in, a `generation` counter so a cancelled or replaced run
+  never touches state; the code (`device_code`, `user_code`, URIs, interval, `expires_at`) saved in prefs
+  `sketchware_ai_github_signin` and resumed by the screen's `onCreate` (a run the system ended by stopping the
+  process continues until the code expires); `pollNow` wakes the wait (`onResume`: back from the browser = an
+  immediate check, but never two checks closer than the interval: GitHub answers `slow_down`, +5 s for the rest of
+  the code; `run()` clears a stale wake flag); after the token, `CloudBackup.account` (login, numeric id, avatar from
+  `avatars.githubusercontent.com` only) is retried up to 10 minutes on network errors and on HTTP 5xx / 429 / 403
+  (`isPassing`; the "Almost done" card has Cancel), then `TokenStore.save`; the avatar is downloaded by `SignIn` itself
+  afterwards (`files/github_avatar.png`, temp file + rename) and every screen reads it from the file;
+  `takeSignedIn` / `takeOpenBrowser` (each once); listeners on the main thread. Auto-return: the screen opens the
+  Custom Tab with `startActivityForResult(…, 7311)` and registers itself (`browserOpenedBy`, a WeakReference; dropped in
+  `onDestroy`); when the token arrives and no screen listens, `bringToFront()` calls `finishActivity(7311)` on it: the
+  tab (in the app's task, above the screen) is removed and the screen comes back. Closing an activity is not an
+  activity start, so the background-start rules don't apply (Android 15 dropped the "activity in the back stack of the
+  foreground task" exception and blocks non-visible windows; developer.android.com background-starts, read 12 Nov
+  2026). If 500 ms later no screen listens and no screen of the app is resumed (`ResumedCounter`, ActivityLifecycleCallbacks
+  registered when `SignIn` is created from the screen's `onCreate`; so a gate that finished itself, or a user elsewhere
+  in the app, gets no extra screen), `GitHubActivity` is started with `NEW_TASK | CLEAR_TOP | SINGLE_TOP`, which
+  Android may refuse; then the user's own return (Back / X) shows the signed-in
+  screen at once (`pollNow` + `takeSignedIn`). Errors: one short line
+  (`shortMessage`: cancelled / expired / not available / no internet / Keystore / "Sign-in didn't work"), the cause
+  plus the last network error while waiting in `errorDetail` (long press copies it).
+- **`DeviceFlow.waitForToken`**: deadline from `Code.expiresAt` (= start + `expires_in`); a poll that throws
+  `IOException` or answers 5xx without an `error` calls `Waiting.networkTrouble` and waiting goes on; `slow_down` =
+  max(interval + 5, GitHub's interval); `Poll` (one answer) and `poll()` split out.
+- **Custom Tab**: raw extras as before plus `android.support.customtabs.extra.KEEP_ALIVE` = an Intent naming
+  `github.KeepAliveService` (exported, empty Binder): a browser that honours it binds the service while the tab is open,
+  which raises the app's process importance. Undocumented, best effort.
+- **`TokenStore` v2**: `"v2:" + iv + ":" + ciphertext`, AES-256-GCM associated data = SHA-256(`ANDROID_ID` + `|` +
+  SHA-256 of the signing certificate (`GET_SIGNING_CERTIFICATES` on 28+, `GET_SIGNATURES` below) + `|` + GitHub user id);
+  prefs also hold `user_id`. Another phone (copied app data), a re-signed copy or another user id: the tag fails =
+  signed out (token, login, id removed). v1.9.8's `v1:` tokens read as signed out (one new sign-in). The Keystore key
+  itself never leaves the phone.
+- **`github.AuthGuard`**: `required(ctx)` = `AppControl.cached(ctx).requireLogin` (the last `config/app-control.json`
+  read on this phone; never read = not required) **and** `AppControl.fetchedOnline()` (the file came from GitHub in
+  this process: an offline start never asks, the IDE stays offline-first) **and** not `markUnavailable()` (set for the
+  run by a sign-in that can't work here: `device_flow_disabled`, `incorrect_client_credentials`, `http_404`,
+  `no_client_id`, `keystore`, `unsupported_grant_type` (`SignIn.cannotWork`), or no browser). Review finding of
+  v1.9.9: without these, a cached `true` locked an offline or Keystore-broken phone out of its projects; `verifyHardwareBoundSession(ctx)` = a login and a token that decrypts
+  (cached per process while true; `reset()` on sign-in / sign-out); `check(activity)`: true when not required or
+  signed in, a `RuntimeException` fails open; otherwise opens `GitHubActivity` with `EXTRA_GATE` (`SINGLE_TOP |
+  REORDER_TO_FRONT`) and the caller stops. Call sites: `MainActivity.onResume`, `NewProjectActivity.onCreate`,
+  `MyProjectSettingActivity.onCreate` (new projects only), `DesignActivity.onCreate` (open project) and the Run button,
+  `ExportProjectActivity.onCreate` (after its views: its `onDestroy` reads them), `BackupRestoreManager.restore` and
+  `doRestore` (`.sw` / `.swb` and cloud restores). `AppControl.check`: a `login` notice now calls `AuthGuard.check`
+  instead of a dialog. The gate: no Back arrow while signed out, Back = `finishAffinity`; finishes itself once signed
+  in. No account-name bypass (it would be a backdoor anyone can read in the source). The repository keeps
+  `"require_login": false` until the owner confirms sign-in on his phone.
+- **"Cloud Sync & Account"** (drawer item and screen title; was "GitHub & Cloud Backup" / "Account"): `GitHubScreen`
+  rebuilt on the drawer header card (`ob_glass`, 14dp padding, 44dp `ob_tile_orange` badge with the GitHub mark or the
+  rounded avatar, Sora bold title, caption subtitle, deep-orange `ob_cta_pill_state` with white label): signed out /
+  gate ("Sign in to continue"), code card (code, "Open GitHub", Cancel), "Almost done…", signed in (`@login`, Sign out
+  pill unless busy, 16sp title, ellipsized), "Your projects" (every project of `lC.a()` with Back up (orange) and Restore
+  (glass, only when a backup exists); detail = "Backed up 12 Nov, 14:05" / "Not backed up yet" / "Backing up…") and
+  "Only on GitHub" (index entries whose path no local project has). Back up = `BackupFactory` without local libraries +
+  `CloudBackup.upload`, toast "<name> backed up to GitHub"; Restore = the version list, then the app's own restore as a
+  new project, the list re-read until the new project appears (up to a minute; on a main-looper Handler whose
+  callbacks `onDestroy` removes: a View's `postDelayed` outlived the screen and handed work to the shut-down executor,
+  a crash found in review). Avatar in `files/github_avatar.png` (deleted at sign-out). Known limit: two local projects
+  with the same name and package share one backup path (`projects/<package>/<name>.swb`, so a backup made on another
+  phone matches); both rows show the same backup.
+- `config/app-control.json`: `min_version_code` 200, `update_url` the v1.9.9 APK.
+- Tests: `GitHubClientTest` (dropped connection + HTTP 502 mid-wait, `access_denied`, expired saved code, `expires_at`,
+  account id / avatar host), `h.GitHubTest` (v2 format, other ANDROID_ID / certificate / user id, v1 token, gate rules,
+  short messages), render `V199Test` + `setup_v199.sh`.

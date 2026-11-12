@@ -189,3 +189,18 @@ Whether a generated APK runs on a given Android version depends on that project'
   download against the fake GitHub on the JVM; GitHub itself **not tested**.
 - `config/app-control.json`: parsing and the notice decision on ART; the startup fetch from raw.githubusercontent.com and
   the dialogs on the main screen **not tested** (phone only).
+
+## v1.9.9 (12 Nov 2026)
+
+- GitHub sign-in polling: on JVM 17 against a fake GitHub, a dropped connection and an HTTP 502 during the wait no longer
+  end the sign-in. What Android 15 does to the app while Chrome's Custom Tab is in front (network cut, cached-app
+  freezer), whether Chrome honours the keep-alive extra, whether `finishActivity` closes Chrome's Custom Tab (opened
+  for a result) and whether Android lets the fallback start the screen from the background are **not tested** (phone
+  only); the last fallback (an immediate check when the user comes back) is the same code path the JVM test runs.
+- Device-bound session: the AES-GCM associated data and every mismatch case ran on ART API 31 with a software key and
+  a stand-in for ANDROID_ID + certificate; `Settings.Secure.ANDROID_ID`, `GET_SIGNING_CERTIFICATES` (API 28+) /
+  `GET_SIGNATURES` (26-27) and the Keystore key are **not tested** (phone only). ANDROID_ID is per app-signing key, user
+  and device since Android 8, and changes after a factory reset: then the user signs in again.
+- Sign-in gate: the decision rules ran on ART; the screens it opens and closes (main screen, new project, open project,
+  Run, export, restore) are Activities and **not run** here (review only). Off unless `config/app-control.json` says
+  `"require_login": true` (the repository keeps false).

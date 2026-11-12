@@ -720,6 +720,16 @@
       "verifiedOn": [
         "fixture 910 (v1.9.7)"
       ]
+    },
+    {
+      "fingerprint": "GitHub sign-in (v1.9.8, phone, Android 15): GitHub shows \"Congratulations, you're all set!\" after the code was approved, the app then shows \"Sign-in didn't work. Please try again.\"",
+      "rootCause": "v1.9.8 polled the Device Flow token endpoint from the screen's executor and ended the sign-in on the first IOException; while the Custom Tab is in front the app is in the background and Android 15 cuts a background app's network, so the poll after the approval failed and the approval was never picked up",
+      "repair": "v1.9.9 SignIn: polling on its own thread goes on through network errors and 5xx answers until expires_at; the code is saved and resumed after a process restart; an immediate check when the screen comes back (pollNow); the account read is retried up to 10 minutes; when the token arrives the Custom Tab (opened for a result) is closed with finishActivity, which brings the screen under it back without a background activity start; fallback: the screen started with CLEAR_TOP | SINGLE_TOP (Android 15 may refuse it; then the user's own return shows the result at once); the Custom Tab carries the KEEP_ALIVE extra naming KeepAliveService. The error line is short; a long press copies the cause and the last network error",
+      "scope": "GitHub sign-in on every Android version (the network cut is Android 15+; process stops while the browser is open can happen on any)",
+      "verifiedOn": [
+        "JVM GitHubClientTest against a fake GitHub: a dropped connection and an HTTP 502 during the wait, then the token (v1.9.9)",
+        "not run on a phone: the browser round trip and Android's background rules can't run here"
+      ]
     }
   ]
 }
