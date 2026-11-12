@@ -190,6 +190,22 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
      */
     private void indicateCompileErrorOccurred(String error) {
         new CompileErrorSaver(q.sc_id).writeLogsToFile(error);
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            // v1.9.8: the snackbar is shown from the main thread (the build fails on its own thread)
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                try {
+                    showCompileErrorSnackbar(error);
+                } catch (Throwable t) {
+                    LogUtil.e("DesignActivity", "Couldn't show the compile log snackbar", t);
+                }
+            });
+            return;
+        }
+        showCompileErrorSnackbar(error);
+    }
+
+    private void showCompileErrorSnackbar(String error) {
         Snackbar snackbar = Snackbar.a(coordinatorLayout, "Show compile log", -2 /* BaseTransientBottomBar.LENGTH_INDEFINITE */);
         snackbar.a(Helper.getResString(R.string.common_word_show), v -> {
             if (!mB.a()) {
@@ -414,6 +430,7 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         if (!mB.a()) {
             if (v.getId() == R.id.btn_execute) {
                 com.sketchware.ai.project.LibraryHeal.userStartedBuild();
+                com.sketchware.ai.project.BuiltInCache.userStartedBuild();
                 new BuildAsyncTask(getApplicationContext()).execute();
             } else if (v.getId() == R.id.btn_compiler_opt) {
                 PopupMenu popupMenu = new PopupMenu(new android.view.ContextThemeWrapper(this, R.style.Ob_PopupTheme), findViewById(R.id.btn_compiler_opt));
@@ -1313,16 +1330,55 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                         if (!isDestroyed()) new BuildAsyncTask(getApplicationContext()).execute();
                     }, 400);
                 } catch (Throwable tr) {
-                    LogUtil.e("DesignActivity$BuildAsyncTask", "Failed to build project", tr);
-                    String failure = tr instanceof zy ? tr.getMessage() : Log.getStackTraceString(tr);
-                    failure = failure + com.sketchware.ai.project.BuildWarnings.failureAppendix();
-                    com.sketchware.ai.buildmap.BuildMap.failed(failure);
-                    failure = failure + "\n\n" + com.sketchware.ai.buildmap.BuildMap.report() + "\n";
-                    com.sketchware.ai.doctor.BuildHistory.record(new File(wq.b(sc_id)), projectFingerprint(),
-                            com.sketchware.ai.buildmap.BuildMap.appVersion(), failure,
-                            com.sketchware.ai.buildmap.BuildMap.lastDurationMs());
-                    indicateCompileErrorOccurred(failure);
+                    buildFailed(tr);
                 }
+            }
+        }
+
+        /**
+         * v1.9.8: a failed build never takes the editor down: everything here is guarded, and the log is saved even
+         * when the snackbar can't be shown. A failure on a missing or damaged built-in library file (the app's own
+         * cache) has that library unpacked again and the build starts over once.
+         */
+        private void buildFailed(Throwable tr) {
+            String failure;
+            try {
+                LogUtil.e("DesignActivity$BuildAsyncTask", "Failed to build project", tr);
+                failure = tr instanceof zy ? tr.getMessage() : Log.getStackTraceString(tr);
+                if (failure == null) failure = String.valueOf(tr);
+            } catch (Throwable t) {
+                failure = String.valueOf(tr);
+            }
+            try {
+                String repaired = com.sketchware.ai.project.BuiltInCache.recover(
+                        mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, failure);
+                if (repaired != null && com.sketchware.ai.project.BuiltInCache.claimRetry()) {
+                    com.sketchware.ai.project.BuildWarnings.carryNote("The first attempt of this build stopped on a "
+                            + "missing or damaged file of built-in library " + repaired + " in the app's cache; the "
+                            + "library was unpacked again and the build started over.");
+                    com.sketchware.ai.buildmap.BuildMap.restarted();
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (!isDestroyed()) new BuildAsyncTask(getApplicationContext()).execute();
+                    }, 400);
+                    return;
+                }
+            } catch (Throwable t) {
+                LogUtil.e("DesignActivity$BuildAsyncTask", "Built-in library recovery failed", t);
+            }
+            try {
+                failure = failure + com.sketchware.ai.project.BuildWarnings.failureAppendix();
+                com.sketchware.ai.buildmap.BuildMap.failed(failure);
+                failure = failure + "\n\n" + com.sketchware.ai.buildmap.BuildMap.report() + "\n";
+                com.sketchware.ai.doctor.BuildHistory.record(new File(wq.b(sc_id)), projectFingerprint(),
+                        com.sketchware.ai.buildmap.BuildMap.appVersion(), failure,
+                        com.sketchware.ai.buildmap.BuildMap.lastDurationMs());
+            } catch (Throwable t) {
+                LogUtil.e("DesignActivity$BuildAsyncTask", "Couldn't record the failed build", t);
+            }
+            try {
+                indicateCompileErrorOccurred(failure);
+            } catch (Throwable t) {
+                LogUtil.e("DesignActivity$BuildAsyncTask", "Couldn't show the compile log", t);
             }
         }
 

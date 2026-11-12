@@ -910,6 +910,12 @@ public class yq {
         manifestText = Ix.settleNetworkSecurityConfig(manifestText, networkConfig);
         N.networkSecurityConfig = networkConfig[0];
         manifestText = Ix.settleCameraFeature(manifestText);
+        java.util.List<String> exported = new java.util.ArrayList<>();
+        manifestText = Ix.settleExported(manifestText, com.sketchware.ai.project.ModernProjectDefaults.targetSdk(projectSettings), exported);
+        N.exportedNote = exported.isEmpty() ? null : "android:exported=\"true\" was added to " + String.join(", ", exported)
+                + " in the generated manifest: Android 12+ refuses to install an app whose component has an intent filter "
+                + "and doesn't say whether it is exported (before Android 12 such a component was exported). Set it "
+                + "yourself (Manifest Manager or Inject) to choose otherwise.";
         srcCodeBeans.add(new SrcCodeBean("AndroidManifest.xml", manifestText));
         if (N.networkSecurityConfig) {
             srcCodeBeans.add(new SrcCodeBean(Ix.NETWORK_SECURITY_CONFIG, Ix.networkSecurityConfigXml()));
@@ -1097,8 +1103,9 @@ public class yq {
             Ix ix = new Ix(N, projectFileManager.b());
             ix.setYq(this);
             String manifestText = CommandBlock.applyCommands("AndroidManifest.xml", ix.a());
-            return Ix.settleCameraFeature(
-                    Ix.settleNetworkSecurityConfig(manifestText, new boolean[]{N.networkSecurityConfig}));
+            return Ix.settleExported(Ix.settleCameraFeature(
+                    Ix.settleNetworkSecurityConfig(manifestText, new boolean[]{N.networkSecurityConfig})),
+                    com.sketchware.ai.project.ModernProjectDefaults.targetSdk(projectSettings), null);
         }
 
         for (ProjectFileBean file : files) {

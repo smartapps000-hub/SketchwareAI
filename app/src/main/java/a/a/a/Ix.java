@@ -123,6 +123,45 @@ public class Ix {
                 + manifest.substring(lineStart);
     }
 
+    private static final java.util.regex.Pattern COMPONENT_START = java.util.regex.Pattern.compile(
+            "<(activity-alias|activity|service|receiver)(?=[\\s/>])([^>]*?)(/?)>");
+
+    /**
+     * v1.9.8: an app that targets Android 12 (API 31) or newer is refused at install ("android:exported needs to be
+     * explicitly specified") when an activity, activity-alias, service or receiver has an intent filter and no
+     * android:exported, and Gradle's manifest merger stops on it in an exported project. The generated components
+     * always say it; ones from the Manifest Manager, raw injections or command blocks may not. Those get
+     * android:exported="true": what Android assumed for a component with an intent filter before 12, so the app behaves
+     * as it did. The manifest as it goes to disk, after the command blocks; nothing else changes.
+     *
+     * @param names receives the components that were changed (may be null)
+     */
+    public static String settleExported(String manifest, int targetSdk, java.util.List<String> names) {
+        if (manifest == null || targetSdk < 31 || manifest.indexOf("<intent-filter") < 0) return manifest;
+        java.util.regex.Matcher m = COMPONENT_START.matcher(manifest);
+        StringBuilder out = new StringBuilder(manifest.length() + 64);
+        int copied = 0;
+        while (m.find()) {
+            String tag = m.group(1);
+            String attributes = m.group(2);
+            if (!m.group(3).isEmpty() || attributes.matches("(?s).*[\\s:]exported\\s*=.*")) continue;
+            int end = manifest.indexOf("</" + tag, m.end());
+            if (end < 0) continue;
+            String body = manifest.substring(m.end(), end);
+            // a nested start of the same tag means the file isn't what this reads it as: left alone
+            if (body.contains("<" + tag + " ") || body.indexOf("<intent-filter") < 0) continue;
+            int insert = m.start() + 1 + tag.length();
+            out.append(manifest, copied, insert).append(" android:exported=\"true\"");
+            copied = insert;
+            if (names != null) {
+                java.util.regex.Matcher name = java.util.regex.Pattern.compile("android:name\\s*=\\s*[\"']([^\"']+)").matcher(attributes);
+                names.add(tag + " " + (name.find() ? name.group(1) : "(no name)"));
+            }
+        }
+        if (copied == 0) return manifest;
+        return out.append(manifest, copied, manifest.length()).toString();
+    }
+
     /** v1.9.7.1: file name of the generated network security configuration (res/xml) */
     public static final String NETWORK_SECURITY_CONFIG = "sketch_network_security_config.xml";
 

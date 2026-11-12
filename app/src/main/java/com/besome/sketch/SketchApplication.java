@@ -32,6 +32,9 @@ public class SketchApplication extends Application {
         // (instead of calling the hidden disableDeathOnFileUriExposure(), which is blocked for
         // apps targeting new API levels) keeps that from crashing with FileUriExposedException.
         android.os.StrictMode.setVmPolicy(new android.os.StrictMode.VmPolicy.Builder().build());
+        // v1.9.8: an updated app unpacks its built-in libraries again (no reinstall needed after an update)
+        com.sketchware.ai.project.BuiltInCache.onAppStart(this,
+                com.sketchware.remod.BuildConfig.VERSION_CODE + "|" + com.sketchware.remod.BuildConfig.VERSION_NAME);
         com.sketchware.ai.ui.ThemeMode.install(this);
         com.sketchware.ai.ui.LegacyScreens.install(this);
         Thread.UncaughtExceptionHandler uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();

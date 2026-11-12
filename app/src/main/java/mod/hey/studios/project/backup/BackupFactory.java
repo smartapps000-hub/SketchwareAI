@@ -21,7 +21,6 @@ import java.io.RandomAccessFile;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Locale;
@@ -85,9 +84,11 @@ public class BackupFactory {
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             byte[] key = "sketchwaresecure".getBytes();
             cipher.init(2, new SecretKeySpec(key, "AES"), new IvParameterSpec(key));
-            RandomAccessFile raf = new RandomAccessFile(file, "r");
-            byte[] encrypted = new byte[(int) raf.length()];
-            raf.readFully(encrypted);
+            byte[] encrypted;
+            try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+                encrypted = new byte[(int) raf.length()];
+                raf.readFully(encrypted);
+            }
             byte[] decrypted = cipher.doFinal(encrypted);
             String decryptedString = new String(decrypted);
 
@@ -105,9 +106,10 @@ public class BackupFactory {
             byte[] key = "sketchwaresecure".getBytes();
             cipher.init(1, new SecretKeySpec(key, "AES"), new IvParameterSpec(key));
             byte[] encrypted = cipher.doFinal((string.trim()).getBytes());
-            RandomAccessFile raf = new RandomAccessFile(path, "rw");
-            raf.setLength(0);
-            raf.write(encrypted);
+            try (RandomAccessFile raf = new RandomAccessFile(path, "rw")) {
+                raf.setLength(0);
+                raf.write(encrypted);
+            }
 
             return true;
         } catch (Exception e) {
@@ -116,16 +118,8 @@ public class BackupFactory {
     }
 
     public static String getNewScId() {
-        File myscList = new File(Environment.getExternalStorageDirectory(),
-                ".sketchware/mysc/list/");
-
-        ArrayList<String> list = new ArrayList<>();
-        FileUtil.listDir(myscList.getAbsolutePath(), list);
-        //noinspection Java8ListSort
-        Collections.sort(list, String.CASE_INSENSITIVE_ORDER);
-
-        int id = list.size() == 0 ? 600 : Integer.parseInt(new File(list.get(list.size() - 1)).getName());
-        return String.valueOf(id + 1);
+        // v1.9.8: the ids were sorted as text ("999" after "1000") and a folder that isn't a number crashed it
+        return com.sketchware.ai.project.ProjectIds.nextAfterList();
     }
 
     /************************ UTILITIES ************************/
@@ -134,11 +128,16 @@ public class BackupFactory {
         int DEFAULT_BUFFER = 2048;
         try (ZipFile zip = new ZipFile(zipFile)) {
             destinationDir.mkdirs();
+            // v1.9.8: an entry named "../x" (a hand-made or downloaded .swb) can't write outside the folder
+            String root = destinationDir.getCanonicalPath() + File.separator;
             Enumeration<? extends ZipEntry> zipFileEntries = zip.entries();
             while (zipFileEntries.hasMoreElements()) {
                 ZipEntry entry = zipFileEntries.nextElement();
                 String entryName = entry.getName();
                 File destFile = new File(destinationDir, entryName);
+                if (!destFile.getCanonicalPath().startsWith(root)) {
+                    return false;
+                }
                 File destinationParent = destFile.getParentFile();
                 if (destinationParent != null && !destinationParent.exists()) {
                     destinationParent.mkdirs();
@@ -410,7 +409,9 @@ public class BackupFactory {
         try {
             zipFolder(outFolder, outZip);
         } catch (Exception e) {
-            // An error occurred
+            // An error occurred; v1.9.8: no half-written .swb is left behind, nor the temporary folder
+            outZip.delete();
+            FileUtil.deleteFile(outFolder.getAbsolutePath());
 
             StringBuilder sb = new StringBuilder();
             for (StackTraceElement el : e.getStackTrace()) {

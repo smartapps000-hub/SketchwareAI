@@ -12,6 +12,7 @@ import static h.R.*;
  * main aab <sc_id>           : the export screen's "Export AAB" with the test key
  * main export <sc_id>        : the export screen's "Export to Android Studio" (the Gradle project), unzipped
  * main javaedit <sc_id>      : (v1.8.8) the Java editor's saves on fixture javaedit (JavaEdit), then a build
+ * main cachetest <sc_id>     : (v1.9.8) damaged / updated / vanishing built-in library cache (CacheTest)
  * System properties: h.apk (the IDE APK: assets), h.root (app dirs), h.native (dir with libaapt2.so).
  */
 public class Main {
@@ -30,7 +31,19 @@ public class Main {
                     break;
                 case "build":
                     FROM = args.length > 2 ? args[2] : null;
-                    build(args[1]);
+                    buildWithRecovery(args[1]);
+                    break;
+                case "githubtest":
+                    // v1.9.8: GitHub sign-in, token store and cloud backup against a fake GitHub (GitHubTest)
+                    GitHubTest.run(args[1]);
+                    break;
+                case "doctortest":
+                    // v1.9.8: Build Doctor rules and the android:exported repair (DoctorTest)
+                    DoctorTest.run();
+                    break;
+                case "cachetest":
+                    // v1.9.8: the built-in library cache repairs itself (BuiltInCache)
+                    CacheTest.run(args[1]);
                     break;
                 case "aab":
                     FROM = args.length > 2 ? args[2] : null;
@@ -108,6 +121,39 @@ public class Main {
         void run() throws Throwable;
     }
 
+    /** v1.9.8: run between the "built-in libraries" step and the resources step (CacheTest removes files there). */
+    static ThrowingRunnable AFTER_LIBRARIES;
+
+    /**
+     * DesignActivity's Run build with its v1.9.8 failure handling: a failure on a missing or damaged built-in library
+     * file has the library unpacked again (BuiltInCache.recover) and the build starts over once.
+     */
+    static void buildWithRecovery(String sc_id) throws Throwable {
+        Class<?> cache = c("com.sketchware.ai.project.BuiltInCache");
+        call(cache, "userStartedBuild");
+        while (true) {
+            try {
+                build(sc_id);
+                return;
+            } catch (Throwable t) {
+                java.io.StringWriter trace = new java.io.StringWriter();
+                t.printStackTrace(new java.io.PrintWriter(trace));
+                Object repaired = call(cache, "recover", get(c("mod.jbk.build.BuiltInLibraries"), "EXTRACTED_COMPILE_ASSETS_PATH"),
+                        trace.toString());
+                if (repaired != null && (Boolean) call(cache, "claimRetry")) {
+                    OUT.println("RECOVERED built-in library " + repaired + ": the build starts over");
+                    call(c("com.sketchware.ai.project.BuildWarnings"), "carryNote", "The first attempt of this build stopped on a "
+                            + "missing or damaged file of built-in library " + repaired + " in the app's cache; the "
+                            + "library was unpacked again and the build started over.");
+                    call(c("com.sketchware.ai.buildmap.BuildMap"), "restarted");
+                    AFTER_LIBRARIES = null;
+                    continue;
+                }
+                throw t;
+            }
+        }
+    }
+
     static void build(String sc_id) throws Throwable {
         Class<?> jC = c("a.a.a.jC"), wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
         Class<?> buildMap = c("com.sketchware.ai.buildmap.BuildMap");
@@ -147,6 +193,7 @@ public class Main {
         });
         step("aapt2", () -> call(dp[0], "maybeExtractAapt2"));
         step("built-in libraries", () -> call(dp[0], "getBuiltInLibrariesReady"));
+        if (AFTER_LIBRARIES != null) AFTER_LIBRARIES.run();
         List<String> libs = new ArrayList<>();
         for (Object jp : (List<?>) call(get(dp[0], "builtInLibraryManager"), "a")) libs.add((String) call(jp, "a"));
         OUT.println("BUILT-IN LIBRARIES (" + libs.size() + "): " + libs);

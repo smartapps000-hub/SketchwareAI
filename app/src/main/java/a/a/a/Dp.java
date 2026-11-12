@@ -1146,33 +1146,21 @@ public class Dp {
 
         String baseAssetsPath = "libs" + File.separator;
         maybeExtractAndroidJar(progressReceiver);
+        /* v1.9.8: archives are unpacked into a temp folder, checked and renamed into place (BuiltInCache): an
+         * extraction cut off half way no longer leaves a library folder without its classes.jar for good */
         if (hasFileChanged(baseAssetsPath + dexsArchiveName, dexsArchivePath)) {
             progressReceiver.onProgress("Extracting built-in libraries' DEX files...");
-            /* Delete the directory */
-            fileUtil.b(dexsDirectoryPath);
-            /* Create the directories */
-            fileUtil.f(dexsDirectoryPath);
-            /* Extract dexs.zip to dexs/ */
-            new KB().a(dexsArchivePath, dexsDirectoryPath);
+            extractArchive(dexsArchivePath, dexsDirectoryPath);
         }
         if (hasFileChanged(baseAssetsPath + libsArchiveName, libsArchivePath)) {
             progressReceiver.onProgress("Extracting built-in libraries' resources...");
-            /* Delete the directory */
-            fileUtil.b(libsDirectoryPath);
-            /* Create the directories */
-            fileUtil.f(libsDirectoryPath);
-            /* Extract libs.zip to libs/ */
-            new KB().a(libsArchivePath, libsDirectoryPath);
+            extractArchive(libsArchivePath, libsDirectoryPath);
         }
         hasFileChanged(baseAssetsPath + coreLambdaStubsJarName, coreLambdaStubsJarPath);
-        if (hasFileChanged(baseAssetsPath + testkeyArchiveName, testkeyArchivePath)) {
+        if (hasFileChanged(baseAssetsPath + testkeyArchiveName, testkeyArchivePath)
+                || !com.sketchware.ai.project.BuiltInCache.unpackedFileIntact(new File(testkeyArchivePath), new File(testkeyDirectoryPath))) {
             progressReceiver.onProgress("Extracting built-in signing keys...");
-            /* Delete the directory */
-            fileUtil.b(testkeyDirectoryPath);
-            /* Create the directories */
-            fileUtil.f(testkeyDirectoryPath);
-            /* Extract testkey.zip to testkey/ */
-            new KB().a(testkeyArchivePath, testkeyDirectoryPath);
+            extractArchive(testkeyArchivePath, testkeyDirectoryPath);
         }
         /* v1.8.5: desugar_jdk_libs 2.1.5 (+ nio configuration) for core library desugaring of the project's code */
         String desugarArchivePath = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "desugar.zip").getAbsolutePath();
@@ -1180,9 +1168,7 @@ public class Dp {
         if (hasFileChanged(baseAssetsPath + "desugar.zip", desugarArchivePath)
                 || !com.sketchware.ai.project.CoreLibDesugaring.available()) {
             progressReceiver.onProgress("Extracting desugar_jdk_libs...");
-            fileUtil.b(desugarDirectoryPath);
-            fileUtil.f(desugarDirectoryPath);
-            new KB().a(desugarArchivePath, desugarDirectoryPath);
+            extractArchive(desugarArchivePath, desugarDirectoryPath);
         }
         if (yq.N.g) {
             builtInLibraryManager.a(BuiltInLibraries.ANDROIDX_APPCOMPAT);
@@ -1229,17 +1215,64 @@ public class Dp {
         ExtLibSelected.addUsedDependencies(yq.N.x, builtInLibraryManager);
         // v1.8.8: built-in libraries the enabled local libraries need (Library Resolver, needs.json)
         com.sketchware.ai.library.LibraryNeeds.addBuiltIns(yq.sc_id, builtInLibraryManager);
+        verifyBuiltInLibraries();
+    }
+
+    /**
+     * v1.9.8: the files of every built-in library this build uses are checked against the app's archives (entry by
+     * entry) and a library whose files are missing or cut off is unpacked again, before AAPT2, ECJ, D8 and packaging
+     * read them. A repair is a note in the log, not a warning: the build's result doesn't change.
+     */
+    public void verifyBuiltInLibraries() {
+        ArrayList<String> names = new ArrayList<>();
+        names.add(BuiltInLibraries.HTTP_LEGACY_ANDROID_28);
+        if (settings.getMinSdkVersion() < 21) names.add(BuiltInLibraries.ANDROIDX_MULTIDEX);
+        for (Jp library : builtInLibraryManager.a()) names.add(library.a());
+        com.sketchware.ai.project.BuiltInCache.Report report = com.sketchware.ai.project.BuiltInCache.verify(
+                BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, names,
+                text -> { if (progressReceiver != null) progressReceiver.onProgress(text); });
+        for (String name : report.repaired) {
+            com.sketchware.ai.project.BuildWarnings.note("Built-in library " + name + " was unpacked again: its files in "
+                    + "the app's cache were missing or cut off.");
+        }
+        for (String name : report.repairedDex) {
+            if (!report.repaired.contains(name)) {
+                com.sketchware.ai.project.BuildWarnings.note("The DEX file of built-in library " + name
+                        + " was unpacked again: it was missing or cut off in the app's cache.");
+            }
+        }
+        for (String problem : report.failed) LogUtil.e(TAG, "Built-in library check: " + problem);
+    }
+
+    /** v1.9.8: staged unpacking (temp folder, checked, renamed); the old in-place unpacking if that fails. */
+    private void extractArchive(String archivePath, String directoryPath) {
+        try {
+            com.sketchware.ai.project.BuiltInCache.extractStaged(new File(archivePath), new File(directoryPath));
+        } catch (IOException e) {
+            LogUtil.e(TAG, "Staged extraction of " + archivePath + " failed, extracting in place", e);
+            fileUtil.b(directoryPath);
+            fileUtil.f(directoryPath);
+            new KB().a(archivePath, directoryPath);
+        }
     }
 
     public static void maybeExtractAndroidJar(BuildProgressReceiver optionalProgressReceiver) {
         String androidJarArchiveName = "android.jar.zip";
         String androidJarPath = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, androidJarArchiveName).getAbsolutePath();
-        if (hasFileChanged("libs" + File.separator + androidJarArchiveName, androidJarPath)) {
+        File androidJar = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "android.jar");
+        // v1.9.8: also when android.jar itself is gone or cut off (the archive copy alone used to decide)
+        if (hasFileChanged("libs" + File.separator + androidJarArchiveName, androidJarPath)
+                || !com.sketchware.ai.project.BuiltInCache.unpackedFileIntact(new File(androidJarPath),
+                BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH)) {
             if (optionalProgressReceiver != null) optionalProgressReceiver.onProgress("Extracting built-in android.jar...");
-            /* Delete android.jar */
-            new oB().c(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH.getAbsolutePath() + File.separator + "android.jar");
-            /* Extract android.jar.zip to android.jar */
-            new KB().a(androidJarPath, BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH.getAbsolutePath());
+            try {
+                // into a temp file, then renamed over: a build reading the old android.jar keeps its open file
+                com.sketchware.ai.project.BuiltInCache.extractFile(new File(androidJarPath), "android.jar", androidJar);
+            } catch (IOException e) {
+                LogUtil.e(TAG, "Staged extraction of android.jar failed, extracting in place", e);
+                new oB().c(androidJar.getAbsolutePath());
+                new KB().a(androidJarPath, BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH.getAbsolutePath());
+            }
         }
     }
 

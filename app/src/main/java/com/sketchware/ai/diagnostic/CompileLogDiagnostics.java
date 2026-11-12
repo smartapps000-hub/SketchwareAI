@@ -31,6 +31,18 @@ public final class CompileLogDiagnostics {
                     "A layout or setting refers to a resource that doesn't exist: %s. Check image/colour/string names "
                             + "in the widget's properties and Inject code. A Text value that starts with @ or ? is read "
                             + "as a resource reference; put a \\ in front of it (\\@) to show it as text."),
+            // v1.9.8: Material 3 attributes / styles in a project whose theme isn't Material 3
+            new Rule("(?:attr|style)/((?:\\w*Material3\\w*|color(?:Primary|Secondary|Tertiary|Error)Container|colorOn(?:Primary|Secondary|Tertiary|Error)Container"
+                    + "|colorSurface(?:Container\\w*|Variant|Bright|Dim)|colorOutlineVariant|textAppearance(?:Display|Headline|Title|Body|Label)(?:Large|Medium|Small)))\\b[^\\n]*not found",
+                    "%s is a Material 3 attribute or style, and this project's theme isn't Material 3 (AppCompat off, or "
+                            + "an older MaterialComponents theme). Turn on Material 3 in Project Configuration (Convert to "
+                            + "Material 3 & Modern Stack), or use the MaterialComponents name in Inject / custom XML."),
+            // v1.9.8: resource file names
+            new Rule("(?:Invalid file name|invalid resource (?:file )?name|file name must (?:contain only|end with)|"
+                    + "'[^'\\n]*' is not a valid file-based resource name)[^\\n]*",
+                    "A resource file has a name Android doesn't allow. File names under res/ may use only a-z, 0-9 and _ "
+                            + "(no capitals, spaces or dashes) and must start with a letter. Rename it in Image / Resource "
+                            + "manager; then change the places that use the old name."),
             new Rule("attribute (card\\w+) \\(aka [\\w.]+:card\\w+\\) not found",
                     "The layout uses CardView attributes (%s) but the CardView library wasn't part of the build. "
                             + "Sketchware AI now adds it automatically when a layout contains a CardView; build again. "
@@ -40,7 +52,7 @@ public final class CompileLogDiagnostics {
                             + "Turn on AppCompat and Design (or the library that provides it), or remove it from Inject."),
             new Rule("attribute (android:\\w+|app:\\w+) .*not found",
                     "The attribute %s isn't known when linking. It's misspelled, needs a library that isn't enabled, "
-                            + "or is newer than the bundled android.jar (Android 14). Remove it from Inject or enable the library."),
+                            + "or is newer than the bundled android.jar (API 37). Remove it from Inject or enable the library."),
             new Rule("unescaped apostrophe|apostrophe",
                     "A text contains an apostrophe ('). In strings it must be written as \\'."),
             new Rule("not well-formed|invalid token|mismatched tag|unbound prefix",
@@ -84,7 +96,7 @@ public final class CompileLogDiagnostics {
                     "Code in a static method uses something that belongs to the activity instance. Remove 'static' "
                             + "or pass the activity/context in."),
             new Rule("is not visible|has private access",
-                    "The code uses a private member of another class, or an API hidden in the bundled Android 14 android.jar."),
+                    "The code uses a private member of another class, or an API hidden in the bundled android.jar (API 37)."),
             new Rule("(\\w+) cannot be resolved to a type",
                     "Java doesn't know the type %s. Add its import (Custom Imports / ASD), enable the library that "
                             + "provides it, or fix the spelling."),
@@ -92,8 +104,15 @@ public final class CompileLogDiagnostics {
                     "Java can't find a variable or method named in the log. Check the block/custom code and the component names."),
             new Rule("Syntax error",
                     "Java syntax error in custom code (Add Source Directly, custom blocks, or a Java file). The line above shows where."),
+            // v1.9.8: ECJ reading a library compiled for a newer Java
+            new Rule("class file (?:has wrong version|version) (\\d+)\\.\\d+|is not compatible with the configured source level|"
+                    + "compiled with an incompatible version of Java",
+                    "A library was compiled for a newer Java than the Java compiler on the phone reads (class file "
+                            + "version %s; Java = version - 44). Use the library's older release made for Java 11 or "
+                            + "lower, or ask its author for one."),
             new Rule("Unsupported class file|invalid class file|major version",
-                    "A library uses newer Java bytecode than the dexer understands. Choose D8 in Build Settings."),
+                    "A library uses newer Java bytecode than the dexer understands. Choose D8 in Build Settings; if D8 "
+                            + "is already used, take the library's older release."),
             new Rule("Cannot fit requested classes in a single dex file|too many (method|field) references|64K",
                     "The app has more than 64K methods. Raise the Minimum SDK to 21+ (multidex) or remove unused libraries."),
             new Rule("OutOfMemory",

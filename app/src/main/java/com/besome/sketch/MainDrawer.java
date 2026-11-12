@@ -146,6 +146,11 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         menuCreateKeystore.icon = R.drawable.new_96;
         menuCreateKeystore.title = "Create Release Keystore";
 
+        // v1.9.8: GitHub sign-in and cloud backup
+        DrawerItem menuGitHub = DrawerItem.MENU_GITHUB;
+        menuGitHub.icon = R.drawable.ob_ic_backup;
+        menuGitHub.title = "GitHub & Cloud Backup";
+
         DrawerItem menuAppTheme = DrawerItem.MENU_APP_THEME;
         menuAppTheme.icon = R.drawable.ic_sw_theme_white_48;
         menuAppTheme.title = "App Theme: " + com.sketchware.ai.ui.ThemeMode.LABELS[com.sketchware.ai.ui.ThemeMode.get(context)];
@@ -211,6 +216,7 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         MENU_PROGRAM_INFO,
         MENU_DEVELOPER_TOOLS,
         MENU_CREATE_KEYSTORE,
+        MENU_GITHUB,
         MENU_APP_THEME;
 
         /**
@@ -316,6 +322,10 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
                         activity.startActivity(intent);
                     } else if (id == DrawerItem.MENU_APP_THEME.ordinal()) {
                         showAppThemeDialog(activity);
+                    } else if (id == DrawerItem.MENU_GITHUB.ordinal()) {
+                        Intent intent = new Intent(activity, com.sketchware.ai.github.GitHubActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        activity.startActivity(intent);
                     } else if (id == DrawerItem.MENU_CREATE_KEYSTORE.ordinal()) {
                         Intent intent = new Intent(activity, NewKeyStoreActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);

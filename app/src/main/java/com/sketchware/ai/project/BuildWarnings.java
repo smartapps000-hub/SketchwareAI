@@ -31,6 +31,8 @@ public final class BuildWarnings {
 
     /** Entries from a build that restarted itself, shown with the build that follows. */
     private static final List<String> carried = new ArrayList<>();
+    /** v1.9.8: notes from a build that restarted itself (they don't make the next build "succeeded with warnings"). */
+    private static final List<String> carriedNotes = new ArrayList<>();
 
     private BuildWarnings() {
     }
@@ -39,12 +41,18 @@ public final class BuildWarnings {
         carried.addAll(entries);
     }
 
+    public static synchronized void carryNote(String note) {
+        if (note != null) carriedNotes.add(note);
+    }
+
     /** Starts a build: clears old warnings and checks the project's settings and features. */
     public static synchronized void begin(yq project) {
         warnings.clear();
         notes.clear();
         warnings.addAll(carried);
         carried.clear();
+        notes.addAll(carriedNotes);
+        carriedNotes.clear();
         if (project == null) return;
         try {
             ProjectSettings settings = new ProjectSettings(project.sc_id);
@@ -56,6 +64,8 @@ public final class BuildWarnings {
             jq features = project.N;
             // v1.9.4: permissions the permission blocks added to the manifest (PermissionCode.writeManifest)
             if (features != null && features.permissionNote != null) note(features.permissionNote);
+            // v1.9.8: components given android:exported="true" (Ix.settleExported)
+            if (features != null && features.exportedNote != null) note(features.exportedNote);
 
             if (target > BUNDLED_ANDROID_JAR_API && customJar.trim().isEmpty()) {
                 note("Target API " + target + " (Android " + (target - 20) + "), but code is compiled against the bundled "
@@ -81,6 +91,14 @@ public final class BuildWarnings {
                     note("Android 17: audio started from the background needs a foreground service; playback from a "
                             + "visible screen is not affected.");
                 }
+            }
+            // v1.9.8: storage permissions do nothing for apps targeting 33+ on Android 13+ (no dialog, always denied)
+            if (target >= 33 && features != null && (features.hasPermission(jq.PERMISSION_READ_EXTERNAL_STORAGE)
+                    || features.hasPermission(jq.PERMISSION_WRITE_EXTERNAL_STORAGE))) {
+                note("Android 13+: READ / WRITE_EXTERNAL_STORAGE are never granted to an app that targets API "
+                        + target + " (declared up to Android 12L only). On Android 13+ use the app's own folders "
+                        + "(getExternalFilesDir), the Photo Picker or MediaStore for images and videos, or a file "
+                        + "picker; reading shared files by path fails silently there.");
             }
             if (target >= 36) {
                 note("Android 16+: on tablets and foldables (600dp+ wide) fixed screen orientation and resizability "

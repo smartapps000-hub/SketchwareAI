@@ -251,6 +251,8 @@ public class jq {
     public boolean webDownloadsUsed;
     /** v1.9.4: the build log's note on the permissions the blocks added to the manifest, or null */
     public String permissionNote;
+    /** v1.9.8: components that got android:exported="true" in the generated manifest (Ix.settleExported), or null */
+    public String exportedNote;
 
     public boolean hasPermissions() {
         return q == 0;

@@ -31,6 +31,8 @@ public final class BuildDoctor {
     public static final String METHOD_LIMIT = "METHOD_LIMIT";
     public static final String OUT_OF_MEMORY = "OUT_OF_MEMORY";
     public static final String NO_SPACE = "NO_SPACE";
+    /** v1.9.8: a file of a built-in library in the app's own cache (cacheDir/libs) was missing or damaged. */
+    public static final String BUILT_IN_CACHE = "BUILT_IN_CACHE";
     public static final String UNKNOWN = "UNKNOWN";
 
     /** One step of the build, as the log's build map lists it. */
@@ -93,6 +95,12 @@ public final class BuildDoctor {
     private static final Pattern WARNING = Pattern.compile("(?ms)^\\d+\\. (warning: |auto-fix: )(.*?)(?=\\n\\n\\d+\\. |\\n\\nNotes for this target|\\n\\n\\nBuild map:|\\n\\nBuild map:|\\z)");
     private static final Pattern BUILT_WITH = Pattern.compile("(?m)^ {4}built with Sketchware AI (.+?) on ");
     private static final Pattern NO_SUCH_FILE = Pattern.compile("NoSuchFileException: (\\S+)");
+    /** A path under the unpacked built-in libraries: cacheDir/libs/libs/<name>/... or cacheDir/libs/dexs/<name>.dex. */
+    private static final Pattern CACHE_PATH = Pattern.compile(
+            "/cache/libs/(libs|dexs)/([^/\\s:,'\"()]+?)(?:\\.dex)?(?:/|[\\s:,'\"()]|$)");
+    private static final Pattern CACHE_FILE_PROBLEM = Pattern.compile("NoSuchFileException|FileNotFoundException|ZipException"
+            + "|zip END header not found|error in opening zip file|invalid CEN header|EOFException|Failure to read"
+            + "|does not exist|No such file");
     private static final Pattern LIBRARY_PATH = Pattern.compile("/local_libs/([^/\\s]+)/");
     private static final Pattern DUPLICATE = Pattern.compile(
             "Type ([\\w.$]+) is defined multiple times: ([^,\\n]+), ([^\\n]+)|Multiple dex files define L([\\w/$]+);|Duplicate class ([\\w.$]+)");
@@ -174,7 +182,10 @@ public final class BuildDoctor {
         String stage = d.stage == null ? guessStage(d.failureText) : d.stage;
         if (d.stage == null) d.stage = stage;
 
-        if (OUT_OF_MEMORY_LINE.matcher(d.failureText).find()) {
+        String builtIn = builtInLibraryOf(d.failureText);
+        if (builtIn != null) {
+            builtInCache(d, builtIn);
+        } else if (OUT_OF_MEMORY_LINE.matcher(d.failureText).find()) {
             d.code = OUT_OF_MEMORY;
             d.title = "The phone ran out of memory during " + stageWords(stage) + ".";
             d.found = "This depends on what else is running, not on the project. Close other apps and build again.";
@@ -205,7 +216,7 @@ public final class BuildDoctor {
             if (d.found != null && advice.startsWith("Auto-fix report")) continue;
             // Said already, and more precisely, by the diagnosis of this step.
             if (MISSING_RESOURCE.equals(d.code) && advice.startsWith("A layout or setting refers")) continue;
-            if (MISSING_FILE.equals(d.code) || DUPLICATE_CLASS.equals(d.code)) continue;
+            if (MISSING_FILE.equals(d.code) || DUPLICATE_CLASS.equals(d.code) || BUILT_IN_CACHE.equals(d.code)) continue;
             d.advice.add(advice);
         }
         for (String warning : d.warnings) {
@@ -215,6 +226,33 @@ public final class BuildDoctor {
         }
         if (d.firstError == null || d.firstError.isEmpty()) d.firstError = firstLine(d.failureText);
         return d;
+    }
+
+    /**
+     * v1.9.8: the built-in library a failed step blames for a missing or damaged file under {@code cacheDir/libs}, or
+     * null. Paths of local libraries, of the archives themselves and of staged copies don't count.
+     */
+    public static String builtInLibraryOf(String failure) {
+        if (failure == null || !CACHE_FILE_PROBLEM.matcher(failure).find()) return null;
+        Matcher m = CACHE_PATH.matcher(failure);
+        while (m.find()) {
+            String name = m.group(2);
+            if (name.endsWith(".zip") || name.contains(".tmp-") || name.contains(".old-")) continue;
+            return name;
+        }
+        return null;
+    }
+
+    private static void builtInCache(Diagnosis d, String library) {
+        d.code = BUILT_IN_CACHE;
+        d.title = "A file of built-in library " + library + " was missing from the app's cache.";
+        Matcher path = Pattern.compile("\\S*/cache/libs/(?:libs|dexs)/" + Pattern.quote(library) + "\\S*").matcher(d.failureText);
+        if (path.find()) d.firstError = path.group().replaceAll("[)(,;:]+$", "");
+        d.found = "This is the app's own copy of a bundled library, not your project. Each build checks the built-in "
+                + "libraries it uses and unpacks a missing or cut-off one again; a step that still fails on one has it "
+                + "unpacked again and the build starts over once. Build again: the library is unpacked first. Your "
+                + "project was not changed.";
+        d.retryCanHelp = true;
     }
 
     private static void resources(Diagnosis d) {
@@ -271,7 +309,7 @@ public final class BuildDoctor {
             d.found = duplicate.group(2) == null
                     ? "Two libraries (or a library and the project) both contain it. Switch off one of them in Local library manager."
                     : "It is in " + shortPath(duplicate.group(2)) + " and in " + shortPath(duplicate.group(3))
-                    + ". An app can hold a class only once: switch off one of the two libraries in Local library manager.";
+                    + ". An app can hold a class only once: " + duplicateAdvice(duplicate.group(2), duplicate.group(3));
             Matcher library = LIBRARY_PATH.matcher(duplicate.group(0));
             if (library.find()) d.library = library.group(1);
         } else if (major.find()) {
@@ -326,10 +364,62 @@ public final class BuildDoctor {
         return stage == null ? "the build" : "the step \"" + stage + "\"";
     }
 
+    private static final Pattern BUILT_IN_PATH = Pattern.compile("/cache/libs/(?:libs/([^/\\s]+)/|dexs/([^/\\s]+?)\\.dex)");
+    private static final Pattern VERSIONED = Pattern.compile("^(.+?)(?:_V_|-)(\\d+(?:\\.\\d+)*)(?:[-.][\\w.-]*)?$");
+
+    /** v1.9.8: which of two libraries holding the same class to switch off. */
+    static String duplicateAdvice(String first, String second) {
+        String a = libraryName(first), b = libraryName(second);
+        Matcher va = a == null ? null : VERSIONED.matcher(a), vb = b == null ? null : VERSIONED.matcher(b);
+        if (va != null && vb != null && va.matches() && vb.matches()
+                && va.group(1).replaceAll("[_.]", "-").equalsIgnoreCase(vb.group(1).replaceAll("[_.]", "-"))) {
+            int order = compareVersions(va.group(2), vb.group(2));
+            if (order != 0) {
+                String lower = order < 0 ? a : b, higher = order < 0 ? b : a;
+                boolean lowerBuiltIn = lower.equals(order < 0 ? builtInName(first) : builtInName(second));
+                return "these are two versions of the same library. Keep the higher one (" + higher + ")"
+                        + (lowerBuiltIn ? "; the lower one is built in, so switch off the local library or use the "
+                        + "built-in one instead of it." : " and switch off " + lower + " in Local library manager.");
+            }
+        }
+        return "switch off one of the two libraries in Local library manager.";
+    }
+
+    private static String libraryName(String path) {
+        String builtIn = builtInName(path);
+        if (builtIn != null) return builtIn;
+        Matcher local = LIBRARY_PATH.matcher(path);
+        return local.find() ? local.group(1) : null;
+    }
+
+    private static String builtInName(String path) {
+        Matcher m = BUILT_IN_PATH.matcher(path);
+        return m.find() ? (m.group(1) != null ? m.group(1) : m.group(2)) : null;
+    }
+
+    static int compareVersions(String a, String b) {
+        String[] x = a.split("\\."), y = b.split("\\.");
+        for (int i = 0; i < Math.max(x.length, y.length); i++) {
+            long p = i < x.length ? parse(x[i]) : 0, q = i < y.length ? parse(y[i]) : 0;
+            if (p != q) return p < q ? -1 : 1;
+        }
+        return 0;
+    }
+
+    private static long parse(String part) {
+        try {
+            return Long.parseLong(part);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     private static String shortPath(String path) {
         String p = path.trim();
         Matcher library = LIBRARY_PATH.matcher(p);
         if (library.find()) return "local library " + library.group(1);
+        String builtIn = builtInName(p);
+        if (builtIn != null) return "built-in library " + builtIn;
         int slash = p.lastIndexOf('/');
         return slash >= 0 ? p.substring(slash + 1) : p;
     }

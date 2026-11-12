@@ -659,6 +659,8 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
 
         private Dp dp;
         private boolean canceled = false;
+        /** v1.9.8: an export that stopped on a damaged built-in library file runs once more after the repair */
+        private boolean retriedAfterRepair = false;
         private boolean buildingAppBundle = false;
         private String signingKeystorePath = null;
         private char[] signingKeystorePassword = null;
@@ -914,14 +916,41 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
                     }
                 }
             } catch (Throwable throwable) {
-                if (throwable instanceof LoadKeystoreException &&
-                        "Incorrect password, or integrity check failed.".equals(throwable.getMessage())) {
-                    activity.get().runOnUiThread(() -> SketchwareUtil.showAnErrorOccurredDialog(activity.get(),
-                            "Either an incorrect password was entered, or your key store is corrupt."));
+                // v1.9.8: a missing or damaged file of a built-in library (the app's own cache) is unpacked again and
+                // the export runs once more from the start, without asking
+                String repaired = null;
+                if (!retriedAfterRepair && !canceled) {
+                    try {
+                        repaired = com.sketchware.ai.project.BuiltInCache.recover(
+                                mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, Log.getStackTraceString(throwable));
+                    } catch (Throwable t) {
+                        Log.e("AppExporter", "Built-in library recovery failed", t);
+                    }
+                }
+                if (repaired != null && activity.get() != null) {
+                    retriedAfterRepair = true;
+                    Log.w("AppExporter", "Built-in library " + repaired + " was unpacked again; exporting again", throwable);
+                    publishProgress("Built-in library " + repaired + " was repaired. Exporting again...");
+                    b();
+                    return;
+                }
+                ExportProjectActivity exportActivity = activity.get();
+                if (exportActivity != null && !exportActivity.isFinishing()) {
+                    try {
+                        if (throwable instanceof LoadKeystoreException &&
+                                "Incorrect password, or integrity check failed.".equals(throwable.getMessage())) {
+                            exportActivity.runOnUiThread(() -> SketchwareUtil.showAnErrorOccurredDialog(exportActivity,
+                                    "Either an incorrect password was entered, or your key store is corrupt."));
+                        } else {
+                            Log.e("AppExporter", throwable.getMessage(), throwable);
+                            exportActivity.runOnUiThread(() -> SketchwareUtil.showAnErrorOccurredDialog(exportActivity,
+                                    Log.getStackTraceString(throwable)));
+                        }
+                    } catch (Throwable t) {
+                        Log.e("AppExporter", "Couldn't show the export error", t);
+                    }
                 } else {
-                    Log.e("AppExporter", throwable.getMessage(), throwable);
-                    activity.get().runOnUiThread(() -> SketchwareUtil.showAnErrorOccurredDialog(activity.get(),
-                            Log.getStackTraceString(throwable)));
+                    Log.e("AppExporter", "Export failed after the screen was closed", throwable);
                 }
 
                 cancel(true);

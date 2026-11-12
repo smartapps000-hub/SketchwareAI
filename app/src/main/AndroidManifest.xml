@@ -144,6 +144,10 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name="com.sketchware.ai.github.GitHubActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name="com.sketchware.ai.library.LibraryResolverActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"
             android:windowSoftInputMode="adjustResize" />
