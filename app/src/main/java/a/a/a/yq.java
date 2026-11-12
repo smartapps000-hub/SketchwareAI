@@ -909,6 +909,7 @@ public class yq {
         networkConfig[0] = N.networkSecurityConfig;
         manifestText = Ix.settleNetworkSecurityConfig(manifestText, networkConfig);
         N.networkSecurityConfig = networkConfig[0];
+        manifestText = Ix.settleCameraFeature(manifestText);
         srcCodeBeans.add(new SrcCodeBean("AndroidManifest.xml", manifestText));
         if (N.networkSecurityConfig) {
             srcCodeBeans.add(new SrcCodeBean(Ix.NETWORK_SECURITY_CONFIG, Ix.networkSecurityConfigXml()));
@@ -1096,7 +1097,8 @@ public class yq {
             Ix ix = new Ix(N, projectFileManager.b());
             ix.setYq(this);
             String manifestText = CommandBlock.applyCommands("AndroidManifest.xml", ix.a());
-            return Ix.settleNetworkSecurityConfig(manifestText, new boolean[]{N.networkSecurityConfig});
+            return Ix.settleCameraFeature(
+                    Ix.settleNetworkSecurityConfig(manifestText, new boolean[]{N.networkSecurityConfig}));
         }
 
         for (ProjectFileBean file : files) {

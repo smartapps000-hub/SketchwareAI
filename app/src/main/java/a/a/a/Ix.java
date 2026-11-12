@@ -92,23 +92,35 @@ public class Ix {
         manifestTag.a(queries);
     }
 
+    private static final java.util.regex.Pattern CAMERA_PERMISSION = java.util.regex.Pattern.compile(
+            "<uses-permission[^>]*android:name\\s*=\\s*[\"']android\\.permission\\.CAMERA[\"']");
     private static final java.util.regex.Pattern CAMERA_FEATURE = java.util.regex.Pattern.compile(
-            "<uses-feature[^>]*android:name=\"android\\.hardware\\.camera\"");
+            "<uses-feature[^>]*android:name\\s*=\\s*[\"']android\\.hardware\\.camera[\"']");
 
     /**
      * v1.9.7.1 (owner's go, 11 Nov): CAMERA makes Google Play treat a camera as required and hide the app from devices
-     * without one (Chromebooks, TVs). Wherever the manifest asks for CAMERA (Camera component, permission blocks, the
-     * Permission Manager, raw injections) it also gets {@code <uses-feature android:name="android.hardware.camera"
-     * android:required="false"/>}, unless the manifest already has a feature tag for the camera. Install on a phone is
-     * not affected; only Play's device filter.
+     * without one (Chromebooks, TVs). The manifest as it goes to disk, after the XML command blocks: when it asks for
+     * CAMERA (Camera component, permission blocks, the Permission Manager, raw injections, command blocks) and has no
+     * feature tag for the camera, {@code <uses-feature android:name="android.hardware.camera" android:required="false"/>}
+     * is put in front of the application tag. A camera feature tag the project already has is left as it is (two
+     * differing tags stop Gradle's manifest merger). Install on a phone is not affected; only Play's device filter.
      */
-    private void addCameraFeature(Nx manifest) {
-        if (!writtenPermissions.contains(Manifest.permission.CAMERA)) return;
-        if (CAMERA_FEATURE.matcher(manifest.toCode()).find()) return;
-        Nx feature = new Nx("uses-feature");
-        feature.a("android", "name", "android.hardware.camera");
-        feature.a("android", "required", "false");
-        manifest.a(feature);
+    public static String settleCameraFeature(String manifest) {
+        if (manifest == null || !CAMERA_PERMISSION.matcher(manifest).find() || CAMERA_FEATURE.matcher(manifest).find()) {
+            return manifest;
+        }
+        int application = manifest.indexOf("<application");
+        if (application < 0) return manifest;
+        int lineStart = manifest.lastIndexOf('\n', application - 1) + 1;
+        String indent = manifest.substring(lineStart, application);
+        if (!indent.trim().isEmpty()) {
+            lineStart = application;
+            indent = "";
+        }
+        String eol = manifest.contains("\r\n") ? "\r\n" : "\n";
+        return manifest.substring(0, lineStart) + indent
+                + "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\" />" + eol
+                + manifest.substring(lineStart);
     }
 
     /** v1.9.7.1: file name of the generated network security configuration (res/xml) */
@@ -424,7 +436,6 @@ public class Ix {
         }
         // v1.9.0: Wear OS / Android TV features, only for a project whose target device is set to one of them
         com.sketchware.ai.project.DeviceTargets.addFeatures(a, settings);
-        addCameraFeature(a);
 
         Nx applicationTag = new Nx("application");
         applicationTag.a("android", "allowBackup", "true");

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One of the Basic / Recent / Event pills of the view property panel: amber when selected,
+<!-- One of the Basic / Recent / Event pills of the view property panel: deeper orange when selected (ob_seg_pill_on),
      dark glass otherwise (the label colour is set by ObsidianPropertyPanel.tab).
      Kept identical in layout/ and layout-v22/. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"

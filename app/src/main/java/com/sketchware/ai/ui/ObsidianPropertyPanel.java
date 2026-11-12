@@ -27,7 +27,7 @@ public final class ObsidianPropertyPanel {
     }
 
     /**
-     * A Basic / Recent / Event pill: amber with a white label when selected, dark glass with a
+     * A Basic / Recent / Event pill: deeper orange (ob_seg_pill_on) with a white label when selected, dark glass with a
      * light label otherwise (the pill itself is the ob_seg_pill selector). Both keep full size
      * and opacity; the classic panel shrank and faded the unselected tabs, which made their
      * labels hard to read.
