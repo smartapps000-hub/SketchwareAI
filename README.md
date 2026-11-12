@@ -1,7 +1,7 @@
 # Sketchware AI
 
 A fork of **Sketchware Pro v6.4.0-rc05** (package `com.sketchware.ai`) for building Android apps from blocks on a phone.
-Current release: **v1.9.7** (versionCode 197). Maintained by AiTechApps. Not affiliated with Sketchware
+Current release: **v1.9.7.1** (versionCode 198). Maintained by AiTechApps. Not affiliated with Sketchware
 (besome) or with the Sketchware Pro team.
 
 ## Licence status (read this first)
@@ -27,7 +27,7 @@ The name is the product name. **There is no AI model, LLM or cloud service in th
 auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
 (Google Maven, Maven Central, JitPack).
 
-## Shipped (v1.0 – v1.9.7)
+## Shipped (v1.0 – v1.9.7.1)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -56,6 +56,7 @@ Everything in this section is in the released APK and was exercised as described
 | Ad blocker 2, download type, block shapes | *block ads* in two layers: listed ad hosts, ad brand words in a host (`adservice.…`) and ad paths for parts of a page, plus a style sheet that hides ad boxes; Back steps over ad-host pages while it is on. *download file* has a **type** slot (Default, Audio, Video, Images, Packages, Documents, or your own ending) that names a file the link and server left without an ending. Before a download only a HEAD request is sent (a one-time link is never spent). The guide sheet draws blocks in their real shape (stacking notch, value slots; pointed true/false and round text blocks) | v1.9.7 |
 | Browser blocks | WebView *block ads* (125 ad / tracker domains and their subdomains get an empty answer; Android 8+), *block pop-ups* (a window opens only after a tap, in the same WebView; a file it answers with is downloaded), *mixed content* (COMPATIBILITY = Chrome's rule, NEVER_ALLOW, ALWAYS_ALLOW), *search Google*, *history to list*, *user agent*; File → *download file* (link, folder, name, notify) without a WebView. Download names come from the server, the link (path or a `file=` / `name=` / `title=` parameter) or the MIME type, else the file's first bytes: never `.bin`. A long press on an image offers *Download image*. Tap a web or permission block in the drawer (or *ⓘ guide*) for three steps: where to drop it, what to plug, what you get | v1.9.6 |
 | Permission picker | The permission slot's list looks like *Select widget*: dark rounded box, search field, radio bubbles, bold name and grey line; one tap picks and closes | v1.9.6 |
+| Contrast and Play readiness | Orange buttons and selected pills keep their white label on a deeper orange (#D34115 to #C64F14, 4.6:1); guide blocks keep white on a deeper teal and brown. Generated apps: storage permissions of File blocks declared for Android 12L and older only when the project targets 33+; a network security configuration beside `usesCleartextTraffic`; the camera declared not required when the app asks for CAMERA; exported projects lose eleven Android Studio lint errors | v1.9.7.1 |
 | WebView like a browser | Back goes through the pages visited before it closes the screen (an *onBackPressed* event of your own wins); DOM storage, `window.open` and Chrome's mixed-content rule on; downloads take file endings (`.mp3`) or `*`, get the file name from the server, and never hold up the page | v1.9.5 |
 | Runtime permissions | Drawer → *Permission* (v1.9.4: Component palette → *Permissions*); the slot opens a searchable list of groups and every Android permission, or a typed name: request a group (Storage/Media, Camera, Microphone, Location, Bluetooth, Notifications, Phone, SMS) or a permission by name, *permission granted*, *permission status* (GRANTED / DENIED / NEVER_ASK_AGAIN). The app asks for what the group means on the phone's Android version (Android 14+: photos, videos and music, partial photo access counts; 13: the three media permissions; older: storage), one dialog at a time. Activity events *When permission granted* / *When permission denied* (with *never ask again*). The manifest gets the group's permissions, with `maxSdkVersion` where newer Android ignores them; the build log lists them | v1.9.4 |
 | WebView blocks | *allow downloads* (Android's download manager into Downloads/folder, notification on completion, file types filter), *desktop mode*, *clear cookies and cache*, *enable file upload* (a page's file input opens the file picker); WebView events *download starts* (URL, type, size) and *download completes* (URL, file name, success) | v1.9.4 |

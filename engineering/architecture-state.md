@@ -802,7 +802,14 @@ Record and test results: `v1.9.7.1-toolchain-m3-play-audit.md`.
 - **Helper sources**: `SketchWeb.Client` carries `@TargetApi(27)`, `SketchWeb.register` and
   `SketchButton.setBackgroundDrawable` a `@SuppressLint`; `SketchwareUtil.hideKeyboard` passes `SHOW_IMPLICIT`. No
   behaviour change; they remove ten Android Studio lint errors from exported projects.
-- **Export check**: `gradle-export-check.sh` can run `lintDebug` (`LINT=1`). Fixture 908's export: 4 lint errors left
-  (two from the fixture's layout, `SuspiciousIndentation` in the activity template's helper, the camera feature tag).
+- **Selected segment pills** (12 Nov, owner's go): `ob_seg_pill`'s selected state is `ob_seg_pill_on` (glass in
+  `drawable-v24`, gradient shape below), #D34115 → #C64F14; `ob_tile_orange` keeps its other users.
+- **Camera feature tag** (12 Nov, owner's go): `Ix.settleCameraFeature(String)` runs in `yq` after
+  `settleNetworkSecurityConfig`, on the final manifest text of both paths: CAMERA declared (either quote style) and no
+  `uses-feature` for `android.hardware.camera` → `<uses-feature android:name="android.hardware.camera"
+  android:required="false" />` before `<application`, same indent and line ending. An existing camera tag is never
+  doubled (Gradle's manifest merger rejects two differing ones; aapt2 accepts them).
+- **Export check**: `gradle-export-check.sh` can run `lintDebug` (`LINT=1`). Fixture 908's export: 3 lint errors left
+  (two from the fixture's layout, `SuspiciousIndentation` in the activity template's helper).
 - Measured for the record: a Run build's APK verifies with v1, v2, v3 and v4 (`.idsig` beside it); an exported APK has
   v1 + v2 + v3 and no v4 file; D8 8.13.25 never writes a DEX version above 039.

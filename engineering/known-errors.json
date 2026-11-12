@@ -630,6 +630,12 @@
       "rootCause": "the gradient #E8501C to #F97316 is too light for white text",
       "repair": "v1.9.7.1: gradient #D34115 to #C64F14 (4.6:1), label stays white (owner's decision; a dark label was rejected)",
       "scope": "IDE"
+    },
+    {
+      "fingerprint": "Android Studio lint error PermissionImpliesUnsupportedChromeOsHardware (CAMERA without a camera uses-feature) in an exported project",
+      "rootCause": "CAMERA implies a required camera; Play hides such an app from devices without one",
+      "repair": "v1.9.7.1 (owner's go): Ix.settleCameraFeature adds <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/> after the command blocks unless the manifest already has a camera feature tag",
+      "scope": "every generated manifest that declares CAMERA"
     }
   ]
 }

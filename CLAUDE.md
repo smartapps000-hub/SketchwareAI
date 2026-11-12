@@ -163,19 +163,22 @@ round; slots from `[hint]`) in `BlockGuide`; never write the any-type pattern (s
 comment (second time: the host javac of both helper variants caught it); harness `Uri` stub has `getHost()`;
 WEBCALL 77/77, PERMCALL 39/39, JAVAEDIT 101/101; render `V197Test`; two review passes; APK v1.9.7-34fabe7,
 versionCode 197, sha256 `067a92b3...ab90c488`, 142,331,909 bytes).
-v1.9.7.1 (owner's 11 Nov "toolchain parity / generated apps M3 & Play audit, auto-fix" directives; **built and tested,
-not published**: commits on branch `ccr-c120dc8b-d2wodl` only, a cloud session that may push nothing else; record
-`engineering/v1.9.7.1-toolchain-m3-play-audit.md`): call-to-action surfaces `ob_cta*` / `ob_safe_cta*` #D34115 → #C64F14
+v1.9.7.1 (owner's 11 Nov "toolchain parity / generated apps M3 & Play audit, auto-fix" directives, released 12 Nov on
+his word from cloud branch `ccr-c120dc8b-d2wodl`; record `engineering/v1.9.7.1-toolchain-m3-play-audit.md`): call-to-action surfaces `ob_cta*` / `ob_safe_cta*` #D34115 → #C64F14
 (pressed #C83D13 → #BC4A12) with the label kept white (section 8); `BlockShapeView.readable` (guide blocks: white on a
 deepened body); `Ix.legacyStorageMaxSdk` (READ / WRITE storage `maxSdkVersion="32"` for target 33+; lint's ScopedStorage
 warning stays); generated `res/xml/sketch_network_security_config.xml` + `android:networkSecurityConfig` beside
 `usesCleartextTraffic` (`jq.networkSecurityConfig`, `Ix.settleNetworkSecurityConfig` after the command blocks);
-`.DebugActivity` declared for Run builds or an own file only; lint annotations in SketchWeb / SketchButton,
-`SHOW_IMPLICIT` in SketchwareUtil (exported fixture 908: lint 14 → 4 errors; left: `SuspiciousIndentation` in the
-activity template's `_getCheckedItemPositionsToArray`, camera feature tag, two from the fixture's layout); measured: Run
+`.DebugActivity` declared for Run builds or an own file only; selected segment pills on their own `ob_seg_pill_on`
+(same deeper orange; `ob_tile_orange` untouched); `Ix.settleCameraFeature` (after the command blocks: CAMERA in either
+quote style and no camera feature tag → `required="false"` tag before `<application`; a project's own tag kept: two
+differing ones stop Gradle's manifest merger); lint annotations in SketchWeb / SketchButton,
+`SHOW_IMPLICIT` in SketchwareUtil (exported fixture 908: lint 14 → 3 errors; left: `SuspiciousIndentation` in the
+activity template's `_getCheckedItemPositionsToArray`, two from the fixture's layout); measured: Run
 build APKs verify v1 + v2 + v3 + v4 (`.idsig`), exported APKs v1 + v2 + v3, D8 8.13.25 writes DEX 039 at most;
-JAVAEDIT 101/101, JAVAEDIT-OPEN 10/10, WEBCALL 77/77, PERMCALL 39/39; APK v1.9.7.1-18ec226, versionCode 198 (so v1.9.8
-takes 199), sha256 `34532a48...00bff88e`, 142,333,397 bytes. Local branch
+JAVAEDIT 101/101, JAVAEDIT-OPEN 10/10, WEBCALL 77/77, PERMCALL 39/39, CAMTEST 7/7; two review passes; APK
+v1.9.7.1-6e5d022, versionCode 198 (so v1.9.8 takes 199), sha256 `1ed71d07...c81a7e1292`, 142,334,438 bytes; APK only on
+`binaries`, no patches zip (as since v1.9.1). Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
@@ -252,8 +255,8 @@ Tokens (verified in `colors_ob.xml`; re-checked in the v1.8.4 APK's resource tab
 `ob_bg #0B0B0D`, `ob_orange #F4511E`, `ob_amber #FF7A29`, `ob_accent #FFB877`, `ob_accent_2 #FF9A4D`,
 `ob_text #F5F5F7`, `ob_text_2 #A1A1AA`, `ob_error #FF8A65`, `ob_divider #24FFFFFF`; glass corner
 radius 22dp (`GlassDrawable`: `22 * density`); call-to-action button gradient `#D34115 -> #C64F14` since v1.9.7.1
-(`ob_cta*`, `ob_safe_cta*`; `#E8501C -> #F97316` before), label pure white; tiles, FAB and toolbar keep `#F4511E` based
-gradients.
+(`ob_cta*`, `ob_safe_cta*`, and the selected segment pill `ob_seg_pill_on`; `#E8501C -> #F97316` before), label pure
+white; tiles (`ob_tile_orange`), FAB and toolbar keep `#F4511E` based gradients.
 
 - Colours in the user's *project* are semantic and never recoloured.
 - The design canvas and block editor are excluded from dark rendering so previews stay true.
@@ -561,7 +564,9 @@ mirror (a JitPack-only artifact otherwise fails on the 429 instead of falling th
 between turns: a background job only advances while a turn is running, so wait with a foreground
 `timeout 580 bash -c 'until grep -q … ; do sleep 15; done'` (three ART lanes of four or five fixtures: about 25
 minutes of such waits on 4 CPUs). Such a session may push only its own `ccr-…` branch: `main` and `binaries` need the
-owner's word. A review subagent can stop on the 5-hour usage limit: resume it with SendMessage after the reset.
+owner's word (v1.9.7.1: he gave it after the build; then fast-forward `main` to the branch and push, and add the APK to
+`binaries` with Git LFS as in section 7; the clone is shallow: `git fetch --unshallow origin main` first when the full
+history is needed). A review subagent can stop on the 5-hour usage limit: resume it with SendMessage after the reset.
 `gradle-export-check.sh` with `LINT=1` also runs `lintDebug` on an exported project (run it for every export change).
 
 Network: Google Maven, Maven Central (GCS mirror), JitPack, `dl.google.com`, `android.googlesource.com`,
