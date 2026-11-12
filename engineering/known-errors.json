@@ -636,6 +636,90 @@
       "rootCause": "CAMERA implies a required camera; Play hides such an app from devices without one",
       "repair": "v1.9.7.1 (owner's go): Ix.settleCameraFeature adds <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/> after the command blocks unless the manifest already has a camera feature tag",
       "scope": "every generated manifest that declares CAMERA"
+    },
+    {
+      "fingerprint": "java.nio.file.NoSuchFileException / FileNotFoundException / ZipException naming /data/user/0/com.sketchware.ai/cache/libs/libs/<library>/classes.jar or cache/libs/dexs/<library>.dex (seen for graphics-shapes-1.0.1 in DexCompiler / Package APK), every build, until the app was reinstalled",
+      "rootCause": "libs.zip / dexs.zip were unpacked in place and unpacked again only when the archive copy's size changed: an extraction cut off (app killed, phone restarted) or files the system removed from the cache dir left a library folder without its classes.jar for good",
+      "repair": "v1.9.8 BuiltInCache: (1) SketchApplication.onCreate moves cache/libs/{libs,dexs,libs.zip,dexs.zip,desugar*} and cache/compiledLibs aside when versionCode|versionName changed, deleted on a background thread; (2) archives unpacked into a temp folder, checked against the archive's sizes, renamed into place; (3) Dp.verifyBuiltInLibraries after getBuiltInLibrariesReady (Run, Export APK, Export AAB): every used library's files compared with libs.zip / dexs.zip entry sizes, a damaged one unpacked again through a temp folder and its compiled resources dropped (a note in the log, not a warning); (4) a step that still fails on such a path: the library is unpacked again and the build (DesignActivity) or export (ExportProjectActivity) starts over once; Build Doctor code BUILT_IN_CACHE explains it. android.jar and testkey are also checked by their own sizes. Export to Android Studio reads the APK's own libs.zip, not the cache",
+      "scope": "every build of every project",
+      "verifiedOn": [
+        "ART API 31 harness, v1.9.8 dev APK, fixture 940 (m3): CACHETEST 28/28 (deleted graphics-shapes classes.jar + Material DEX cut in half + Material res file emptied: repaired, build ok; version change: cache moved aside, everything unpacked again, build ok; files deleted after the built-in libraries step: Package APK failed with 'Failed to add .../graphics-shapes-1.0.1/classes.jar', library unpacked again, build started over and succeeded)"
+      ],
+      "notVerifiedOn": [
+        "a phone (in-place update over v1.9.7.1 with the owner's video project)"
+      ]
+    },
+    {
+      "fingerprint": "INSTALL_PARSE_FAILED_MANIFEST_MALFORMED: Targeting S+ (version 31 and above) requires that an explicit value for android:exported be defined when intent filters are present (install), or Gradle's 'Manifest merger failed : android:exported needs to be explicitly specified' (export)",
+      "rootCause": "an activity / activity-alias / service / receiver from the Manifest Manager, a raw injection or a command block has an intent filter and no android:exported; the generator's own components always have it",
+      "repair": "v1.9.8 Ix.settleExported on the generated manifest (after the command blocks, target 31+): android:exported=\"true\" on such components (what Android assumed before 12), same line count; listed as a note (jq.exportedNote) in the build log",
+      "scope": "generated manifests with target 31+",
+      "verifiedOn": [
+        "ART API 31 harness: DOCTORTEST (8 manifest checks)"
+      ]
+    },
+    {
+      "fingerprint": "aapt2: attr/colorPrimaryContainer (or another Material 3 attribute / Widget.Material3 style) not found",
+      "rootCause": "Inject or custom XML uses Material 3 names in a project whose theme isn't Material 3 (AppCompat off, or an older MaterialComponents theme)",
+      "repair": "v1.9.8 CompileLogDiagnostics rule: explains it and points to Project Configuration > Convert to Material 3 (no automatic change: switching the theme is the user's decision)",
+      "scope": "advice only",
+      "verifiedOn": [
+        "ART API 31 harness: DOCTORTEST"
+      ]
+    },
+    {
+      "fingerprint": "aapt2: '<name>' is not a valid file-based resource name / Invalid file name",
+      "rootCause": "a file under res/ with capitals, spaces or dashes",
+      "repair": "v1.9.8 CompileLogDiagnostics rule (rename in Image / Resource manager); not renamed automatically (the places that use the name would break)",
+      "scope": "advice only",
+      "verifiedOn": [
+        "ART API 31 harness: DOCTORTEST"
+      ]
+    },
+    {
+      "fingerprint": "ECJ: class file has wrong version NN.0 / It is indirectly referenced from required .class files",
+      "rootCause": "a library compiled for a newer Java than ECJ 3.26 reads",
+      "repair": "v1.9.8 CompileLogDiagnostics rule naming the class file version (Java = version - 44) and the fix (an older release of the library)",
+      "scope": "advice only",
+      "verifiedOn": [
+        "ART API 31 harness: DOCTORTEST"
+      ]
+    },
+    {
+      "fingerprint": "D8 / DexMerger: Type X is defined multiple times: <library A>, <library B> (DUPLICATE_CLASS)",
+      "rootCause": "two libraries hold the same class, usually two versions of one library (a local library next to the built-in one, or two local versions)",
+      "repair": "v1.9.8 BuildDoctor names both (local or built-in) and, for two versions of the same library, says to keep the higher one and which one to switch off. Not switched off automatically (which copy the code needs is the user's call)",
+      "scope": "advice only",
+      "verifiedOn": [
+        "ART API 31 harness: DOCTORTEST"
+      ]
+    },
+    {
+      "fingerprint": "READ / WRITE_EXTERNAL_STORAGE never granted on Android 13+ (no dialog, file reads by path fail silently)",
+      "rootCause": "apps targeting API 33+ get no legacy storage permission on Android 13+",
+      "repair": "v1.9.7.1 declares them with maxSdkVersion=32 for target 33+; v1.9.8 adds a build note (BuildWarnings.begin) suggesting getExternalFilesDir, the Photo Picker / MediaStore or a file picker",
+      "scope": "projects with the storage permission and target 33+",
+      "verifiedOn": [
+        "code review only (note text)"
+      ]
+    },
+    {
+      "fingerprint": "java.io.IOException: Cleartext HTTP traffic to <host> not permitted (generated app at run time)",
+      "rootCause": "a project's own network security configuration or usesCleartextTraffic=\"false\"",
+      "repair": "v1.9.7.1 generates sketch_network_security_config.xml permitting cleartext unless the project sets its own; v1.9.8 adds nothing (a run-time error of the generated app is not in the build log)",
+      "scope": "generated apps",
+      "verifiedOn": [
+        "v1.9.7.1 records"
+      ]
+    },
+    {
+      "fingerprint": "Native library not 16 KB aligned (Android 15+ 16 KB page devices refuse to load it)",
+      "rootCause": "a project's or local library's .so built with 4 KB LOAD alignment",
+      "repair": "unchanged since v1.8.4: NativeAlignment warns per library at packaging; the IDE's own aapt2 is 16 KB aligned (release checks)",
+      "scope": "projects with native libraries",
+      "verifiedOn": [
+        "fixture 910 (v1.9.7)"
+      ]
     }
   ]
 }

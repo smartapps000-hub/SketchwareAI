@@ -127,8 +127,9 @@ public final class CloudBackup {
             throws IOException, GitHubException {
         if (!swb.isFile()) throw new GitHubException("no_file", "The backup file wasn't made.");
         if (swb.length() > MAX_BYTES) {
-            throw new GitHubException("too_large", "The backup is " + (swb.length() >> 20) + " MB; GitHub takes files up to "
-                    + "100 MB. Back it up without local libraries, or keep it on the phone.");
+            throw new GitHubException("too_large", "The backup is " + ((swb.length() + (1 << 20) - 1) >> 20) + " MB; cloud "
+                    + "backup takes files up to 95 MB (GitHub refuses files over 100 MB). Back it up without local "
+                    + "libraries, or keep it on the phone.");
         }
         if (branch == null) ensureRepository();
         String path = pathFor(packageName, projectName);

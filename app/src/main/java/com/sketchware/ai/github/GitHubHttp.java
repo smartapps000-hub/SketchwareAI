@@ -149,7 +149,13 @@ public final class GitHubHttp {
         c.setReadTimeout(90_000);
         c.setInstanceFollowRedirects(false);
         c.setUseCaches(false);
-        c.setRequestMethod(method);
+        try {
+            c.setRequestMethod(method);
+        } catch (java.net.ProtocolException e) {
+            // Android's HttpURLConnection sends PATCH; Java SE's (the desktop test) has none
+            c.setRequestMethod("POST");
+            c.setRequestProperty("X-HTTP-Method-Override", method);
+        }
         c.setRequestProperty("User-Agent", userAgent);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
         // the token goes only to the API host

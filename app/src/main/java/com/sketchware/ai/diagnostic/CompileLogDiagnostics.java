@@ -97,6 +97,12 @@ public final class CompileLogDiagnostics {
                             + "or pass the activity/context in."),
             new Rule("is not visible|has private access",
                     "The code uses a private member of another class, or an API hidden in the bundled android.jar (API 37)."),
+            // v1.9.8: ECJ reading a library compiled for a newer Java
+            new Rule("class file (?:has wrong version|version) (\\d+)\\.\\d+|is not compatible with the configured source level|"
+                    + "compiled with an incompatible version of Java",
+                    "A library was compiled for a newer Java than the Java compiler on the phone reads (class file "
+                            + "version %s; Java = version - 44). Use the library's older release made for Java 11 or "
+                            + "lower, or ask its author for one."),
             new Rule("(\\w+) cannot be resolved to a type",
                     "Java doesn't know the type %s. Add its import (Custom Imports / ASD), enable the library that "
                             + "provides it, or fix the spelling."),
@@ -104,12 +110,6 @@ public final class CompileLogDiagnostics {
                     "Java can't find a variable or method named in the log. Check the block/custom code and the component names."),
             new Rule("Syntax error",
                     "Java syntax error in custom code (Add Source Directly, custom blocks, or a Java file). The line above shows where."),
-            // v1.9.8: ECJ reading a library compiled for a newer Java
-            new Rule("class file (?:has wrong version|version) (\\d+)\\.\\d+|is not compatible with the configured source level|"
-                    + "compiled with an incompatible version of Java",
-                    "A library was compiled for a newer Java than the Java compiler on the phone reads (class file "
-                            + "version %s; Java = version - 44). Use the library's older release made for Java 11 or "
-                            + "lower, or ask its author for one."),
             new Rule("Unsupported class file|invalid class file|major version",
                     "A library uses newer Java bytecode than the dexer understands. Choose D8 in Build Settings; if D8 "
                             + "is already used, take the library's older release."),

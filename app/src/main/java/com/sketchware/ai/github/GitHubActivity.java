@@ -70,7 +70,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         closed = true;
         waiting = false;
         work.shutdownNow();
