@@ -33,6 +33,8 @@ public final class AppControl {
     public static final String URL = "https://raw.githubusercontent.com/smartapps000-hub/SketchwareAI/main/config/app-control.json";
     static final String PREFS = "sketchware_ai_app_control";
     private static boolean checkedThisStart;
+    /** v1.9.9: the file was read from GitHub in this process (the network works); the sign-in gate needs it. */
+    private static volatile boolean fetchedOnline;
     /** A notice read but not shown yet (another dialog was up, or the screen was recreated). */
     private static Notice pending;
     private static SharedPreferences pendingPrefs;
@@ -125,6 +127,11 @@ public final class AppControl {
         return null;
     }
 
+    /** v1.9.9: true once app-control.json was read from GitHub in this process. */
+    public static boolean fetchedOnline() {
+        return fetchedOnline;
+    }
+
     /** v1.9.9: the file as last read on this phone (offline starts use it), or null when it was never read. */
     public static Config cached(Context context) {
         String json = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("last", null);
@@ -143,8 +150,12 @@ public final class AppControl {
             try {
                 SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                 String json = fetch();
-                if (json != null && parse(json) != null) prefs.edit().putString("last", json).apply();
-                else json = prefs.getString("last", null);
+                if (json != null && parse(json) != null) {
+                    prefs.edit().putString("last", json).apply();
+                    fetchedOnline = true;
+                } else {
+                    json = prefs.getString("last", null);
+                }
                 Config config = parse(json);
                 boolean signedIn = TokenStore.get(app).login() != null;
                 Notice notice = decide(config, com.sketchware.remod.BuildConfig.VERSION_CODE, signedIn,
@@ -153,8 +164,10 @@ public final class AppControl {
                 Activity a = ref.get();
                 if ("login".equals(notice.kind)) {
                     // v1.9.9: required sign-in is the sign-in screen itself (AuthGuard), not a dialog
+                    // only while the main screen is in front (the read takes seconds: the user may have opened a
+                    // project meanwhile; then the main screen's next onResume asks)
                     if (a != null) a.runOnUiThread(() -> {
-                        if (!a.isFinishing() && !a.isDestroyed()) AuthGuard.check(a);
+                        if (!a.isFinishing() && !a.isDestroyed() && a.hasWindowFocus()) AuthGuard.check(a);
                     });
                     return;
                 }

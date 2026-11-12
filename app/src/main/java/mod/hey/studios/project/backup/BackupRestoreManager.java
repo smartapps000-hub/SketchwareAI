@@ -166,7 +166,10 @@ public class BackupRestoreManager {
     }
 
     public void doRestore(final String file, final boolean restoreLocalLibs) {
-        if (act != null && !com.sketchware.ai.github.AuthGuard.check(act)) return;
+        if (act != null && !com.sketchware.ai.github.AuthGuard.check(act)) {
+            android.widget.Toast.makeText(act, "Sign in to restore a backup", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc).execute("");
     }
 

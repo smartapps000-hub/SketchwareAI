@@ -118,6 +118,7 @@ public final class GitHubTest {
 
         // --- AuthGuard: required only when the last app-control.json said so; a session = a token that decrypts
         Class<?> guard = c("com.sketchware.ai.github.AuthGuard");
+        Class<?> control = c("com.sketchware.ai.github.AppControl");
         Object controlPrefs = call(CTX, "getSharedPreferences", "sketchware_ai_app_control", 0);
         Object e0 = call(controlPrefs, "edit");
         call(e0, "remove", "last");
@@ -127,10 +128,30 @@ public final class GitHubTest {
         Object e1 = call(controlPrefs, "edit");
         call(e1, "putString", "last", "{\"require_login\":true}");
         call(e1, "commit");
-        check("gate: require_login true -> required", Boolean.TRUE.equals(call(guard, "required", CTX)), null);
+        set(control, "fetchedOnline", false);
+        check("gate: require_login true, but not read from GitHub in this run (offline start) -> not required",
+                Boolean.FALSE.equals(call(guard, "required", CTX)), null);
+        set(control, "fetchedOnline", true);
+        check("gate: require_login true, read online in this run -> required", Boolean.TRUE.equals(call(guard, "required", CTX)), null);
         Object appPrefs = call(CTX, "getSharedPreferences", "sketchware_ai_github", 0);
         check("gate: no stored sign-in -> no session", appPrefs != null && call(appPrefs, "getString", "token", null) == null
                 && Boolean.FALSE.equals(call(guard, "verifyHardwareBoundSession", CTX)), null);
+        Class<?> signIn = c("com.sketchware.ai.github.SignIn");
+        boolean lifts = true;
+        for (String code : new String[]{"device_flow_disabled", "no_client_id", "keystore", "incorrect_client_credentials"}) {
+            lifts &= Boolean.TRUE.equals(call(signIn, "cannotWork", code));
+        }
+        boolean keeps = Boolean.FALSE.equals(call(signIn, "cannotWork", "network"))
+                && Boolean.FALSE.equals(call(signIn, "cannotWork", "access_denied"))
+                && Boolean.FALSE.equals(call(signIn, "cannotWork", "expired_token"));
+        call(guard, "markUnavailable");
+        check("gate: a sign-in that can't work here (Device Flow off, no Client ID, Keystore, no browser) lifts it for the run;"
+                + " network, cancel, expiry don't", lifts && keeps && Boolean.FALSE.equals(call(guard, "required", CTX)), null);
+        set(guard, "unavailable", false);
+        check("account read after approval: 5xx, 429, 403 waited out; 401 and others not",
+                Boolean.TRUE.equals(call(signIn, "isPassing", "http_502")) && Boolean.TRUE.equals(call(signIn, "isPassing", "http_429"))
+                        && Boolean.TRUE.equals(call(signIn, "isPassing", "http_403")) && Boolean.FALSE.equals(call(signIn, "isPassing", "unauthorized"))
+                        && Boolean.FALSE.equals(call(signIn, "isPassing", "http_404")) && Boolean.FALSE.equals(call(signIn, "isPassing", "bad_answer")), null);
         Object e2 = call(controlPrefs, "edit");
         call(e2, "putString", "last", "{\"require_login\":false}");
         call(e2, "commit");
@@ -138,14 +159,13 @@ public final class GitHubTest {
         Object e3 = call(controlPrefs, "edit");
         call(e3, "remove", "last");
         call(e3, "commit");
-        Class<?> signIn = c("com.sketchware.ai.github.SignIn");
+        set(control, "fetchedOnline", false);
         check("sign-in errors are one short line", "Sign-in was cancelled.".equals(call(signIn, "shortMessage", "access_denied"))
                 && "The code expired. Tap Sign in again.".equals(call(signIn, "shortMessage", "expired_token"))
                 && "No internet connection.".equals(call(signIn, "shortMessage", "network"))
                 && "Sign-in didn't work. Please try again.".equals(call(signIn, "shortMessage", "anything_else")), null);
 
         // --- app-control.json (config/app-control.json of the repository): notices, never a lock
-        Class<?> control = c("com.sketchware.ai.github.AppControl");
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);

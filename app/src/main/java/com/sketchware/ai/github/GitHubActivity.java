@@ -21,10 +21,6 @@ import com.sketchware.ai.ui.ObsidianWindow;
 import com.sketchware.remod.R;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,8 +42,10 @@ import mod.jbk.util.LogUtil;
 public class GitHubActivity extends BaseAppCompatActivity {
 
     public static final String EXTRA_GATE = "sketchware_ai_gate";
+    private static final int REQUEST_BROWSER = 7311;
 
     private final ExecutorService work = Executors.newSingleThreadExecutor();
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final SignIn.Listener listener = this::onSignInChanged;
     private LinearLayout list;
     private TokenStore store;
@@ -99,7 +97,9 @@ public class GitHubActivity extends BaseAppCompatActivity {
         super.onResume();
         resumed = true;
         if (gate && store.login() != null && AuthGuard.verifyHardwareBoundSession(this)) {
-            // signed in meanwhile (another screen): nothing to gate
+            // signed in (the tab was closed for us, or another screen): nothing to gate
+            String login = signIn.takeSignedIn();
+            if (login != null) toast("Signed in as @" + login);
             finish();
             return;
         }
@@ -119,6 +119,8 @@ public class GitHubActivity extends BaseAppCompatActivity {
     @Override
     public void onDestroy() {
         closed = true;
+        handler.removeCallbacksAndMessages(null);
+        signIn.forgetBrowser(this);
         // no interrupt: an upload under way finishes (and removes its .swb) after the screen is gone
         work.shutdown();
         super.onDestroy();
@@ -147,9 +149,10 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 finish();
                 return;
             }
-            loadAvatarInBackground();
             loadProjects();
         }
+        // SignIn saves the picture after the sign-in; it may arrive a moment later
+        if (avatar == null) avatar = loadAvatar();
         if (resumed && signIn.takeOpenBrowser()) openVerification();
         render();
     }
@@ -161,9 +164,14 @@ public class GitHubActivity extends BaseAppCompatActivity {
         if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("GitHub code", code.userCode));
         String url = code.verificationUriComplete != null ? code.verificationUriComplete : code.verificationUri;
         try {
-            startActivity(customTab(this, url));
+            // for a result: the tab then belongs to this screen, and SignIn can close it (finishActivity) when GitHub
+            // answers, which brings this screen back without starting an activity from the background
+            startActivityForResult(customTab(this, url), REQUEST_BROWSER);
+            signIn.browserOpenedBy(this, REQUEST_BROWSER);
             toast("Code copied — paste on GitHub");
         } catch (android.content.ActivityNotFoundException e) {
+            // sign-in can't work without a browser: a required sign-in is lifted for this run
+            AuthGuard.markUnavailable();
             setStatus("No browser found. Open github.com/login/device", true, e.toString());
             render();
         }
@@ -503,23 +511,33 @@ public class GitHubActivity extends BaseAppCompatActivity {
     /** The restore runs on its own: the list is read again until the new project is there (up to a minute). */
     private void watchForRestored(int before, int tries) {
         if (closed || tries > 30) return;
-        list.postDelayed(() -> work.execute(() -> {
-            List<HashMap<String, Object>> projects;
+        // the Handler's callbacks are removed in onDestroy (a View's postDelayed survives the screen and would hand
+        // work to the shut-down executor)
+        handler.postDelayed(() -> {
+            if (closed) return;
             try {
-                projects = lC.a();
-            } catch (RuntimeException e) {
-                return;
+                work.execute(() -> readRestored(before, tries));
+            } catch (java.util.concurrent.RejectedExecutionException ignored) {
             }
-            List<HashMap<String, Object>> found = projects;
-            ui(() -> {
-                if (found.size() > before) {
-                    local = found;
-                    render();
-                } else {
-                    watchForRestored(before, tries + 1);
-                }
-            });
-        }), 2000);
+        }, 2000);
+    }
+
+    private void readRestored(int before, int tries) {
+        List<HashMap<String, Object>> projects;
+        try {
+            projects = lC.a();
+        } catch (RuntimeException e) {
+            return;
+        }
+        List<HashMap<String, Object>> found = projects;
+        ui(() -> {
+            if (found.size() > before) {
+                local = found;
+                render();
+            } else {
+                watchForRestored(before, tries + 1);
+            }
+        });
     }
 
     // ------------------------------------------------------------------ helpers
@@ -558,41 +576,6 @@ public class GitHubActivity extends BaseAppCompatActivity {
         if (store.login() == null || !file.isFile()) return null;
         Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
         return bitmap == null ? null : new BitmapDrawable(getResources(), bitmap);
-    }
-
-    /** The user's GitHub picture (avatars.githubusercontent.com only), kept in the app's files. */
-    private void loadAvatarInBackground() {
-        String url = signIn.avatarUrl();
-        if (url == null) return;
-        File file = new File(getFilesDir(), "github_avatar.png");
-        work.execute(() -> {
-            HttpURLConnection c = null;
-            try {
-                c = (HttpURLConnection) new URL(url + (url.contains("?") ? "&" : "?") + "s=128").openConnection();
-                c.setConnectTimeout(15000);
-                c.setReadTimeout(15000);
-                c.setInstanceFollowRedirects(false);
-                if (c.getResponseCode() != 200) return;
-                Bitmap bitmap;
-                try (InputStream in = c.getInputStream()) {
-                    bitmap = BitmapFactory.decodeStream(in);
-                }
-                if (bitmap == null) return;
-                File temp = new File(file.getPath() + ".tmp");
-                try (FileOutputStream out = new FileOutputStream(temp)) {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-                }
-                if (!temp.renameTo(file)) temp.delete();
-                ui(() -> {
-                    avatar = new BitmapDrawable(getResources(), bitmap);
-                    render();
-                });
-            } catch (Exception e) {
-                LogUtil.d("GitHubActivity", "No avatar: " + e);
-            } finally {
-                if (c != null) c.disconnect();
-            }
-        });
     }
 
     private void ui(Runnable r) {

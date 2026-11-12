@@ -105,6 +105,7 @@ public final class GitHubScreen {
                 account.addView(header(null, "GitHub", "Needs Android 6.0 or newer"));
             } else if (s.finishing) {
                 account.addView(header(null, "Almost done…", "Reading your GitHub account"));
+                account.addView(textButton("Cancel", v -> actions.cancelSignIn()), centred(-2, dp(40), 10));
             } else if (s.userCode != null) {
                 account.addView(header(null, "Enter this code on GitHub", "Code copied — paste it on GitHub"));
                 TextView code = new TextView(c, null, 0, R.style.Ob_Text_Screen);

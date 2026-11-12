@@ -6,10 +6,12 @@ import android.content.Intent;
 
 /**
  * v1.9.9 (owner's 12 Nov directive): sign-in required before the main screen, new projects, opening a project,
- * restoring a backup, building and exporting, when {@code config/app-control.json} says {@code "require_login": true}
- * (read at start by {@link AppControl}, the last answer kept for offline starts). Not required while the file says
- * false or has never been read on this phone: a sign-in that can't work (no network on the very first start, GitHub
- * unreachable) never locks anyone out of their projects.
+ * restoring a backup, building and exporting, when {@code config/app-control.json} says {@code "require_login": true}.
+ * Only while sign-in can work: the file must have been read from GitHub in this run (an offline start never asks:
+ * the IDE stays offline-first), and a sign-in that failed because it can't work on this phone (device sign-in switched
+ * off for the OAuth app, no Client ID, the Keystore can't store it, no browser) lifts the requirement for the rest of
+ * the run ({@link #markUnavailable}). So the gate can't lock anyone out of their projects for good: at worst until
+ * the app is started again without a network.
  * <p>
  * A session counts when the stored token decrypts on this phone ({@link TokenStore}: a Keystore key, bound to
  * ANDROID_ID, the GitHub user id and the app's signing certificate). The answer is kept for the process; signing in or
@@ -18,14 +20,21 @@ import android.content.Intent;
 public final class AuthGuard {
 
     private static Boolean session;
+    private static volatile boolean unavailable;
 
     private AuthGuard() {
     }
 
-    /** True when app-control.json (as last read) requires sign-in. */
+    /** True when app-control.json, read from GitHub in this run, requires sign-in and sign-in can work here. */
     public static boolean required(Context context) {
+        if (unavailable || !AppControl.fetchedOnline()) return false;
         AppControl.Config config = AppControl.cached(context);
         return config != null && config.requireLogin;
+    }
+
+    /** Sign-in can't work on this phone in this run (see the class comment): nothing is required until the next start. */
+    public static void markUnavailable() {
+        unavailable = true;
     }
 
     /** True when a sign-in exists that this phone can decrypt (hardware-bound). */

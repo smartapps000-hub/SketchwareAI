@@ -60,8 +60,18 @@ public final class TokenStore {
         return new TokenStore(app.getSharedPreferences(PREFS, Context.MODE_PRIVATE), new AndroidKeystore(), () -> deviceOf(app));
     }
 
-    /** ANDROID_ID + the SHA-256 of the app's signing certificate (each "?" when it can't be read). */
+    private static volatile String device;
+
+    /** ANDROID_ID + the SHA-256 of the app's signing certificate (each "?" when it can't be read); read once per run. */
     static String deviceOf(Context context) {
+        String known = device;
+        if (known != null) return known;
+        known = readDevice(context);
+        if (!known.contains("?")) device = known;
+        return known;
+    }
+
+    private static String readDevice(Context context) {
         String androidId = null;
         try {
             androidId = android.provider.Settings.Secure.getString(context.getContentResolver(),
