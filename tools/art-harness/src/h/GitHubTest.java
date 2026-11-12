@@ -114,8 +114,14 @@ public final class GitHubTest {
         Object l1 = call(control, "decide", login, 199, false, null);
         check("require_login: a sign-in suggestion when signed out, none when signed in", l1 != null && "login".equals(get(l1, "kind"))
                 && call(control, "decide", login, 199, true, null) == null, null);
-        check("garbage, http update URL: ignored", call(control, "parse", "<html>") == null
-                && get(call(control, "parse", "{\"update_url\":\"http://x\"}"), "updateUrl") == null, null);
+        check("garbage, http or other-host links: ignored", call(control, "parse", "<html>") == null
+                && get(call(control, "parse", "{\"update_url\":\"http://x\"}"), "updateUrl") == null
+                && get(call(control, "parse", "{\"update_url\":\"https://evil.example/app.apk\"}"), "updateUrl") == null
+                && get(call(control, "parse", "{\"message_url\":\"https://github.com/smartapps000-hub/../x\"}"), "messageUrl") == null, null);
+        Object linked = call(control, "parse", "{\"status_message\":\"New guide\",\"message_url\":\"https://github.com/smartapps000-hub/SketchwareAI\","
+                + "\"update_url\":\"https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/x.apk\"}");
+        Object ml = call(control, "decide", linked, 199, true, null);
+        check("a message opens message_url, never the update link", ml != null && "https://github.com/smartapps000-hub/SketchwareAI".equals(get(ml, "url")), get(ml, "url"));
 
         Class<?> cloudClass = c("com.sketchware.ai.github.CloudBackup");
         check("path keeps projects with the default package apart",

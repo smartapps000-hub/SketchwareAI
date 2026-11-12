@@ -33,6 +33,9 @@ public final class AppControl {
     public static final String URL = "https://raw.githubusercontent.com/smartapps000-hub/SketchwareAI/main/config/app-control.json";
     static final String PREFS = "sketchware_ai_app_control";
     private static boolean checkedThisStart;
+    /** A notice read but not shown yet (another dialog was up, or the screen was recreated). */
+    private static Notice pending;
+    private static SharedPreferences pendingPrefs;
 
     private AppControl() {
     }
@@ -44,6 +47,18 @@ public final class AppControl {
         public boolean requireLogin;
         public String statusMessage = "";
         public String updateUrl;
+        /** A link for the status message (the update link is for updates only). */
+        public String messageUrl;
+    }
+
+    /** Links only into the owner's repository: whoever can change the file can't send users anywhere else. */
+    static String safeUrl(String url) {
+        if (url == null) return null;
+        for (String prefix : new String[]{"https://github.com/smartapps000-hub/", "https://raw.githubusercontent.com/smartapps000-hub/",
+                "https://media.githubusercontent.com/media/smartapps000-hub/"}) {
+            if (url.startsWith(prefix) && !url.contains("..")) return url;
+        }
+        return null;
     }
 
     /** One dialog to show. */
@@ -71,8 +86,8 @@ public final class AppControl {
             String message = DeviceFlow.string(o, "status_message");
             c.statusMessage = message == null ? "" : message.trim();
             if (c.statusMessage.length() > 500) c.statusMessage = c.statusMessage.substring(0, 500);
-            String url = DeviceFlow.string(o, "update_url");
-            c.updateUrl = url != null && url.startsWith("https://") ? url : null;
+            c.updateUrl = safeUrl(DeviceFlow.string(o, "update_url"));
+            c.messageUrl = safeUrl(DeviceFlow.string(o, "message_url"));
             return c;
         } catch (RuntimeException e) {
             return null;
@@ -98,7 +113,7 @@ public final class AppControl {
             n.kind = "message";
             n.title = "Sketchware AI";
             n.text = c.statusMessage;
-            n.url = c.updateUrl;
+            n.url = c.messageUrl;
             return n;
         }
         if (c.requireLogin && !signedIn) {
@@ -129,9 +144,12 @@ public final class AppControl {
                 Notice notice = decide(config, com.sketchware.remod.BuildConfig.VERSION_CODE, signedIn,
                         prefs.getString("shown_message", null));
                 if (notice == null) return;
+                synchronized (AppControl.class) {
+                    pending = notice;
+                    pendingPrefs = prefs;
+                }
                 Activity a = ref.get();
-                if (a == null) return;
-                a.runOnUiThread(() -> show(a, notice, prefs));
+                if (a != null) a.runOnUiThread(() -> showPending(a));
             } catch (Throwable t) {
                 LogUtil.e("AppControl", "Couldn't read app-control.json", t);
             }
@@ -164,6 +182,34 @@ public final class AppControl {
         } finally {
             if (c != null) c.disconnect();
         }
+    }
+
+    /**
+     * Shows the notice read at start on {@code a} (MainActivity: also from onResume, for a screen recreated meanwhile),
+     * once no other dialog has the focus; it waits up to half a minute for that, else until the next resume.
+     */
+    public static void showPending(Activity a) {
+        showPending(a, 0);
+    }
+
+    private static void showPending(Activity a, int tries) {
+        Notice notice;
+        SharedPreferences prefs;
+        synchronized (AppControl.class) {
+            notice = pending;
+            prefs = pendingPrefs;
+        }
+        if (notice == null || a.isFinishing() || a.isDestroyed()) return;
+        if (!a.hasWindowFocus()) {
+            // another dialog (What's new, the import offer, a restore) is up: after it
+            if (tries < 20) a.getWindow().getDecorView().postDelayed(() -> showPending(a, tries + 1), 1500);
+            return;
+        }
+        synchronized (AppControl.class) {
+            if (pending != notice) return;
+            pending = null;
+        }
+        show(a, notice, prefs);
     }
 
     private static void show(Activity a, Notice notice, SharedPreferences prefs) {

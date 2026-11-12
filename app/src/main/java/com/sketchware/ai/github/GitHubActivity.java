@@ -51,6 +51,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     /** Set while the Device Flow waits; cleared to stop it. */
     private volatile boolean waiting;
     private volatile boolean closed;
+    private boolean resumed;
     private DeviceFlow.Code shownCode;
     private String status;
     private boolean statusIsError;
@@ -70,6 +71,18 @@ public class GitHubActivity extends BaseAppCompatActivity {
         GitHubHttp.userAgent = "SketchwareAI/" + com.sketchware.remod.BuildConfig.VERSION_NAME;
         render();
         if (store.login() != null) loadBackups();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        resumed = true;
+    }
+
+    @Override
+    public void onPause() {
+        resumed = false;
+        super.onPause();
     }
 
     @Override
@@ -167,8 +180,9 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     busy = false;
                     shownCode = code;
                     render();
-                    // one tap: the code is on the clipboard and GitHub's page opens
-                    openVerification();
+                    // one tap: the code is on the clipboard and GitHub's page opens (only while this screen is in
+                    // front: Android blocks starting a page from the background; the Open GitHub button stays)
+                    if (resumed) openVerification();
                 });
                 String token = DeviceFlow.waitForToken(clientId, code, new DeviceFlow.Waiting() {
                     @Override

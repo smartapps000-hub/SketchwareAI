@@ -367,6 +367,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         if (j()) {
             maybeOfferLegacyImport();
         }
+        // v1.9.8: an app-control.json notice that couldn't be shown yet
+        com.sketchware.ai.github.AppControl.showPending(this);
     }
 
     /**

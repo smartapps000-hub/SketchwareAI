@@ -132,19 +132,24 @@ public final class GitHubScreen {
             cloud.addView(left(line(s.backupsError, true)), full(-2, 12));
             cloud.addView(textButton("Try again", v -> actions.refreshBackups()), full(dp(40), 4));
         } else if (s.backups != null && !s.backups.isEmpty()) {
-            for (int i = 0; i < s.backups.size(); i++) cloud.addView(backupRow(s.backups.get(i), i));
+            for (int i = 0; i < s.backups.size(); i++) cloud.addView(backupRow(s.backups.get(i), i, !s.busy));
             cloud.addView(left(line("Tap a project to restore it", false)), full(-2, 10));
         }
         list.addView(cloud, cardParams(12));
     }
 
-    private View backupRow(String[] backup, int index) {
+    /** A backed-up project; dimmed and not clickable while a backup or restore is under way. */
+    private View backupRow(String[] backup, int index, boolean enabled) {
         LinearLayout row = new LinearLayout(c);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setBackgroundResource(R.drawable.ob_pill16_state);
         row.setPadding(dp(14), dp(10), dp(14), dp(10));
-        row.setClickable(true);
-        row.setOnClickListener(v -> actions.openBackup(index));
+        row.setEnabled(enabled);
+        row.setAlpha(enabled ? 1f : 0.55f);
+        if (enabled) {
+            row.setClickable(true);
+            row.setOnClickListener(v -> actions.openBackup(index));
+        }
         TextView name = new TextView(c, null, 0, R.style.Ob_Text_Label);
         name.setText(backup[0]);
         name.setSingleLine(true);
