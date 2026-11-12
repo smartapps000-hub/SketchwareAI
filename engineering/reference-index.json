@@ -213,6 +213,36 @@
       "file": "RFC 6266 (Content-Disposition in HTTP) and RFC 5987 (filename*= charset''value)",
       "purpose": "v1.9.4-v1.9.6: SketchWeb.dispositionName (filename*= before filename=, UTF-8 / ISO-8859-1)",
       "available": false
+    },
+    {
+      "id": "github-oauth-device-flow",
+      "file": "docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps (read 12 Nov 2026)",
+      "purpose": "v1.9.8: DeviceFlow (device/code, access_token with the device_code grant, authorization_pending / slow_down / expired_token / access_denied / device_flow_disabled; no client secret); the web flow's token exchange still requires client_secret with PKCE, so PKCE was not built",
+      "available": false
+    },
+    {
+      "id": "github-rest-git-data",
+      "file": "docs.github.com REST: git blobs, trees (base_tree), commits, refs (PATCH), repos (POST /user/repos auto_init), contents (application/vnd.github.raw), commits?path=",
+      "purpose": "v1.9.8: CloudBackup",
+      "available": false
+    },
+    {
+      "id": "custom-tabs-protocol",
+      "file": "developer.chrome.com Custom Tabs: intent extras android.support.customtabs.extra.SESSION (binder, may be null), TOOLBAR_COLOR, androidx.browser.customtabs.extra.SHARE_STATE",
+      "purpose": "v1.9.8: GitHubActivity.customTab without the androidx.browser library",
+      "available": false
+    },
+    {
+      "id": "octicons-mark-github",
+      "file": "github.com/primer/octicons mark-github 16px path (MIT)",
+      "purpose": "v1.9.8: res/drawable/ob_ic_github.xml",
+      "available": false
+    },
+    {
+      "id": "app-control",
+      "file": "config/app-control.json (this repository, main branch; read by the app from raw.githubusercontent.com)",
+      "purpose": "v1.9.8: AppControl notices (app_enabled, min_version_code, require_login, status_message, message_url, update_url)",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

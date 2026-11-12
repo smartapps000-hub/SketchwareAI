@@ -178,7 +178,27 @@ activity template's `_getCheckedItemPositionsToArray`, two from the fixture's la
 build APKs verify v1 + v2 + v3 + v4 (`.idsig`), exported APKs v1 + v2 + v3, D8 8.13.25 writes DEX 039 at most;
 JAVAEDIT 101/101, JAVAEDIT-OPEN 10/10, WEBCALL 77/77, PERMCALL 39/39, CAMTEST 7/7; two review passes; APK
 v1.9.7.1-6e5d022, versionCode 198 (so v1.9.8 takes 199), sha256 `1ed71d07...c81a7e1292`, 142,334,438 bytes; APK only on
-`binaries`, no patches zip (as since v1.9.1). Local branch
+`binaries`, no patches zip (as since v1.9.1).
+v1.9.8 (owner's 12 Nov directives "self-healing cache, Diagnose AI, GitHub login & database engine", then "no Client ID
+box, one-tap login, integrity gate", then "compact cute card"; records `engineering/v1.9.8-verification.md`,
+`v1.9.8-project-data-audit.md`): `project.BuiltInCache` (app start: version change moves cache/libs/{libs,dexs,archives,
+desugar} + compiledLibs aside, staged leftovers listed before any build and deleted on a guarded thread; whole archives
+unpacked staged; `Dp.verifyBuiltInLibraries` after `getBuiltInLibrariesReady` checks every used library's files against
+libs.zip / dexs.zip sizes and re-unpacks (note, not warning); `recover` + one restart in DesignActivity /
+ExportProjectActivity when a step names `/cache/libs/(libs|dexs)/<name>` with an error on the same line; Build Doctor
+`BUILT_IN_CACHE`); Build Doctor rules (duplicate-class advice, M3 names, file names, class versions), `Ix.settleExported`
+(exported="true" on filtered components, target 31+), storage note; `com.sketchware.ai.github` (Device Flow with the
+public Client ID `Ov23liRZYoX7Y9YTJmfJ` in strings.xml — the owner's OAuth app "SketchwareAI" needs **Enable Device Flow**
+ticked; token AES-GCM under an Android Keystore key; `CloudBackup` to private `SketchwareAI-Projects` via the Git Data
+API; compact `GitHubScreen` (render `V198Test`), one tap copies the code and opens a Custom Tab; `AppControl` reads
+`config/app-control.json` from main on raw.githubusercontent.com: notices only); `ProjectIds.free` for restores and new
+projects, zip-slip refused. PKCE not possible (GitHub's token endpoint needs the secret). Declined again: native/Java
+integrity gate (public test key: clones carry the same certificate), a remote switch that locks the IDE, 45-day expiry,
+workspace locked until sign-in; not built: Google One-Tap / e-mail code (needs a Google OAuth client with a private
+release key, newer AndroidX, a mail server), Discussions store. ART here can't open sockets (libcore IPv6): network code
+runs in `tools/jvm-tests/GitHubClientTest` against a fake GitHub; the session proxy also refuses github.com/login/* from
+the shell. CACHETEST 31/31, GITHUBTEST 22/22, DOCTORTEST 19/19, GITHUBCLIENT 20/20, JAVAEDIT 101/101; two review passes;
+APK v1.9.8-90559c6, versionCode 199 (v1.9.9 takes 200), sha256 `42dd8414...9605195c`, 142,386,084 bytes. Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
@@ -368,9 +388,11 @@ white; tiles (`ob_tile_orange`), FAB and toolbar keep `#F4511E` based gradients.
   extensions, Android Studio import. Later phases are not started by bypassing
   earlier ones, and one release does not attempt everything (README "Advanced Roadmap (v1.9 - v2.0)" lists unbuilt
   items; nothing unbuilt goes under "Shipped").
-- Standing rules: offline first, no cloud model in the build; network only for Maven artifacts from Google Maven,
-  Maven Central and JitPack; never download or run scripts, Gradle hooks or unsigned plugins; never put tokens or
-  secrets in the APK or project; never add permissions silently. A tamper/licence "security kit" is out of scope.
+- Standing rules: offline first, no cloud model in the build; network for Maven artifacts from Google Maven, Maven
+  Central and JitPack, and (owner's 12 Nov directive) GitHub sign-in / cloud backup when the user uses them plus one read
+  of `config/app-control.json` at start; never download or run scripts, Gradle hooks or unsigned plugins; never put
+  tokens or secrets in the APK or project; never add permissions silently. A tamper/licence "security kit", a remote
+  switch that stops the IDE and a build expiry are out of scope (asked again 12 Nov; reasons in v1.9.8-verification.md).
 - Signing: APK export = `ReleaseSigner` / `ApkSigner` (the owner: keep it untouched; unchanged); AAB export =
   `BundleSigner` since v1.8.5 (the owner's go; JAR signature only, SHA-256, `jarsigner` on JDK 17: "jar verified.").
   Upstream's kellinwood ZipSigner (SHA-1, "treated as unsigned") is no longer used for AABs.

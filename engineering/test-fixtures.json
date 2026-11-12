@@ -704,6 +704,38 @@
       "checks": [
         "Run build 16 steps, 0 warnings; onRequestPermissionsResult's super call guarded with android.os.Build.VERSION.SDK_INT >= 23; SketchPermission without the androidx Fragment line"
       ]
+    },
+    {
+      "id": "940",
+      "kind": "Sketchware project made by tools/art-harness (spec 'm3'), then `cachetest 940` (h.CacheTest)",
+      "content": "fixture 908's Material 3 project (Material 1.13 brings graphics-shapes-1.0.1)",
+      "checks": [
+        "CACHETEST 31/31: build 0 unpacks; A: graphics-shapes classes.jar deleted, Material DEX cut in half, a Material res file emptied -> next Run build repairs all three (a note, not a warning), compiled Material resources made again, no staged leftovers; B: BuiltInCache.onAppStart with the same version keeps the cache, with a new version moves libs/dexs/archives/compiledLibs aside (android.jar kept), the stale folder is deleted in the background, the next build unpacks everything; C: graphics-shapes classes.jar and DEX deleted after the built-in libraries step -> Package APK fails ('Failed to add .../graphics-shapes-1.0.1/classes.jar', FileNotFoundException on the same line), the library is unpacked again and the build starts over once and succeeds; D: BuildDoctor.builtInLibraryOf on real and look-alike lines (error and path on one line; local libraries, the archives, staged copies, '..' ignored); recover never acts on a name outside the archives; E: BuildDoctor code BUILT_IN_CACHE, retry can help"
+      ]
+    },
+    {
+      "id": "940 (githubtest)",
+      "kind": "`githubtest 940` (h.GitHubTest), ART, offline",
+      "content": "the GitHub classes and project backup / restore without a network (ART here can't open sockets)",
+      "checks": [
+        "GITHUBTEST: Android's HttpURLConnection takes PATCH; streamed base64 = java.util.Base64 (10 sizes); TokenStore with a software AES key standing in for the Keystore's: v1:iv:ciphertext, read back, new IV per save, another key -> signed out, sign-out deletes token/login/key; backup paths; fixture 940 backed up with BackupFactory, a leftover data/<lC.b()> planted, ProjectIds.free skips it, the .swb restores as a new project with the same name and the planted folder untouched, getNewScId numeric and free, a .swb holding ../evil-outside.txt refused; config/app-control.json of the repository parses (enabled, min 199), no notice for 199, Update for 198, a message once, app_enabled=false = a notice at every start, require_login = a suggestion only when signed out, other-host / http links ignored, a message opens message_url only"
+      ]
+    },
+    {
+      "id": "doctortest",
+      "kind": "`doctortest` (h.DoctorTest), ART",
+      "content": "Ix.settleExported, CompileLogDiagnostics and BuildDoctor rules of v1.9.8 (ICU regexes)",
+      "checks": [
+        "DOCTORTEST 19/19: exported added to 4 components with intent filters (activity, multi-line service, receiver, activity-alias), own exported=false and filter-less components untouched, same line count, target 30 unchanged, idempotent, a '>' inside an attribute value; Material 3 attribute and dotted style names, invalid file name, class file version, source-level text; duplicate classes: both libraries named, higher kept, older built-in stays and the local one goes, numeric version order"
+      ]
+    },
+    {
+      "id": "GitHubClientTest",
+      "kind": "tools/jvm-tests/GitHubClientTest.java (JVM 17, the app's github sources compiled, fake GitHub on 127.0.0.1)",
+      "content": "Device Flow and the REST calls of cloud backup",
+      "checks": [
+        "GITHUBCLIENT 20/20: device code; token after authorization_pending + slow_down with 5/5/10 s waits; client_id and grant type sent, no client secret, no Authorization header to github.com; device_flow_disabled explained; empty Client ID refused before a request; cancel stops waiting; login; bad token refused; a public SketchwareAI-Projects refused; private repository created with auto_init; upload: blob bytes = file (streamed), one tree with the .swb and index.json on the head's tree, retried once after a 422; list from index.json (read raw); history; raw download = upload; every API request carried the token; over 95 MB refused before upload"
+      ]
     }
   ]
 }

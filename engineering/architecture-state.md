@@ -813,3 +813,66 @@ Record and test results: `v1.9.7.1-toolchain-m3-play-audit.md`.
   (two from the fixture's layout, `SuspiciousIndentation` in the activity template's helper).
 - Measured for the record: a Run build's APK verifies with v1, v2, v3 and v4 (`.idsig` beside it); an exported APK has
   v1 + v2 + v3 and no v4 file; D8 8.13.25 never writes a DEX version above 039.
+
+## v1.9.8 additions (12 Nov 2026): self-healing built-in library cache, Build Doctor rules, GitHub sign-in and cloud backup
+
+Owner's 12 Nov directives ("Self-healing cache, Diagnose AI training, GitHub PKCE login & database engine", then the
+same day "no Client ID box, one-tap login, remote control & integrity gate"). Record with results:
+`v1.9.8-verification.md`; project data audit: `v1.9.8-project-data-audit.md`.
+
+- **`project.BuiltInCache`** (the "video build crash": `NoSuchFileException .../cache/libs/libs/graphics-shapes-1.0.1/
+  classes.jar` until a reinstall). `onAppStart(context, versionCode|versionName)` from `SketchApplication.onCreate`: a new
+  app version moves `cache/libs/{libs,dexs,libs.zip,dexs.zip,desugar,desugar.zip}` and `cache/compiledLibs` into
+  `cache/builtin-stale-<n>` (renames only), lists staged leftovers (`*.tmp-<n>*`, `*.old-<n>*` in `libs`, `libs/libs`,
+  `libs/dexs`) before any build of the process runs, and deletes both on a guarded daemon thread. android.jar, testkey and
+  the lambda stubs stay (each checked by its own size; the generator's automatic imports read android.jar).
+  `extractStaged` (whole archives: temp folder, every entry checked by size, renamed into place) replaces `KB().a` in
+  `Dp.getBuiltInLibrariesReady` (in-place extraction remains the fallback). `Dp.verifyBuiltInLibraries` (end of
+  `getBuiltInLibrariesReady`: Run, Export APK, Export AAB) compares every used library's files with the `libs.zip` /
+  `dexs.zip` entry sizes and unpacks a damaged one again through `<name>.tmp-<n>` (its `compiledLibs/<name>.zip` is
+  dropped); a repair is a **note**, not a warning. android.jar and testkey are also re-extracted when the unpacked file
+  is missing or cut off (`unpackedFileIntact`, `extractFile`: temp file + rename). After a failed step,
+  `recover(compileAssets, failure)` takes the library `BuildDoctor.builtInLibraryOf` names (error and
+  `/cache/libs/(libs|dexs)/<name>` on one line; only names that are folders of `libs.zip` or `.dex` of `dexs.zip`) and
+  unpacks it again with `verify(..., force=true)` (staged; the old copy goes only once the new one is complete);
+  DesignActivity's `buildFailed` (all of it guarded; the snackbar posted to the UI thread) restarts the build once per
+  user click (`userStartedBuild` / `retryAvailable` / `claimRetry`; `BuildWarnings.carryNote` only into the build that
+  really starts), ExportProjectActivity runs `b()` once more (`retriedAfterRepair`). Export to Android Studio reads the
+  APK's own `assets/libs/libs.zip`, not the cache.
+- **Build Doctor**: code `BUILT_IN_CACHE` (retry can help, generic advice suppressed); `DUPLICATE_CLASS` names local and
+  built-in libraries and, for two versions of one library, which to switch off (`duplicateAdvice`, `compareVersions`;
+  an older built-in one stays, the local one goes); `CompileLogDiagnostics` rules for Material 3 attributes / dotted
+  `Widget.Material3.*` styles without the Material library, invalid resource file names, ECJ class-file versions (two
+  rules), and the stale "Android 14 android.jar" texts now say API 37. `BuildWarnings` note for storage permissions with
+  target 33+ (never granted on Android 13+). `Ix.settleExported` (generated manifest, target 31+, after the command
+  blocks, in both `yq` paths): `android:exported="true"` on an activity / alias / service / receiver with an intent
+  filter and no exported (quote-aware start tags; same line count); noted through `jq.exportedNote`.
+- **`com.sketchware.ai.github`**: `GitHubHttp` (HttpURLConnection; token only to the API host; no redirects; streamed
+  base64 blob upload; raw downloads with a size cap; PATCH falls back to POST + X-HTTP-Method-Override only on Java SE,
+  Android's HttpURLConnection sends PATCH), `DeviceFlow` (OAuth Device Flow with the public Client ID in
+  `strings.xml` `github_client_id` = `Ov23liRZYoX7Y9YTJmfJ`, scope `repo`; `authorization_pending`, `slow_down` +5 s,
+  errors mapped), `TokenStore` (AES-256-GCM key in the Android Keystore, alias `sketchware_ai_github_token`; prefs
+  `sketchware_ai_github` hold `v1:iv:ciphertext` and the login; signed out only on a bad tag / missing key / unknown
+  format, not on a passing Keystore error; API 23+), `CloudBackup` (private repo `<login>/SketchwareAI-Projects`,
+  created with `auto_init`, a public one refused; one commit per backup through blob / tree with `base_tree` / commit /
+  PATCH ref, retried once on 422; `projects/<package>/<name>.swb` + `index.json` read raw; history by
+  `commits?path=` (100); download raw; files over 95 MB refused), `GitHubScreen` (the cards; compact: GitHub mark,
+  "GitHub", one line, orange pill; code card; account + cloud backup), `GitHubActivity` (main drawer "GitHub & Cloud
+  Backup"; one tap: Device Flow, code copied, toast, github.com/login/device in a Custom Tab through raw intent extras;
+  single-thread executor shut down without interrupt; token read on the worker; restore through
+  `BackupRestoreManager.doRestore` = a new project), `AppControl` (MainActivity.onCreate with storage access:
+  `config/app-control.json` of `main` on raw.githubusercontent.com, read once per process on a daemon thread, cached;
+  at most one dialog: update when `min_version_code` > this version, `status_message` once, with `app_enabled=false` at
+  every start, a sign-in suggestion with `require_login`. Notices only: nothing locks the IDE, no build expiry).
+  PKCE (browser redirect) not built: GitHub's token endpoint requires the client secret for it.
+- **Project data**: `project.ProjectIds.free` (no folder in `mysc/list`, `data`, `bak`, `mysc`, `resources/*`) for
+  restore (`BackupRestoreManager`), cloud restore, `NewProjectActivity` and `MyProjectSettingActivity`;
+  `BackupFactory.unzip` refuses entries outside the folder (skips the folder itself), `getNewScId` numeric, a failed
+  backup leaves no partial `.swb`, `RandomAccessFile`s closed.
+- Harness: `cachetest <id>` (`h.CacheTest`, four builds), `githubtest <id>` (`h.GitHubTest`: offline parts + real `.swb`
+  restore + app-control.json), `doctortest` (`h.DoctorTest`); `Main.buildWithRecovery` mirrors DesignActivity's restart;
+  `Main.AFTER_LIBRARIES` hook. `tools/jvm-tests/GitHubClientTest.java` (network side against a fake GitHub on the JVM:
+  ART here can't open sockets). Render: `tools/layoutlib-renders` `V198Test` + `setup_v198.sh`.
+- Not built (owner's 12 Nov asks, reasons in the verification record): native/Java APK integrity gate, remote kill switch
+  that locks the IDE, 45-day build expiry, workspace locked until sign-in, Google One-Tap / e-mail code sign-in, GitHub
+  Discussions store.

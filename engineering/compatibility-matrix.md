@@ -175,3 +175,17 @@ Whether a generated APK runs on a given Android version depends on that project'
   Android 13 to 17 (storage tags, cleartext through the configuration file), a Play Console upload, Play's device
   filter with the camera tag.
 
+
+## v1.9.8 (12 Nov 2026)
+
+- Built-in library cache: ART API 31 harness with the release APK: damaged cache, in-place update and files vanishing
+  mid-build repaired (fixture 940, `cachetest`). The update path itself (installing v1.9.8 over v1.9.7.1 on a phone, the
+  owner's video project) is **not tested**: it needs the phone.
+- GitHub sign-in: Android 6.0+ (Android Keystore AES-GCM key); on the minApi26 build that is every supported phone. Needs
+  "Enable Device Flow" on the owner's OAuth app (`Ov23liRZYoX7Y9YTJmfJ`). Device Flow and the REST calls ran on JVM 17
+  against a fake GitHub (ART here can't open sockets); the token store's encryption ran on ART with a software key; the
+  Keystore key, the Custom Tab, the clipboard and the real github.com / api.github.com are **not tested** (phone only).
+- Cloud backup: real `.swb` backup and restore of fixture 940 through the app's classes on ART; upload / history /
+  download against the fake GitHub on the JVM; GitHub itself **not tested**.
+- `config/app-control.json`: parsing and the notice decision on ART; the startup fetch from raw.githubusercontent.com and
+  the dialogs on the main screen **not tested** (phone only).

@@ -24,10 +24,12 @@ This is a summary of what the files say, not legal advice.
 ## What "AI" means here
 
 The name is the product name. **There is no AI model, LLM or cloud service in the app or in its builds.** The build
-auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used only to download Maven libraries
-(Google Maven, Maven Central, JitPack).
+auto-fix and Build Doctor are rule-based and run offline on the phone. Network is used to download Maven libraries
+(Google Maven, Maven Central, JitPack), for GitHub sign-in and cloud backup when the user uses them (github.com,
+api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
+version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v1.9.7.1)
+## Shipped (v1.0 – v1.9.8)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -56,6 +58,11 @@ Everything in this section is in the released APK and was exercised as described
 | Ad blocker 2, download type, block shapes | *block ads* in two layers: listed ad hosts, ad brand words in a host (`adservice.…`) and ad paths for parts of a page, plus a style sheet that hides ad boxes; Back steps over ad-host pages while it is on. *download file* has a **type** slot (Default, Audio, Video, Images, Packages, Documents, or your own ending) that names a file the link and server left without an ending. Before a download only a HEAD request is sent (a one-time link is never spent). The guide sheet draws blocks in their real shape (stacking notch, value slots; pointed true/false and round text blocks) | v1.9.7 |
 | Browser blocks | WebView *block ads* (125 ad / tracker domains and their subdomains get an empty answer; Android 8+), *block pop-ups* (a window opens only after a tap, in the same WebView; a file it answers with is downloaded), *mixed content* (COMPATIBILITY = Chrome's rule, NEVER_ALLOW, ALWAYS_ALLOW), *search Google*, *history to list*, *user agent*; File → *download file* (link, folder, name, notify) without a WebView. Download names come from the server, the link (path or a `file=` / `name=` / `title=` parameter) or the MIME type, else the file's first bytes: never `.bin`. A long press on an image offers *Download image*. Tap a web or permission block in the drawer (or *ⓘ guide*) for three steps: where to drop it, what to plug, what you get | v1.9.6 |
 | Permission picker | The permission slot's list looks like *Select widget*: dark rounded box, search field, radio bubbles, bold name and grey line; one tap picks and closes | v1.9.6 |
+| Self-healing built-in libraries | No reinstall after an update or an interrupted build: a new app version unpacks the built-in libraries again; every build (Run, Export APK, Export AAB) checks the files of the libraries it uses against the app's own archive and unpacks a missing or cut-off one again (through a temporary folder); a step that still fails on such a file has the library unpacked again and the build starts over once. Build Doctor explains it | v1.9.8 |
+| GitHub sign-in and cloud backup | Main menu → *GitHub & Cloud Backup*: one tap signs in with GitHub (Device Flow: the code is copied and GitHub opens; no password, no client secret in the app; the token encrypted with an Android Keystore key, Android 6+). *Back up a project* uploads its `.swb` to the user's own private repository `SketchwareAI-Projects`; every backup is a commit, any of them restores as a new project | v1.9.8 |
+| Release notices | `config/app-control.json` in this repository (read at start, cached): update available (`min_version_code`, `update_url`), a message (`status_message`, `message_url`), a sign-in suggestion (`require_login`). Notices only: nothing locks the app; links only into this repository | v1.9.8 |
+| Build Doctor rules | Duplicate classes name both libraries and which to switch off; Material 3 names without the Material library, invalid resource file names, libraries for a newer Java explained; generated manifests get `android:exported="true"` on components with an intent filter and none set (target 31+); storage note for target 33+ | v1.9.8 |
+| Project data safety | Restores and new projects take an id with no leftover folders (a damaged project's files are never merged into or deleted); `.swb` entries can't write outside their folder; a failed backup leaves no partial file | v1.9.8 |
 | Contrast and Play readiness | Orange buttons and selected pills keep their white label on a deeper orange (#D34115 to #C64F14, 4.6:1); guide blocks keep white on a deeper teal and brown. Generated apps: storage permissions of File blocks declared for Android 12L and older only when the project targets 33+; a network security configuration beside `usesCleartextTraffic`; the camera declared not required when the app asks for CAMERA; exported projects lose eleven Android Studio lint errors | v1.9.7.1 |
 | WebView like a browser | Back goes through the pages visited before it closes the screen (an *onBackPressed* event of your own wins); DOM storage, `window.open` and Chrome's mixed-content rule on; downloads take file endings (`.mp3`) or `*`, get the file name from the server, and never hold up the page | v1.9.5 |
 | Runtime permissions | Drawer → *Permission* (v1.9.4: Component palette → *Permissions*); the slot opens a searchable list of groups and every Android permission, or a typed name: request a group (Storage/Media, Camera, Microphone, Location, Bluetooth, Notifications, Phone, SMS) or a permission by name, *permission granted*, *permission status* (GRANTED / DENIED / NEVER_ASK_AGAIN). The app asks for what the group means on the phone's Android version (Android 14+: photos, videos and music, partial photo access counts; 13: the three media permissions; older: storage), one dialog at a time. Activity events *When permission granted* / *When permission denied* (with *never ask again*). The manifest gets the group's permissions, with `maxSdkVersion` where newer Android ignores them; the build log lists them | v1.9.4 |
@@ -163,9 +170,13 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 2. Error dashboard.
 3. Verified repair memory kept on disk.
 4. Dependency and library intelligence beyond the Library Resolver.
-5. Developer-tools controller, Project Brain, Git/GitHub, extensions, Android Studio import (export exists).
-6. Sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Blocked until a Firebase project for
-   `com.sketchware.ai`, a private release key and consent screens exist. Telemetry would ship switched off.
+5. Developer-tools controller, Project Brain, Git/GitHub beyond sign-in and project backup (commits of project
+   source, pull requests), extensions, Android Studio import (export exists). A community store on GitHub Discussions
+   and Releases (owner's 12 Nov directive) is not built.
+6. Google / e-mail sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Google One-Tap
+   (Credential Manager) needs a Google Cloud OAuth client for `com.sketchware.ai` registered with a private release key
+   (never the public test key) and current AndroidX; an e-mail code needs a server that sends mail. GitHub sign-in
+   (v1.9.8) is optional. Telemetry would ship switched off.
 7. Material 3 Expressive: the Expressive components of Material 1.13 in the palette, then the Material Components 1.14
    migration (Expressive theme; needs min SDK 23; the bundled `android.jar` is API 37 since v1.9.0). Material 3
    typography roles and variable fonts (Anek Telugu) in the theme.
