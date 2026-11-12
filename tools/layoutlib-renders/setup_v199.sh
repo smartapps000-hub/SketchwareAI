@@ -1,0 +1,17 @@
+#!/bin/bash
+# v1.9.9: copies what V199Test (the "Cloud Sync & Account" screen: ob_github.xml + com.sketchware.ai.github.GitHubScreen
+# in six states) needs from the IDE, on top of setup_newproject.sh (Obsidian styles, colours, fonts, glass card, tile,
+# pills, CTA, press animator). Usage:
+# setup_newproject.sh <repo root>; setup_v199.sh <repo root>; then
+# ./gradlew :render:testDebugUnitTest --tests 'pz.V199Test'   (writes /home/claude/pz/out/v199_cloud_sync.png)
+# Run in a copy that holds only the tests whose setup files are present (the Kotlin tests compile together).
+set -e
+T=$(cd $(dirname $0) && pwd); REPO=$1; SRC=$REPO/app/src/main; DST=$T/render/src/main
+mkdir -p $DST/java/com/sketchware/ai/github $DST/res/drawable $DST/res/layout
+sed 's/^import com\.sketchware\.remod\.R;/import pz.render.R;/' $SRC/java/com/sketchware/ai/github/GitHubScreen.java \
+  > $DST/java/com/sketchware/ai/github/GitHubScreen.java
+# plain-shape (pre-API 24) drawables: layoutlib can not inflate the GlassDrawable class of drawable-v24
+cp $SRC/res/drawable/ob_cta_pill.xml $SRC/res/drawable/ob_cta_pill_pressed.xml $SRC/res/drawable/ob_cta_pill_state.xml \
+  $SRC/res/drawable/ob_ic_github.xml $DST/res/drawable/
+cp $SRC/res/layout/ob_github.xml $DST/res/layout/
+echo copied

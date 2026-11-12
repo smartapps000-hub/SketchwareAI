@@ -37,12 +37,31 @@ public final class CloudBackup {
 
     /** The signed-in user's login (GET /user). */
     public static String login(String token) throws IOException, GitHubException {
+        return account(token).login;
+    }
+
+    /** v1.9.9: who the token belongs to. */
+    public static final class Account {
+        public String login;
+        /** GitHub's numeric user id (stays the same when the login is renamed). */
+        public String id;
+        public String avatarUrl;
+    }
+
+    /** GET /user: login, numeric id and avatar. */
+    public static Account account(String token) throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.api("GET", "/user", token, null);
         if (r.code == 401) throw new GitHubException("unauthorized", "GitHub doesn't accept the sign-in any more. Sign in again.");
         if (!r.ok()) throw http("Reading your GitHub account", r);
-        String login = DeviceFlow.string(DeviceFlow.parse(r.body), "login");
-        if (login == null) throw new GitHubException("bad_answer", "GitHub's answer had no user name.");
-        return login;
+        JsonObject user = DeviceFlow.parse(r.body);
+        Account a = new Account();
+        a.login = DeviceFlow.string(user, "login");
+        a.id = DeviceFlow.string(user, "id");
+        String avatar = DeviceFlow.string(user, "avatar_url");
+        a.avatarUrl = avatar != null && avatar.startsWith("https://avatars.githubusercontent.com/") ? avatar : null;
+        if (a.login == null) throw new GitHubException("bad_answer", "GitHub's answer had no user name.");
+        if (a.id == null) a.id = a.login;
+        return a;
     }
 
     /** One entry of index.json. */

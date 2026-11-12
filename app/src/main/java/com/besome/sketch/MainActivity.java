@@ -346,6 +346,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
     @Override
     public void onResume() {
         super.onResume();
+        // v1.9.9: the sign-in screen first when app-control.json requires it (it can't be dismissed)
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
         /* Check if the device is running low on storage space */
         long freeMegabytes = GB.c();
         if (freeMegabytes < 100 && freeMegabytes > 0) {

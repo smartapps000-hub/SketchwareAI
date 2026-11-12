@@ -125,6 +125,12 @@ public final class AppControl {
         return null;
     }
 
+    /** v1.9.9: the file as last read on this phone (offline starts use it), or null when it was never read. */
+    public static Config cached(Context context) {
+        String json = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("last", null);
+        return json == null ? null : parse(json);
+    }
+
     /** At app start: reads the file in the background (once per process) and shows its notice on {@code activity}. */
     public static void check(Activity activity) {
         synchronized (AppControl.class) {
@@ -144,11 +150,18 @@ public final class AppControl {
                 Notice notice = decide(config, com.sketchware.remod.BuildConfig.VERSION_CODE, signedIn,
                         prefs.getString("shown_message", null));
                 if (notice == null) return;
+                Activity a = ref.get();
+                if ("login".equals(notice.kind)) {
+                    // v1.9.9: required sign-in is the sign-in screen itself (AuthGuard), not a dialog
+                    if (a != null) a.runOnUiThread(() -> {
+                        if (!a.isFinishing() && !a.isDestroyed()) AuthGuard.check(a);
+                    });
+                    return;
+                }
                 synchronized (AppControl.class) {
                     pending = notice;
                     pendingPrefs = prefs;
                 }
-                Activity a = ref.get();
                 if (a != null) a.runOnUiThread(() -> showPending(a));
             } catch (Throwable t) {
                 LogUtil.e("AppControl", "Couldn't read app-control.json", t);

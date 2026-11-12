@@ -122,6 +122,11 @@ public class NewProjectActivity extends BaseAppCompatActivity {
             finish();
             return;
         }
+        // v1.9.9: sign-in when app-control.json requires it
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) {
+            finish();
+            return;
+        }
 
         // v1.9.8: never an id that still has folders (a project whose list file is damaged would lose its data)
         scId = com.sketchware.ai.project.ProjectIds.free(lC.b());

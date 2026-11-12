@@ -23,7 +23,7 @@ import static h.Main.OUT;
 import static h.R.*;
 
 /**
- * v1.9.8: the parts of GitHub sign-in and cloud backup that run without a network, with the shipped APK's classes:
+ * v1.9.8/v1.9.9: the parts of GitHub sign-in and cloud backup that run without a network, with the shipped APK's classes:
  * the token store (a software AES key stands in for the Android Keystore's, which can't run here), the streamed
  * base64, backup paths, and a real .swb of the project restored as a new project with a free id (ProjectIds), plus
  * the restore fixes (leftover folders, ../ entries). ART here can't open sockets (libcore always creates IPv6 ones
@@ -63,7 +63,7 @@ public final class GitHubTest {
         }
         check("Android's HttpURLConnection accepts PATCH", patchProblem == null && "PATCH".equals(patch.getRequestMethod()), patchProblem);
 
-        // --- token store (software AES key standing in for the Keystore's)
+        // --- token store (software AES key standing in for the Keystore's), v1.9.9: bound to the device
         String token = "gho_fake_token_123";
         SecretKey key = KeyGenerator.getInstance("AES").generateKey();
         Object[] current = {key};
@@ -73,35 +73,88 @@ public final class GitHubTest {
             if (m.equals("delete")) deleted[0] = true;
             return null;
         });
+        String[] device = {"android-id-1|cert-A"};
+        Object binding = proxy("com.sketchware.ai.github.TokenStore$DeviceBinding", (m, a) -> m.equals("device") ? device[0] : null);
         Object prefs = call(CTX, "getSharedPreferences", "sketchware_ai_github_test", 0);
-        Object store = neu("com.sketchware.ai.github.TokenStore", prefs, keys);
-        call(store, "save", token, "octo");
+        Object store = neu("com.sketchware.ai.github.TokenStore", prefs, keys, binding);
+        call(store, "save", token, "octo", "583231");
         String stored = (String) call(prefs, "getString", "token", null);
-        check("stored as v1:iv:ciphertext (AES-GCM), token not readable", stored != null && stored.startsWith("v1:")
+        check("stored as v2:iv:ciphertext (AES-GCM), token not readable", stored != null && stored.startsWith("v2:")
                 && stored.split(":").length == 3 && !stored.contains(token), stored);
-        Object again = neu("com.sketchware.ai.github.TokenStore", prefs, keys);
-        check("read back", token.equals(call(again, "token")) && "octo".equals(call(again, "login")), null);
+        Object again = neu("com.sketchware.ai.github.TokenStore", prefs, keys, binding);
+        check("read back with login and user id", token.equals(call(again, "token")) && "octo".equals(call(again, "login"))
+                && "583231".equals(call(again, "userId")), null);
         String first = stored;
-        call(store, "save", token, "octo");
+        call(store, "save", token, "octo", "583231");
         check("new IV every save", !first.equals(call(prefs, "getString", "token", null)), null);
         current[0] = KeyGenerator.getInstance("AES").generateKey();
         check("other key: signed out, nothing returned", call(again, "token") == null && call(again, "login") == null, null);
         current[0] = key;
-        call(store, "save", token, "octo");
+        call(store, "save", token, "octo", "583231");
+        device[0] = "android-id-2|cert-A";
+        check("app data copied to another phone (other ANDROID_ID): signed out", call(again, "token") == null
+                && call(again, "login") == null && call(prefs, "getString", "token", null) == null, null);
+        device[0] = "android-id-1|cert-A";
+        call(store, "save", token, "octo", "583231");
+        device[0] = "android-id-1|cert-B";
+        check("another signing certificate (a re-signed copy): signed out", call(again, "token") == null, null);
+        device[0] = "android-id-1|cert-A";
+        call(store, "save", token, "octo", "583231");
+        Object editor = call(prefs, "edit");
+        call(editor, "putString", "user_id", "999");
+        call(editor, "commit");
+        check("session moved to another user id: signed out", call(again, "token") == null, null);
+        call(store, "save", token, "octo", "583231");
+        String v2 = (String) call(prefs, "getString", "token", null);
+        Object editor1 = call(prefs, "edit");
+        call(editor1, "putString", "token", "v1:" + v2.substring(3));
+        call(editor1, "commit");
+        check("a v1.9.8 token (v1, not bound): signed out, sign in again", call(again, "token") == null
+                && call(again, "login") == null, null);
+        call(store, "save", token, "octo", "583231");
         call(store, "clear");
-        check("sign-out removes token, login and key", call(store, "token") == null && deleted[0], null);
+        check("sign-out removes token, login, user id and key", call(store, "token") == null && call(store, "userId") == null
+                && call(prefs, "getString", "user_id", null) == null && deleted[0], null);
+
+        // --- AuthGuard: required only when the last app-control.json said so; a session = a token that decrypts
+        Class<?> guard = c("com.sketchware.ai.github.AuthGuard");
+        Object controlPrefs = call(CTX, "getSharedPreferences", "sketchware_ai_app_control", 0);
+        Object e0 = call(controlPrefs, "edit");
+        call(e0, "remove", "last");
+        call(e0, "commit");
+        call(guard, "reset");
+        check("gate: never read app-control.json -> not required", Boolean.FALSE.equals(call(guard, "required", CTX)), null);
+        Object e1 = call(controlPrefs, "edit");
+        call(e1, "putString", "last", "{\"require_login\":true}");
+        call(e1, "commit");
+        check("gate: require_login true -> required", Boolean.TRUE.equals(call(guard, "required", CTX)), null);
+        Object appPrefs = call(CTX, "getSharedPreferences", "sketchware_ai_github", 0);
+        check("gate: no stored sign-in -> no session", appPrefs != null && call(appPrefs, "getString", "token", null) == null
+                && Boolean.FALSE.equals(call(guard, "verifyHardwareBoundSession", CTX)), null);
+        Object e2 = call(controlPrefs, "edit");
+        call(e2, "putString", "last", "{\"require_login\":false}");
+        call(e2, "commit");
+        check("gate: require_login false -> not required", Boolean.FALSE.equals(call(guard, "required", CTX)), null);
+        Object e3 = call(controlPrefs, "edit");
+        call(e3, "remove", "last");
+        call(e3, "commit");
+        Class<?> signIn = c("com.sketchware.ai.github.SignIn");
+        check("sign-in errors are one short line", "Sign-in was cancelled.".equals(call(signIn, "shortMessage", "access_denied"))
+                && "The code expired. Tap Sign in again.".equals(call(signIn, "shortMessage", "expired_token"))
+                && "No internet connection.".equals(call(signIn, "shortMessage", "network"))
+                && "Sign-in didn't work. Please try again.".equals(call(signIn, "shortMessage", "anything_else")), null);
 
         // --- app-control.json (config/app-control.json of the repository): notices, never a lock
         Class<?> control = c("com.sketchware.ai.github.AppControl");
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 199, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(199).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 200, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(200).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v1.9.8 (199) with it: no notice", call(control, "decide", shipped, 199, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 198, false, null);
-        check("an older version (198): Update with the URL", old198 != null && "update".equals(get(old198, "kind"))
+        check("v1.9.9 (200) with it: no notice", call(control, "decide", shipped, 200, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 199, false, null);
+        check("an older version (v1.9.8, 199): Update with the URL", old198 != null && "update".equals(get(old198, "kind"))
                 && String.valueOf(get(old198, "url")).startsWith("https://github.com/smartapps000-hub/"), old198 == null ? null : get(old198, "url"));
         Object msg = call(control, "parse", "{\"status_message\":\"Server maintenance tonight\"}");
         Object m1 = call(control, "decide", msg, 199, true, null);

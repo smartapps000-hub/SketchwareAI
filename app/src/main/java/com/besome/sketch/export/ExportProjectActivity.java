@@ -121,6 +121,8 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         initializeSignApkViews();
         initializeExportSrcViews();
         initializeAppBundleExportViews();
+        // v1.9.9: exporting needs a sign-in when app-control.json requires it (after the views exist: onDestroy uses them)
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) finish();
     }
 
     @Override

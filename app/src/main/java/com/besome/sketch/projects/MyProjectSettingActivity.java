@@ -158,6 +158,11 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         }
         sc_id = getIntent().getStringExtra("sc_id");
         updatingExistingProject = getIntent().getBooleanExtra("is_update", false);
+        // v1.9.9: a new project needs a sign-in when app-control.json requires it
+        if (!updatingExistingProject && !com.sketchware.ai.github.AuthGuard.check(this)) {
+            finish();
+            return;
+        }
         boolean expandAdvancedOptions = getIntent().getBooleanExtra("advanced_open", false);
 
         ((TextView) findViewById(R.id.tv_change_icon)).setText(Helper.getResString(R.string.myprojects_settings_description_change_icon));

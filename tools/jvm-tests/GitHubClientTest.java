@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * v1.9.8: the network side of GitHub sign-in and cloud backup (com.sketchware.ai.github: GitHubHttp, DeviceFlow,
+ * v1.9.8/v1.9.9: the network side of GitHub sign-in and cloud backup (com.sketchware.ai.github: GitHubHttp, DeviceFlow,
  * CloudBackup), compiled from the app's sources, against a fake GitHub on 127.0.0.1 that answers as GitHub's documented
  * endpoints do and checks every request. On the JVM because ART in this workspace can't open sockets (no IPv6); the
  * Android parts (token store, .swb backup and restore) run on the ART harness (h.GitHubTest).
@@ -80,8 +80,52 @@ public class GitHubClientTest {
             check("cancel stops waiting", "cancelled".equals(e.code) && fake.polls == 0, fake.polls);
         }
 
+        // --- v1.9.9: polling goes on through network failures (the app in the background while Chrome is in front)
+        fake.mode = "flaky";
+        fake.polls = 0;
+        List<String> trouble = new ArrayList<>();
+        String flakyToken = DeviceFlow.waitForToken("Iv1.testclient", code, new DeviceFlow.Waiting() {
+            public boolean cancelled() { return false; }
+            public void sleep(long millis) { }
+            public void networkTrouble(java.io.IOException e) { trouble.add(e.toString()); }
+        });
+        check("dropped connection and HTTP 502 while waiting: waiting goes on, token arrives", "gho_fake_token_123".equals(flakyToken)
+                && fake.polls == 4 && trouble.size() == 2 && trouble.get(1).contains("502"), trouble);
+        fake.mode = "denied";
+        try {
+            DeviceFlow.waitForToken("Iv1.testclient", code, new DeviceFlow.Waiting() {
+                public boolean cancelled() { return false; }
+                public void sleep(long millis) { }
+            });
+            check("access_denied ends the sign-in", false, null);
+        } catch (GitHubException e) {
+            check("access_denied ends the sign-in", "access_denied".equals(e.code), e.code);
+        }
+        fake.mode = "";
+        DeviceFlow.Code old = new DeviceFlow.Code();
+        old.deviceCode = "dc-1";
+        old.interval = 5;
+        old.expiresAt = System.currentTimeMillis() - 1000;
+        fake.polls = 0;
+        try {
+            DeviceFlow.waitForToken("Iv1.testclient", old, new DeviceFlow.Waiting() {
+                public boolean cancelled() { return false; }
+                public void sleep(long millis) { }
+            });
+            check("a saved code past expires_at: expired, no request", false, null);
+        } catch (GitHubException e) {
+            check("a saved code past expires_at: expired, no request", "expired_token".equals(e.code) && fake.polls == 0, e.code);
+        }
+        check("expires_at = now + expires_in", Math.abs(code.expiresAt - (System.currentTimeMillis() + 900_000L)) < 120_000L, code.expiresAt);
+
         // --- REST
         check("login", "octo".equals(CloudBackup.login(token)), null);
+        CloudBackup.Account account = CloudBackup.account(token);
+        check("account: login, numeric id, avatar from avatars.githubusercontent.com", "octo".equals(account.login)
+                && "583231".equals(account.id) && fake.avatar.equals(account.avatarUrl), account.id + " " + account.avatarUrl);
+        fake.avatar = "https://evil.example/a.png";
+        check("account: an avatar on another host is dropped", CloudBackup.account(token).avatarUrl == null, null);
+        fake.avatar = "https://avatars.githubusercontent.com/u/583231?v=4";
         try {
             CloudBackup.login("wrong");
             check("bad token refused", false, null);
@@ -159,6 +203,7 @@ public class GitHubClientTest {
         boolean moveBranchOnce;
         int refPatches;
         String head = "c-0";
+        String avatar = "https://avatars.githubusercontent.com/u/583231?v=4";
 
         void start() throws Exception {
             server = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
@@ -202,6 +247,7 @@ public class GitHubClientTest {
             if (headers.containsKey("x-http-method-override")) method = headers.get("x-http-method-override");
             String text = new String(body, StandardCharsets.UTF_8);
             Object[] answer = route(method, target, headers, text);
+            if (Integer.valueOf(-1).equals(answer[0])) return; // connection dropped without an answer
             byte[] bytes = answer[1] instanceof byte[] ? (byte[]) answer[1] : String.valueOf(answer[1]).getBytes(StandardCharsets.UTF_8);
             OutputStream out = s.getOutputStream();
             out.write(("HTTP/1.1 " + answer[0] + " X\r\nContent-Type: application/json\r\nContent-Length: " + bytes.length
@@ -230,6 +276,14 @@ public class GitHubClientTest {
                         formProblems.add("poll " + form);
                     }
                     polls++;
+                    if ("flaky".equals(mode)) {
+                        // v1.9.9: what the app sees in the background on Android 15 (no network, then a bad gateway)
+                        if (polls == 1) return new Object[]{-1, ""};
+                        if (polls == 2) return new Object[]{502, "<html>Bad gateway</html>"};
+                        if (polls == 3) return new Object[]{200, "{\"error\":\"authorization_pending\"}"};
+                        return new Object[]{200, "{\"access_token\":\"gho_fake_token_123\",\"token_type\":\"bearer\",\"scope\":\"repo\"}"};
+                    }
+                    if ("denied".equals(mode)) return new Object[]{200, "{\"error\":\"access_denied\"}"};
                     if (polls == 1) return new Object[]{200, "{\"error\":\"authorization_pending\"}"};
                     if (polls == 2) return new Object[]{200, "{\"error\":\"slow_down\",\"interval\":10}"};
                     return new Object[]{200, "{\"access_token\":\"gho_fake_token_123\",\"token_type\":\"bearer\",\"scope\":\"repo\"}"};
@@ -240,7 +294,7 @@ public class GitHubClientTest {
             boolean authorized = "Bearer gho_fake_token_123".equals(auth);
             String api = target.substring("/api".length());
             if (api.equals("/user")) {
-                return authorized ? new Object[]{200, "{\"login\":\"octo\"}"} : new Object[]{401, "{\"message\":\"Bad credentials\"}"};
+                return authorized ? new Object[]{200, "{\"login\":\"octo\",\"id\":583231,\"avatar_url\":\"" + avatar + "\"}"} : new Object[]{401, "{\"message\":\"Bad credentials\"}"};
             }
             if (!authorized) {
                 apiAuthorizedAll = false;

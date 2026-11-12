@@ -127,6 +127,8 @@ public class BackupRestoreManager {
     /*** Restore ***/
 
     public void restore() {
+        // v1.9.9: restoring needs a sign-in when app-control.json requires it
+        if (act != null && !com.sketchware.ai.github.AuthGuard.check(act)) return;
         DialogProperties properties = new DialogProperties();
         properties.selection_mode = DialogConfigs.MULTI_MODE;
         properties.selection_type = DialogConfigs.FILE_SELECT;
@@ -164,6 +166,7 @@ public class BackupRestoreManager {
     }
 
     public void doRestore(final String file, final boolean restoreLocalLibs) {
+        if (act != null && !com.sketchware.ai.github.AuthGuard.check(act)) return;
         new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc).execute("");
     }
 

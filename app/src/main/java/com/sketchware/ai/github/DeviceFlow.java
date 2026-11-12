@@ -33,13 +33,29 @@ public final class DeviceFlow {
         public String verificationUriComplete;
         public int expiresIn;
         public int interval;
+        /** v1.9.9: when the code stops working (System.currentTimeMillis()), kept with a sign-in that is resumed. */
+        public long expiresAt;
     }
 
     public interface Waiting {
         /** True to stop waiting. */
         boolean cancelled();
 
+        /** Waits up to {@code millis} (less when the caller wants an early check, e.g. the app came back). */
         void sleep(long millis) throws InterruptedException;
+
+        /** v1.9.9: a check failed on the network; waiting goes on (Android cuts the network of background apps). */
+        default void networkTrouble(IOException e) {
+        }
+    }
+
+    /** One answer of the token endpoint. */
+    public static final class Poll {
+        public String token;
+        public String error;
+        public String description;
+        public int interval;
+        public int httpCode;
     }
 
     /** Step 1: a device code and the code the user types on github.com. */
@@ -60,6 +76,7 @@ public final class DeviceFlow {
         code.verificationUri = string(json, "verification_uri");
         code.expiresIn = integer(json, "expires_in", 900);
         code.interval = Math.max(5, integer(json, "interval", 5));
+        code.expiresAt = System.currentTimeMillis() + code.expiresIn * 1000L;
         if (code.deviceCode == null || code.userCode == null) throw failure("bad_answer", "GitHub's answer had no code.");
         if (code.verificationUri == null || !code.verificationUri.startsWith("https://github.com/")) {
             code.verificationUri = GitHubHttp.DEFAULT_WEB + "/login/device";
@@ -69,13 +86,35 @@ public final class DeviceFlow {
         return code;
     }
 
+    /** Step 3, once: asks GitHub whether the user approved the code. */
+    public static Poll poll(String clientId, String deviceCode) throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("client_id", clientId.trim());
+        form.put("device_code", deviceCode);
+        form.put("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
+        GitHubHttp.Response r = GitHubHttp.postForm("/login/oauth/access_token", form);
+        JsonObject json = parse(r.body);
+        Poll p = new Poll();
+        p.httpCode = r.code;
+        p.token = string(json, "access_token");
+        if (p.token != null && p.token.isEmpty()) p.token = null;
+        p.error = string(json, "error");
+        p.description = string(json, "error_description");
+        p.interval = integer(json, "interval", 0);
+        return p;
+    }
+
     /**
      * Step 3: asks for the token every {@code interval} seconds (more after "slow_down") until the user approved,
      * denied, the code expired or {@code waiting} says stop. Returns the access token.
+     * <p>
+     * v1.9.9: a check that fails on the network (or a GitHub server error) doesn't end the sign-in: Android 15 cuts the
+     * network of an app in the background while the user approves in the browser, and v1.9.8 gave up on the first such
+     * failure, after GitHub had already said "you're all set". It goes on until the code expires.
      */
     public static String waitForToken(String clientId, Code code, Waiting waiting) throws IOException, GitHubException {
-        long deadline = System.currentTimeMillis() + code.expiresIn * 1000L;
-        int interval = code.interval;
+        long deadline = code.expiresAt > 0 ? code.expiresAt : System.currentTimeMillis() + code.expiresIn * 1000L;
+        int interval = Math.max(1, code.interval);
         while (true) {
             try {
                 waiting.sleep(interval * 1000L);
@@ -83,24 +122,25 @@ public final class DeviceFlow {
                 throw new GitHubException("cancelled", "Sign-in was stopped.");
             }
             if (waiting.cancelled()) throw new GitHubException("cancelled", "Sign-in was stopped.");
-            Map<String, String> form = new LinkedHashMap<>();
-            form.put("client_id", clientId.trim());
-            form.put("device_code", code.deviceCode);
-            form.put("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
-            GitHubHttp.Response r = GitHubHttp.postForm("/login/oauth/access_token", form);
-            JsonObject json = parse(r.body);
-            String token = string(json, "access_token");
-            if (token != null && !token.isEmpty()) return token;
-            String error = string(json, "error");
-            if ("authorization_pending".equals(error)) {
-                if (System.currentTimeMillis() > deadline) throw failure("expired_token", null);
+            if (System.currentTimeMillis() > deadline) throw failure("expired_token", null);
+            Poll p;
+            try {
+                p = poll(clientId, code.deviceCode);
+            } catch (IOException e) {
+                waiting.networkTrouble(e);
                 continue;
             }
-            if ("slow_down".equals(error)) {
-                interval = Math.max(interval + 5, integer(json, "interval", interval + 5));
+            if (p.token != null) return p.token;
+            if ("authorization_pending".equals(p.error)) continue;
+            if ("slow_down".equals(p.error)) {
+                interval = Math.max(interval + 5, p.interval);
                 continue;
             }
-            throw failure(error == null ? "http_" + r.code : error, string(json, "error_description"));
+            if (p.error == null && p.httpCode >= 500) {
+                waiting.networkTrouble(new IOException("GitHub answered HTTP " + p.httpCode));
+                continue;
+            }
+            throw failure(p.error == null ? "http_" + p.httpCode : p.error, p.description);
         }
     }
 

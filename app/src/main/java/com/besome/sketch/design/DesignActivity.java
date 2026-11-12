@@ -429,6 +429,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
     public void onClick(View v) {
         if (!mB.a()) {
             if (v.getId() == R.id.btn_execute) {
+                // v1.9.9: building needs a sign-in when app-control.json requires it
+                if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
                 com.sketchware.ai.project.LibraryHeal.userStartedBuild();
                 com.sketchware.ai.project.BuiltInCache.userStartedBuild();
                 new BuildAsyncTask(getApplicationContext()).execute();
@@ -511,6 +513,11 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         setContentView(R.layout.design);
         if (!j()) {
             finish();
+        }
+        // v1.9.9: opening a project needs a sign-in when app-control.json requires it
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) {
+            finish();
+            return;
         }
 
         if (savedInstanceState == null) {

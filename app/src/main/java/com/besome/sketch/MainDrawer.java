@@ -149,7 +149,7 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         // v1.9.8: GitHub sign-in and cloud backup
         DrawerItem menuGitHub = DrawerItem.MENU_GITHUB;
         menuGitHub.icon = R.drawable.ob_ic_backup;
-        menuGitHub.title = "GitHub & Cloud Backup";
+        menuGitHub.title = "Cloud Sync & Account";
 
         DrawerItem menuAppTheme = DrawerItem.MENU_APP_THEME;
         menuAppTheme.icon = R.drawable.ic_sw_theme_white_48;

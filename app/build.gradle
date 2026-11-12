@@ -23,8 +23,8 @@ android {
         // v1.9.0: Android 15 (35). The themes opt out of the forced edge-to-edge and the manifest keeps onBackPressed
         // (enableOnBackInvokedCallback="false"): the editors save there. 36+ removes the edge-to-edge opt-out (roadmap).
         targetSdk = 35
-        versionCode 199
-        versionName "v1.9.8-" + getCommitHash()
+        versionCode 200
+        versionName "v1.9.9-" + getCommitHash()
 
         buildConfigField("String", "GIT_HASH", "\"${gitCommitHash}\"")
 
