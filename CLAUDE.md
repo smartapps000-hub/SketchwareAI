@@ -566,7 +566,9 @@ between turns: a background job only advances while a turn is running, so wait w
 minutes of such waits on 4 CPUs). Such a session may push only its own `ccr-…` branch: `main` and `binaries` need the
 owner's word (v1.9.7.1: he gave it after the build; then fast-forward `main` to the branch and push, and add the APK to
 `binaries` with Git LFS as in section 7; the clone is shallow: `git fetch --unshallow origin main` first when the full
-history is needed). A review subagent can stop on the 5-hour usage limit: resume it with SendMessage after the reset.
+history is needed). The LFS push ends with a POST to `lfs.github.com` (verify): "apk-build-google-hosts" allows it
+since 12 Nov; on another limited environment the upload finishes and the push still fails with "Forbidden" until that
+host is allowed. A review subagent can stop on the 5-hour usage limit: resume it with SendMessage after the reset.
 `gradle-export-check.sh` with `LINT=1` also runs `lintDebug` on an exported project (run it for every export change).
 
 Network: Google Maven, Maven Central (GCS mirror), JitPack, `dl.google.com`, `android.googlesource.com`,
