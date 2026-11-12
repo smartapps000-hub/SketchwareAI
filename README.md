@@ -2,6 +2,16 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.8 (versionCode 199, `v1.9.8-90559c6-minApi26`)
+
+`apk/Sketchware_AI_v1.9.8.apk`, sha256 `42dd8414700feeb9da4aa4367255ec622d3618f6e76502ee3d2e783d9605195c` (Git LFS).
+No reinstall after an update: the built-in libraries repair themselves (the graphics-shapes `classes.jar` build stop);
+Build Doctor explains more errors; one-tap GitHub sign-in and cloud backup of projects to a private repository; release
+notices from `config/app-control.json`; safer restores. Release notes: `releases/v1.9.8/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.8.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.8.apk
+
 ## v1.9.7.1 (versionCode 198, `v1.9.7.1-6e5d022-minApi26`)
 
 `apk/Sketchware_AI_v1.9.7.1.apk`, sha256 `1ed71d07b1d32c52fff081469cd169613c1bab06ee89dc9548c091c81a7e1292` (Git LFS).
