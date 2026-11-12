@@ -2,6 +2,16 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v1.9.7.1 (versionCode 198, `v1.9.7.1-6e5d022-minApi26`)
+
+`apk/Sketchware_AI_v1.9.7.1.apk`, sha256 `1ed71d07b1d32c52fff081469cd169613c1bab06ee89dc9548c091c81a7e1292` (Git LFS).
+White labels on a deeper orange for the buttons and selected pills, guide blocks readable; generated apps: storage
+permissions limited to Android 12L for target 33+, network security configuration, camera not required; fewer Android
+Studio lint errors in exported projects. Release notes: `releases/v1.9.7.1/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v1.9.7.1.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v1.9.7.1.apk
+
 ## v1.9.7 (versionCode 197, `v1.9.7-34fabe7-minApi26`)
 
 `apk/Sketchware_AI_v1.9.7.apk`, sha256 `067a92b3ccf56a48381d419115929444acc6b00aae2eccc0b683c8f2ab90c488` (Git LFS). HEAD-only
