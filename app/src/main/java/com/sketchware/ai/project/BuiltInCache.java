@@ -80,8 +80,15 @@ public final class BuiltInCache {
                     LogUtil.d(TAG, "App version changed (" + last + " -> " + appVersion + "): built-in library cache retired");
                 }
             }
-            final File cacheDir = cache;
-            Thread cleanup = new Thread(() -> deleteStale(cacheDir), "BuiltInCacheCleanup");
+            // what to delete is decided now, before any build of this process can stage files of its own
+            final List<File> leftovers = leftovers(cache);
+            Thread cleanup = new Thread(() -> {
+                try {
+                    for (File file : leftovers) deleteRecursively(file);
+                } catch (Throwable t) {
+                    LogUtil.e(TAG, "Couldn't delete old built-in library files", t);
+                }
+            }, "BuiltInCacheCleanup");
             cleanup.setDaemon(true);
             cleanup.setPriority(Thread.MIN_PRIORITY);
             cleanup.start();
@@ -112,22 +119,35 @@ public final class BuiltInCache {
         return ok;
     }
 
-    /** Deletes every {@code builtin-stale-*} folder of the cache dir (and leftovers of staged extractions). */
-    static void deleteStale(File cache) {
+    /** A staged copy a killed process left behind: {@code <name>.tmp-<n>…} or {@code <name>.old-<n>…}. */
+    private static final java.util.regex.Pattern STAGED = java.util.regex.Pattern.compile(".*\\.(tmp|old)-\\d+.*");
+
+    /**
+     * {@code builtin-stale-*} folders of the cache dir and staged copies (temp files and folders of extractions and
+     * repairs) in {@code libs}, {@code libs/libs} and {@code libs/dexs}. Called at app start, when no build of this
+     * process is running, so every staged copy found is a leftover.
+     */
+    static List<File> leftovers(File cache) {
+        List<File> found = new ArrayList<>();
         File[] children = cache.listFiles();
         if (children != null) {
             for (File child : children) {
-                if (child.getName().startsWith(STALE_PREFIX)) deleteRecursively(child);
+                if (child.getName().startsWith(STALE_PREFIX)) found.add(child);
             }
         }
         File libs = new File(cache, "libs");
-        File[] staged = libs.listFiles();
-        if (staged != null) {
+        for (File folder : new File[]{libs, new File(libs, "libs"), new File(libs, "dexs")}) {
+            File[] staged = folder.listFiles();
+            if (staged == null) continue;
             for (File child : staged) {
-                // a staged extraction that a killed process left behind (never the live folders)
-                if (child.getName().matches("(libs|dexs)\\.(tmp|old)-\\d+.*")) deleteRecursively(child);
+                if (STAGED.matcher(child.getName()).matches()) found.add(child);
             }
         }
+        return found;
+    }
+
+    static void deleteStale(File cache) {
+        for (File file : leftovers(cache)) deleteRecursively(file);
     }
 
     // ------------------------------------------------------------------ whole archives
@@ -196,6 +216,11 @@ public final class BuiltInCache {
      * @param compileAssets {@code cacheDir/libs}
      */
     public static Report verify(File compileAssets, Collection<String> libraryNames, Progress progress) {
+        return verify(compileAssets, libraryNames, progress, false);
+    }
+
+    /** {@code force}: unpack the named libraries again even when their sizes are right (a same-size damaged file). */
+    static Report verify(File compileAssets, Collection<String> libraryNames, Progress progress, boolean force) {
         Report report = new Report();
         Set<String> names = new LinkedHashSet<>(libraryNames);
         File libsArchive = new File(compileAssets, "libs.zip");
@@ -209,6 +234,7 @@ public final class BuiltInCache {
                 List<ZipEntry> entries = byLibrary.get(name);
                 if (entries == null) continue;
                 String bad = firstMismatch(entries, name + "/", new File(libsDir, name));
+                if (bad == null && force) bad = "unpacked again after a failed step";
                 if (bad == null) continue;
                 if (progress != null) progress.show("Repairing built-in library " + name + "...");
                 try {
@@ -231,7 +257,7 @@ public final class BuiltInCache {
                 ZipEntry entry = zip.getEntry(name + ".dex");
                 if (entry == null || entry.isDirectory()) continue;
                 File dex = new File(dexsDir, name + ".dex");
-                if (dex.isFile() && dex.length() == entry.getSize()) continue;
+                if (!force && dex.isFile() && dex.length() == entry.getSize()) continue;
                 if (progress != null) progress.show("Repairing built-in library " + name + "...");
                 try {
                     repairFile(zip, entry, dex);
@@ -278,22 +304,37 @@ public final class BuiltInCache {
      */
     public static String recover(File compileAssets, String failure) {
         String name = blamedLibrary(failure);
-        if (name == null) return null;
-        File folder = new File(new File(compileAssets, "libs"), name);
-        File dex = new File(new File(compileAssets, "dexs"), name + ".dex");
-        // Damaged in a way sizes don't show (a same-size corrupt file): drop both copies, then unpack them again.
-        moveAsideAndDelete(folder);
-        dex.delete();
+        if (name == null || !inArchives(compileAssets, name)) return null;
+        // unpacked again through a temp folder even when the sizes look right (a same-size damaged file); the old
+        // copy is replaced only once the new one is complete
         List<String> one = new ArrayList<>();
         one.add(name);
-        Report report = verify(compileAssets, one, null);
-        boolean back = new File(folder, "classes.jar").isFile() || dex.isFile() || report.changed();
-        return back && report.failed.isEmpty() ? name : null;
+        Report report = verify(compileAssets, one, null, true);
+        return report.changed() && report.failed.isEmpty() ? name : null;
+    }
+
+    /** True when {@code name} is a library folder of libs.zip or a {@code <name>.dex} of dexs.zip. */
+    static boolean inArchives(File compileAssets, String name) {
+        if (name == null || !name.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) return false;
+        try (ZipFile zip = new ZipFile(new File(compileAssets, "libs.zip"))) {
+            if (group(zip).containsKey(name)) return true;
+        } catch (IOException ignored) {
+        }
+        try (ZipFile zip = new ZipFile(new File(compileAssets, "dexs.zip"))) {
+            return zip.getEntry(name + ".dex") != null;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** The build a user starts may restart once after {@link #recover}; later failures are shown. */
     public static synchronized void userStartedBuild() {
         retryUsed = false;
+    }
+
+    /** True while the restart of this user-started build hasn't been used. */
+    public static synchronized boolean retryAvailable() {
+        return !retryUsed;
     }
 
     /** True the first time after {@link #userStartedBuild}. */
@@ -409,13 +450,6 @@ public final class BuiltInCache {
         byte[] buffer = new byte[64 * 1024];
         int n;
         while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
-    }
-
-    private static void moveAsideAndDelete(File folder) {
-        if (!folder.exists()) return;
-        File aside = new File(folder.getParentFile(), folder.getName() + ".old-" + System.nanoTime());
-        if (folder.renameTo(aside)) deleteRecursively(aside);
-        else deleteRecursively(folder);
     }
 
     static void deleteRecursively(File file) {

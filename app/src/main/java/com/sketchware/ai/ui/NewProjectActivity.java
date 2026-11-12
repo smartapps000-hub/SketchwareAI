@@ -123,7 +123,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
             return;
         }
 
-        scId = lC.b();
+        // v1.9.8: never an id that still has folders (a project whose list file is damaged would lose its data)
+        scId = com.sketchware.ai.project.ProjectIds.free(lC.b());
         String defaultName = lC.c();
         ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
         findViewById(R.id.np_back).setOnClickListener(v -> finish());

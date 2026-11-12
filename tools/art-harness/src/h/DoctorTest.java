@@ -57,12 +57,20 @@ public final class DoctorTest {
         check("same line count", out.split("\n", -1).length == manifest.split("\n", -1).length, null);
         check("target 30: unchanged", manifest.equals(call(ix, "settleExported", manifest, 30, null)), null);
         check("idempotent", out.equals(call(ix, "settleExported", out, 37, null)), null);
+        String quoted = "<application>\n        <activity android:label=\"Price > 5\" android:name=\".Deal\" android:exported=\"false\">\n"
+                + "            <intent-filter><action android:name=\"x.DEAL\"/></intent-filter>\n        </activity>\n</application>\n";
+        check("a > inside an attribute value: its own exported is seen", quoted.equals(call(ix, "settleExported", quoted, 37, null)), null);
 
         Class<?> diag = c("com.sketchware.ai.diagnostic.CompileLogDiagnostics");
         Object m3 = call(diag, "analyze", "/storage/emulated/0/.sketchware/mysc/950/app/src/main/res/layout/main.xml:12: error: "
                 + "attr/colorPrimaryContainer (aka com.my.app:colorPrimaryContainer) not found.\nerror: failed linking file resources.");
         List<String> advice = (List<String>) get(m3, "advice");
         check("Material 3 attribute explained", advice.size() >= 1 && advice.get(0).contains("Material 3"), advice);
+        Object style = call(diag, "analyze", "main.xml:9: error: style/Widget.Material3.Button.TonalButton (aka x:style/Widget.Material3.Button.TonalButton) not found.");
+        check("Material 3 style name explained", ((List<String>) get(style, "advice")).toString().contains("Widget.Material3.Button.TonalButton is a Material 3"), get(style, "advice"));
+        Object level = call(diag, "analyze", "ERROR in /x/A.java (at line 1)\n\timport y.Z;\n\t^\nThe type y.Z is not compatible with the configured source level");
+        check("source-level case has no empty version", ((List<String>) get(level, "advice")).toString().contains("newer Java")
+                && !((List<String>) get(level, "advice")).toString().contains("version ;"), get(level, "advice"));
         Object name = call(diag, "analyze", "res/drawable/My-Image.png: error: 'My-Image' is not a valid file-based resource name character.");
         check("invalid file name explained", ((List<String>) get(name, "advice")).toString().contains("a-z, 0-9 and _"), get(name, "advice"));
         Object ecj = call(diag, "analyze", "ERROR in /x/MainActivity.java (at line 3)\n\timport x.Y;\n\t^^^\n"
@@ -81,6 +89,11 @@ public final class DoctorTest {
                 + "/storage/emulated/0/.sketchware/libs/local_libs/okhttp_V_3.14.9/classes.dex\n\n\nBuild map:\n    FAILED  DEX merge\n";
         Object d2 = call(doctor, "diagnose", dup2);
         check("duplicate: switch off the lower local one", String.valueOf(get(d2, "found")).contains("switch off okhttp_V_3.14.9"), get(d2, "found"));
+        String dup3 = "Type okhttp3.Call is defined multiple times: /storage/emulated/0/.sketchware/libs/local_libs/okhttp_V_4.12.0/classes.dex, "
+                + "/data/user/0/com.sketchware.ai/cache/libs/dexs/okhttp-3.12.12.dex\n\n\nBuild map:\n    FAILED  DEX merge\n";
+        Object d3 = call(doctor, "diagnose", dup3);
+        check("duplicate: older built-in stays, the local one goes", String.valueOf(get(d3, "found")).contains("the built-in one (okhttp-3.12.12) is older")
+                && String.valueOf(get(d3, "found")).contains("switch off okhttp_V_4.12.0"), get(d3, "found"));
         check("versions compare numerically", (Integer) call(doctor, "compareVersions", "1.9.0", "1.13.1") < 0, null);
 
         OUT.println("DOCTORTEST " + ok + "/" + total + (ok == total ? " ok" : " FAILED"));

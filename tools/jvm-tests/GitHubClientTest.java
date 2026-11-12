@@ -265,6 +265,7 @@ public class GitHubClientTest {
             }
             if (api.startsWith(repo + "/contents/index.json")) {
                 if (index == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                if ("application/vnd.github.raw".equals(headers.get("accept"))) return new Object[]{200, index};
                 return new Object[]{200, "{\"content\":\"" + java.util.Base64.getMimeEncoder().encodeToString(index.getBytes(StandardCharsets.UTF_8))
                         .replace("\r\n", "\\n") + "\"}"};
             }

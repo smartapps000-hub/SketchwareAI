@@ -91,6 +91,13 @@ public final class GitHubHttp {
         return read(c);
     }
 
+    /** A GET of a file's raw text (Accept: application/vnd.github.raw), as a string. */
+    static Response apiRaw(String path, String token) throws IOException {
+        HttpURLConnection c = open(api() + path, "GET", token);
+        c.setRequestProperty("Accept", "application/vnd.github.raw");
+        return read(c);
+    }
+
     /**
      * POST /repos/.../git/blobs with the file's bytes streamed as base64 (no copy of the whole file in memory).
      */

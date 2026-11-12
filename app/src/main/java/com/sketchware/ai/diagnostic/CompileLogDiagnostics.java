@@ -32,11 +32,12 @@ public final class CompileLogDiagnostics {
                             + "in the widget's properties and Inject code. A Text value that starts with @ or ? is read "
                             + "as a resource reference; put a \\ in front of it (\\@) to show it as text."),
             // v1.9.8: Material 3 attributes / styles in a project whose theme isn't Material 3
-            new Rule("(?:attr|style)/((?:\\w*Material3\\w*|color(?:Primary|Secondary|Tertiary|Error)Container|colorOn(?:Primary|Secondary|Tertiary|Error)Container"
+            new Rule("(?:attr|style)/((?:[\\w.]*Material3[\\w.]*|color(?:Primary|Secondary|Tertiary|Error)Container|colorOn(?:Primary|Secondary|Tertiary|Error)Container"
                     + "|colorSurface(?:Container\\w*|Variant|Bright|Dim)|colorOutlineVariant|textAppearance(?:Display|Headline|Title|Body|Label)(?:Large|Medium|Small)))\\b[^\\n]*not found",
-                    "%s is a Material 3 attribute or style, and this project's theme isn't Material 3 (AppCompat off, or "
-                            + "an older MaterialComponents theme). Turn on Material 3 in Project Configuration (Convert to "
-                            + "Material 3 & Modern Stack), or use the MaterialComponents name in Inject / custom XML."),
+                    "%s is a Material 3 attribute or style, and the build has no Material library to find it in "
+                            + "(AppCompat and Design are off for this project). Turn them on in Library Manager, or use "
+                            + "Project Configuration > Convert to Material 3 & Modern Stack; or remove it from Inject / "
+                            + "custom XML."),
             // v1.9.8: resource file names
             new Rule("(?:Invalid file name|invalid resource (?:file )?name|file name must (?:contain only|end with)|"
                     + "'[^'\\n]*' is not a valid file-based resource name)[^\\n]*",
@@ -98,11 +99,13 @@ public final class CompileLogDiagnostics {
             new Rule("is not visible|has private access",
                     "The code uses a private member of another class, or an API hidden in the bundled android.jar (API 37)."),
             // v1.9.8: ECJ reading a library compiled for a newer Java
-            new Rule("class file (?:has wrong version|version) (\\d+)\\.\\d+|is not compatible with the configured source level|"
-                    + "compiled with an incompatible version of Java",
+            new Rule("class file (?:has wrong version|version) (\\d+)\\.\\d+",
                     "A library was compiled for a newer Java than the Java compiler on the phone reads (class file "
                             + "version %s; Java = version - 44). Use the library's older release made for Java 11 or "
                             + "lower, or ask its author for one."),
+            new Rule("is not compatible with the configured source level|compiled with an incompatible version of Java",
+                    "A library was compiled for a newer Java than the Java compiler on the phone reads. Use the "
+                            + "library's older release made for Java 11 or lower, or ask its author for one."),
             new Rule("(\\w+) cannot be resolved to a type",
                     "Java doesn't know the type %s. Add its import (Custom Imports / ASD), enable the library that "
                             + "provides it, or fix the spelling."),

@@ -129,13 +129,16 @@ public class BackupFactory {
         try (ZipFile zip = new ZipFile(zipFile)) {
             destinationDir.mkdirs();
             // v1.9.8: an entry named "../x" (a hand-made or downloaded .swb) can't write outside the folder
-            String root = destinationDir.getCanonicalPath() + File.separator;
+            String rootFolder = destinationDir.getCanonicalPath();
+            String root = rootFolder + File.separator;
             Enumeration<? extends ZipEntry> zipFileEntries = zip.entries();
             while (zipFileEntries.hasMoreElements()) {
                 ZipEntry entry = zipFileEntries.nextElement();
                 String entryName = entry.getName();
                 File destFile = new File(destinationDir, entryName);
-                if (!destFile.getCanonicalPath().startsWith(root)) {
+                String canonical = destFile.getCanonicalPath();
+                if (canonical.equals(rootFolder)) continue; // "./" or "/": the folder itself
+                if (!canonical.startsWith(root)) {
                     return false;
                 }
                 File destinationParent = destFile.getParentFile();

@@ -51,6 +51,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     private volatile boolean closed;
     private DeviceFlow.Code shownCode;
     private String status;
+    private boolean statusIsError;
     private List<CloudBackup.Entry> backups;
     private String backupsError;
     private boolean loadingBackups;
@@ -73,7 +74,8 @@ public class GitHubActivity extends BaseAppCompatActivity {
     public void onDestroy() {
         closed = true;
         waiting = false;
-        work.shutdownNow();
+        // no interrupt: an upload under way finishes (and removes its .swb) after the screen is gone
+        work.shutdown();
         super.onDestroy();
     }
 
@@ -81,106 +83,74 @@ public class GitHubActivity extends BaseAppCompatActivity {
 
     private void render() {
         if (closed) return;
-        list.removeAllViews();
         String login = store.login();
         ((TextView) findViewById(R.id.gh_subtitle)).setText(login == null ? "Sign-in and cloud backup" : "Signed in as @" + login);
-        LinearLayout account = card();
-        account.addView(title("Account"));
-        if (!TokenStore.supported()) {
-            account.addView(body("GitHub sign-in needs Android 6.0 or newer (its token is kept in the Android Keystore)."));
-        } else if (login != null) {
-            account.addView(body("Signed in as @" + login + ". The access token is encrypted with a key in this phone's "
-                    + "Android Keystore; it is sent only to api.github.com."));
-            account.addView(pill("Sign out", v -> signOut()));
-        } else if (shownCode != null) {
-            account.addView(body("On github.com/login/device, enter this code:"));
-            TextView code = new TextView(this, null, 0, R.style.Ob_Text_Screen);
-            code.setText(shownCode.userCode);
-            code.setTextSize(TypedValue.COMPLEX_UNIT_SP, 30);
-            code.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-            code.setLetterSpacing(0.08f);
-            code.setGravity(Gravity.CENTER);
-            code.setTextIsSelectable(true);
-            code.setPadding(0, dp(10), 0, dp(10));
-            account.addView(code, matchWrap());
-            account.addView(cta("Copy code and open GitHub", v -> openVerification()));
-            account.addView(caption(status == null ? "Waiting for you to approve on GitHub…" : status));
-            account.addView(pill("Cancel", v -> {
+        GitHubScreen.State s = new GitHubScreen.State();
+        s.supported = TokenStore.supported();
+        s.login = login;
+        s.userCode = shownCode == null ? null : shownCode.userCode;
+        s.status = status;
+        s.statusIsError = statusIsError;
+        s.busy = busy;
+        s.clientId = store.clientId(getString(R.string.github_client_id));
+        s.repository = CloudBackup.REPO;
+        s.loadingBackups = loadingBackups;
+        s.backupsError = backupsError;
+        if (backups != null) {
+            s.backups = new ArrayList<>();
+            for (CloudBackup.Entry entry : backups) {
+                s.backups.add(new String[]{entry.name == null ? entry.path : entry.name,
+                        (entry.packageName == null ? "" : entry.packageName + " · ")
+                                + (entry.versionName == null ? "" : "v" + entry.versionName + " · ")
+                                + CloudBackup.formatTime(entry.time) + " · " + Math.max(1, entry.size >> 10) + " KB"});
+            }
+        }
+        GitHubScreen.render(this, list, s, new GitHubScreen.Actions() {
+            @Override
+            public void signIn(String clientId) {
+                if (busy) return;
+                store.setClientId(clientId);
+                startSignIn();
+            }
+
+            @Override
+            public void openVerification() {
+                GitHubActivity.this.openVerification();
+            }
+
+            @Override
+            public void cancelSignIn() {
                 waiting = false;
                 shownCode = null;
-                status = null;
+                setStatus(null, false);
                 render();
-            }));
-        } else {
-            account.addView(body("Sign in with your GitHub account to back up projects to a private repository of yours ("
-                    + CloudBackup.REPO + "). You enter a one-time code on github.com; no password is typed here. "
-                    + "GitHub asks you to allow repository access (the \"repo\" permission: GitHub can't limit an app to "
-                    + "one repository)."));
-            EditText clientId = new EditText(this, null, 0, R.style.Ob_Field);
-            clientId.setHint("OAuth app Client ID");
-            clientId.setSingleLine(true);
-            clientId.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-            clientId.setText(store.clientId(getString(R.string.github_client_id)));
-            LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
-            fieldParams.topMargin = dp(10);
-            account.addView(clientId, fieldParams);
-            account.addView(caption("The Client ID of the GitHub OAuth app (github.com > Settings > Developer settings > "
-                    + "OAuth Apps), with \"Enable Device Flow\" ticked. It is public; no client secret is used."));
-            if (status != null) account.addView(error(status));
-            account.addView(cta(busy ? "Starting…" : "Sign in with GitHub", v -> {
-                if (busy) return;
-                store.setClientId(clientId.getText().toString());
-                startSignIn();
-            }));
-        }
-        list.addView(account, cardParams());
-
-        if (login != null) {
-            LinearLayout cloud = card();
-            cloud.addView(title("Cloud backup"));
-            cloud.addView(body("Projects are saved as .swb files in the private repository " + login + "/" + CloudBackup.REPO
-                    + ". Every backup is a commit, so older backups stay and can be restored. A restore always makes a "
-                    + "new project; existing projects are never overwritten."));
-            cloud.addView(cta(busy ? "Working…" : "Back up a project", v -> {
-                if (!busy) pickProjectToBackUp();
-            }));
-            if (status != null) cloud.addView(caption(status));
-            list.addView(cloud, cardParams());
-
-            LinearLayout saved = card();
-            saved.addView(title("Backups in your repository"));
-            if (loadingBackups) {
-                saved.addView(caption("Loading…"));
-            } else if (backupsError != null) {
-                saved.addView(error(backupsError));
-                saved.addView(pill("Try again", v -> loadBackups()));
-            } else if (backups == null || backups.isEmpty()) {
-                saved.addView(caption("No backups yet."));
-            } else {
-                for (CloudBackup.Entry entry : backups) saved.addView(backupRow(entry));
-                saved.addView(pill("Refresh", v -> loadBackups()));
             }
-            list.addView(saved, cardParams());
-        }
+
+            @Override
+            public void signOut() {
+                GitHubActivity.this.signOut();
+            }
+
+            @Override
+            public void backUp() {
+                if (!busy) pickProjectToBackUp();
+            }
+
+            @Override
+            public void refreshBackups() {
+                loadBackups();
+            }
+
+            @Override
+            public void openBackup(int index) {
+                if (backups != null && index < backups.size()) showHistory(backups.get(index));
+            }
+        });
     }
 
-    private View backupRow(CloudBackup.Entry entry) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setBackgroundResource(R.drawable.ob_pill16_state);
-        row.setPadding(dp(14), dp(10), dp(14), dp(10));
-        row.setClickable(true);
-        row.setOnClickListener(v -> showHistory(entry));
-        TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
-        name.setText(entry.name == null ? entry.path : entry.name);
-        row.addView(name);
-        row.addView(caption((entry.packageName == null ? "" : entry.packageName + " · ")
-                + (entry.versionName == null ? "" : "v" + entry.versionName + " · ")
-                + CloudBackup.formatTime(entry.time) + " · " + Math.max(1, entry.size >> 10) + " KB"));
-        LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = dp(8);
-        row.setLayoutParams(params);
-        return row;
+    private void setStatus(String text, boolean isError) {
+        status = text;
+        statusIsError = isError && text != null;
     }
 
     // ------------------------------------------------------------------ sign-in
@@ -188,7 +158,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     private void startSignIn() {
         String clientId = store.clientId(getString(R.string.github_client_id));
         busy = true;
-        status = null;
+        setStatus(null, false);
         render();
         work.execute(() -> {
             try {
@@ -211,7 +181,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     }
                 });
                 ui(() -> {
-                    status = "Approved. Reading your account…";
+                    setStatus("Approved. Reading your account…", false);
                     render();
                 });
                 String login = CloudBackup.login(token);
@@ -219,7 +189,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 ui(() -> {
                     waiting = false;
                     shownCode = null;
-                    status = null;
+                    setStatus(null, false);
                     toast("Signed in as @" + login);
                     render();
                     loadBackups();
@@ -229,7 +199,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     busy = false;
                     waiting = false;
                     shownCode = null;
-                    status = "cancelled".equals(e.code) ? null : e.getMessage();
+                    setStatus("cancelled".equals(e.code) ? null : e.getMessage(), true);
                     render();
                 });
             } catch (Exception e) {
@@ -237,7 +207,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                     busy = false;
                     waiting = false;
                     shownCode = null;
-                    status = networkText(e);
+                    setStatus(networkText(e), true);
                     render();
                 });
             }
@@ -252,7 +222,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(shownCode.verificationUri)));
             toast("Code " + shownCode.userCode + " copied");
         } catch (android.content.ActivityNotFoundException e) {
-            status = "No browser found. Open " + shownCode.verificationUri + " on any device and enter the code.";
+            setStatus("No browser found. Open " + shownCode.verificationUri + " on any device and enter the code.", true);
             render();
         }
     }
@@ -265,7 +235,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 .setPositiveButton("Sign out", (d, w) -> {
                     store.clear();
                     backups = null;
-                    status = null;
+                    setStatus(null, false);
                     render();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
@@ -331,7 +301,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
         String pkg = yB.c(project, "my_sc_pkg_name");
         String version = yB.c(project, "sc_ver_name");
         busy = true;
-        status = "Making the backup of " + name + "…";
+        setStatus("Making the backup of " + name + "…", false);
         render();
         work.execute(() -> {
             File swb = null;
@@ -342,10 +312,9 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 factory.backup(name);
                 swb = factory.getOutFile();
                 if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
-                String token = store.token();
-                if (token == null) throw new GitHubException("unauthorized", "You were signed out. Sign in again.");
+                String token = requireToken();
                 ui(() -> {
-                    status = "Uploading " + name + "…";
+                    setStatus("Uploading " + name + "…", false);
                     render();
                 });
                 CloudBackup cloud = new CloudBackup(token, store.login());
@@ -355,7 +324,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 swb.delete();
                 ui(() -> {
                     busy = false;
-                    status = name + " was backed up (" + CloudBackup.formatTime(System.currentTimeMillis()) + ").";
+                    setStatus(name + " was backed up (" + CloudBackup.formatTime(System.currentTimeMillis()) + ").", false);
                     render();
                     loadBackups();
                 });
@@ -363,7 +332,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 File kept = swb;
                 ui(() -> {
                     busy = false;
-                    status = e.getMessage() + (kept != null && kept.isFile() ? " The backup is on the phone: " + kept : "");
+                    setStatus(e.getMessage() + (kept != null && kept.isFile() ? " The backup is on the phone: " + kept : ""), true);
                     if ("unauthorized".equals(e.code) || "http_401".equals(e.code)) store.clear();
                     render();
                 });
@@ -371,7 +340,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 File kept = swb;
                 ui(() -> {
                     busy = false;
-                    status = networkText(e) + (kept != null && kept.isFile() ? " The backup is on the phone: " + kept : "");
+                    setStatus(networkText(e) + (kept != null && kept.isFile() ? " The backup is on the phone: " + kept : ""), true);
                     render();
                 });
             }
@@ -379,8 +348,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
     }
 
     private void loadBackups() {
-        String token = store.token();
-        if (token == null) {
+        if (store.login() == null) {
             render();
             return;
         }
@@ -389,6 +357,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
         render();
         work.execute(() -> {
             try {
+                String token = requireToken();
                 CloudBackup cloud = new CloudBackup(token, store.login());
                 cloud.ensureRepository();
                 List<CloudBackup.Entry> entries = cloud.list();
@@ -417,18 +386,18 @@ public class GitHubActivity extends BaseAppCompatActivity {
     // ------------------------------------------------------------------ restore
 
     private void showHistory(CloudBackup.Entry entry) {
-        String token = store.token();
-        if (token == null || busy) return;
+        if (store.login() == null || busy) return;
         busy = true;
-        status = "Reading the backups of " + entry.name + "…";
+        setStatus("Reading the backups of " + entry.name + "…", false);
         render();
         work.execute(() -> {
             try {
+                String token = requireToken();
                 CloudBackup cloud = new CloudBackup(token, store.login());
                 List<CloudBackup.Version> versions = cloud.history(entry.path);
                 ui(() -> {
                     busy = false;
-                    status = null;
+                    setStatus(null, false);
                     render();
                     if (versions.isEmpty()) {
                         toast("No backups of " + entry.name + " were found.");
@@ -448,7 +417,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
             } catch (Exception e) {
                 ui(() -> {
                     busy = false;
-                    status = e instanceof GitHubException ? e.getMessage() : networkText(e);
+                    setStatus(e instanceof GitHubException ? e.getMessage() : networkText(e), true);
                     render();
                 });
             }
@@ -456,13 +425,13 @@ public class GitHubActivity extends BaseAppCompatActivity {
     }
 
     private void restore(CloudBackup.Entry entry, CloudBackup.Version version) {
-        String token = store.token();
-        if (token == null) return;
+        if (store.login() == null || busy) return;
         busy = true;
-        status = "Downloading the backup…";
+        setStatus("Downloading the backup…", false);
         render();
         work.execute(() -> {
             try {
+                String token = requireToken();
                 File folder = new File(BackupFactory.getBackupDir(), "cloud");
                 if (!folder.isDirectory() && !folder.mkdirs()) throw new java.io.IOException("Can't create " + folder);
                 String base = new File(entry.path).getName().replace(".swb", "");
@@ -471,7 +440,7 @@ public class GitHubActivity extends BaseAppCompatActivity {
                 boolean withLibraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
                 ui(() -> {
                     busy = false;
-                    status = "Restoring " + entry.name + " as a new project…";
+                    setStatus("Restoring " + entry.name + " as a new project…", false);
                     render();
                     // the app's own restore (new project id, progress and result messages)
                     new BackupRestoreManager(this).doRestore(target.getAbsolutePath(), withLibraries);
@@ -479,85 +448,24 @@ public class GitHubActivity extends BaseAppCompatActivity {
             } catch (Exception e) {
                 ui(() -> {
                     busy = false;
-                    status = e instanceof GitHubException ? e.getMessage() : networkText(e);
+                    setStatus(e instanceof GitHubException ? e.getMessage() : networkText(e), true);
                     render();
                 });
             }
         });
     }
 
-    // ------------------------------------------------------------------ views
+    // ------------------------------------------------------------------ helpers
 
-    private LinearLayout card() {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundResource(R.drawable.ob_accent_box);
-        card.setPadding(dp(16), dp(14), dp(16), dp(16));
-        return card;
-    }
-
-    private LinearLayout.LayoutParams cardParams() {
-        LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = dp(12);
-        return params;
-    }
-
-    private TextView title(String text) {
-        TextView t = new TextView(this, null, 0, R.style.Ob_Text_Title);
-        t.setText(text);
-        return t;
-    }
-
-    private TextView body(String text) {
-        TextView t = new TextView(this, null, 0, R.style.Ob_Text_Body);
-        t.setText(text);
-        t.setPadding(0, dp(6), 0, 0);
-        return t;
-    }
-
-    private TextView caption(String text) {
-        TextView t = new TextView(this, null, 0, R.style.Ob_Text_Caption);
-        t.setText(text);
-        t.setPadding(0, dp(6), 0, 0);
-        return t;
-    }
-
-    private TextView error(String text) {
-        TextView t = caption(text);
-        t.setTextColor(getResources().getColor(R.color.ob_error, getTheme()));
-        return t;
-    }
-
-    private TextView cta(String text, View.OnClickListener click) {
-        TextView t = new TextView(this, null, 0, R.style.Ob_Text_Button_Cta);
-        t.setText(text);
-        t.setGravity(Gravity.CENTER);
-        t.setBackgroundResource(R.drawable.ob_cta_state);
-        t.setStateListAnimator(AnimatorInflater.loadStateListAnimator(this, R.animator.sw_press));
-        t.setPadding(dp(16), 0, dp(16), 0);
-        t.setOnClickListener(click);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
-        params.topMargin = dp(12);
-        t.setLayoutParams(params);
-        return t;
-    }
-
-    private TextView pill(String text, View.OnClickListener click) {
-        TextView t = new TextView(this, null, 0, R.style.Ob_Text_Button);
-        t.setText(text);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        t.setGravity(Gravity.CENTER);
-        t.setBackgroundResource(R.drawable.ob_pill16_state);
-        t.setStateListAnimator(AnimatorInflater.loadStateListAnimator(this, R.animator.sw_press));
-        t.setOnClickListener(click);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44));
-        params.topMargin = dp(10);
-        t.setLayoutParams(params);
-        return t;
-    }
-
-    private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    /** The token, read on the worker thread (a Keystore decryption). */
+    private String requireToken() throws GitHubException {
+        String token = store.token();
+        if (token == null) {
+            throw new GitHubException(store.login() == null ? "unauthorized" : "keystore",
+                    store.login() == null ? "You're signed out. Sign in again."
+                            : "The sign-in couldn't be read from the Android Keystore just now. Try again.");
+        }
+        return token;
     }
 
     private int dp(int value) {

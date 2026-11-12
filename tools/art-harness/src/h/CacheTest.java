@@ -110,7 +110,10 @@ public final class CacheTest {
         String[][] cases = {
                 {"java.nio.file.NoSuchFileException: /data/user/0/com.sketchware.ai/cache/libs/libs/graphics-shapes-1.0.1/classes.jar", "graphics-shapes-1.0.1"},
                 {"Packaging the APK failed: java.io.FileNotFoundException: /data/user/0/com.sketchware.ai/cache/libs/dexs/material-1.13.0.dex (No such file or directory)", "material-1.13.0"},
-                {"Caused by: java.util.zip.ZipException: zip END header not found\n  at ... /data/user/0/com.sketchware.ai/cache/libs/libs/appcompat-1.7.1/classes.jar", "appcompat-1.7.1"},
+                {"Error in /data/user/0/com.sketchware.ai/cache/libs/libs/appcompat-1.7.1/classes.jar: java.util.zip.ZipException: zip END header not found", "appcompat-1.7.1"},
+                {"java.nio.file.NoSuchFileException: /storage/emulated/0/.sketchware/libs/local_libs/okhttp_V_4.12.0/classes.jar\n"
+                        + "  classpath: /data/user/0/com.sketchware.ai/cache/libs/libs/core-1.13.1/classes.jar", null},
+                {"java.nio.file.NoSuchFileException: /data/user/0/com.sketchware.ai/cache/libs/libs/../classes.jar", null},
                 {"java.nio.file.NoSuchFileException: /storage/emulated/0/.sketchware/libs/local_libs/okhttp_V_4.12.0/classes.jar", null},
                 {"java.util.zip.ZipException: error in opening zip file /data/user/0/com.sketchware.ai/cache/libs/libs.zip", null},
                 {"/data/user/0/com.sketchware.ai/cache/libs/libs/material-1.13.0/res/values/values.xml:12: error: resource attr/x not found.", null},
@@ -121,6 +124,10 @@ public final class CacheTest {
             check("D " + (t[1] == null ? "ignores" : "finds " + t[1]) + ": " + t[0].substring(0, Math.min(70, t[0].length())),
                     t[1] == null ? got == null : t[1].equals(got), got);
         }
+
+        Object dots = call(cache, "recover", assets, "java.io.FileNotFoundException: /x/cache/libs/dexs/...dex (No such file)");
+        check("D recover never acts on a name outside the archives", dots == null && libs.isDirectory()
+                && shapesJar.isFile(), dots);
 
         // E. diagnosis of such a log
         String log = "com.android.tools.r8.CompilationFailedException: Compilation failed to complete\n"

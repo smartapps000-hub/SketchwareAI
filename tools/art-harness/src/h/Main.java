@@ -138,8 +138,8 @@ public class Main {
             } catch (Throwable t) {
                 java.io.StringWriter trace = new java.io.StringWriter();
                 t.printStackTrace(new java.io.PrintWriter(trace));
-                Object repaired = call(cache, "recover", get(c("mod.jbk.build.BuiltInLibraries"), "EXTRACTED_COMPILE_ASSETS_PATH"),
-                        trace.toString());
+                Object repaired = (Boolean) call(cache, "retryAvailable") ? call(cache, "recover",
+                        get(c("mod.jbk.build.BuiltInLibraries"), "EXTRACTED_COMPILE_ASSETS_PATH"), trace.toString()) : null;
                 if (repaired != null && (Boolean) call(cache, "claimRetry")) {
                     OUT.println("RECOVERED built-in library " + repaired + ": the build starts over");
                     call(c("com.sketchware.ai.project.BuildWarnings"), "carryNote", "The first attempt of this build stopped on a "

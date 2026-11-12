@@ -70,15 +70,18 @@ public final class TokenStore {
         if (value == null) return null;
         try {
             String[] parts = value.split(":");
-            if (parts.length != 3 || !parts[0].equals("v1")) throw new GeneralSecurityException("unknown format");
+            if (parts.length != 3 || !parts[0].equals("v1")) throw new NoKey("unknown format");
             SecretKey key = keys.key(false);
-            if (key == null) throw new GeneralSecurityException("no key");
+            if (key == null) throw new NoKey("no key");
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, unb64(parts[1])));
             return new String(cipher.doFinal(unb64(parts[2])), StandardCharsets.UTF_8);
-        } catch (GeneralSecurityException | RuntimeException e) {
+        } catch (javax.crypto.AEADBadTagException | NoKey | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
             // restored to another phone, key deleted, or damaged: signed out
             prefs.edit().remove(KEY_TOKEN).remove(KEY_LOGIN).apply();
+            return null;
+        } catch (GeneralSecurityException | RuntimeException e) {
+            // a passing Keystore problem: not signed out, the next call tries again
             return null;
         }
     }
@@ -101,6 +104,13 @@ public final class TokenStore {
 
     public void setClientId(String clientId) {
         prefs.edit().putString(KEY_CLIENT_ID, clientId == null ? "" : clientId.trim()).apply();
+    }
+
+    /** The stored token can never be read again (no key, unknown format): signed out. */
+    static final class NoKey extends GeneralSecurityException {
+        NoKey(String message) {
+            super(message);
+        }
     }
 
     private static String b64(byte[] bytes) {

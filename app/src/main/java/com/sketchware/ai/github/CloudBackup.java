@@ -184,7 +184,7 @@ public final class CloudBackup {
     public List<Version> history(String path) throws IOException, GitHubException {
         if (branch == null) ensureRepository();
         GitHubHttp.Response r = GitHubHttp.api("GET", repoPath("/commits?sha=" + enc(branch) + "&path=" + enc(path)
-                + "&per_page=30"), token, null);
+                + "&per_page=100"), token, null);
         if (!r.ok()) throw http("Reading the backup history", r);
         List<Version> versions = new ArrayList<>();
         try {
@@ -193,9 +193,12 @@ public final class CloudBackup {
                 Version v = new Version();
                 v.sha = DeviceFlow.string(o, "sha");
                 JsonObject commit = o.getAsJsonObject("commit");
-                v.message = commit == null ? "" : DeviceFlow.string(commit, "message");
-                JsonObject author = commit == null ? null : commit.getAsJsonObject("author");
-                v.date = author == null ? "" : DeviceFlow.string(author, "date");
+                String message = commit == null ? null : DeviceFlow.string(commit, "message");
+                v.message = message == null ? "" : message;
+                JsonObject author = commit == null || !commit.has("author") || !commit.get("author").isJsonObject()
+                        ? null : commit.getAsJsonObject("author");
+                String date = author == null ? null : DeviceFlow.string(author, "date");
+                v.date = date == null ? "" : date;
                 if (v.sha != null) versions.add(v);
             }
         } catch (RuntimeException e) {
@@ -242,16 +245,18 @@ public final class CloudBackup {
 
     private JsonObject readIndex() throws IOException, GitHubException {
         if (branch == null) ensureRepository();
-        GitHubHttp.Response r = GitHubHttp.api("GET", repoPath("/contents/index.json?ref=" + enc(branch)), token, null);
+        // the raw file (the JSON answer leaves "content" empty for files over 1 MB: the list would read as empty and
+        // the next backup would write it again with one project)
+        GitHubHttp.Response r = GitHubHttp.apiRaw(repoPath("/contents/index.json?ref=" + enc(branch)), token);
         if (r.code == 404) return new JsonObject();
         if (!r.ok()) throw http("Reading the backup list", r);
-        String content = DeviceFlow.string(DeviceFlow.parse(r.body), "content");
-        if (content == null) return new JsonObject();
         try {
-            byte[] bytes = android.util.Base64.decode(content.replace("\n", ""), android.util.Base64.DEFAULT);
-            return DeviceFlow.parse(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            JsonElement e = com.google.gson.JsonParser.parseString(r.body);
+            if (!e.isJsonObject()) throw new IllegalStateException("not an object");
+            return e.getAsJsonObject();
         } catch (RuntimeException e) {
-            return new JsonObject();
+            throw new GitHubException("bad_index", "index.json in " + owner + "/" + REPO + " can't be read; fix or delete "
+                    + "it on github.com (the backups themselves are in projects/).");
         }
     }
 

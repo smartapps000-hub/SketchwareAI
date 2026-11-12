@@ -1350,15 +1350,18 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
                 failure = String.valueOf(tr);
             }
             try {
-                String repaired = com.sketchware.ai.project.BuiltInCache.recover(
-                        mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, failure);
+                String repaired = com.sketchware.ai.project.BuiltInCache.retryAvailable()
+                        ? com.sketchware.ai.project.BuiltInCache.recover(
+                        mod.jbk.build.BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, failure) : null;
                 if (repaired != null && com.sketchware.ai.project.BuiltInCache.claimRetry()) {
-                    com.sketchware.ai.project.BuildWarnings.carryNote("The first attempt of this build stopped on a "
-                            + "missing or damaged file of built-in library " + repaired + " in the app's cache; the "
-                            + "library was unpacked again and the build started over.");
                     com.sketchware.ai.buildmap.BuildMap.restarted();
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        if (!isDestroyed()) new BuildAsyncTask(getApplicationContext()).execute();
+                        if (isDestroyed()) return;
+                        // carried only into the build that really starts over
+                        com.sketchware.ai.project.BuildWarnings.carryNote("The first attempt of this build stopped on a "
+                                + "missing or damaged file of built-in library " + repaired + " in the app's cache; the "
+                                + "library was unpacked again and the build started over.");
+                        new BuildAsyncTask(getApplicationContext()).execute();
                     }, 400);
                     return;
                 }

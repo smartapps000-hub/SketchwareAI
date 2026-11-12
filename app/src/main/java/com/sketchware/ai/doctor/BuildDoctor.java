@@ -233,12 +233,18 @@ public final class BuildDoctor {
      * null. Paths of local libraries, of the archives themselves and of staged copies don't count.
      */
     public static String builtInLibraryOf(String failure) {
-        if (failure == null || !CACHE_FILE_PROBLEM.matcher(failure).find()) return null;
-        Matcher m = CACHE_PATH.matcher(failure);
-        while (m.find()) {
-            String name = m.group(2);
-            if (name.endsWith(".zip") || name.contains(".tmp-") || name.contains(".old-")) continue;
-            return name;
+        if (failure == null) return null;
+        // the error and the path on the same line: a built-in path elsewhere in the log (another step's output, a
+        // stack frame) next to an error about something else doesn't count
+        for (String line : failure.split("\n")) {
+            if (!CACHE_FILE_PROBLEM.matcher(line).find()) continue;
+            Matcher m = CACHE_PATH.matcher(line);
+            while (m.find()) {
+                String name = m.group(2);
+                if (name.endsWith(".zip") || name.contains(".tmp-") || name.contains(".old-") || name.equals(".")
+                        || name.equals("..")) continue;
+                return name;
+            }
         }
         return null;
     }
@@ -377,9 +383,14 @@ public final class BuildDoctor {
             if (order != 0) {
                 String lower = order < 0 ? a : b, higher = order < 0 ? b : a;
                 boolean lowerBuiltIn = lower.equals(order < 0 ? builtInName(first) : builtInName(second));
-                return "these are two versions of the same library. Keep the higher one (" + higher + ")"
-                        + (lowerBuiltIn ? "; the lower one is built in, so switch off the local library or use the "
-                        + "built-in one instead of it." : " and switch off " + lower + " in Local library manager.");
+                if (lowerBuiltIn) {
+                    // a built-in library can't be switched off by itself: the local one goes
+                    return "these are two versions of the same library, and the built-in one (" + lower + ") is older "
+                            + "than local library " + higher + ". The built-in one stays (the generated code and the other "
+                            + "built-in libraries are made for it): switch off " + higher + " in Local library manager.";
+                }
+                return "these are two versions of the same library. Keep the higher one (" + higher + ") and switch "
+                        + "off " + lower + " in Local library manager.";
             }
         }
         return "switch off one of the two libraries in Local library manager.";

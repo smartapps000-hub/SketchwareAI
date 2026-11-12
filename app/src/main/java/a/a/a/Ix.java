@@ -124,7 +124,7 @@ public class Ix {
     }
 
     private static final java.util.regex.Pattern COMPONENT_START = java.util.regex.Pattern.compile(
-            "<(activity-alias|activity|service|receiver)(?=[\\s/>])([^>]*?)(/?)>");
+            "<(activity-alias|activity|service|receiver)(?=[\\s/>])((?:[^>\"']|\"[^\"]*\"|'[^']*')*?)(/?)>");
 
     /**
      * v1.9.8: an app that targets Android 12 (API 31) or newer is refused at install ("android:exported needs to be

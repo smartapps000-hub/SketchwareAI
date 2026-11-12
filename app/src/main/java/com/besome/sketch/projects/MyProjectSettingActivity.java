@@ -258,7 +258,9 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
             String newProjectName = getIntent().getStringExtra("my_ws_name");
             String newProjectPackageName = getIntent().getStringExtra("my_sc_pkg_name");
             if (sc_id == null || sc_id.equals("")) {
-                sc_id = lC.b();
+                // v1.9.8: never an id that still has folders (a project whose list file is damaged): creating a
+                // project empties its data folder
+                sc_id = com.sketchware.ai.project.ProjectIds.free(lC.b());
                 newProjectName = lC.c();
                 newProjectPackageName = "com.my." + newProjectName.toLowerCase();
             }
