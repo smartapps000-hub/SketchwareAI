@@ -1519,3 +1519,8 @@ It adds or updates the components below. Full list: CREDITS.md in the source.
 
 	https://github.com/google/material-design-icons
 	Apache-2.0 License
+
+* GitHub mark (Octicons "mark-github", GitHub Inc.)
+
+	https://github.com/primer/octicons
+	MIT License

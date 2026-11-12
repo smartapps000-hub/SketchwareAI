@@ -66,6 +66,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 | Droid Sans Mono (`assets/fonts`, upstream) | Apache-2.0 | not re-verified |
 | `assets/libs/android.jar.zip`: Android SDK platform android-37.0 rev 2 `android.jar` (Android 17, compile-only; android-34 rev 3 until v1.8.13; upstream bundles one the same way), with `FingerprintManager` (4 classes) and `Context.FINGERPRINT_SERVICE` copied back from android-34 rev 3 by `tools/builtin-libs/android_jar.py` (API 37 dropped them) | Android Software Development Kit License Agreement | sdkmanager `platforms;android-37.0` source.properties |
 | Material Symbols 0.48.2 (Google), weight 400, Outlined / Rounded / Sharp, 3,937 icons each (`assets/icons/material_symbols.zip`: each icon's SVG path, the licence text inside; v1.9.0) | Apache-2.0 | npm `@material-symbols/svg-400` package.json + LICENSE |
+| GitHub mark (Octicons `mark-github`, GitHub Inc.; `res/drawable/ob_ic_github.xml`, the GitHub screen; v1.9.8). The mark is GitHub's logo: used only to name GitHub sign-in, as GitHub's logo guidelines allow | MIT (Octicons) | github.com/primer/octicons LICENSE |
 | Test fonts used by `tools/` (fixture 909, layoutlib) | OFL-1.1; created by `make-test-fonts.py`, never committed or shipped | — |
 
 ## 5. Libraries a generated app can include (built-in libraries)
