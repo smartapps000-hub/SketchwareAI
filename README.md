@@ -2,6 +2,17 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.0.1 (versionCode 202, `v2.0.1-d450f80-minApi26`)
+
+`apk/Sketchware_AI_v2.0.1.apk`, sha256 `c723881fefaa52c3f13bd2e0e416f652c0eaca4ca91711bb75bf37b4242408f5` (Git LFS).
+A two-row GitHub sign-in window that never cuts its text (Reload, a thin orange loading line), "Sign in via browser"
+for Google, Apple or passkey accounts, no blank page and no "Too many requests" loop; glass Back up sheet with the
+Local libraries / Custom Blocks boxes for the phone and GitHub, glass Restore sheet; steadier GitHub calls on slow
+networks. Release notes: `releases/v2.0.1/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.0.1.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.1.apk
+
 ## v2.0.0 (versionCode 201, `v2.0.0-5148377-minApi26`)
 
 `apk/Sketchware_AI_v2.0.0.apk`, sha256 `d4ee6d84e7dd268af13aa5f00402d7c467fddd90d64441b2fdcbdef30cb302c0` (Git LFS).
