@@ -45,11 +45,15 @@ public final class SignIn {
     private boolean starting;
     private boolean finishing;
     private String error;
+    private String errorCode;
     private String errorDetail;
     private String lastNetwork;
     private String signedInNow;
     private int generation;
     private Thread worker;
+    /** v2.0.1: when the last new code was asked for (uptime clock), and no new code before this time. */
+    private long lastStartAt;
+    private long startBlockedUntil;
 
     SignIn(Context app) {
         this.app = app;
@@ -77,6 +81,17 @@ public final class SignIn {
         return error;
     }
 
+    /** v2.0.1: the code of the last failure (e.g. {@code expired_token}, {@code rate_limited}), or null. */
+    public synchronized String errorCode() {
+        return errorCode;
+    }
+
+    /** v2.0.1: seconds until a new code may be asked for after GitHub's "too many requests", or 0. */
+    public synchronized int waitSeconds() {
+        long rest = startBlockedUntil - android.os.SystemClock.elapsedRealtime();
+        return rest <= 0 ? 0 : (int) ((rest + 999) / 1000);
+    }
+
     /** The technical cause of the last failure (copied by a long press on the error line), or null. */
     public synchronized String errorDetail() {
         return errorDetail;
@@ -99,17 +114,48 @@ public final class SignIn {
 
     // ------------------------------------------------------------------ actions
 
-    /** Starts a sign-in (a new code), unless one is already under way. */
+    /**
+     * Starts a sign-in (a new code), unless one is already under way. v2.0.1 (owner's 13 Nov report "Too many
+     * requests"): never two new codes closer than {@link #MIN_START_GAP} (a second ask waits for the rest of the gap),
+     * and none at all while GitHub's "too many requests" answer is being waited out.
+     */
     public synchronized void start(String clientId) {
         if (starting || finishing || pending != null) return;
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (now < startBlockedUntil) {
+            error = shortMessage("rate_limited");
+            errorCode = "rate_limited";
+            changed();
+            return;
+        }
+        long gap = lastStartAt == 0 ? MIN_START_GAP : now - lastStartAt;
         error = null;
+        errorCode = null;
         errorDetail = null;
         lastNetwork = null;
         starting = true;
+        lastStartAt = now;
         int gen = ++generation;
-        spawn(() -> run(gen, clientId, null));
+        long delay = gap >= MIN_START_GAP ? 0 : MIN_START_GAP - gap;
+        spawn(() -> {
+            if (delay > 0) {
+                try {
+                    Thread.sleep(delay);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                synchronized (SignIn.this) {
+                    if (gen != generation) return;
+                    lastStartAt = android.os.SystemClock.elapsedRealtime();
+                }
+            }
+            run(gen, clientId, null);
+        });
         changed();
     }
+
+    /** v2.0.1: the shortest time between two new codes (GitHub limits code requests per app and network). */
+    static final long MIN_START_GAP = 10_000L;
 
     /** A code saved before the app was stopped: waiting for it goes on, until it expires. */
     public synchronized void resumeSaved(String clientId) {
@@ -136,8 +182,27 @@ public final class SignIn {
         starting = false;
         finishing = false;
         error = null;
+        errorCode = null;
         errorDetail = null;
         clearSaved();
+        pollNow();
+        changed();
+    }
+
+    /**
+     * v2.0.1: the sign-in window was closed before GitHub's approval. Checking stops, but the code stays saved: opening
+     * the window again continues with the same code ({@link #resumeSaved}) instead of asking GitHub for a new one
+     * (owner's 13 Nov report "Too many requests": every close and open used to cost a new code). An approval reading
+     * the account ({@link #finishing()}) is not paused.
+     */
+    public synchronized void pause() {
+        if (finishing) return;
+        generation++;
+        pending = null;
+        starting = false;
+        error = null;
+        errorCode = null;
+        errorDetail = null;
         pollNow();
         changed();
     }
@@ -256,6 +321,13 @@ public final class SignIn {
             if (downloadAvatar(app, account.avatarUrl)) GitHubSession.changed();
         } catch (GitHubException e) {
             fail(gen, e.code, e.code + ": " + e.getMessage());
+            if ("rate_limited".equals(e.code) || "http_429".equals(e.code)) {
+                synchronized (this) {
+                    // GitHub said "too many requests": no new code for a minute (the window counts it down)
+                    startBlockedUntil = android.os.SystemClock.elapsedRealtime() + 60_000L;
+                }
+                changed();
+            }
         } catch (Throwable t) {
             fail(gen, t instanceof IOException ? "network" : t instanceof java.security.GeneralSecurityException
                     ? "keystore" : "error", t.toString());
@@ -265,7 +337,8 @@ public final class SignIn {
 
     /** A GitHub answer worth waiting out: a server error or a rate limit. */
     static boolean isPassing(String code) {
-        return code != null && (code.matches("http_5\\d\\d") || code.equals("http_429") || code.equals("http_403"));
+        return code != null && (code.matches("http_5\\d\\d") || code.equals("http_429") || code.equals("http_403")
+                || code.equals("rate_limited"));
     }
 
     private void fail(int gen, String code, String detail) {
@@ -276,6 +349,7 @@ public final class SignIn {
             starting = false;
             finishing = false;
             error = "cancelled".equals(code) ? null : shortMessage(code);
+            errorCode = "cancelled".equals(code) ? null : code;
             errorDetail = detail + (lastNetwork == null ? "" : "\nlast network error while waiting: " + lastNetwork);
         }
         clearSaved();
@@ -312,6 +386,10 @@ public final class SignIn {
                 return "GitHub sign-in isn't available yet. Please try later.";
             case "network":
                 return "No internet connection.";
+            case "rate_limited":
+            case "http_429":
+            case "slow_down":
+                return "GitHub got too many requests from this network. Wait a minute, then try again.";
             case "keystore":
                 return "Your phone couldn't store the sign-in. Please try again.";
             default:

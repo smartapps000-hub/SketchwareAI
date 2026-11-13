@@ -209,6 +209,81 @@ public class GitHubClientTest {
         }
         File privFile = GitHubImport.download(token, priv, priv.path, importDir);
         check("import: a private repository with the sign-in downloads", privFile.isFile() && privFile.length() == fake.importBytes.length, privFile.length());
+        // --- v2.0.1: retries with pauses, Retry-After, the rate-limit gate, writes never sent twice
+        Class<?> http = Class.forName("com.sketchware.ai.github.GitHubHttp");
+        java.lang.reflect.Field backoffField = http.getDeclaredField("backoff");
+        backoffField.setAccessible(true);
+        backoffField.set(null, new long[]{20, 40, 60});
+        java.lang.reflect.Method resetLimits = http.getDeclaredMethod("resetLimits");
+        resetLimits.setAccessible(true);
+        fake.mode = "user503";
+        fake.userGets = 0;
+        CloudBackup.Account again = CloudBackup.account(token);
+        check("v2.0.1: a GET answered 503 is tried again and works", "octo".equals(again.login) && fake.userGets == 2, fake.userGets);
+        fake.mode = "userDrop";
+        fake.userGets = 0;
+        again = CloudBackup.account(token);
+        check("v2.0.1: a GET whose connection drops is tried again", "octo".equals(again.login) && fake.userGets == 2, fake.userGets);
+        fake.mode = "retry1";
+        fake.userGets = 0;
+        long t0 = System.currentTimeMillis();
+        again = CloudBackup.account(token);
+        long waited = System.currentTimeMillis() - t0;
+        check("v2.0.1: a short Retry-After (429) is waited out, then the GET works", "octo".equals(again.login)
+                && fake.userGets == 2 && waited >= 1000, fake.userGets + " requests, " + waited + " ms");
+        fake.mode = "limited";
+        fake.userGets = 0;
+        try {
+            CloudBackup.account(token);
+            check("v2.0.1: GitHub's hourly limit (403, remaining 0) is rate_limited, not a permission error", false, null);
+        } catch (GitHubException e) {
+            check("v2.0.1: GitHub's hourly limit (403, remaining 0) is rate_limited, not a permission error",
+                    "rate_limited".equals(e.code) && e.getMessage().contains("try again after"), e.code + ": " + e.getMessage());
+        }
+        int before = fake.userGets;
+        fake.mode = "";
+        try {
+            CloudBackup.account(token);
+            check("v2.0.1: while the limit lasts no request goes to GitHub", false, "answered");
+        } catch (GitHubException e) {
+            check("v2.0.1: while the limit lasts no request goes to GitHub", "rate_limited".equals(e.code)
+                    && fake.userGets == before && before == 1, before + " -> " + fake.userGets);
+        }
+        resetLimits.invoke(null);
+        check("v2.0.1: after the limit the API answers again", "octo".equals(CloudBackup.account(token).login), null);
+        fake.mode = "";
+        fake.postHits = 0;
+        java.lang.reflect.Method apiCall = http.getDeclaredMethod("api", String.class, String.class, String.class, String.class);
+        apiCall.setAccessible(true);
+        Object postAnswer = apiCall.invoke(null, "POST", "/test/post503", token, "{}");
+        java.lang.reflect.Field codeField = postAnswer.getClass().getField("code");
+        check("v2.0.1: a POST answered 503 is not sent again", fake.postHits == 1 && (Integer) codeField.get(postAnswer) == 503,
+                fake.postHits);
+        fake.mode = "dropDownloadOnce";
+        fake.downloadHits = 0;
+        File again2 = GitHubImport.download(null, pub, "backups/App One.swb", importDir);
+        check("v2.0.1: a download cut by the network starts again and completes",
+                java.util.Arrays.equals(java.nio.file.Files.readAllBytes(again2.toPath()), fake.importBytes)
+                        && fake.downloadHits == 2, fake.downloadHits);
+        fake.mode = "poll429";
+        fake.polls = 0;
+        DeviceFlow.Code code429 = DeviceFlow.start("Iv1.testclient", DeviceFlow.SCOPE);
+        List<Long> sleeps429 = new ArrayList<>();
+        String token429 = DeviceFlow.waitForToken("Iv1.testclient", code429, new DeviceFlow.Waiting() {
+            public boolean cancelled() { return false; }
+            public void sleep(long millis) { sleeps429.add(millis); }
+        });
+        check("v2.0.1: a 429 while waiting for the approval keeps the code and asks less often",
+                "gho_fake_token_123".equals(token429) && sleeps429.equals(java.util.Arrays.asList(5000L, 30000L)), sleeps429);
+        fake.mode = "code429";
+        try {
+            DeviceFlow.start("Iv1.testclient", DeviceFlow.SCOPE);
+            check("v2.0.1: too many code requests: a clear rate-limit message", false, null);
+        } catch (GitHubException e) {
+            check("v2.0.1: too many code requests: a clear rate-limit message", "http_429".equals(e.code)
+                    && e.getMessage().contains("too many"), e.getMessage());
+        }
+        fake.mode = "";
         for (File f : importDir.listFiles()) f.delete();
         importDir.delete();
         fake.stop();
@@ -237,6 +312,7 @@ public class GitHubClientTest {
         int refPatches;
         String head = "c-0";
         boolean importSawToken;
+        volatile int userGets, postHits, downloadHits;
         byte[] importBytes = "PK-fake-swb".getBytes(StandardCharsets.UTF_8);
         String avatar = "https://avatars.githubusercontent.com/u/583231?v=4";
 
@@ -285,8 +361,9 @@ public class GitHubClientTest {
             if (Integer.valueOf(-1).equals(answer[0])) return; // connection dropped without an answer
             byte[] bytes = answer[1] instanceof byte[] ? (byte[]) answer[1] : String.valueOf(answer[1]).getBytes(StandardCharsets.UTF_8);
             OutputStream out = s.getOutputStream();
+            String extra = answer.length > 2 ? (String) answer[2] : "";
             out.write(("HTTP/1.1 " + answer[0] + " X\r\nContent-Type: application/json\r\nContent-Length: " + bytes.length
-                    + "\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+                    + "\r\n" + extra + "Connection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
             out.write(bytes);
             out.flush();
         }
@@ -301,6 +378,7 @@ public class GitHubClientTest {
                 }
                 if (target.equals("/web/login/device/code")) {
                     if ("disabled".equals(mode)) return new Object[]{400, "{\"error\":\"device_flow_disabled\"}"};
+                    if ("code429".equals(mode)) return new Object[]{429, "<html>Too many requests</html>", "Retry-After: 60\r\n"};
                     if (!"repo user:email".equals(form.get("scope"))) formProblems.add("scope " + form.get("scope"));
                     return new Object[]{200, "{\"device_code\":\"dc-1\",\"user_code\":\"WDJB-MJHT\",\"verification_uri\":"
                             + "\"https://github.com/login/device\",\"expires_in\":900,\"interval\":5}"};
@@ -319,6 +397,10 @@ public class GitHubClientTest {
                         return new Object[]{200, "{\"access_token\":\"gho_fake_token_123\",\"token_type\":\"bearer\",\"scope\":\"repo\"}"};
                     }
                     if ("denied".equals(mode)) return new Object[]{200, "{\"error\":\"access_denied\"}"};
+                    if ("poll429".equals(mode)) {
+                        if (polls == 1) return new Object[]{429, "<html>Too many requests</html>", "Retry-After: 30\r\n"};
+                        return new Object[]{200, "{\"access_token\":\"gho_fake_token_123\",\"token_type\":\"bearer\",\"scope\":\"repo\"}"};
+                    }
                     if (polls == 1) return new Object[]{200, "{\"error\":\"authorization_pending\"}"};
                     if (polls == 2) return new Object[]{200, "{\"error\":\"slow_down\",\"interval\":10}"};
                     return new Object[]{200, "{\"access_token\":\"gho_fake_token_123\",\"token_type\":\"bearer\",\"scope\":\"repo\"}"};
@@ -329,6 +411,16 @@ public class GitHubClientTest {
             boolean authorized = "Bearer gho_fake_token_123".equals(auth);
             String api = target.substring("/api".length());
             if (api.equals("/user")) {
+                userGets++;
+                if ("user503".equals(mode) && userGets == 1) return new Object[]{503, "{\"message\":\"Unavailable\"}"};
+                if ("userDrop".equals(mode) && userGets == 1) return new Object[]{-1, ""};
+                if ("retry1".equals(mode) && userGets == 1) {
+                    return new Object[]{429, "{\"message\":\"secondary rate limit\"}", "Retry-After: 1\r\n"};
+                }
+                if ("limited".equals(mode)) {
+                    return new Object[]{403, "{\"message\":\"API rate limit exceeded for user ID 583231.\"}",
+                            "X-RateLimit-Remaining: 0\r\nX-RateLimit-Reset: " + (System.currentTimeMillis() / 1000 + 1800) + "\r\n"};
+                }
                 return authorized ? new Object[]{200, "{\"login\":\"octo\",\"id\":583231,\"name\":\"The Octocat\",\"email\":null,\"avatar_url\":\"" + avatar + "\"}"} : new Object[]{401, "{\"message\":\"Bad credentials\"}"};
             }
             // v2.0.0: primary e-mail (scope user:email) and import from other repositories
@@ -336,6 +428,10 @@ public class GitHubClientTest {
                 if (!authorized || "noscope".equals(mode)) return new Object[]{404, "{\"message\":\"Not Found\"}"};
                 return new Object[]{200, "[{\"email\":\"old@example.com\",\"primary\":false,\"verified\":true},"
                         + "{\"email\":\"octo@example.com\",\"primary\":true,\"verified\":true,\"visibility\":\"private\"}]"};
+            }
+            if (api.equals("/test/post503")) {
+                postHits++;
+                return new Object[]{503, "{\"message\":\"Unavailable\"}"};
             }
             if (api.startsWith("/repos/pub/demo")) {
                 if (headers.containsKey("authorization")) importSawToken = true;
@@ -347,6 +443,8 @@ public class GitHubClientTest {
                 }
                 if (api.equals("/repos/pub/demo/contents/backups/App%20One.swb?ref=main")
                         && "application/vnd.github.raw".equals(headers.get("accept"))) {
+                    downloadHits++;
+                    if ("dropDownloadOnce".equals(mode) && downloadHits == 1) return new Object[]{-1, ""};
                     return new Object[]{200, importBytes};
                 }
                 return new Object[]{404, "{\"message\":\"Not Found\"}"};

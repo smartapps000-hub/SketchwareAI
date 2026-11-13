@@ -152,6 +152,22 @@ public final class GitHubTest {
                 Boolean.TRUE.equals(call(signIn, "isPassing", "http_502")) && Boolean.TRUE.equals(call(signIn, "isPassing", "http_429"))
                         && Boolean.TRUE.equals(call(signIn, "isPassing", "http_403")) && Boolean.FALSE.equals(call(signIn, "isPassing", "unauthorized"))
                         && Boolean.FALSE.equals(call(signIn, "isPassing", "http_404")) && Boolean.FALSE.equals(call(signIn, "isPassing", "bad_answer")), null);
+        check("v2.0.1: GitHub's rate limit is waited out too; its message is one short line",
+                Boolean.TRUE.equals(call(signIn, "isPassing", "rate_limited"))
+                        && ((String) call(signIn, "shortMessage", "rate_limited")).startsWith("GitHub got too many requests"), null);
+        // v2.0.1: closing the sign-in window pauses: the code stays saved for the next window; cancel removes it
+        Object code = neu("com.sketchware.ai.github.DeviceFlow$Code");
+        set(code, "deviceCode", "dc-pause");
+        set(code, "userCode", "ABCD-1234");
+        set(code, "interval", 5);
+        set(code, "expiresAt", System.currentTimeMillis() + 600_000L);
+        call(signIn, "save", code);
+        call(signIn, "pause");
+        Object kept = call(signIn, "loadSaved");
+        boolean keptOk = kept != null && "dc-pause".equals(get(kept, "deviceCode")) && call(signIn, "pending") == null;
+        call(signIn, "cancel");
+        check("v2.0.1: closing the window keeps the code (no new code next time); cancel removes it",
+                keptOk && call(signIn, "loadSaved") == null, kept);
         Object e2 = call(controlPrefs, "edit");
         call(e2, "putString", "last", "{\"require_login\":false}");
         call(e2, "commit");
@@ -279,6 +295,68 @@ public final class GitHubTest {
                         && get(jC, "b") == beforeB && !new File(BackupFactoryDir(), name + "_cloud_temp").exists(), cloudSwb);
         if (cloudSwb != null) cloudSwb.delete();
 
+        // --- v2.0.1: the Back up sheet's boxes: "Back up to GitHub" uploads the same .swb as "Save on phone"
+        Object automatic = get(c("com.sketchware.ai.github.CloudSync$Options"), "AUTOMATIC");
+        check("automatic backups (new and waiting projects): custom blocks, no local libraries",
+                Boolean.TRUE.equals(get(automatic, "customBlocks")) && Boolean.FALSE.equals(get(automatic, "localLibraries")), null);
+        File libsRoot = new File(sketchware, "libs/local_libs");
+        File testLib = new File(libsRoot, "ghtest_lib_v201");
+        deleteTree(testLib);
+        testLib.mkdirs();
+        writeText(new File(testLib, "classes.dex"), "dex-original");
+        writeText(new File(testLib, "config"), "com.example.ghtest");
+        File usedLibs = new File(sketchware, "data/" + scId + "/local_library");
+        String usedBefore = usedLibs.isFile() ? new String(java.nio.file.Files.readAllBytes(usedLibs.toPath()), "UTF-8") : null;
+        writeText(usedLibs, "[{\"name\":\"ghtest_lib_v201\",\"dexPath\":\"" + new File(testLib, "classes.dex").getAbsolutePath()
+                + "\",\"use_yn\":\"Y\"}]");
+        Object boxes = neu("mod.hey.studios.project.backup.BackupFactory", scId);
+        call(boxes, "setBackupLocalLibs", true);
+        call(boxes, "setBackupCustomBlocks", true);
+        call(boxes, "setReadSavedDataOnly", true);
+        call(boxes, "backup", name);
+        File boxesSwb = (File) call(boxes, "getOutFile");
+        java.util.List<String> entries = new java.util.ArrayList<>();
+        if (boxesSwb != null) {
+            try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(boxesSwb)) {
+                java.util.Enumeration<? extends java.util.zip.ZipEntry> e = z.entries();
+                while (e.hasMoreElements()) entries.add(e.nextElement().getName());
+            }
+        }
+        boolean hasLib = false, hasBlocks = false;
+        for (String entry : entries) {
+            if (entry.endsWith("local_libs/ghtest_lib_v201/classes.dex")) hasLib = true;
+            if (entry.endsWith("data/custom_blocks")) hasBlocks = true;
+        }
+        check("both boxes ticked: the .swb (as uploaded) carries the used local library and the custom blocks",
+                hasLib && hasBlocks, entries.size() + " entries");
+        // restored elsewhere: a missing library is copied, one already on the phone is never replaced
+        deleteTree(testLib);
+        String libId = (String) call(ids, "free", (String) call(lC, "b"));
+        Object libRestore = neu("mod.hey.studios.project.backup.BackupFactory", libId);
+        call(libRestore, "setBackupLocalLibs", true);
+        call(libRestore, "restore", boxesSwb);
+        boolean copied = new File(testLib, "classes.dex").isFile();
+        writeText(new File(testLib, "classes.dex"), "dex-kept-on-phone");
+        String libId2 = (String) call(ids, "free", String.valueOf(Integer.parseInt(libId) + 1));
+        Object libRestore2 = neu("mod.hey.studios.project.backup.BackupFactory", libId2);
+        call(libRestore2, "setBackupLocalLibs", true);
+        call(libRestore2, "restore", boxesSwb);
+        String kept = new String(java.nio.file.Files.readAllBytes(new File(testLib, "classes.dex").toPath()), "UTF-8");
+        check("restore with libraries: a missing one is copied, one already here is kept as it is",
+                copied && "dex-kept-on-phone".equals(kept) && Boolean.TRUE.equals(call(libRestore2, "isRestoreSuccess")), kept);
+        check("the restored project brings its custom blocks file",
+                new File(sketchware, "data/" + libId + "/custom_blocks").isFile(), null);
+        for (String id : new String[]{libId, libId2}) {
+            for (String folder : new String[]{"data", "bak", "mysc", "mysc/list", "resources/images", "resources/icons",
+                    "resources/fonts", "resources/sounds"}) {
+                deleteTree(new File(sketchware, folder + "/" + id));
+            }
+        }
+        deleteTree(testLib);
+        if (usedBefore == null) usedLibs.delete();
+        else writeText(usedLibs, usedBefore);
+        if (boxesSwb != null) boxesSwb.delete();
+
         // --- a .swb with an entry outside its folder is refused
         File evilZip = new File(swb.getParentFile(), "evil.swb");
         try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(evilZip))) {
@@ -304,6 +382,13 @@ public final class GitHubTest {
 
     static File BackupFactoryDir() throws Throwable {
         return new File((String) call(c("mod.hey.studios.project.backup.BackupFactory"), "getBackupDir"));
+    }
+
+    static void writeText(File f, String text) throws Exception {
+        f.getParentFile().mkdirs();
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+            out.write(text.getBytes("UTF-8"));
+        }
     }
 
     static void deleteTree(File f) {

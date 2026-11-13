@@ -29,8 +29,11 @@ import mod.jbk.util.LogUtil;
  * doesn't answer) it is marked as waiting ({@link #pending}) and {@link #syncPending} uploads it later (the main
  * screen with a network, and after a sign-in).</li>
  * </ul>
- * The .swb is made by the app's own {@link BackupFactory} (without local libraries: they can be large and are on the
- * Maven repositories), uploaded and deleted again.
+ * The .swb is made by the app's own {@link BackupFactory}, uploaded and deleted again. v2.0.1 (owner's 13 Nov
+ * directive): the project card's Back up sheet has the classic "Include used Local libraries" / "Include used Custom
+ * Blocks" boxes, and "Back up to GitHub" uploads exactly the .swb "Save on phone" would make with the same boxes
+ * ({@link Options}). Backups made by themselves (new and waiting projects) use {@link Options#AUTOMATIC}: custom blocks,
+ * no local libraries (they can be large; the Library Resolver installs them again).
  */
 public final class CloudSync {
 
@@ -39,6 +42,20 @@ public final class CloudSync {
     /** Called on the main thread when one backup ended. */
     public interface Result {
         void done(boolean ok, String message);
+    }
+
+    /** v2.0.1: what goes into the .swb (the Back up sheet's two boxes). */
+    public static final class Options {
+        /** Backups made by themselves: custom blocks yes, local libraries no. */
+        public static final Options AUTOMATIC = new Options(false, true);
+
+        public final boolean localLibraries;
+        public final boolean customBlocks;
+
+        public Options(boolean localLibraries, boolean customBlocks) {
+            this.localLibraries = localLibraries;
+            this.customBlocks = customBlocks;
+        }
     }
 
     private static CloudSync instance;
@@ -88,9 +105,14 @@ public final class CloudSync {
 
     /** The project card's Back up > "To GitHub": sign in first when needed, then the backup with toasts. */
     public static void backUpFromMenu(Activity activity, String scId, String name) {
+        backUpFromMenu(activity, scId, name, Options.AUTOMATIC);
+    }
+
+    /** v2.0.1: the same with the Back up sheet's boxes. */
+    public static void backUpFromMenu(Activity activity, String scId, String name, Options options) {
         CloudSync sync = get(activity);
         if (TokenStore.get(activity).login() == null) {
-            GitHubInAppAuthDialog.show(activity, login -> backUpFromMenu(activity, scId, name));
+            GitHubInAppAuthDialog.show(activity, login -> backUpFromMenu(activity, scId, name, options));
             return;
         }
         if (sync.isRunning(scId)) {
@@ -98,7 +120,7 @@ public final class CloudSync {
             return;
         }
         Toast.makeText(activity, "Backing up " + name + " to GitHub…", Toast.LENGTH_SHORT).show();
-        sync.backUp(scId, (ok, message) -> Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show());
+        sync.backUp(scId, options, (ok, message) -> Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show());
     }
 
     /** A project was just created: back it up when signed in, else nothing; offline it waits. */
@@ -133,6 +155,12 @@ public final class CloudSync {
 
     /** One project, in the background; {@code result} on the main thread. */
     public void backUp(String scId, Result result) {
+        backUp(scId, Options.AUTOMATIC, result);
+    }
+
+    /** v2.0.1: one project with the given contents. */
+    public void backUp(String scId, Options options, Result result) {
+        Options what = options == null ? Options.AUTOMATIC : options;
         synchronized (this) {
             if (!running.add(scId)) return;
         }
@@ -140,7 +168,7 @@ public final class CloudSync {
             boolean ok = false;
             String message;
             try {
-                String name = upload(scId);
+                String name = upload(scId, what);
                 removePending(scId);
                 ok = true;
                 message = name + " backed up to GitHub";
@@ -185,6 +213,11 @@ public final class CloudSync {
 
     /** Makes the .swb of one project, uploads it and deletes it again; returns the project's name. */
     String upload(String scId) throws Exception {
+        return upload(scId, Options.AUTOMATIC);
+    }
+
+    /** v2.0.1: the same with the given contents (the .swb "Save on phone" makes with the same boxes). */
+    String upload(String scId, Options options) throws Exception {
         HashMap<String, Object> project = lC.b(scId);
         if (project == null) throw new MissingProject("Project #" + scId + " isn't on this phone any more.");
         String name = yB.c(project, "my_ws_name");
@@ -202,8 +235,8 @@ public final class CloudSync {
             // the network and the token first: offline nothing is zipped
             cloud.ensureRepository();
             BackupFactory factory = new BackupFactory(scId);
-            factory.setBackupLocalLibs(false);
-            factory.setBackupCustomBlocks(true);
+            factory.setBackupLocalLibs(options.localLibraries);
+            factory.setBackupCustomBlocks(options.customBlocks);
             // the saved project, read with its own instances: never the editor's shared copy (it may be open)
             factory.setReadSavedDataOnly(true);
             factory.backup(name);

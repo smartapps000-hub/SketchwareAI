@@ -15,7 +15,15 @@ import java.util.Map;
 
 /**
  * v1.9.8: the HTTP calls of GitHub sign-in and cloud backup (github.com and api.github.com only). HttpURLConnection,
- * no library. The token is sent only to the API host, never to github.com's pages or anywhere else.
+ * no library (on Android it is the platform's own OkHttp). The token is sent only to the API host, never to
+ * github.com's pages or anywhere else.
+ * <p>
+ * v2.0.1 (owner's 13 Nov directive "2G/3G ready, rate-limit protection"): timeouts for slow networks; reads (GET) are
+ * tried again on a dropped connection or a passing server error (502/503/504) with growing pauses (1 s, 3 s, 7 s plus
+ * a little jitter); GitHub's {@code Retry-After} is honoured when it is short; when GitHub says the hourly limit is
+ * used up ({@code X-RateLimit-Remaining: 0}, or a 403/429 with {@code Retry-After}), no further API call goes out
+ * until the given time: the answer is HTTP 429 at once ({@link Response#rateLimited()}), so a screen or a background
+ * backup never hammers GitHub. Writes (POST, PATCH, PUT, DELETE) are never sent twice.
  */
 public final class GitHubHttp {
 
@@ -45,6 +53,12 @@ public final class GitHubHttp {
     public static final class Response {
         public final int code;
         public final String body;
+        /** v2.0.1: GitHub's {@code Retry-After} in seconds, or -1. */
+        public int retryAfter = -1;
+        /** v2.0.1: {@code X-RateLimit-Remaining}, or -1. */
+        public int rateRemaining = -1;
+        /** v2.0.1: {@code X-RateLimit-Reset} (seconds since 1970), or 0. */
+        public long rateReset;
 
         Response(int code, String body) {
             this.code = code;
@@ -54,6 +68,31 @@ public final class GitHubHttp {
         public boolean ok() {
             return code >= 200 && code < 300;
         }
+
+        /** v2.0.1: GitHub's rate limit (primary or secondary) answered, not a permission problem. */
+        public boolean rateLimited() {
+            if (code == 429) return true;
+            return code == 403 && (rateRemaining == 0 || retryAfter >= 0
+                    || (body != null && body.toLowerCase(java.util.Locale.ROOT).contains("rate limit")));
+        }
+    }
+
+    /** v2.0.1: no API call before this time (System.currentTimeMillis()), after GitHub said the limit is used up. */
+    private static volatile long blockedUntil;
+    /** v2.0.1: pauses between tries of a read; tests make them short. */
+    static long[] backoff = {1000, 3000, 7000};
+    /** v2.0.1: a Retry-After up to this long is waited out in place; a longer one ends the call. */
+    static final int WAIT_IN_PLACE_SECONDS = 10;
+
+    /** v2.0.1: when the API may be called again, or 0 (shown in "try again at …" messages). */
+    public static long blockedUntil() {
+        long until = blockedUntil;
+        return until > System.currentTimeMillis() ? until : 0;
+    }
+
+    /** Tests: forget a rate-limit pause. */
+    static void resetLimits() {
+        blockedUntil = 0;
     }
 
     /** POST an x-www-form-urlencoded form to github.com (Device Flow), JSON answer. */
@@ -75,8 +114,40 @@ public final class GitHubHttp {
         return read(c);
     }
 
-    /** A REST call to api.github.com with the token; {@code json} may be null. */
+    /**
+     * A REST call to api.github.com with the token; {@code json} may be null. v2.0.1: a GET is tried again on a dropped
+     * connection or a passing server error; every call stops at once while a rate-limit pause lasts.
+     */
     static Response api(String method, String path, String token, String json) throws IOException {
+        boolean read = "GET".equals(method) && json == null;
+        for (int attempt = 0; ; attempt++) {
+            Response limited = limitedNow();
+            if (limited != null) return limited;
+            Response r;
+            try {
+                r = apiOnce(method, path, token, json);
+            } catch (IOException e) {
+                if (!read || attempt >= backoff.length || !worthRetry(e)) throw e;
+                pause(backoff[attempt]);
+                continue;
+            }
+            note(r);
+            if (read && attempt < backoff.length) {
+                if (r.code == 502 || r.code == 503 || r.code == 504) {
+                    pause(backoff[attempt]);
+                    continue;
+                }
+                if (r.rateLimited() && r.retryAfter >= 0 && r.retryAfter <= WAIT_IN_PLACE_SECONDS && attempt == 0) {
+                    pause(Math.max(1, r.retryAfter) * 1000L);
+                    blockedUntil = 0;
+                    continue;
+                }
+            }
+            return r;
+        }
+    }
+
+    private static Response apiOnce(String method, String path, String token, String json) throws IOException {
         HttpURLConnection c = open(api() + path, method, token);
         c.setRequestProperty("Accept", "application/vnd.github+json");
         if (json != null) {
@@ -91,11 +162,28 @@ public final class GitHubHttp {
         return read(c);
     }
 
-    /** A GET of a file's raw text (Accept: application/vnd.github.raw), as a string. */
+    /** A GET of a file's raw text (Accept: application/vnd.github.raw), as a string; tried again like {@link #api}. */
     static Response apiRaw(String path, String token) throws IOException {
-        HttpURLConnection c = open(api() + path, "GET", token);
-        c.setRequestProperty("Accept", "application/vnd.github.raw");
-        return read(c);
+        for (int attempt = 0; ; attempt++) {
+            Response limited = limitedNow();
+            if (limited != null) return limited;
+            Response r;
+            try {
+                HttpURLConnection c = open(api() + path, "GET", token);
+                c.setRequestProperty("Accept", "application/vnd.github.raw");
+                r = read(c);
+            } catch (IOException e) {
+                if (attempt >= backoff.length || !worthRetry(e)) throw e;
+                pause(backoff[attempt]);
+                continue;
+            }
+            note(r);
+            if (attempt < backoff.length && (r.code == 502 || r.code == 503 || r.code == 504)) {
+                pause(backoff[attempt]);
+                continue;
+            }
+            return r;
+        }
     }
 
     /**
@@ -118,13 +206,41 @@ public final class GitHubHttp {
         return read(c);
     }
 
-    /** GET a file's raw bytes (Accept: application/vnd.github.raw) into {@code target}; at most {@code maxBytes}. */
+    /**
+     * GET a file's raw bytes (Accept: application/vnd.github.raw) into {@code target}; at most {@code maxBytes}.
+     * v2.0.1: a download cut by the network starts again (up to three more times, with pauses).
+     */
     static int download(String path, String token, File target, long maxBytes) throws IOException {
+        for (int attempt = 0; ; attempt++) {
+            Response limited = limitedNow();
+            if (limited != null) return limited.code;
+            try {
+                int code = downloadOnce(path, token, target, maxBytes);
+                if (attempt < backoff.length && (code == 502 || code == 503 || code == 504)) {
+                    pause(backoff[attempt]);
+                    continue;
+                }
+                return code;
+            } catch (IOException e) {
+                if (attempt >= backoff.length || !worthRetry(e) || e instanceof TooLarge) throw e;
+                pause(backoff[attempt]);
+            }
+        }
+    }
+
+    /** The file is larger than allowed: trying again doesn't help. */
+    static final class TooLarge extends IOException {
+        TooLarge(String message) {
+            super(message);
+        }
+    }
+
+    private static int downloadOnce(String path, String token, File target, long maxBytes) throws IOException {
         HttpURLConnection c = open(api() + path, "GET", token);
         c.setRequestProperty("Accept", "application/vnd.github.raw");
         int code = c.getResponseCode();
         if (code < 200 || code >= 300) {
-            read(c);
+            note(read(c));
             return code;
         }
         File temp = new File(target.getAbsolutePath() + ".part");
@@ -134,7 +250,7 @@ public final class GitHubHttp {
             int n;
             while ((n = in.read(buffer)) > 0) {
                 total += n;
-                if (total > maxBytes) throw new IOException("The file is larger than " + (maxBytes >> 20) + " MB");
+                if (total > maxBytes) throw new TooLarge("The file is larger than " + (maxBytes >> 20) + " MB");
                 out.write(buffer, 0, n);
             }
         } catch (IOException e) {
@@ -150,10 +266,57 @@ public final class GitHubHttp {
         return code;
     }
 
+    // ------------------------------------------------------------------ v2.0.1: retries and limits
+
+    /** A dropped or timed-out connection is worth another try; a missing host (offline, no DNS) or TLS problem not. */
+    static boolean worthRetry(IOException e) {
+        if (e instanceof java.net.UnknownHostException) return false;
+        if (e instanceof javax.net.ssl.SSLHandshakeException) return false;
+        return true;
+    }
+
+    private static void pause(long millis) throws IOException {
+        long jitter = millis <= 0 ? 0 : (long) (Math.random() * Math.min(500, millis / 4));
+        try {
+            Thread.sleep(millis + jitter);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new java.io.InterruptedIOException("Stopped while waiting to try again");
+        }
+    }
+
+    /** While a rate-limit pause lasts: a 429 answer without going to GitHub; else null. */
+    private static Response limitedNow() {
+        long until = blockedUntil;
+        long now = System.currentTimeMillis();
+        if (until <= now) return null;
+        Response r = new Response(429, "{\"message\":\"API rate limit exceeded (waiting on this phone)\"}");
+        r.retryAfter = (int) ((until - now + 999) / 1000);
+        return r;
+    }
+
+    /** Remembers GitHub's "limit used up" so the next calls wait instead of asking again. */
+    private static void note(Response r) {
+        if (!r.rateLimited()) return;
+        long now = System.currentTimeMillis();
+        long until;
+        if (r.retryAfter >= 0) {
+            until = now + Math.max(1, r.retryAfter) * 1000L;
+        } else if (r.rateRemaining == 0 && r.rateReset > 0) {
+            until = r.rateReset * 1000L;
+        } else {
+            // a secondary limit without a time: GitHub asks for at least a minute
+            until = now + 60_000L;
+        }
+        // never more than an hour (a wrong clock on the phone must not block the account for days)
+        blockedUntil = Math.min(until, now + 60 * 60_000L);
+    }
+
     private static HttpURLConnection open(String url, String method, String token) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(20_000);
-        c.setReadTimeout(90_000);
+        // v2.0.1: 2G / 3G: a slow first answer is not a failure
+        c.setConnectTimeout(30_000);
+        c.setReadTimeout(120_000);
         c.setInstanceFollowRedirects(false);
         c.setUseCaches(false);
         try {
@@ -187,9 +350,28 @@ public final class GitHubHttp {
                     body = new String(out.toByteArray(), StandardCharsets.UTF_8);
                 }
             }
-            return new Response(code, body);
+            Response r = new Response(code, body);
+            r.retryAfter = intHeader(c, "Retry-After");
+            r.rateRemaining = intHeader(c, "X-RateLimit-Remaining");
+            String reset = c.getHeaderField("X-RateLimit-Reset");
+            try {
+                r.rateReset = reset == null ? 0 : Long.parseLong(reset.trim());
+            } catch (NumberFormatException ignored) {
+                r.rateReset = 0;
+            }
+            return r;
         } finally {
             c.disconnect();
+        }
+    }
+
+    private static int intHeader(HttpURLConnection c, String name) {
+        String value = c.getHeaderField(name);
+        if (value == null) return -1;
+        try {
+            return Math.max(0, Integer.parseInt(value.trim()));
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 

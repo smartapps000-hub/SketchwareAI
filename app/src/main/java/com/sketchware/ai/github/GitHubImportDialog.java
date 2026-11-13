@@ -25,6 +25,10 @@ import mod.hey.studios.project.backup.BackupFactory;
  * {@code SketchwareAI-Projects} (each restores any of its versions). Always: a field for a GitHub link to a .swb file,
  * a folder or a repository ({@link GitHubImport}). The downloaded .swb goes to the app's own restore ({@link Restorer}),
  * the same as a .swb picked from the phone.
+ * <p>
+ * v2.0.1 (owner's 13 Nov phone report: hint and row cut): a short hint with the explanation on its own line, row titles
+ * on up to two lines; the own backups list is kept and shown offline (restoring still needs the network); a linked
+ * backup with local libraries asks before copying them (custom blocks always come with the project).
  */
 public final class GitHubImportDialog {
 
@@ -65,17 +69,21 @@ public final class GitHubImportDialog {
         content.setPadding(v.dp(20), v.dp(8), v.dp(20), v.dp(4));
         scroll.addView(content);
 
-        content.addView(v.header(null, "Import from GitHub", "Your backups or a GitHub link"));
+        content.addView(v.header(R.drawable.ob_ic_github, "GitHub import project", "Your backups or a GitHub link"));
 
         link = new EditText(activity, null, 0, R.style.Ob_Text);
-        link.setHint("github.com/owner/repo or a .swb link");
+        link.setHint("Paste a GitHub link");
         link.setHintTextColor(v.color(R.color.ob_text_2));
         link.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         link.setSingleLine(true);
+        link.setGravity(android.view.Gravity.CENTER_VERTICAL);
         link.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         link.setBackgroundResource(R.drawable.ob_field);
         link.setPadding(v.dp(14), 0, v.dp(14), 0);
         content.addView(link, v.full(48, 14));
+        TextView explain = v.line("A repository, a folder or a .swb file on github.com", false);
+        explain.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        content.addView(explain, v.full(-1, 6));
         importButton = v.pill("Import from link", false, true, x -> importLink());
         content.addView(importButton, v.full(46, 10));
 
@@ -112,13 +120,30 @@ public final class GitHubImportDialog {
             return;
         }
         backups.addView(v.line("Loading…", false), v.full(-1, 8));
+        String login = store.login();
         work.execute(() -> {
+            CloudBackup cloud = null;
             try {
                 String token = token();
-                CloudBackup cloud = new CloudBackup(token, store.login());
+                cloud = new CloudBackup(token, login);
                 // looking must not create the repository: none yet = no backups yet
                 List<CloudBackup.Entry> entries = cloud.openIfExists() ? cloud.list() : new java.util.ArrayList<>();
-                ui(() -> showOwn(entries, cloud));
+                saveCachedList(login, entries);
+                CloudBackup c = cloud;
+                ui(() -> showOwn(entries, c, 0));
+            } catch (java.io.IOException e) {
+                // offline (or GitHub didn't answer): the list from the last time, marked as such
+                long[] at = new long[1];
+                List<CloudBackup.Entry> cached = cachedList(login, at);
+                CloudBackup c = cloud;
+                ui(() -> {
+                    if (cached != null && c != null) {
+                        showOwn(cached, c, at[0]);
+                    } else {
+                        backups.removeAllViews();
+                        backups.addView(v.line(text(e), true), v.full(-1, 8));
+                    }
+                });
             } catch (Exception e) {
                 ui(() -> {
                     backups.removeAllViews();
@@ -128,10 +153,38 @@ public final class GitHubImportDialog {
         });
     }
 
-    private void showOwn(List<CloudBackup.Entry> entries, CloudBackup cloud) {
+    /** v2.0.1: the last list of own backups, for showing it offline (names and times only, no token). */
+    private void saveCachedList(String login, List<CloudBackup.Entry> entries) {
+        activity.getSharedPreferences(CloudSync.PREFS, android.content.Context.MODE_PRIVATE).edit()
+                .putString("backup_list_login", login)
+                .putString("backup_list", new com.google.gson.Gson().toJson(entries))
+                .putLong("backup_list_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    private List<CloudBackup.Entry> cachedList(String login, long[] at) {
+        android.content.SharedPreferences prefs = activity.getSharedPreferences(CloudSync.PREFS,
+                android.content.Context.MODE_PRIVATE);
+        if (login == null || !login.equals(prefs.getString("backup_list_login", null))) return null;
+        try {
+            CloudBackup.Entry[] list = new com.google.gson.Gson().fromJson(prefs.getString("backup_list", null),
+                    CloudBackup.Entry[].class);
+            if (list == null) return null;
+            at[0] = prefs.getLong("backup_list_at", 0);
+            return new java.util.ArrayList<>(java.util.Arrays.asList(list));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private void showOwn(List<CloudBackup.Entry> entries, CloudBackup cloud, long offlineSince) {
         backups.removeAllViews();
+        if (offlineSince > 0) {
+            backups.addView(v.line("Offline · the list from " + CloudBackup.formatTime(offlineSince), false),
+                    v.full(-1, 4));
+        }
         if (entries.isEmpty()) {
-            backups.addView(v.line("No backups yet. Use Back up > To GitHub on a project.", false), v.full(-1, 8));
+            backups.addView(v.line("No backups yet. Use Back up > Back up to GitHub on a project.", false), v.full(-1, 8));
             return;
         }
         for (CloudBackup.Entry entry : entries) {
@@ -180,7 +233,7 @@ public final class GitHubImportDialog {
                 File target = new File(folder, base + " " + version.sha.substring(0, 7) + ".swb");
                 cloud.download(entry.path, version.sha, target);
                 boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
-                ui(() -> finish(target, libraries, true));
+                ui(() -> finish(target, libraries, true, null));
             } catch (Exception e) {
                 ui(() -> setBusy(false, text(e)));
             }
@@ -227,10 +280,9 @@ public final class GitHubImportDialog {
         work.execute(() -> {
             try {
                 File target = GitHubImport.download(token, source, path, new File(BackupFactory.getBackupDir(), "github"));
-                // a backup from someone else's repository never copies its local libraries into the shared
-                // local_libs folder (another project could later use a planted library): the project restores
-                // without them, the Library Resolver installs them from Maven
-                ui(() -> finish(target, false, false));
+                boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
+                String from = source.owner + "/" + source.repo;
+                ui(() -> finish(target, libraries, false, from));
             } catch (Exception e) {
                 ui(() -> setBusy(false, text(e)));
             }
@@ -240,25 +292,37 @@ public final class GitHubImportDialog {
     // ------------------------------------------------------------------ helpers
 
     /**
-     * Hands the file to the app's restore (a new project) and closes the sheet. An own backup with local libraries asks
-     * the question the .swb restore asks; a link's backup never brings libraries.
+     * Hands the file to the app's restore (a new project, custom blocks included) and closes the sheet. A backup with
+     * local libraries asks the question the .swb restore asks; v2.0.1: a linked backup (someone else's repository) asks
+     * too, with a trust note, and "Without libraries" first. Libraries already on the phone are never replaced
+     * (BackupFactory copies only missing ones).
      */
-    private void finish(File swb, boolean hasLibraries, boolean own) {
+    private void finish(File swb, boolean hasLibraries, boolean own, String from) {
         setBusy(false, null);
         try {
             dialog.dismiss();
         } catch (RuntimeException ignored) {
             // the window went with a recreated screen
         }
-        if (own && hasLibraries) {
+        if (!hasLibraries) {
+            restorer.restore(swb, false);
+        } else if (own) {
             new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Local libraries")
-                    .setMessage("This backup holds local libraries. Copy them to this phone's libraries?")
+                    .setMessage("This backup holds local libraries. Copy them to this phone's libraries? Libraries "
+                            + "already here are kept as they are.")
                     .setPositiveButton("Copy", (d, w) -> restorer.restore(swb, true))
                     .setNegativeButton("Don't copy", (d, w) -> restorer.restore(swb, false))
                     .show();
         } else {
-            restorer.restore(swb, false);
+            new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                    .setTitle("Local libraries from " + from)
+                    .setMessage("This backup brings local libraries. They become part of every app that uses them: "
+                            + "copy them only if you trust " + from + ". Libraries already on this phone are never "
+                            + "replaced. Without them, the Library Resolver can install the libraries from Maven.")
+                    .setPositiveButton("Copy libraries", (d, w) -> restorer.restore(swb, true))
+                    .setNegativeButton("Without libraries", (d, w) -> restorer.restore(swb, false))
+                    .show();
         }
     }
 

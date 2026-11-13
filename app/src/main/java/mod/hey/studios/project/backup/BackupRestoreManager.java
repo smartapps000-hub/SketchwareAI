@@ -119,6 +119,17 @@ public class BackupRestoreManager {
         dialog.show();
     }
 
+    /**
+     * v2.0.1: the Back up sheet's "Save on phone" (the boxes are on the sheet): the same backup as the options dialog
+     * above with the given choices.
+     */
+    public void backupNow(final String sc_id, final String project_name, boolean localLibraries, boolean customBlocks) {
+        backupDialogStates = new HashMap<>();
+        backupDialogStates.put(0, localLibraries);
+        backupDialogStates.put(1, customBlocks);
+        doBackup(sc_id, project_name);
+    }
+
     private void doBackup(final String sc_id, final String project_name) {
         new BackupAsyncTask(new WeakReference<>(act), sc_id, project_name, backupDialogStates)
                 .execute("");

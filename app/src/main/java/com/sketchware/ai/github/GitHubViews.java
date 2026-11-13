@@ -75,6 +75,24 @@ public final class GitHubViews {
         return row;
     }
 
+    /**
+     * v2.0.1: the same row with a line icon on the glass tile (backup and restore sheets); the title may take two
+     * lines so it is never cut ("Back up" + a long project name).
+     */
+    public LinearLayout header(int icon, String title, String subtitle) {
+        LinearLayout row = header((Drawable) null, title, subtitle);
+        ImageView tile = (ImageView) row.getChildAt(0);
+        tile.setImageResource(icon);
+        tile.setContentDescription(null);
+        TextView t = (TextView) ((LinearLayout) row.getChildAt(1)).getChildAt(0);
+        t.setSingleLine(false);
+        t.setMaxLines(2);
+        TextView sub = (TextView) ((LinearLayout) row.getChildAt(1)).getChildAt(1);
+        sub.setSingleLine(false);
+        sub.setMaxLines(2);
+        return row;
+    }
+
     /** The account picture with 14dp corners, or the GitHub mark on a neutral glass tile. */
     public void showPicture(ImageView tile, Drawable picture) {
         if (picture != null) {
@@ -145,6 +163,64 @@ public final class GitHubViews {
         return t;
     }
 
+    /**
+     * v2.0.1 (owner's 13 Nov directive "glass cards, no plain text lists"): a pressable glass card: a 40dp tile with a
+     * line icon, a bold title and one grey line (both may wrap to a second line, never cut), the whole card is the
+     * button.
+     */
+    public LinearLayout actionCard(int icon, String title, String subtitle, View.OnClickListener click) {
+        LinearLayout card = new LinearLayout(c);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackgroundResource(R.drawable.ob_pill16_state);
+        card.setPadding(dp(12), dp(12), dp(14), dp(12));
+        card.setMinimumHeight(dp(64));
+        ImageView tile = new ImageView(c);
+        tile.setBackgroundResource(R.drawable.ob_tile);
+        tile.setImageResource(icon);
+        tile.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        tile.setPadding(dp(9), dp(9), dp(9), dp(9));
+        card.addView(tile, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        LinearLayout text = new LinearLayout(c);
+        text.setOrientation(LinearLayout.VERTICAL);
+        TextView t = new TextView(c, null, 0, R.style.Ob_Text);
+        t.setText(title);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        t.setTypeface(bold());
+        t.setMaxLines(2);
+        text.addView(t);
+        TextView sub = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        sub.setText(subtitle);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        sub.setMaxLines(2);
+        sub.setPadding(0, dp(2), 0, 0);
+        text.addView(sub);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tp.leftMargin = dp(12);
+        card.addView(text, tp);
+        card.setContentDescription(title + ". " + subtitle);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setStateListAnimator(AnimatorInflater.loadStateListAnimator(c, R.animator.sw_press));
+        if (click != null) card.setOnClickListener(click);
+        return card;
+    }
+
+    /** v2.0.1: a classic check box on the dark glass (orange when ticked, light label, 48dp touch height). */
+    public android.widget.CheckBox checkBox(String text, boolean checked) {
+        android.widget.CheckBox box = new android.widget.CheckBox(c);
+        box.setText(text);
+        box.setTextColor(color(R.color.ob_text));
+        box.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        box.setMinHeight(dp(48));
+        box.setPadding(dp(6), 0, 0, 0);
+        box.setButtonTintList(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{color(R.color.ob_orange), color(R.color.ob_text_2)}));
+        box.setChecked(checked);
+        return box;
+    }
+
     private void enable(TextView t, boolean enabled, View.OnClickListener click) {
         t.setEnabled(enabled);
         t.setAlpha(enabled ? 1f : 0.5f);
@@ -176,7 +252,8 @@ public final class GitHubViews {
         text.setOrientation(LinearLayout.VERTICAL);
         TextView name = new TextView(c, null, 0, R.style.Ob_Text_Label);
         name.setText(title);
-        name.setSingleLine(true);
+        // v2.0.1: two lines, never cut ("Sign in to see your backups" next to its pill on a small phone)
+        name.setMaxLines(2);
         name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.addView(name);
         if (detail != null) {
@@ -202,15 +279,22 @@ public final class GitHubViews {
     public static final class AuthChrome {
         public LinearLayout root;
         public View close;
-        public TextView status;
+        public TextView title;
+        public View reload;
+        /** The thin orange loading line under the first row (kept in the layout while hidden: nothing jumps). */
+        public android.widget.ProgressBar progress;
         public TextView code;
+        public TextView status;
         public FrameLayout page;
-        public TextView retry;
+        /** "Sign in via browser" (Google, Apple, passkey: GitHub's page in the browser, the code copied). */
+        public LinearLayout browser;
     }
 
     /**
-     * Top: a close button, "Sign in with GitHub" and a compact status pill with the code; then the page (a 22dp-rounded
-     * frame the WebView goes into); a "Try again" pill shown on errors.
+     * v2.0.1 (owner's 13 Nov phone report: "Sign in with G…" and the status were cut): a two-row glass header.
+     * Row 1: close, "GitHub Sign-In" (the whole width between the two buttons, never cut) and Reload, with the thin
+     * orange loading line below. Row 2: the code pill (tap to copy) and the status on up to two lines. Then the page
+     * (a 22dp-rounded frame the WebView goes into) and the "Sign in via browser" card.
      */
     public AuthChrome authChrome() {
         AuthChrome a = new AuthChrome();
@@ -220,45 +304,75 @@ public final class GitHubViews {
         root.setPadding(dp(12), dp(12), dp(12), dp(12));
 
         LinearLayout top = new LinearLayout(c);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setOrientation(LinearLayout.VERTICAL);
         top.setBackgroundResource(R.drawable.ob_glass);
-        top.setPadding(dp(10), dp(10), dp(14), dp(10));
-        ImageView close = new ImageView(c);
-        close.setImageResource(R.drawable.ob_ic_close);
-        close.setBackgroundResource(R.drawable.ob_pill16_state);
-        close.setPadding(dp(10), dp(10), dp(10), dp(10));
-        close.setContentDescription("Close");
-        top.addView(close, new LinearLayout.LayoutParams(dp(40), dp(40)));
-        LinearLayout titles = new LinearLayout(c);
-        titles.setOrientation(LinearLayout.VERTICAL);
+        top.setPadding(dp(10), dp(10), dp(10), dp(10));
+
+        LinearLayout row1 = new LinearLayout(c);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        row1.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView close = iconButton(R.drawable.ob_ic_close, "Close");
+        row1.addView(close, new LinearLayout.LayoutParams(dp(40), dp(40)));
         TextView title = new TextView(c, null, 0, R.style.Ob_Text);
-        title.setText("Sign in with GitHub");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        title.setText("GitHub Sign-In");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         title.setTypeface(bold());
-        title.setSingleLine(true);
-        titles.addView(title);
-        TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
-        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        status.setMaxLines(2);
-        status.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        status.setPadding(0, dp(2), 0, 0);
-        titles.addView(status);
+        title.setGravity(Gravity.CENTER);
+        title.setMaxLines(2);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        tp.leftMargin = dp(12);
-        top.addView(titles, tp);
+        tp.leftMargin = dp(8);
+        tp.rightMargin = dp(8);
+        row1.addView(title, tp);
+        ImageView reload = iconButton(R.drawable.ob_ic_refresh, "Reload");
+        row1.addView(reload, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        top.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        android.widget.ProgressBar progress = new android.widget.ProgressBar(c, null,
+                android.R.attr.progressBarStyleHorizontal);
+        progress.setMax(100);
+        progress.setIndeterminate(false);
+        progress.setProgressTintList(android.content.res.ColorStateList.valueOf(color(R.color.ob_orange)));
+        progress.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(color(R.color.ob_divider)));
+        progress.setVisibility(View.INVISIBLE);
+        LinearLayout.LayoutParams pb = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3));
+        pb.topMargin = dp(8);
+        top.addView(progress, pb);
+
+        LinearLayout row2 = new LinearLayout(c);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        row2.setGravity(Gravity.CENTER_VERTICAL);
         TextView code = new TextView(c, null, 0, R.style.Ob_Text_Label);
         code.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
-        code.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        code.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         code.setLetterSpacing(0.06f);
         code.setGravity(Gravity.CENTER);
-        code.setBackgroundResource(R.drawable.ob_pill16);
-        code.setPadding(dp(12), 0, dp(12), 0);
+        // one line without setSingleLine: single-line + centre gravity lays the text out on a very wide line and
+        // draws it outside the pill (seen in the V201 render)
+        code.setMaxLines(1);
+        code.setBackgroundResource(R.drawable.ob_pill16_state);
+        code.setPadding(dp(12), 0, dp(10), 0);
+        Drawable copy = c.getDrawable(R.drawable.ob_ic_copy);
+        if (copy != null) {
+            copy.setBounds(0, 0, dp(15), dp(15));
+            code.setCompoundDrawables(null, null, copy, null);
+            code.setCompoundDrawablePadding(dp(8));
+        }
         code.setVisibility(View.GONE);
         code.setContentDescription("Sign-in code; tap to copy");
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(34));
-        cp.leftMargin = dp(8);
-        top.addView(code, cp);
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38));
+        cp.rightMargin = dp(10);
+        row2.addView(code, cp);
+        TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        status.setMaxLines(3);
+        status.setMinHeight(dp(38));
+        status.setGravity(Gravity.CENTER_VERTICAL);
+        row2.addView(status, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams r2 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        r2.topMargin = dp(6);
+        top.addView(row2, r2);
         root.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -275,19 +389,95 @@ public final class GitHubViews {
         pp.topMargin = dp(10);
         root.addView(page, pp);
 
-        TextView retry = pill("Try again", false, true, null);
-        retry.setVisibility(View.GONE);
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
-        rp.topMargin = dp(10);
-        root.addView(retry, rp);
+        LinearLayout browser = actionCard(R.drawable.ob_ic_open_browser, "Sign in via browser",
+                "Google, Apple or passkey · the code is copied for you", null);
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        bp.topMargin = dp(10);
+        root.addView(browser, bp);
 
         a.root = root;
         a.close = close;
-        a.status = status;
+        a.title = title;
+        a.reload = reload;
+        a.progress = progress;
         a.code = code;
+        a.status = status;
         a.page = page;
-        a.retry = retry;
+        a.browser = browser;
         return a;
+    }
+
+    /** A 40dp glass pill with one line icon. */
+    public ImageView iconButton(int icon, String description) {
+        ImageView b = new ImageView(c);
+        b.setImageResource(icon);
+        b.setBackgroundResource(R.drawable.ob_pill16_state);
+        b.setPadding(dp(10), dp(10), dp(10), dp(10));
+        b.setContentDescription(description);
+        b.setClickable(true);
+        b.setFocusable(true);
+        b.setStateListAnimator(AnimatorInflater.loadStateListAnimator(c, R.animator.sw_press));
+        return b;
+    }
+
+    // ------------------------------------------------------------------ v2.0.1: the backup and restore sheets
+
+    /** The Back up sheet's content (ProjectBackupSheets wires the clicks). */
+    public static final class BackupSheet {
+        public android.widget.ScrollView root;
+        public android.widget.CheckBox libraries;
+        public android.widget.CheckBox blocks;
+        public LinearLayout phone;
+        public LinearLayout github;
+    }
+
+    /** Header, the two classic boxes, "Save on phone" and "Back up to GitHub". */
+    public BackupSheet backupSheet(String name, boolean signedIn, boolean libraries, boolean blocks) {
+        BackupSheet b = new BackupSheet();
+        LinearLayout content = sheet();
+        content.addView(header(R.drawable.ob_ic_backup, "Back up " + name, "Choose what goes into the backup"));
+        b.libraries = checkBox("Include used Local libraries", libraries);
+        content.addView(b.libraries, full(-1, 12));
+        b.blocks = checkBox("Include used Custom Blocks", blocks);
+        content.addView(b.blocks, full(-1, 0));
+        b.phone = actionCard(R.drawable.ob_ic_phone, "Save on phone", ".swb file in the backups folder", null);
+        content.addView(b.phone, full(-1, 14));
+        b.github = actionCard(R.drawable.ob_ic_github, "Back up to GitHub",
+                (signedIn ? "The same .swb" : "Sign in first") + " · private repo SketchwareAI-Projects", null);
+        content.addView(b.github, full(-1, 10));
+        b.root = (android.widget.ScrollView) content.getParent();
+        return b;
+    }
+
+    /** The Restore card's sheet content. */
+    public static final class RestoreSheet {
+        public android.widget.ScrollView root;
+        public LinearLayout local;
+        public LinearLayout github;
+    }
+
+    public RestoreSheet restoreSheet() {
+        RestoreSheet r = new RestoreSheet();
+        LinearLayout content = sheet();
+        content.addView(header(R.drawable.ob_ic_restore, "Restore a project", "Always as a new project: nothing is replaced"));
+        r.local = actionCard(R.drawable.ob_ic_phone, "Restore local .swb file", "Pick backups saved on this phone", null);
+        content.addView(r.local, full(-1, 16));
+        r.github = actionCard(R.drawable.ob_ic_github, "GitHub import project", "Your backups, or a .swb / repository link",
+                null);
+        content.addView(r.github, full(-1, 10));
+        r.root = (android.widget.ScrollView) content.getParent();
+        return r;
+    }
+
+    /** A sheet's scrolling column (20dp sides) inside a ScrollView. */
+    private LinearLayout sheet() {
+        android.widget.ScrollView scroll = new android.widget.ScrollView(c);
+        LinearLayout content = new LinearLayout(c);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(8), dp(20), dp(4));
+        scroll.addView(content);
+        return content;
     }
 
     // ------------------------------------------------------------------ layout parameters

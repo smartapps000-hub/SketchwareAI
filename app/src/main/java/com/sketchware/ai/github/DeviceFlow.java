@@ -59,6 +59,8 @@ public final class DeviceFlow {
         public String description;
         public int interval;
         public int httpCode;
+        /** v2.0.1: GitHub's Retry-After in seconds, or -1. */
+        public int retryAfter = -1;
     }
 
     /** Step 1: a device code and the code the user types on github.com. */
@@ -99,6 +101,7 @@ public final class DeviceFlow {
         JsonObject json = parse(r.body);
         Poll p = new Poll();
         p.httpCode = r.code;
+        p.retryAfter = r.retryAfter;
         p.token = string(json, "access_token");
         if (p.token != null && p.token.isEmpty()) p.token = null;
         p.error = string(json, "error");
@@ -139,8 +142,10 @@ public final class DeviceFlow {
                 interval = Math.max(interval + 5, p.interval);
                 continue;
             }
-            if (p.error == null && p.httpCode >= 500) {
+            if (p.error == null && (p.httpCode >= 500 || p.httpCode == 429)) {
                 waiting.networkTrouble(new IOException("GitHub answered HTTP " + p.httpCode));
+                // v2.0.1: "too many requests" while waiting: ask less often from now on (never gives up the code)
+                if (p.httpCode == 429) interval = Math.min(60, Math.max(interval + 5, p.retryAfter));
                 continue;
             }
             throw failure(p.error == null ? "http_" + p.httpCode : p.error, p.description);
@@ -161,6 +166,10 @@ public final class DeviceFlow {
                 break;
             case "access_denied":
                 text = "Sign-in was cancelled on GitHub.";
+                break;
+            case "http_429":
+            case "rate_limited":
+                text = "GitHub got too many sign-in requests from this network. Wait a minute, then try again.";
                 break;
             case "expired_token":
             case "token_expired":

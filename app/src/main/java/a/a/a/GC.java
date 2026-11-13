@@ -311,41 +311,31 @@ public class GC extends DA implements View.OnClickListener {
     }
 
     private void backupProject(int position) {
+        if (getActivity() == null) return;
         String sc_id = yB.c(projectsList.get(position), "sc_id");
         String appName = yB.c(projectsList.get(position), "my_ws_name");
-        // v2.0.0: this project only, to the phone (.swb) or to the user's private GitHub repository
-        new com.sketchware.ai.ui.ObAlertBuilder(getActivity())
-                .setTitle("Back up " + appName)
-                .setItems(new String[]{"On this phone (.swb file)", "To GitHub"}, (dialog, which) -> {
-                    if (getActivity() == null) return;
-                    if (which == 0) {
-                        (new BackupRestoreManager(getActivity())).backup(sc_id, appName);
-                    } else {
-                        com.sketchware.ai.github.CloudSync.backUpFromMenu(getActivity(), sc_id, appName);
-                    }
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        // v2.0.1: the glass Back up sheet: the two classic boxes, "Save on phone" and "Back up to GitHub" (same .swb)
+        com.sketchware.ai.github.ProjectBackupSheets.backup(getActivity(), sc_id, appName, (libraries, blocks) -> {
+            if (getActivity() != null) {
+                new BackupRestoreManager(getActivity()).backupNow(sc_id, appName, libraries, blocks);
+            }
+        });
     }
 
-    /** v2.0.0: the Restore card offers the .swb restore and the import from GitHub side by side. */
+    /** v2.0.1: the Restore card's glass sheet: a .swb on this phone, or the import from GitHub. */
     private void chooseRestore() {
-        new com.sketchware.ai.ui.ObAlertBuilder(getActivity())
-                .setTitle("Restore projects")
-                .setItems(new String[]{"Restore a .swb file", "Import from GitHub"}, (dialog, which) -> {
-                    if (getActivity() == null) return;
-                    if (which == 0) {
-                        restoreProject();
-                    } else if (com.sketchware.ai.github.AuthGuard.check(getActivity())) {
-                        com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries) -> {
-                            if (getActivity() != null) {
-                                new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries);
-                            }
-                        });
+        if (getActivity() == null) return;
+        com.sketchware.ai.github.ProjectBackupSheets.restore(getActivity(), () -> {
+            if (getActivity() != null) restoreProject();
+        }, () -> {
+            if (getActivity() != null && com.sketchware.ai.github.AuthGuard.check(getActivity())) {
+                com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries) -> {
+                    if (getActivity() != null) {
+                        new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries);
                     }
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                });
+            }
+        });
     }
 
     @Override
