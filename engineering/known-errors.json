@@ -730,6 +730,24 @@
         "JVM GitHubClientTest against a fake GitHub: a dropped connection and an HTTP 502 during the wait, then the token (v1.9.9)",
         "not run on a phone: the browser round trip and Android's background rules can't run here"
       ]
+    },
+    {
+      "fingerprint": "GitHub device page (phone, 12 Nov 20:55): \"Uh oh, we couldn't find anything. Please make sure you entered the user code correctly.\"",
+      "rootCause": "GitHub didn't recognise the code typed or pasted into its device page: a mistyped code or one past its 15 minutes (the page was opened in Chrome and the code typed by hand)",
+      "repair": "v2.0.0: the device page opens inside the app right after the code is made, the app fills the code into GitHub's boxes itself (fillScript, never half-filled), and the code is shown in a chip (tap copies) as a fallback",
+      "scope": "GitHub sign-in",
+      "verifiedOn": [
+        "fill-script-test.js (jsdom stand-ins of the device page, 12/12); GitHub's real page not reachable from the build machine"
+      ]
+    },
+    {
+      "fingerprint": "GitHub sign-in through Chrome (v1.9.8 / v1.9.9): approval given, the app doesn't notice, or the tab doesn't return to the app (Android 15)",
+      "rootCause": "with Chrome in front the app is in the background: Android 15 cuts its network and refuses most background activity starts",
+      "repair": "v2.0.0: no browser at all; GitHub's page in the app's own window (the app stays in front), the window closes when the token arrives",
+      "scope": "GitHub sign-in",
+      "verifiedOn": [
+        "not run on a phone (WebView and GitHub's real pages can't run here); the window's chrome rendered (V200Test), the allowed-page rule and the script on ART / jsdom"
+      ]
     }
   ]
 }

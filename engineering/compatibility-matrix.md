@@ -204,3 +204,15 @@ Whether a generated APK runs on a given Android version depends on that project'
 - Sign-in gate: the decision rules ran on ART; the screens it opens and closes (main screen, new project, open project,
   Run, export, restore) are Activities and **not run** here (review only). Off unless `config/app-control.json` says
   `"require_login": true` (the repository keeps false).
+
+## v2.0.0 (13 Nov 2026)
+
+- In-app GitHub sign-in: needs Android System WebView (any Android the IDE supports; missing or switched off: a line,
+  and a required sign-in is lifted for the run). GitHub's real pages, its sign-in options inside a WebView (password and
+  2FA codes are expected to work; passkeys and "Continue with Google" are not offered inside apps by those providers),
+  the code fill on the live page and the keyboard in the window are **not tested** (phone only). The fill logic ran in
+  jsdom against stand-ins of the page; the allowed-page rule on ART API 31.
+- Drawer account card, project Back up / Restore choices, Import from GitHub sheet: Activities and dialogs, **not run**
+  here (review only); the drawer card and the sign-in window rendered with layoutlib (Android 14 view code).
+- CloudSync / GitHubImport network parts: JVM 17 against a fake GitHub; `BackupFactory` backup and restore of a real
+  project on ART (v1.9.8 checks, unchanged).

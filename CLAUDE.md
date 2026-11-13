@@ -292,6 +292,11 @@ is refreshed by `DesignTheme.load`). On top sits the approved visual layer, "Obs
 anything new: pill `ob_pill16_state`, accent pill `ob_amber_pill`, card `ob_accent_box`, CTA `ob_cta_state`, press
 animator `sw_press`, toggle rows `ob_toggle_row`.
 
+**Design reference (since v2.0.0): `design/README.md`** with the owner's Liquid Glass PDF and token sheet in
+`design/liquid-glass/` (13 Nov 2026: "save to GitHub to follow design"). Read it before any visual change; it maps
+each token to its resource and records the deviations (CTA deepened in v1.9.7.1; GitHub cards without the orange outer
+glow, `ob_cta_pill_soft*`, in v2.0.0).
+
 Tokens (verified in `colors_ob.xml`; re-checked in the v1.8.4 APK's resource table; v1.8.5's resources.arsc is identical):
 `ob_bg #0B0B0D`, `ob_orange #F4511E`, `ob_amber #FF7A29`, `ob_accent #FFB877`, `ob_accent_2 #FF9A4D`,
 `ob_text #F5F5F7`, `ob_text_2 #A1A1AA`, `ob_error #FF8A65`, `ob_divider #24FFFFFF`; glass corner

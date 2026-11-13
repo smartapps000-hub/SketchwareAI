@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v1.9.9)
+## Shipped (v1.0 – v2.0.0)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -62,9 +62,13 @@ Everything in this section is in the released APK and was exercised as described
 | GitHub sign-in and cloud backup | Main menu → *GitHub & Cloud Backup* (*Cloud Sync & Account* since v1.9.9): one tap signs in with GitHub (Device Flow: the code is copied and GitHub opens; no password, no client secret in the app; the token encrypted with an Android Keystore key, Android 6+). *Back up a project* uploads its `.swb` to the user's own private repository `SketchwareAI-Projects`; every backup is a commit, any of them restores as a new project | v1.9.8 |
 | Release notices | `config/app-control.json` in this repository (read at start, cached): update available (`min_version_code`, `update_url`), a message (`status_message`, `message_url`), a sign-in suggestion (`require_login`). Notices only: nothing locks the app; links only into this repository | v1.9.8 |
 | Sign-in that survives the browser | GitHub sign-in keeps checking while Chrome is in front (Android 15 cuts a background app's network) and after Android stopped the app, until the code expires; checks again the moment the user comes back; closes the Chrome tab when GitHub answers (the screen opened it for a result). Errors are one short line; a long press copies the cause | v1.9.9 |
-| Cloud Sync & Account | Drawer item and screen in the drawer header's card style: avatar and @username, every project on the phone with *Back up* and *Restore*, backups only on GitHub listed apart; toasts when done | v1.9.9 |
+| Cloud Sync & Account | Drawer item and screen in the drawer header's card style: avatar and @username, every project on the phone with *Back up* and *Restore*, backups only on GitHub listed apart; toasts when done (replaced in v2.0.0 by the drawer card and per-project actions) | v1.9.9 |
 | Device-bound sign-in | The saved GitHub sign-in (AES-GCM, Android Keystore key) is bound to this phone's Android ID, the app's signing certificate and the GitHub user id: copied app data or a re-signed app is signed out | v1.9.9 |
-| Sign-in gate (off) | `"require_login": true` in `config/app-control.json` makes sign-in required at the main screen, new project, opening a project, Run, export and restore; the repository keeps it `false` until sign-in is confirmed on a phone | v1.9.9 |
+| Sign-in gate (off) | `"require_login": true` in `config/app-control.json` makes sign-in required at the main screen, new project, opening a project, Run, export and restore (v2.0.0 also: block editor, Library Manager / Resolver, each export button; the file and the token re-checked online every 6 hours); only when the file was read online in that run and sign-in can work on the phone; the repository keeps it `false` until sign-in is confirmed on a phone | v1.9.9 |
+| In-app GitHub sign-in | GitHub's own page opens inside the app (no Chrome): the app fills in the code, you sign in and tap Authorize, the window closes and you're signed in. Only github.com opens there; no bridge from the page into the app | v2.0.0 |
+| GitHub account card | In the drawer under the Sketchware AI card: "Sign in with GitHub", or your picture, name, @username, primary e-mail and Sign out | v2.0.0 |
+| Per-project backup and import | A project's Back up offers "On this phone" or "To GitHub" (that project only); new projects are backed up by themselves when signed in (offline: later); the Restore card offers a .swb file or "Import from GitHub" (your backups, or a GitHub link to a repository, folder or .swb file) | v2.0.0 |
+| Design reference | `design/`: the Liquid Glass mockups and token sheet with a map to the app's resources | v2.0.0 |
 | Build Doctor rules | Duplicate classes name both libraries and which to switch off; Material 3 names without the Material library, invalid resource file names, libraries for a newer Java explained; generated manifests get `android:exported="true"` on components with an intent filter and none set (target 31+); storage note for target 33+ | v1.9.8 |
 | Project data safety | Restores and new projects take an id with no leftover folders (a damaged project's files are never merged into or deleted); `.swb` entries can't write outside their folder; a failed backup leaves no partial file | v1.9.8 |
 | Contrast and Play readiness | Orange buttons and selected pills keep their white label on a deeper orange (#D34115 to #C64F14, 4.6:1); guide blocks keep white on a deeper teal and brown. Generated apps: storage permissions of File blocks declared for Android 12L and older only when the project targets 33+; a network security configuration beside `usesCleartextTraffic`; the camera declared not required when the app asks for CAMERA; exported projects lose eleven Android Studio lint errors | v1.9.7.1 |
@@ -98,9 +102,9 @@ Everything in this section is in the released APK and was exercised as described
   layouts and themes (on light and night-mode device settings, large font and bold-text settings), Telugu text and IDE
   dialog layouts. No Android emulator: the build machine has no hardware virtualisation.
 - **Host checks**: resource-ID pinning, API-level and linkage scans of the APK, signatures, 16 KB alignment.
-- **Not run here**: the IDE's screens (logic editor, design editor, compile log, Java editor, Library Resolver, Cloud
-  Sync & Account and the sign-in gate), GitHub itself and the round trip through Chrome (the sign-in and backup code
-  runs against a fake GitHub on a desktop JVM), Maven downloads on a phone's network, aapt2 on a real phone, installing or
+- **Not run here**: the IDE's screens (logic editor, design editor, compile log, Java editor, Library Resolver, GitHub
+  sign-in window, drawer account card, sign-in gate), GitHub itself and its pages inside the app's WebView (the
+  sign-in, backup and import code runs against a fake GitHub on a desktop JVM; the code fill against stand-in pages), Maven downloads on a phone's network, aapt2 on a real phone, installing or
   starting generated apps. Device testing is done by the maintainer on his phone (Android 15) after each build; its
   results go to `engineering/compatibility-matrix.md`.
 

@@ -752,6 +752,30 @@
       "checks": [
         "GITHUBCLIENT 26/26: the v1.9.8 checks plus: a dropped connection and an HTTP 502 while waiting are reported to Waiting.networkTrouble and waiting goes on to the token (4 polls); access_denied ends the sign-in; a saved code past expires_at ends as expired_token without a request; expires_at = now + expires_in; account(): login, numeric id 583231, avatar from avatars.githubusercontent.com, an avatar on another host dropped"
       ]
+    },
+    {
+      "id": "940 (githubtest, v2.0.0)",
+      "kind": "`githubtest 940` (h.GitHubTest), ART, offline",
+      "content": "v2.0.0 additions to the GitHub checks",
+      "checks": [
+        "GITHUBTEST 38/38: the 34 v1.9.9 checks (app-control.json now min 201 / update link to v2.0.0) plus: import links (repository, .git, decoded file path, raw with refs/heads, folder) and refused ones (other hosts, other pages, non-.swb, '..' plain and encoded, garbage); the sign-in window's allowed pages (https github.com and subdomains; http, look-alike host, Google refused); the code script's argument stripped to letters, digits and hyphens"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v2.0.0)",
+      "kind": "tools/jvm-tests/GitHubClientTest.java (JVM 17, the app's github sources incl. GitHubImport, fake GitHub on 127.0.0.1)",
+      "content": "profile, primary e-mail, import from a link",
+      "checks": [
+        "GITHUBCLIENT 34/34: the 26 v1.9.9 checks (device scope now 'repo user:email') plus: profile name; primary verified e-mail from /user/emails; none (no error) for a token without user:email; a repository link lists its .swb files (any case; not folders or other files); a folder link only that folder; a public repository downloads signed out with no Authorization header, file named owner-repo-file; a private one signed out asks for a sign-in; with the token it downloads"
+      ]
+    },
+    {
+      "id": "fill-script-test.js (v2.0.0)",
+      "kind": "tools/jvm-tests/fill-script-test.js under Node 22 + jsdom 24.1.3; the script printed by FillScriptPrint from the app's compiled GitHubInAppAuthDialog",
+      "content": "the device page code fill",
+      "checks": [
+        "FILLSCRIPT 12/12: eight one-letter boxes filled in order (hyphen skipped), header search box untouched, 8 input events, no submit / click; one code box gets the code with hyphen; a 9-character box too; the sign-in page untouched ('skip'); no boxes yet ('none', retried); two unrelated boxes untouched; 7 visible one-letter boxes = 'partial' and nothing filled; an injection attempt keeps only letters, digits, hyphens and runs as plain text"
+      ]
     }
   ]
 }

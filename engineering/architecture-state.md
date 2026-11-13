@@ -952,3 +952,69 @@ Owner's 12 Nov evening directive after the v1.9.8 phone test (GitHub: "Congratul
 - Tests: `GitHubClientTest` (dropped connection + HTTP 502 mid-wait, `access_denied`, expired saved code, `expires_at`,
   account id / avatar host), `h.GitHubTest` (v2 format, other ANDROID_ID / certificate / user id, v1 token, gate rules,
   short messages), render `V199Test` + `setup_v199.sh`.
+
+## v2.0.0 additions (13 Nov 2026): in-app GitHub sign-in, drawer account card, per-project backup and import
+
+Owner's 13 Nov directive "in-app zero-Chrome GitHub auth, individual project sync/import, unified glass pill UI & deep
+hardware-bound auth guard (v2.0.0)", with the Liquid Glass design files. Record: `v2.0.0-verification.md`.
+
+- **Design reference** `design/`: the owner's PDF (mockups + token sheet) and `Tokens.dc.html` (values), with
+  `design/README.md` mapping every token to its resource (`colors_ob.xml`, `ob_glass`, `ob_pill16*`, `ob_cta*`), the
+  rules of CLAUDE.md sections 1 and 8, and the recorded deviations (CTA deepened in v1.9.7.1; GitHub cards without the
+  glow in v2.0.0). The export's React runtime scripts are not kept.
+- **`github.GitHubInAppAuthDialog`** (full-screen `Dialog`, `Theme_Material_NoActionBar`, ob_bg window, adjustResize):
+  GitHub's device page in a `WebView` inside the app (no Custom Tab, no external browser; `KeepAliveService`, the
+  `startActivityForResult` / `finishActivity` route and the `ResumedCounter` of v1.9.9 are gone). The app stays in front,
+  so the polling of `SignIn` keeps its network. Main-frame navigations only to `https://github.com` and its subdomains
+  (`allowed`); frames inside GitHub's page are not limited (a captcha may come from another host); Google sign-in pages
+  refused with a line (Google blocks embedded sign-in). JavaScript and DOM storage on, file / content access off, no
+  `addJavascriptInterface`, mixed content never, Safe Browsing on 8+, SSL errors cancelled, cookies kept (flushed on
+  close: the next sign-in skips the password). `fillScript(code)` (code validated `[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}`,
+  stripped to `[A-Za-z0-9-]`): on `/login/device` only, the visible text inputs; eight one-letter boxes get the eight
+  characters, fewer one-letter boxes = "partial" (retried, never half-filled), otherwise one box named like "code" (or
+  the only box) gets the code; values through the input's own setter + `input` / `change` / `keyup` events; never
+  presses Continue or Authorize. Retried 8 times every 600 ms while the page builds; then "Type the code …" (the code
+  chip copies it). Pages under `/login/device/…` (after Continue / Authorize) call `pollNow`. The window closes when
+  `takeSignedIn` returns the login (`Done.signedIn`, toast "Signed in as @x"); closing it before that cancels the sign-in.
+  No WebView on the phone / Android < 6: a line, and `AuthGuard.markUnavailable()`.
+- **`SignIn`** (v1.9.9 polling kept: errors while waiting = keep waiting, saved code resumed, checks never closer than
+  the interval) minus the browser hand-off; after the token also `CloudBackup.primaryEmail` (GET /user/emails, scope
+  `user:email` added: `DeviceFlow.SCOPE = "repo user:email"`; a token without it gives no e-mail, no error) and
+  `GitHubSession.saveProfile`.
+- **`github.GitHubSession`**: profile prefs `sketchware_ai_github_profile` (name, e-mail, avatar URL, `checked_at`),
+  picture `files/github_avatar.png`, `signOut` (TokenStore + Keystore key + profile + picture), listeners on the main
+  thread, `recheckOnline` (MainActivity.onResume, at most every 6 h, background: GET /user; 401 = signed out, a new
+  picture / name / e-mail saved; offline nothing changes).
+- **Drawer**: `main_drawer_header.xml` has a second `ob_glass` card `drawer_account*` under the Sketchware AI card,
+  bound by `github.DrawerAccountCard` (signed out: GitHub mark on `ob_tile`, "Sign in with GitHub", "Sync & back up
+  projects", tap = sign-in window; signed in: picture (14dp corners) or the mark, name or @login, @login, primary e-mail,
+  "Sign out" glass pill with a confirmation). MainDrawer rebinds the header on `GitHubSession` changes
+  (`onAttachedToWindow`). `DrawerItem.MENU_GITHUB` ("Cloud Sync & Account") removed.
+- **`github.CloudSync`** (one daemon thread for the app): `upload(scId)` = `BackupFactory` (no local libraries) +
+  `CloudBackup.ensureRepository` + `upload`, the .swb deleted in `finally`; `backUpFromMenu` (project card Back up >
+  "To GitHub"; signed out: the sign-in window first; toasts at start and end); `projectCreated` (GC's new-project result:
+  signed in = backed up by itself); IOException or a Keystore hiccup = `pending` (prefs `sketchware_ai_cloud_sync`,
+  string set copied before changing); `syncPending` after a sign-in, `syncPendingSoon` from MainActivity.onResume (every
+  10 min at most, only when something waits); HTTP 401 = signed out, the project waits.
+- **`github.GitHubImport`** + **`GitHubImportDialog`** (Restore card > "Import from GitHub"): own backups (signed in:
+  `CloudBackup.list`, a version list, download) and a pasted link: `github.com/<o>/<r>` (every .swb of the default
+  branch's tree), `…/tree/<ref>/<dir>`, `…/blob|raw/<ref>/<path>.swb`, `raw.githubusercontent.com/<o>/<r>/[refs/heads/]<ref>/<path>`;
+  path segments decoded, `.` / `..` / slashes in a segment refused, other hosts refused; downloads through the API
+  contents endpoint (raw), the token only to the API host and only when signed in; 404 signed out = "a private
+  repository needs you to sign in". The file goes to `BackupRestoreManager.doRestore` with the projects list's callback.
+- **Project list (`a.a.a.GC`)**: Back up = choice "On this phone (.swb file)" / "To GitHub"; Restore card = choice
+  "Restore a .swb file" / "Import from GitHub" (the latter behind `AuthGuard.check`).
+- **`GitHubActivity`** = the sign-in gate only (one card, "Sign in with GitHub" opens the window; finishes once
+  signed in); its v1.9.9 project list is gone. `GitHubScreen` replaced by `GitHubViews` (shared view kit: glass card,
+  header row, no-glow pills, rows, the sign-in window's chrome).
+- **AuthGuard** also at `LogicEditorActivity.onCreate` (blocks, palette, permissions), `ManageLibraryActivity.onCreate`,
+  `LibraryResolverActivity.onCreate`, and every export button (APK, AAB, Android Studio) on top of the screen's own
+  check; `AppControl.refresh` (MainActivity.onResume, every 6 h, background, no dialogs) re-reads app-control.json and
+  opens the gate when sign-in became required. `BuiltInCache`'s repair at app start is not gated (blocking it would
+  leave a broken cache for the next build; builds themselves are gated).
+- **Drawables** `ob_cta_pill_soft*` (`GlassDrawable` without `swGlow*`, 16dp; plain shapes below 7.0) for the GitHub UI;
+  `ob_cta_pill*` and the other CTAs keep their glow.
+- Tests: `GitHubClientTest` (profile name, primary e-mail with and without the scope, import listing / download public
+  signed out and private with the token), `h.GitHubTest` (import links, allowed pages, the script's code argument),
+  `tools/jvm-tests/fill-script-test.js` (jsdom stand-ins of the device page, `FillScriptPrint` prints the app's script),
+  render `V200Test` + `setup_v200.sh`.
