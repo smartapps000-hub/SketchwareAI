@@ -160,15 +160,15 @@ public final class LibraryHeal {
         File directory = new File(root, folderName != null ? folderName : gav[1] + "_V_" + gav[2]);
         try {
             root.mkdirs();
-            if (folderName == null && new File(directory, LibraryAutoResolve.FROM_LINK_MARK).exists()) {
-                // v2.0.1: a folder of that name copied from someone else's backup is not this Maven artifact
-                FileUtil.deleteFile(directory.getAbsolutePath());
-            }
-            if (!new File(directory, "classes.jar").isFile()) {
+            // v2.0.1: a folder of that name copied from someone else's backup is not this Maven artifact: it is
+            // replaced, but only once the Maven download is here (offline, the imported project keeps its copy)
+            boolean fromLink = folderName == null && new File(directory, LibraryAutoResolve.FROM_LINK_MARK).exists();
+            if (fromLink || !new File(directory, "classes.jar").isFile()) {
                 MavenFetcher.Result fetched = fetch(coordinate, root);
                 if (fetched.file == null) {
                     return fetched.networkFailed ? "no internet connection" : "not found in Google Maven, Maven Central or JitPack";
                 }
+                if (fromLink) FileUtil.deleteFile(directory.getAbsolutePath());
                 String reason = MavenFetcher.install(fetched.file, directory);
                 fetched.file.delete();
                 if (reason != null) {

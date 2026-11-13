@@ -56,6 +56,12 @@ public final class SignIn {
     private long startBlockedUntil;
     /** v2.0.1: the generation {@link #pause} ended: an answer still on its way for it is not thrown away. */
     private int pausedGeneration = -1;
+    /**
+     * v2.0.1 (review): the device code whose approval still counts when it arrives for an older run (the window was
+     * closed or opened again meanwhile). Only {@link #cancel}, a finished sign-in or a newer code change it, so a
+     * failure of the newer run for the same code doesn't throw away the older run's token.
+     */
+    private String rescuableCode;
 
     SignIn(Context app) {
         this.app = app;
@@ -165,6 +171,7 @@ public final class SignIn {
         DeviceFlow.Code saved = loadSaved();
         if (saved == null) return;
         pending = saved;
+        rescuableCode = saved.deviceCode;
         int gen = ++generation;
         spawn(() -> run(gen, clientId, saved));
         changed();
@@ -180,6 +187,7 @@ public final class SignIn {
 
     public synchronized void cancel() {
         pausedGeneration = -1;
+        rescuableCode = null;
         generation++;
         pending = null;
         starting = false;
@@ -287,7 +295,7 @@ public final class SignIn {
                     // approved this code, so it counts while the code is still the saved one (a cancel removes it,
                     // a newer code replaces it); a run started meanwhile for the same code ends with the new
                     // generation
-                    if (!code.deviceCode.equals(prefs.getString("device_code", null))) return;
+                    if (!code.deviceCode.equals(rescuableCode)) return;
                     pausedGeneration = -1;
                     g[0] = ++generation;
                     pending = null;
@@ -329,6 +337,7 @@ public final class SignIn {
                 starting = false;
                 error = null;
                 errorCode = null;
+                rescuableCode = null;
                 signedInNow = account.login;
             }
             clearSaved();
@@ -447,6 +456,9 @@ public final class SignIn {
     // ------------------------------------------------------------------ the saved code
 
     private void save(DeviceFlow.Code code) {
+        synchronized (this) {
+            rescuableCode = code.deviceCode;
+        }
         prefs.edit()
                 .putString("device_code", code.deviceCode)
                 .putString("user_code", code.userCode)
