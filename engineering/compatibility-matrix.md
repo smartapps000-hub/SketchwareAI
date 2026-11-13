@@ -216,3 +216,17 @@ Whether a generated APK runs on a given Android version depends on that project'
   here (review only); the drawer card and the sign-in window rendered with layoutlib (Android 14 view code).
 - CloudSync / GitHubImport network parts: JVM 17 against a fake GitHub; `BackupFactory` backup and restore of a real
   project on ART (v1.9.8 checks, unchanged).
+
+## v2.0.1 (13 Nov 2026)
+
+- Sign-in window: new-window links, the refused-redirect recovery, the slow / stalled lines, GitHub's 429 page pause and
+  the renderer-crash recovery (`onRenderProcessGone`, Android 8+ only; below, Android ends the app as before) are
+  WebView behaviour: **not run** here (no WebView, no GitHub pages); review only. The window's views rendered with
+  layoutlib (Android 14 view code) at 393dp and 320dp.
+- "Sign in via browser": a Custom Tab by intent extras (Chrome, Samsung Internet, Firefox, Edge take them; other
+  browsers open a normal page). The check on return (`onWindowFocusChanged`) is **not run**; it only asks GitHub sooner,
+  waiting goes on regardless (v1.9.9 polling until the code expires).
+- GitHub API retries, Retry-After and the rate-limit pause: JVM 17 against a fake GitHub (the same HttpURLConnection API;
+  on Android the platform's OkHttp-based implementation); ART can't open sockets here.
+- Back up / Restore sheets: dialogs, **not run** here (review); their views rendered with layoutlib. The .swb with both
+  boxes and its restore (libraries copied only when missing, custom blocks restored) ran on ART API 31.

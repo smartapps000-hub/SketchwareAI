@@ -748,6 +748,33 @@
       "verifiedOn": [
         "not run on a phone (WebView and GitHub's real pages can't run here); the window's chrome rendered (V200Test), the allowed-page rule and the script on ART / jsdom"
       ]
+    },
+    {
+      "fingerprint": "In-app GitHub sign-in window: blank page after \"Continue with Google\" (or another non-GitHub redirect) (v2.0.0)",
+      "rootCause": "the refused redirect was stopped in onPageStarted after the old page was gone; nothing loaded in its place",
+      "repair": "v2.0.1: recoverSoon() replaces a foreign or empty page with the last GitHub page or the device page; Google, Apple and passkey accounts use \"Sign in via browser\" (code copied, Custom Tab, checked again when the app is back)",
+      "scope": "GitHub sign-in",
+      "verifiedOn": [
+        "not run on a phone or in a WebView (none here); the rule is in the review and the window's chrome in V201Test"
+      ]
+    },
+    {
+      "fingerprint": "GitHub page \"Too many requests\" in the sign-in window (v2.0.0)",
+      "rootCause": "every close and reopen of the window cancelled the sign-in and asked GitHub for a new code and page; repeated tries from one network (often a shared mobile IP) hit GitHub's limits",
+      "repair": "v2.0.1: closing the window pauses the sign-in and keeps the code; at most one new code per 10 s and none for a minute after a 429; the window shows a one-minute countdown on GitHub's 429 page; API calls honour Retry-After and X-RateLimit and stop until the limit is over",
+      "scope": "GitHub sign-in, cloud backup",
+      "verifiedOn": [
+        "JVM fake GitHub (GITHUBCLIENT 44/44), ART (GITHUBTEST 45/45: pause keeps the code); GitHub's real limits not reproduced"
+      ]
+    },
+    {
+      "fingerprint": "Sign-in window header cut (\"Sign in with G…\", status ellipsized), import sheet hint and row titles cut (v2.0.0)",
+      "rootCause": "one header row shared by the close button, title, status and code pill; single-line titles",
+      "repair": "v2.0.1: two-row header (title row with close and Reload; code + status row), titles and rows on up to two lines, short import hint with its explanation below",
+      "scope": "GitHub UI",
+      "verifiedOn": [
+        "layoutlib V201Test (393dp and 320dp widths)"
+      ]
     }
   ]
 }

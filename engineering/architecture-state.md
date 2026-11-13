@@ -1031,3 +1031,53 @@ hardware-bound auth guard (v2.0.0)", with the Liquid Glass design files. Record:
   signed out and private with the token), `h.GitHubTest` (import links, allowed pages, the script's code argument),
   `tools/jvm-tests/fill-script-test.js` (jsdom stand-ins of the device page, `FillScriptPrint` prints the app's script),
   render `V200Test` + `setup_v200.sh`.
+
+## v2.0.1 additions (13 Nov 2026): sign-in window fixes, API retries and rate limits, glass Back up / Restore sheets
+
+Owner's 13 Nov directive after the v2.0.0 phone test (screenshots: "Sign in with G…" and the status cut, blank pages,
+GitHub's "Too many requests", the import hint and a row title cut, plain backup lists). Record:
+`engineering/v2.0.1-verification.md`.
+
+- `GitHubViews.authChrome` (two rows in one `ob_glass` card): close, "GitHub Sign-In" (centred, up to two lines, never
+  cut) and Reload (`iconButton`, `ob_ic_refresh`); a 3dp horizontal `ProgressBar` (orange on `ob_divider`, INVISIBLE
+  when idle so nothing moves); the code pill (`setMaxLines(1)`, not `setSingleLine`: single-line + centre gravity drew
+  the text outside the pill in layoutlib) with the copy icon, and the status on up to three lines; then the page and the
+  "Sign in via browser" action card.
+- `GitHubInAppAuthDialog`: `setSupportMultipleWindows(true)` + `onCreateWindow` (user gesture only): a throw-away
+  WebView takes the first address; GitHub's loads in the main view, anything else is refused; the throw-away view is
+  destroyed on the main looper (10 s cap). A refused main-frame navigation calls `recoverSoon()` (300 ms later: a
+  foreign or empty page, `document.body.innerText` length 0, is replaced by `lastGoodUrl` or the device page).
+  `onPageStarted` → 20 s "slow network" line, 60 s "not answering" line; `onReceivedHttpError` 429 or a page title
+  "Too many requests" → one-minute pause with a countdown (Reload waits). `onRenderProcessGone` (Android 8+) → the
+  WebView is destroyed and a new one made (before: the app process ended). "Sign in via browser" copies the code and
+  starts a Custom Tab by intent extras (no androidx.browser); `onWindowFocusChanged(true)` with a pending code →
+  `SignIn.pollNow()`. No WebView on the phone: the window still asks for a code, the browser card works;
+  `AuthGuard.markUnavailable()` only when there is neither a WebView nor a browser. User agent unchanged (removing
+  "; wv" to pass Google's embedded-sign-in block is against Google's policy; Google/Apple/passkey go through the browser).
+- `SignIn.pause()` (window closed before approval): generation++, pending cleared, the saved code kept, so the next
+  window resumes it (`resumeSaved`) instead of asking for a new one; not while `finishing`. `start()`: at most one new
+  code per `MIN_START_GAP` 10 s (a second ask sleeps on its worker thread for the rest, generation-checked), none for
+  60 s after `http_429` / `rate_limited` (`waitSeconds()`); `errorCode()`; an expired code is renewed once by itself
+  while the window is open. `isPassing` includes `rate_limited`.
+- `GitHubHttp`: connect 30 s / read 120 s; GET (`api` without body, `apiRaw`, `download`) tried again after an
+  IOException (not UnknownHost / SSL handshake / over-size) or 502/503/504 with pauses `backoff` 1/3/7 s + jitter; a 429/403
+  rate limit with Retry-After ≤ 10 s is waited out once; `note()` records GitHub's limit (`Retry-After`, or
+  `X-RateLimit-Remaining: 0` + `X-RateLimit-Reset`, or 60 s) in `blockedUntil` (capped at one hour against wrong
+  clocks) and every API call answers a synthetic 429 until then without a request; writes never retried. `Response`
+  carries `retryAfter`, `rateRemaining`, `rateReset`, `rateLimited()`. `CloudBackup.http()` turns a rate limit into
+  `rate_limited` ("try again after HH:MM"). `DeviceFlow.waitForToken`: a 429 while waiting = interval +5 s (or
+  Retry-After, at most 60 s), the code kept; `failure("http_429")` text.
+- `CloudSync.Options(localLibraries, customBlocks)`; `AUTOMATIC` = (false, true) for new and waiting projects;
+  `backUpFromMenu(..., Options)` and `upload(scId, Options)` set `BackupFactory.setBackupLocalLibs/CustomBlocks`.
+  `ProjectBackupSheets.backup` (`GitHubViews.backupSheet`: header, "Include used Local libraries" / "Include used Custom
+  Blocks" remembered in `sketchware_ai_cloud_sync` `option_*` (both on by default), "Save on phone" →
+  `BackupRestoreManager.backupNow`, "Back up to GitHub" → the same boxes) and `ProjectBackupSheets.restore`
+  (`restoreSheet`: "Restore local .swb file", "GitHub import project"); `GC.backupProject` / `chooseRestore` use them.
+- `GitHubImportDialog`: hint "Paste a GitHub link" + a grey line under it, `GitHubViews.row` titles on up to two lines;
+  own backups list saved (Gson of `CloudBackup.Entry[]`, login-keyed) and shown offline with "Offline · the list from …";
+  a linked backup with `local_libs` asks "Copy libraries" / "Without libraries" with a trust note (BackupFactory copies
+  only libraries not on the phone; custom blocks come with the project's data).
+- Harness: `stubs/android/os/{Handler,Looper,SystemClock}` (post does nothing: no main thread on the harness).
+  Tests: `GitHubClientTest` +10 (retries, Retry-After, the gate, POST once, download resume, poll 429, code 429),
+  `h.GitHubTest` +6 (pause keeps the code, rate-limit line, automatic options, both boxes in the .swb, restore copies a
+  missing library and keeps an existing one, custom blocks restored), render `V201Test` + `setup_v201.sh`.

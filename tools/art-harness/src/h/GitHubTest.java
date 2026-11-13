@@ -23,7 +23,7 @@ import static h.Main.OUT;
 import static h.R.*;
 
 /**
- * v1.9.8/v1.9.9/v2.0.0: the parts of GitHub sign-in and cloud backup that run without a network, with the shipped APK's classes:
+ * v1.9.8/v1.9.9/v2.0.0/v2.0.1: the parts of GitHub sign-in and cloud backup that run without a network, with the shipped APK's classes:
  * the token store (a software AES key stands in for the Android Keystore's, which can't run here), the streamed
  * base64, backup paths, and a real .swb of the project restored as a new project with a free id (ProjectIds), plus
  * the restore fixes (leftover folders, ../ entries). ART here can't open sockets (libcore always creates IPv6 ones
@@ -221,13 +221,14 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 201, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(201).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 202, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(202).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.0.0 (201) with it: no notice", call(control, "decide", shipped, 201, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 200, false, null);
-        check("an older version (v1.9.9, 200): Update with the URL", old198 != null && "update".equals(get(old198, "kind"))
-                && String.valueOf(get(old198, "url")).startsWith("https://github.com/smartapps000-hub/"), old198 == null ? null : get(old198, "url"));
+        check("v2.0.1 (202) with it: no notice", call(control, "decide", shipped, 202, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 201, false, null);
+        check("an older version (v2.0.0, 201): Update with the v2.0.1 URL", old198 != null && "update".equals(get(old198, "kind"))
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.1.apk"),
+                old198 == null ? null : get(old198, "url"));
         Object msg = call(control, "parse", "{\"status_message\":\"Server maintenance tonight\"}");
         Object m1 = call(control, "decide", msg, 199, true, null);
         check("a status message once", m1 != null && "message".equals(get(m1, "kind"))

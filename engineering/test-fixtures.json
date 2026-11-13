@@ -776,6 +776,30 @@
       "checks": [
         "FILLSCRIPT 12/12: eight one-letter boxes filled in order (hyphen skipped), header search box untouched, 8 input events, no submit / click; one code box gets the code with hyphen; a 9-character box too; the sign-in page untouched ('skip'); no boxes yet ('none', retried); two unrelated boxes untouched; 7 visible one-letter boxes = 'partial' and nothing filled; an injection attempt keeps only letters, digits, hyphens and runs as plain text"
       ]
+    },
+    {
+      "id": "940 (githubtest, v2.0.1)",
+      "kind": "`githubtest 940` (h.GitHubTest), ART, offline; harness stand-ins android.os.Handler/Looper/SystemClock",
+      "content": "v2.0.1 additions to the GitHub checks",
+      "checks": [
+        "GITHUBTEST 45/45: the v2.0.0 checks (app-control.json now min 202 / update link to v2.0.1) plus: rate_limited waited out and one short line; SignIn.pause keeps the saved code (loadSaved returns it, pending cleared), cancel removes it; CloudSync.Options.AUTOMATIC = custom blocks on, local libraries off; both boxes ticked: the .swb made as for an upload (setReadSavedDataOnly) holds local_libs/<lib>/classes.dex and data/custom_blocks; restored with libraries: a missing library is copied, one already on the phone keeps its content; the restored project has its custom_blocks file"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v2.0.1)",
+      "kind": "tools/jvm-tests/GitHubClientTest.java (JVM 17, the app's github sources, fake GitHub on 127.0.0.1; backoff set to 20/40/60 ms by reflection)",
+      "content": "retries, Retry-After, the rate-limit gate",
+      "checks": [
+        "GITHUBCLIENT 44/44: the 34 v2.0.0 checks plus: a GET answered 503 is tried again (2 requests); a dropped connection is tried again; a 429 with Retry-After 1 is waited out (>= 1 s) and the GET works; a 403 with X-RateLimit-Remaining 0 is rate_limited ('try again after HH:MM'), not a permission error; while the limit lasts no request reaches GitHub; after it the API answers; a POST answered 503 is sent once; a download cut by the network starts again and completes; a 429 while polling keeps the code and waits 30 s (Retry-After); a 429 on the code request = http_429 with the 'too many' text"
+      ]
+    },
+    {
+      "id": "V201Test (v2.0.1)",
+      "kind": "tools/layoutlib-renders V201Test + setup_v201.sh (Paparazzi 1.3.5, layoutlib Android 14, PIXEL_5 night)",
+      "content": "the sign-in window, the Back up / Restore sheets, the import sheet",
+      "checks": [
+        "v201_github.png: sign-in window (login page with the loading line, code filled, too-many-requests countdown, error without a code on a 320dp phone): title, code and status fully visible; Back up sheet (long project name on two lines, both boxes; signed out), Restore sheet, import sheet signed out (short hint, explanation line, row title on one line)"
+      ]
     }
   ]
 }
