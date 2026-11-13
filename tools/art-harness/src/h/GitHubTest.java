@@ -156,18 +156,19 @@ public final class GitHubTest {
                 Boolean.TRUE.equals(call(signIn, "isPassing", "rate_limited"))
                         && ((String) call(signIn, "shortMessage", "rate_limited")).startsWith("GitHub got too many requests"), null);
         // v2.0.1: closing the sign-in window pauses: the code stays saved for the next window; cancel removes it
+        Object signer = call(signIn, "get", CTX);
         Object code = neu("com.sketchware.ai.github.DeviceFlow$Code");
         set(code, "deviceCode", "dc-pause");
         set(code, "userCode", "ABCD-1234");
         set(code, "interval", 5);
         set(code, "expiresAt", System.currentTimeMillis() + 600_000L);
-        call(signIn, "save", code);
-        call(signIn, "pause");
-        Object kept = call(signIn, "loadSaved");
-        boolean keptOk = kept != null && "dc-pause".equals(get(kept, "deviceCode")) && call(signIn, "pending") == null;
-        call(signIn, "cancel");
+        call(signer, "save", code);
+        call(signer, "pause");
+        Object kept = call(signer, "loadSaved");
+        boolean keptOk = kept != null && "dc-pause".equals(get(kept, "deviceCode")) && call(signer, "pending") == null;
+        call(signer, "cancel");
         check("v2.0.1: closing the window keeps the code (no new code next time); cancel removes it",
-                keptOk && call(signIn, "loadSaved") == null, kept);
+                keptOk && call(signer, "loadSaved") == null, kept);
         Object e2 = call(controlPrefs, "edit");
         call(e2, "putString", "last", "{\"require_login\":false}");
         call(e2, "commit");
@@ -341,9 +342,9 @@ public final class GitHubTest {
         Object libRestore2 = neu("mod.hey.studios.project.backup.BackupFactory", libId2);
         call(libRestore2, "setBackupLocalLibs", true);
         call(libRestore2, "restore", boxesSwb);
-        String kept = new String(java.nio.file.Files.readAllBytes(new File(testLib, "classes.dex").toPath()), "UTF-8");
+        String keptText = new String(java.nio.file.Files.readAllBytes(new File(testLib, "classes.dex").toPath()), "UTF-8");
         check("restore with libraries: a missing one is copied, one already here is kept as it is",
-                copied && "dex-kept-on-phone".equals(kept) && Boolean.TRUE.equals(call(libRestore2, "isRestoreSuccess")), kept);
+                copied && "dex-kept-on-phone".equals(keptText) && Boolean.TRUE.equals(call(libRestore2, "isRestoreSuccess")), keptText);
         check("the restored project brings its custom blocks file",
                 new File(sketchware, "data/" + libId + "/custom_blocks").isFile(), null);
         for (String id : new String[]{libId, libId2}) {
