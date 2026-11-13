@@ -184,6 +184,46 @@ public final class AppControl {
         thread.start();
     }
 
+    private static volatile long lastRefresh;
+    private static volatile boolean refreshing;
+
+    /**
+     * v2.0.0 (owner's 13 Nov "periodic online re-check"): the main screen reads the file again in the background when
+     * the last read is older than {@link GitHubSession#RECHECK_MILLIS}; no dialogs, only the cache and the sign-in
+     * requirement (a sign-in that became required opens the sign-in screen while the main screen has the focus).
+     */
+    public static void refresh(Activity activity) {
+        long now = System.currentTimeMillis();
+        if (refreshing || !checkedThisStart || now - lastRefresh < GitHubSession.RECHECK_MILLIS) return;
+        if (lastRefresh == 0) {
+            // the start's own read counts as the first one
+            lastRefresh = now;
+            return;
+        }
+        refreshing = true;
+        lastRefresh = now;
+        Context app = activity.getApplicationContext();
+        java.lang.ref.WeakReference<Activity> ref = new java.lang.ref.WeakReference<>(activity);
+        Thread thread = new Thread(() -> {
+            try {
+                String json = fetch();
+                if (json == null || parse(json) == null) return;
+                app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("last", json).apply();
+                fetchedOnline = true;
+                Activity a = ref.get();
+                if (a != null && AuthGuard.required(app)) a.runOnUiThread(() -> {
+                    if (!a.isFinishing() && !a.isDestroyed() && a.hasWindowFocus()) AuthGuard.check(a);
+                });
+            } catch (Throwable t) {
+                LogUtil.e("AppControl", "Couldn't read app-control.json again", t);
+            } finally {
+                refreshing = false;
+            }
+        }, "AppControlRefresh");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private static String fetch() {
         HttpURLConnection c = null;
         try {

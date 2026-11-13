@@ -79,6 +79,11 @@ public class LibraryResolverActivity extends BaseAppCompatActivity {
             finish();
             return;
         }
+        // v2.0.0: the Library Resolver needs a sign-in when app-control.json requires it
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) {
+            finish();
+            return;
+        }
         String id = getIntent().getStringExtra("sc_id");
         scId = id == null || id.equals("system") ? null : id;
         ((TextView) findViewById(R.id.lr_subtitle)).setText(scId == null ? "Every project's local libraries" : "Project #" + scId);

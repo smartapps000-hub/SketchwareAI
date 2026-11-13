@@ -19,8 +19,11 @@ import java.util.Map;
  */
 public final class DeviceFlow {
 
-    /** What cloud backup needs: a private repository of the user's (GitHub's OAuth scopes can't narrow it further). */
-    public static final String SCOPE = "repo";
+    /**
+     * What cloud backup needs: a private repository of the user's (GitHub's OAuth scopes can't narrow it further);
+     * v2.0.0 adds {@code user:email} (read-only) for the primary e-mail shown on the drawer's account card.
+     */
+    public static final String SCOPE = "repo user:email";
 
     private DeviceFlow() {
     }

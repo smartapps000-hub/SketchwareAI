@@ -348,6 +348,11 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         super.onResume();
         // v1.9.9: the sign-in screen first when app-control.json requires it (it can't be dismissed)
         if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
+        // v2.0.0: with a network, in the background: the GitHub session (a revoked token signs out), app-control.json,
+        // and the projects that wait for their first backup
+        com.sketchware.ai.github.GitHubSession.recheckOnline(this);
+        com.sketchware.ai.github.AppControl.refresh(this);
+        com.sketchware.ai.github.CloudSync.get(this).syncPendingSoon();
         /* Check if the device is running low on storage space */
         long freeMegabytes = GB.c();
         if (freeMegabytes < 100 && freeMegabytes > 0) {

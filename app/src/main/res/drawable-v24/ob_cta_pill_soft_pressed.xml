@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.0.0: pressed state of ob_cta_pill_soft (the deeper pressed orange of ob_cta_pill_pressed, no glow). -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="16dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFC83D13"
+    app:swFillBottom="#FFBC4A12"
+    app:swRimTop="#99FFFFFF"
+    app:swRimBottom="#33FFFFFF" />

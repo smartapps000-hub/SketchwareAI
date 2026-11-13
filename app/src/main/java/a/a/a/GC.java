@@ -313,7 +313,39 @@ public class GC extends DA implements View.OnClickListener {
     private void backupProject(int position) {
         String sc_id = yB.c(projectsList.get(position), "sc_id");
         String appName = yB.c(projectsList.get(position), "my_ws_name");
-        (new BackupRestoreManager(getActivity())).backup(sc_id, appName);
+        // v2.0.0: this project only, to the phone (.swb) or to the user's private GitHub repository
+        new com.sketchware.ai.ui.ObAlertBuilder(getActivity())
+                .setTitle("Back up " + appName)
+                .setItems(new String[]{"On this phone (.swb file)", "To GitHub"}, (dialog, which) -> {
+                    if (getActivity() == null) return;
+                    if (which == 0) {
+                        (new BackupRestoreManager(getActivity())).backup(sc_id, appName);
+                    } else {
+                        com.sketchware.ai.github.CloudSync.backUpFromMenu(getActivity(), sc_id, appName);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** v2.0.0: the Restore card offers the .swb restore and the import from GitHub side by side. */
+    private void chooseRestore() {
+        new com.sketchware.ai.ui.ObAlertBuilder(getActivity())
+                .setTitle("Restore projects")
+                .setItems(new String[]{"Restore a .swb file", "Import from GitHub"}, (dialog, which) -> {
+                    if (getActivity() == null) return;
+                    if (which == 0) {
+                        restoreProject();
+                    } else if (com.sketchware.ai.github.AuthGuard.check(getActivity())) {
+                        com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries) -> {
+                            if (getActivity() != null) {
+                                new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries);
+                            }
+                        });
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     @Override
@@ -323,6 +355,10 @@ public class GC extends DA implements View.OnClickListener {
             if (resultCode == Activity.RESULT_OK) {
                 refreshProjectsList();
                 if (data.getBooleanExtra("is_new", false)) {
+                    // v2.0.0: a new project goes to GitHub by itself when signed in (offline: it waits)
+                    if (getActivity() != null) {
+                        com.sketchware.ai.github.CloudSync.get(getActivity()).projectCreated(data.getStringExtra("sc_id"));
+                    }
                     toDesignActivity(data.getStringExtra("sc_id"));
                 }
             }
@@ -341,7 +377,7 @@ public class GC extends DA implements View.OnClickListener {
         if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && super.a(REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY)) {
             toProjectSettingsActivity();
         } else if (viewId == R.id.cv_restore_projects && super.a(REQUEST_CODE_RESTORE_PROJECT)) {
-            restoreProject();
+            chooseRestore();
         }
     }
 

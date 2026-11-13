@@ -1,6 +1,7 @@
 import com.sketchware.ai.github.CloudBackup;
 import com.sketchware.ai.github.DeviceFlow;
 import com.sketchware.ai.github.GitHubException;
+import com.sketchware.ai.github.GitHubImport;
 
 import java.io.File;
 import java.io.InputStream;
@@ -21,7 +22,7 @@ import java.util.Map;
  * endpoints do and checks every request. On the JVM because ART in this workspace can't open sockets (no IPv6); the
  * Android parts (token store, .swb backup and restore) run on the ART harness (h.GitHubTest).
  * Run (from the repository root; the android.util / android.content stand-ins of the harness at run time):
- *   javac -d out -cp $ANDROID_JAR:$GSON tools/jvm-tests/GitHubClientTest.java app/src/main/java/com/sketchware/ai/github/{GitHubHttp,DeviceFlow,GitHubException,TokenStore,CloudBackup}.java
+ *   javac -d out -cp $ANDROID_JAR:$GSON tools/jvm-tests/GitHubClientTest.java app/src/main/java/com/sketchware/ai/github/{GitHubHttp,DeviceFlow,GitHubException,TokenStore,CloudBackup,GitHubImport}.java
  *   java -cp tools/art-harness/out/stubs-cls:out:$GSON GitHubClientTest
  * Prints CLIENT CHECK lines and "GITHUBCLIENT n/n ok".
  */
@@ -178,6 +179,38 @@ public class GitHubClientTest {
         big.delete();
         swb.delete();
         downloaded.delete();
+        // --- v2.0.0: profile name and primary e-mail; import from a link
+        CloudBackup.Account named = CloudBackup.account(token);
+        check("account: profile name", "The Octocat".equals(named.name) && named.email == null, named.name);
+        check("primary e-mail: the primary, verified one of /user/emails", "octo@example.com".equals(CloudBackup.primaryEmail(token)),
+                CloudBackup.primaryEmail(token));
+        fake.mode = "noscope";
+        check("primary e-mail: a v1.9.x token without user:email gives none, no error", CloudBackup.primaryEmail(token) == null, null);
+        fake.mode = "";
+        GitHubImport.Source pub = GitHubImport.parse("https://github.com/pub/demo");
+        java.util.List<String> found = GitHubImport.listBackups(null, pub);
+        check("import: a repository link lists its .swb files (any case), not folders or other files",
+                found.equals(java.util.Arrays.asList("backups/App One.swb", "other/Two.SWB")), found);
+        GitHubImport.Source folder = GitHubImport.parse("github.com/pub/demo/tree/main/backups");
+        check("import: a folder link lists only that folder", GitHubImport.listBackups(null, folder).equals(
+                java.util.Collections.singletonList("backups/App One.swb")), GitHubImport.listBackups(null, folder));
+        File importDir = java.nio.file.Files.createTempDirectory("import").toFile();
+        File got = GitHubImport.download(null, pub, "backups/App One.swb", importDir);
+        check("import: a public repository downloads signed out, the file named after owner, repo and file",
+                java.util.Arrays.equals(java.nio.file.Files.readAllBytes(got.toPath()), fake.importBytes)
+                        && got.getName().equals("pub-demo-App One.swb") && !fake.importSawToken, got.getName());
+        GitHubImport.Source priv = GitHubImport.parse("https://github.com/priv/secret/blob/dev/a.swb");
+        try {
+            GitHubImport.download(null, priv, priv.path, importDir);
+            check("import: a private repository signed out asks for a sign-in", false, null);
+        } catch (GitHubException e) {
+            check("import: a private repository signed out asks for a sign-in", "not_found".equals(e.code)
+                    && e.getMessage().contains("sign in"), e.getMessage());
+        }
+        File privFile = GitHubImport.download(token, priv, priv.path, importDir);
+        check("import: a private repository with the sign-in downloads", privFile.isFile() && privFile.length() == fake.importBytes.length, privFile.length());
+        for (File f : importDir.listFiles()) f.delete();
+        importDir.delete();
         fake.stop();
         System.out.println("GITHUBCLIENT " + ok + "/" + total + (ok == total ? " ok" : " FAILED"));
         System.exit(ok == total ? 0 : 1);
@@ -203,6 +236,8 @@ public class GitHubClientTest {
         boolean moveBranchOnce;
         int refPatches;
         String head = "c-0";
+        boolean importSawToken;
+        byte[] importBytes = "PK-fake-swb".getBytes(StandardCharsets.UTF_8);
         String avatar = "https://avatars.githubusercontent.com/u/583231?v=4";
 
         void start() throws Exception {
@@ -266,7 +301,7 @@ public class GitHubClientTest {
                 }
                 if (target.equals("/web/login/device/code")) {
                     if ("disabled".equals(mode)) return new Object[]{400, "{\"error\":\"device_flow_disabled\"}"};
-                    if (!"repo".equals(form.get("scope"))) formProblems.add("scope " + form.get("scope"));
+                    if (!"repo user:email".equals(form.get("scope"))) formProblems.add("scope " + form.get("scope"));
                     return new Object[]{200, "{\"device_code\":\"dc-1\",\"user_code\":\"WDJB-MJHT\",\"verification_uri\":"
                             + "\"https://github.com/login/device\",\"expires_in\":900,\"interval\":5}"};
                 }
@@ -294,7 +329,32 @@ public class GitHubClientTest {
             boolean authorized = "Bearer gho_fake_token_123".equals(auth);
             String api = target.substring("/api".length());
             if (api.equals("/user")) {
-                return authorized ? new Object[]{200, "{\"login\":\"octo\",\"id\":583231,\"avatar_url\":\"" + avatar + "\"}"} : new Object[]{401, "{\"message\":\"Bad credentials\"}"};
+                return authorized ? new Object[]{200, "{\"login\":\"octo\",\"id\":583231,\"name\":\"The Octocat\",\"email\":null,\"avatar_url\":\"" + avatar + "\"}"} : new Object[]{401, "{\"message\":\"Bad credentials\"}"};
+            }
+            // v2.0.0: primary e-mail (scope user:email) and import from other repositories
+            if (api.equals("/user/emails")) {
+                if (!authorized || "noscope".equals(mode)) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                return new Object[]{200, "[{\"email\":\"old@example.com\",\"primary\":false,\"verified\":true},"
+                        + "{\"email\":\"octo@example.com\",\"primary\":true,\"verified\":true,\"visibility\":\"private\"}]"};
+            }
+            if (api.startsWith("/repos/pub/demo")) {
+                if (headers.containsKey("authorization")) importSawToken = true;
+                if (api.equals("/repos/pub/demo")) return new Object[]{200, "{\"default_branch\":\"main\",\"private\":false}"};
+                if (api.equals("/repos/pub/demo/git/trees/main?recursive=1")) {
+                    return new Object[]{200, "{\"sha\":\"t\",\"tree\":[{\"path\":\"backups\",\"type\":\"tree\"},"
+                            + "{\"path\":\"backups/App One.swb\",\"type\":\"blob\"},{\"path\":\"backups/notes.txt\",\"type\":\"blob\"},"
+                            + "{\"path\":\"other/Two.SWB\",\"type\":\"blob\"},{\"path\":\"backups/dir.swb\",\"type\":\"tree\"}],\"truncated\":false}"};
+                }
+                if (api.equals("/repos/pub/demo/contents/backups/App%20One.swb?ref=main")
+                        && "application/vnd.github.raw".equals(headers.get("accept"))) {
+                    return new Object[]{200, importBytes};
+                }
+                return new Object[]{404, "{\"message\":\"Not Found\"}"};
+            }
+            if (api.startsWith("/repos/priv/secret")) {
+                if (!authorized) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                if (api.equals("/repos/priv/secret/contents/a.swb?ref=dev")) return new Object[]{200, importBytes};
+                return new Object[]{404, "{\"message\":\"Not Found\"}"};
             }
             if (!authorized) {
                 apiAuthorizedAll = false;

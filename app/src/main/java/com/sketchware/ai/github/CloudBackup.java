@@ -46,6 +46,10 @@ public final class CloudBackup {
         /** GitHub's numeric user id (stays the same when the login is renamed). */
         public String id;
         public String avatarUrl;
+        /** v2.0.0: the profile name (may be null). */
+        public String name;
+        /** v2.0.0: the public e-mail of the profile (may be null; {@link #primaryEmail} reads the primary one). */
+        public String email;
     }
 
     /** GET /user: login, numeric id and avatar. */
@@ -59,9 +63,35 @@ public final class CloudBackup {
         a.id = DeviceFlow.string(user, "id");
         String avatar = DeviceFlow.string(user, "avatar_url");
         a.avatarUrl = avatar != null && avatar.startsWith("https://avatars.githubusercontent.com/") ? avatar : null;
+        a.name = DeviceFlow.string(user, "name");
+        a.email = DeviceFlow.string(user, "email");
         if (a.login == null) throw new GitHubException("bad_answer", "GitHub's answer had no user name.");
         if (a.id == null) a.id = a.login;
         return a;
+    }
+
+    /**
+     * v2.0.0: the account's primary, verified e-mail (GET /user/emails, scope {@code user:email}); null when the token
+     * lacks the scope (a v1.9.x sign-in), GitHub doesn't answer, or there is none. Never throws for a missing scope.
+     */
+    public static String primaryEmail(String token) throws IOException {
+        GitHubHttp.Response r = GitHubHttp.api("GET", "/user/emails", token, null);
+        if (!r.ok()) return null;
+        try {
+            JsonElement parsed = com.google.gson.JsonParser.parseString(r.body);
+            if (!parsed.isJsonArray()) return null;
+            for (JsonElement e : parsed.getAsJsonArray()) {
+                if (!e.isJsonObject()) continue;
+                JsonObject o = e.getAsJsonObject();
+                boolean primary = o.has("primary") && o.get("primary").isJsonPrimitive() && o.get("primary").getAsBoolean();
+                boolean verified = o.has("verified") && o.get("verified").isJsonPrimitive() && o.get("verified").getAsBoolean();
+                String email = DeviceFlow.string(o, "email");
+                if (primary && verified && email != null) return email;
+            }
+        } catch (RuntimeException ignored) {
+            // not JSON: no e-mail
+        }
+        return null;
     }
 
     /** One entry of index.json. */
@@ -315,7 +345,7 @@ public final class CloudBackup {
         return "/repos/" + enc(owner) + "/" + REPO + rest;
     }
 
-    private static String enc(String s) {
+    static String enc(String s) {
         try {
             return URLEncoder.encode(s, "UTF-8").replace("+", "%20");
         } catch (java.io.UnsupportedEncodingException e) {
@@ -323,7 +353,7 @@ public final class CloudBackup {
         }
     }
 
-    private static String encPath(String path) {
+    static String encPath(String path) {
         StringBuilder out = new StringBuilder();
         for (String part : path.split("/")) {
             if (out.length() > 0) out.append('/');

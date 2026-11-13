@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass tokens</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&amp;family=Manrope:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Manrope,system-ui,sans-serif;background:#0B0B0D;color:#F5F5F7}
+a{color:#FF9A4D}a:hover{color:#FFB877}
+.glass{background:linear-gradient(180deg,rgba(38,38,44,.72),rgba(24,24,28,.58));backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(255,255,255,.10);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 12px 32px rgba(0,0,0,.45)}
+.light{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,249,250,.85));border:1.2px solid rgba(244,81,30,.20);box-shadow:inset 0 1px 0 #FFFFFF,0 10px 28px rgba(0,0,0,.25)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:#A1A1AA}
+</style>
+</helmet>
+<div style="width: 1280px; height: 844px; position: relative; overflow: hidden; background: #0B0B0D; padding: 56px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 32px;">
+<div style="position: absolute; width: 520px; height: 520px; left: 520px; top: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(244,81,30,.40), rgba(244,81,30,0) 70%);"></div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 6px;">
+<h1 style="margin: 0; font-family: Sora, sans-serif; font-size: 40px; font-weight: 700;">Sketchware AI · Liquid Glass</h1>
+<p style="margin: 0; font-size: 15px; color: #A1A1AA;">Values that map straight to the Android drawables in v1.4.1 (light and drawable-night).</p>
+</div>
+
+<div style="position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px;">
+<div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 88px; border-radius: 18px; background: #F4511E; box-shadow: inset 0 1px 0 rgba(255,255,255,.35);"></div><span style="font-weight: 700;">Primary</span><span class="mono">#F4511E</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 88px; border-radius: 18px; background: #E64A19; box-shadow: inset 0 1px 0 rgba(255,255,255,.35);"></div><span style="font-weight: 700;">Status bar</span><span class="mono">#E64A19</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 88px; border-radius: 18px; background: #FF7A29; box-shadow: inset 0 1px 0 rgba(255,255,255,.35);"></div><span style="font-weight: 700;">Amber (dark)</span><span class="mono">#FF7A29</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 88px; border-radius: 18px; background: linear-gradient(135deg, #FF7428, #FFB619); box-shadow: inset 0 1px 0 rgba(255,255,255,.45);"></div><span style="font-weight: 700;">Solar gradient</span><span class="mono">#FF7428 → #FFB619</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 88px; border-radius: 18px; background: linear-gradient(180deg, #161618, #1E1E22); border: 1px solid rgba(255,255,255,.12);"></div><span style="font-weight: 700;">Obsidian body</span><span class="mono">#161618 → #1E1E22</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 88px; border-radius: 18px; background: linear-gradient(180deg, #FFFFFF, #F8F9FA); border: 1.2px solid rgba(244,81,30,.2);"></div><span style="font-weight: 700;">Light glass</span><span class="mono">#F2FFFFFF → #D9F8F9FA</span></div>
+</div>
+
+<div style="position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px;">
+<div class="glass" style="border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 12px;">
+<span style="font-family: Sora, sans-serif; font-size: 18px; font-weight: 700;">Obsidian glass surface</span>
+<span class="mono">blur 22px · rim #4DFFFFFF top → #0DFFFFFF · shadow #1A000000 · radius 20–22dp</span>
+<button style="height: 48px; border-radius: 16px; border: 1px solid rgba(255,255,255,.12); background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03)); box-shadow: inset 0 1px 0 rgba(255,255,255,.28); color: #F5F5F7; font-size: 15px; font-weight: 700; cursor: pointer;">Glass pill · 16dp</button>
+</div>
+<div class="light" style="border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 12px; color: #18181B;">
+<span style="font-family: Sora, sans-serif; font-size: 18px; font-weight: 700;">Light glass surface</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #52525B;">1.2dp #33F4511E rim · #80FFFFFF inner edge · radius 20dp</span>
+<button style="height: 48px; border-radius: 14px; border: 1px solid rgba(244,81,30,.25); background: #FFFDFB; color: #9A3412; font-size: 15px; font-weight: 700; cursor: pointer;">Palette pill · 14dp</button>
+</div>
+<div class="glass" style="border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 12px;">
+<span style="font-family: Sora, sans-serif; font-size: 18px; font-weight: 700;">Primary action</span>
+<span class="mono">white bold text needs ≥3:1 → button uses #E8501C → #F97316</span>
+<button style="height: 50px; border-radius: 16px; border: 1px solid rgba(255,255,255,.45); background: linear-gradient(135deg, #E8501C, #F97316); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 8px 22px rgba(255,116,40,.50); color: #FFFFFF; font-size: 17px; font-weight: 800; cursor: pointer;">Run</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -146,17 +146,56 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         menuCreateKeystore.icon = R.drawable.new_96;
         menuCreateKeystore.title = "Create Release Keystore";
 
-        // v1.9.8: GitHub sign-in and cloud backup
-        DrawerItem menuGitHub = DrawerItem.MENU_GITHUB;
-        menuGitHub.icon = R.drawable.ob_ic_backup;
-        menuGitHub.title = "Cloud Sync & Account";
-
         DrawerItem menuAppTheme = DrawerItem.MENU_APP_THEME;
         menuAppTheme.icon = R.drawable.ic_sw_theme_white_48;
         menuAppTheme.title = "App Theme: " + com.sketchware.ai.ui.ThemeMode.LABELS[com.sketchware.ai.ui.ThemeMode.get(context)];
     }
 
     private DrawerItemAdapter drawerItemAdapter;
+
+    // ------------------------------------------------------------------ v2.0.0: GitHub account card
+
+    private final com.sketchware.ai.github.GitHubSession.Listener accountListener = () -> {
+        if (drawerItemAdapter != null) drawerItemAdapter.c(0);
+    };
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        com.sketchware.ai.github.GitHubSession.addListener(accountListener);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        com.sketchware.ai.github.GitHubSession.removeListener(accountListener);
+        super.onDetachedFromWindow();
+    }
+
+    private void bindAccountCard(View header) {
+        com.sketchware.ai.github.DrawerAccountCard.bind(header.findViewById(R.id.drawer_account),
+                com.sketchware.ai.github.GitHubSession.profile(context),
+                new com.sketchware.ai.github.DrawerAccountCard.Actions() {
+                    @Override
+                    public void signIn() {
+                        if (!(getContext() instanceof Activity)) return;
+                        Activity activity = (Activity) getContext();
+                        com.sketchware.ai.github.GitHubInAppAuthDialog.show(activity, login -> {
+                            com.sketchware.ai.github.CloudSync.get(activity).syncPending();
+                            accountListener.changed();
+                        });
+                    }
+
+                    @Override
+                    public void signOut() {
+                        new com.sketchware.ai.ui.ObAlertBuilder(context)
+                                .setTitle("Sign out of GitHub?")
+                                .setMessage("Your backups on GitHub stay.")
+                                .setPositiveButton("Sign out", (d, w) -> com.sketchware.ai.github.GitHubSession.signOut(context))
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show();
+                    }
+                });
+    }
 
     private void showAppThemeDialog(Activity activity) {
         new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
@@ -216,7 +255,6 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
         MENU_PROGRAM_INFO,
         MENU_DEVELOPER_TOOLS,
         MENU_CREATE_KEYSTORE,
-        MENU_GITHUB,
         MENU_APP_THEME;
 
         /**
@@ -267,6 +305,11 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
 
         @Override
         public void b(RecyclerView.v viewHolder, int i) {
+            if (viewHolder instanceof EmptyViewHolder) {
+                // v2.0.0: the GitHub account card under the Sketchware AI card
+                bindAccountCard(((EmptyViewHolder) viewHolder).b);
+                return;
+            }
             if (!(viewHolder instanceof EmptyViewHolder)) {
                 if (viewHolder instanceof MenuItemHolder) {
                     MenuItemHolder menuItemHolder = (MenuItemHolder) viewHolder;
@@ -322,10 +365,6 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
                         activity.startActivity(intent);
                     } else if (id == DrawerItem.MENU_APP_THEME.ordinal()) {
                         showAppThemeDialog(activity);
-                    } else if (id == DrawerItem.MENU_GITHUB.ordinal()) {
-                        Intent intent = new Intent(activity, com.sketchware.ai.github.GitHubActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        activity.startActivity(intent);
                     } else if (id == DrawerItem.MENU_CREATE_KEYSTORE.ordinal()) {
                         Intent intent = new Intent(activity, NewKeyStoreActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);

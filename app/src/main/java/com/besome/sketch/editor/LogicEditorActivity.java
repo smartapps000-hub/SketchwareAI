@@ -2359,6 +2359,11 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         if (!super.j()) {
             finish();
         }
+        // v2.0.0: the block editor (blocks, palette, permissions) needs a sign-in when app-control.json requires it
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) {
+            finish();
+            return;
+        }
         if (bundle == null) {
             this.B = getIntent().getStringExtra("sc_id");
             this.C = getIntent().getStringExtra("id");

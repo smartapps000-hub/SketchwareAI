@@ -23,7 +23,7 @@ import static h.Main.OUT;
 import static h.R.*;
 
 /**
- * v1.9.8/v1.9.9: the parts of GitHub sign-in and cloud backup that run without a network, with the shipped APK's classes:
+ * v1.9.8/v1.9.9/v2.0.0: the parts of GitHub sign-in and cloud backup that run without a network, with the shipped APK's classes:
  * the token store (a software AES key stands in for the Android Keystore's, which can't run here), the streamed
  * base64, backup paths, and a real .swb of the project restored as a new project with a free id (ProjectIds), plus
  * the restore fixes (leftover folders, ../ entries). ART here can't open sockets (libcore always creates IPv6 ones
@@ -165,16 +165,51 @@ public final class GitHubTest {
                 && "No internet connection.".equals(call(signIn, "shortMessage", "network"))
                 && "Sign-in didn't work. Please try again.".equals(call(signIn, "shortMessage", "anything_else")), null);
 
+        // --- v2.0.0: links for "Import from GitHub", the in-app sign-in window's allowed pages and code script
+        Class<?> imp = c("com.sketchware.ai.github.GitHubImport");
+        Object repo = call(imp, "parse", "https://github.com/pub/demo");
+        Object git = call(imp, "parse", "github.com/pub/demo.git");
+        Object blob = call(imp, "parse", "https://github.com/pub/demo/blob/main/backups/App%20One.swb");
+        Object raw = call(imp, "parse", "https://raw.githubusercontent.com/o/r/refs/heads/dev/x/a.swb");
+        Object tree = call(imp, "parse", "https://github.com/pub/demo/tree/v2/backups");
+        check("import links: repository, .git, file (decoded), raw with refs/heads, folder", repo != null && "pub".equals(get(repo, "owner"))
+                && "demo".equals(get(repo, "repo")) && "".equals(get(repo, "path")) && get(repo, "ref") == null
+                && Boolean.FALSE.equals(get(repo, "file"))
+                && git != null && "demo".equals(get(git, "repo"))
+                && blob != null && Boolean.TRUE.equals(get(blob, "file")) && "backups/App One.swb".equals(get(blob, "path"))
+                && "main".equals(get(blob, "ref"))
+                && raw != null && "dev".equals(get(raw, "ref")) && "x/a.swb".equals(get(raw, "path"))
+                && tree != null && "v2".equals(get(tree, "ref")) && "backups".equals(get(tree, "path"))
+                && Boolean.FALSE.equals(get(tree, "file")), raw == null ? null : get(raw, "path"));
+        boolean refused = true;
+        for (String bad : new String[]{"https://github.com/pub/demo/blob/main/readme.md", "https://gitlab.com/pub/demo",
+                "https://github.com/pub", "https://github.com/pub/demo/blob/main/../a.swb", "https://github.com/pub/demo/blob/main/%2e%2e/a.swb",
+                "https://github.com/pub/demo/issues/1", "", "not a link at all", "https://evilgithub.com/pub/demo"}) {
+            refused &= call(imp, "parse", bad) == null;
+        }
+        check("import links: other hosts, other pages, non-.swb files, .. refused", refused, null);
+        Class<?> auth = c("com.sketchware.ai.github.GitHubInAppAuthDialog");
+        Class<?> uri = c("android.net.Uri");
+        boolean pages = Boolean.TRUE.equals(call(auth, "allowed", call(uri, "parse", "https://github.com/login/device")))
+                && Boolean.TRUE.equals(call(auth, "allowed", call(uri, "parse", "https://gist.github.com/x")))
+                && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "http://github.com/login")))
+                && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "https://evilgithub.com/login")))
+                && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "https://accounts.google.com/o/oauth2")));
+        check("sign-in window: https github.com and its subdomains only", pages, null);
+        String script = (String) call(auth, "fillScript", "AB12-CD34');alert(1);//");
+        check("sign-in window: the code script carries only letters, digits and hyphens of the code",
+                script.endsWith("('AB12-CD34alert1')") && script.contains("location.pathname.indexOf('/login/device')"), script.substring(script.length() - 24));
+
         // --- app-control.json (config/app-control.json of the repository): notices, never a lock
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 200, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(200).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 201, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(201).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v1.9.9 (200) with it: no notice", call(control, "decide", shipped, 200, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 199, false, null);
-        check("an older version (v1.9.8, 199): Update with the URL", old198 != null && "update".equals(get(old198, "kind"))
+        check("v2.0.0 (201) with it: no notice", call(control, "decide", shipped, 201, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 200, false, null);
+        check("an older version (v1.9.9, 200): Update with the URL", old198 != null && "update".equals(get(old198, "kind"))
                 && String.valueOf(get(old198, "url")).startsWith("https://github.com/smartapps000-hub/"), old198 == null ? null : get(old198, "url"));
         Object msg = call(control, "parse", "{\"status_message\":\"Server maintenance tonight\"}");
         Object m1 = call(control, "decide", msg, 199, true, null);

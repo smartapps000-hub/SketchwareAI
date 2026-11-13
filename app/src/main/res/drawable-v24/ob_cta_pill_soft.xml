@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.0.0: ob_cta_pill without the outer orange glow, for the GitHub cards (owner, 13 Nov 2026: "remove the heavy
+     orange glow", match the drawer's glass header card). Same deepened orange and white label (4.6:1) as ob_cta_pill. -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="16dp"
+    app:swFillAngle="315"
+    app:swFillTop="#FFD34115"
+    app:swFillBottom="#FFC64F14"
+    app:swRimTop="#73FFFFFF"
+    app:swRimBottom="#26FFFFFF" />

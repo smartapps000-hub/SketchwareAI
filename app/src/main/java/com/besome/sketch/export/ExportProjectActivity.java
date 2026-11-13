@@ -456,6 +456,8 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
                 btnExportAppBundle, layoutExportAppBundle);
 
         btnExportAppBundle.setOnClickListener(v -> {
+            // v2.0.0: checked again at every export (the session may have ended while this screen was open)
+            if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
             aB dialog = new aB(ExportProjectActivity.this);
             if (BuildConfig.FLAVOR.equals(BuildConfig.FLAVOR_NAME_WITHOUT_AABS)) {
                 dialog.a(R.drawable.break_warning_96_red);
@@ -516,6 +518,7 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         addExportStackNotice(title_export_src);
         fitResultRows(layout_export_src, btn_send_src);
         btn_export_src.setOnClickListener(v -> {
+            if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
             btn_export_src.setVisibility(View.GONE);
             layout_export_src.setVisibility(View.GONE);
             loading_export_src.setVisibility(View.VISIBLE);
@@ -574,6 +577,7 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
                 "Signed with your keystore: APK signatures v2\u00a0+\u00a0v3 (and v1 below min SDK\u00a024)\n"
                         + "Release build, DEX files merged", btn_sign_apk, (View) layout_apk_path.getParent());
         btn_sign_apk.setOnClickListener(v -> {
+            if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
             GetKeyStoreCredentialsDialog credentialsDialog = new GetKeyStoreCredentialsDialog(ExportProjectActivity.this,
                     R.drawable.color_about_96,
                     "Sign an APK",

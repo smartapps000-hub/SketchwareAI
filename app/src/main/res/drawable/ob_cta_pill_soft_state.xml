@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.0.0: the GitHub cards' orange pill without the outer glow. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android" android:enterFadeDuration="90" android:exitFadeDuration="220">
+    <item android:state_pressed="true" android:drawable="@drawable/ob_cta_pill_soft_pressed" />
+    <item android:drawable="@drawable/ob_cta_pill_soft" />
+</selector>

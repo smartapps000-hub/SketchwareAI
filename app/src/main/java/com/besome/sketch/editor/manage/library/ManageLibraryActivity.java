@@ -228,6 +228,11 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
         if (!super.j()) {
             finish();
         }
+        // v2.0.0: the Library Manager needs a sign-in when app-control.json requires it
+        if (!com.sketchware.ai.github.AuthGuard.check(this)) {
+            finish();
+            return;
+        }
 
         if (savedInstanceState == null) {
             sc_id = getIntent().getStringExtra("sc_id");

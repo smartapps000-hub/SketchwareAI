@@ -1,7 +1,6 @@
 package com.sketchware.ai.github;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
@@ -12,21 +11,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import mod.jbk.util.LogUtil;
 
 /**
- * v1.9.9: GitHub sign-in for the whole app, not for one screen (the owner's phone, 12 Nov: GitHub said "you're all set",
- * the app said "Sign-in didn't work"). While the user approves in Chrome, Android 15 cuts the network of the app in the
- * background; v1.9.8 polled from the screen and gave up on the first failed request. Now:
- * <ul>
- * <li>polling runs on its own thread and goes on through network failures until the code expires
- * ({@link DeviceFlow#waitForToken});</li>
- * <li>the code is saved (device code, expiry), so a sign-in the system interrupted by stopping the app continues when
- * the screen opens again ({@link #resumeSaved});</li>
- * <li>the screen asks for an immediate check when it comes back ({@link #pollNow});</li>
- * <li>when the token arrives while the browser is in front, the Custom Tab is closed: the screen opened it for a result
- * ({@link #browserOpenedBy}), so {@code finishActivity(requestCode)} removes it and the screen under it, in the same
- * task, comes back. That is not an activity start, so Android's background-start rules (stricter on Android 15) don't
- * apply. When the screen is gone or that didn't bring it back, the GitHub screen is started (CLEAR_TOP | SINGLE_TOP),
- * which Android may refuse from the background; then the next return to the app shows the signed-in screen at once.</li>
- * </ul>
+ * GitHub sign-in for the whole app (v1.9.9), shown in the app's own sign-in window since v2.0.0
+ * ({@link GitHubInAppAuthDialog}): the app stays in front the whole time, so Android 15 never cuts its network while
+ * the code is checked. Polling runs on its own thread and goes on through network failures until the code expires
+ * ({@link DeviceFlow#waitForToken}); a code is saved (device code, expiry) so a sign-in the system interrupted by stopping
+ * the app continues when the window opens again ({@link #resumeSaved}); {@link #pollNow} asks for a check at once
+ * (never closer than GitHub's interval). After the token: the account (login, id, name, primary e-mail, picture).
  */
 public final class SignIn {
 
@@ -54,59 +44,16 @@ public final class SignIn {
     private DeviceFlow.Code pending;
     private boolean starting;
     private boolean finishing;
-    private boolean browserOpened;
     private String error;
     private String errorDetail;
     private String lastNetwork;
     private String signedInNow;
     private int generation;
     private Thread worker;
-    /** The screen that opened the Custom Tab for a result (weak: the singleton must not keep a closed screen). */
-    private java.lang.ref.WeakReference<android.app.Activity> browserOwner;
-    private int browserRequest;
-
-    /** Screens of the app in front (resumed), counted from when sign-in was first used in this run. */
-    private int resumedScreens;
 
     SignIn(Context app) {
         this.app = app;
         this.prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        if (app instanceof android.app.Application) {
-            // created from a screen's onCreate: the screen before it is already paused, so the count starts right
-            ((android.app.Application) app).registerActivityLifecycleCallbacks(new ResumedCounter());
-        }
-    }
-
-    private final class ResumedCounter implements android.app.Application.ActivityLifecycleCallbacks {
-        @Override
-        public void onActivityResumed(android.app.Activity activity) {
-            resumedScreens++;
-        }
-
-        @Override
-        public void onActivityPaused(android.app.Activity activity) {
-            resumedScreens = Math.max(0, resumedScreens - 1);
-        }
-
-        @Override
-        public void onActivityCreated(android.app.Activity activity, android.os.Bundle state) {
-        }
-
-        @Override
-        public void onActivityStarted(android.app.Activity activity) {
-        }
-
-        @Override
-        public void onActivityStopped(android.app.Activity activity) {
-        }
-
-        @Override
-        public void onActivitySaveInstanceState(android.app.Activity activity, android.os.Bundle state) {
-        }
-
-        @Override
-        public void onActivityDestroyed(android.app.Activity activity) {
-        }
     }
 
     // ------------------------------------------------------------------ what the screen reads
@@ -142,24 +89,6 @@ public final class SignIn {
         return login;
     }
 
-    /** True once per code: the screen opens the browser for it (only while it is in front). */
-    public synchronized boolean takeOpenBrowser() {
-        if (pending == null || browserOpened) return false;
-        browserOpened = true;
-        return true;
-    }
-
-    /** The screen opened the Custom Tab with {@code startActivityForResult(…, requestCode)}. */
-    public synchronized void browserOpenedBy(android.app.Activity activity, int requestCode) {
-        browserOwner = new java.lang.ref.WeakReference<>(activity);
-        browserRequest = requestCode;
-    }
-
-    /** The screen is going away: it can't close the tab any more. */
-    public synchronized void forgetBrowser(android.app.Activity activity) {
-        if (browserOwner != null && browserOwner.get() == activity) browserOwner = null;
-    }
-
     public void addListener(Listener listener) {
         listeners.addIfAbsent(listener);
     }
@@ -177,7 +106,6 @@ public final class SignIn {
         errorDetail = null;
         lastNetwork = null;
         starting = true;
-        browserOpened = false;
         int gen = ++generation;
         spawn(() -> run(gen, clientId, null));
         changed();
@@ -189,13 +117,12 @@ public final class SignIn {
         DeviceFlow.Code saved = loadSaved();
         if (saved == null) return;
         pending = saved;
-        browserOpened = true; // the user has seen it; the Open GitHub button stays
         int gen = ++generation;
         spawn(() -> run(gen, clientId, saved));
         changed();
     }
 
-    /** Checks with GitHub now instead of at the next interval (the app came back from the browser). */
+    /** Checks with GitHub now instead of at the next interval (the user just submitted the code). */
     public void pollNow() {
         synchronized (wake) {
             wakeUp = true;
@@ -256,8 +183,8 @@ public final class SignIn {
                 @Override
                 public void sleep(long millis) throws InterruptedException {
                     waitOrWake(millis);
-                    // woken early (back from the browser): at once if the interval has passed (the app was frozen or
-                    // offline for a while), else when it has; a cancel still ends the wait
+                    // woken early (the user submitted the code): at once if the interval has passed, else when it
+                    // has; a cancel still ends the wait
                     long rest = lastCheck + millis - android.os.SystemClock.elapsedRealtime();
                     while (rest > 0 && current(gen)) {
                         synchronized (wake) {
@@ -299,8 +226,15 @@ public final class SignIn {
                 }
             }
             if (!current(gen)) return;
+            String email = null;
+            try {
+                email = CloudBackup.primaryEmail(token);
+            } catch (IOException ignored) {
+                // the e-mail is only shown on the account card; the next online re-check reads it
+            }
+            if (!current(gen)) return;
             TokenStore.get(app).save(token, account.login, account.id);
-            prefs.edit().putString("avatar_url", account.avatarUrl).apply();
+            GitHubSession.saveProfile(app, account, email);
             AuthGuard.reset();
             synchronized (this) {
                 if (gen != generation) {
@@ -315,9 +249,9 @@ public final class SignIn {
             }
             clearSaved();
             changed();
-            bringToFront();
-            // the picture for the account card (any screen shows it from the file); a failure only means no picture
-            if (downloadAvatar(app, account.avatarUrl)) changed();
+            GitHubSession.changed();
+            // the picture for the account card (every screen reads the file); a failure only means no picture
+            if (downloadAvatar(app, account.avatarUrl)) GitHubSession.changed();
         } catch (GitHubException e) {
             fail(gen, e.code, e.code + ": " + e.getMessage());
         } catch (Throwable t) {
@@ -402,48 +336,6 @@ public final class SignIn {
         });
     }
 
-    /**
-     * No screen of ours is in front (the browser is): close the Custom Tab the screen opened, so the screen under it
-     * comes back; if no screen is in front half a second later, start the GitHub screen (may be refused from the
-     * background on Android 15+: then the user's own return shows the result).
-     */
-    private void bringToFront() {
-        main.post(() -> {
-            if (!listeners.isEmpty()) return;
-            android.app.Activity owner;
-            int request;
-            synchronized (SignIn.this) {
-                owner = browserOwner == null ? null : browserOwner.get();
-                request = browserRequest;
-                browserOwner = null;
-            }
-            if (owner != null && !owner.isFinishing() && !owner.isDestroyed()) {
-                try {
-                    owner.finishActivity(request);
-                } catch (RuntimeException e) {
-                    LogUtil.e("SignIn", "Couldn't close the browser tab", e);
-                }
-            }
-            main.postDelayed(() -> {
-                // only when no screen of the app is in front: the closed tab brought one back (the GitHub screen, or
-                // the screen under a gate that finished itself), or the user is elsewhere in the app
-                boolean unseen;
-                synchronized (SignIn.this) {
-                    unseen = signedInNow != null;
-                }
-                // and only while nobody has shown the result yet (a gate that finished itself took it)
-                if (!unseen || !listeners.isEmpty() || resumedScreens > 0) return;
-                try {
-                    Intent intent = new Intent(app, GitHubActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    app.startActivity(intent);
-                } catch (RuntimeException e) {
-                    LogUtil.e("SignIn", "Couldn't bring the app back", e);
-                }
-            }, owner != null ? 500 : 0);
-        });
-    }
-
     // ------------------------------------------------------------------ the saved code
 
     private void save(DeviceFlow.Code code) {
@@ -513,10 +405,5 @@ public final class SignIn {
         } finally {
             if (c != null) c.disconnect();
         }
-    }
-
-    /** The avatar address of the signed-in user, or null. */
-    public String avatarUrl() {
-        return prefs.getString("avatar_url", null);
     }
 }
