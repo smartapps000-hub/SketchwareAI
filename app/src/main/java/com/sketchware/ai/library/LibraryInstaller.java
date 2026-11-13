@@ -200,9 +200,13 @@ public final class LibraryInstaller {
                 "--output=" + classesJar.getParentFile().getAbsolutePath(), classesJar.getAbsolutePath()});
     }
 
-    /** A library folder the build can use: classes.jar and classes.dex there. */
+    /**
+     * A library folder the build can use: classes.jar and classes.dex there. v2.0.1: a folder copied from someone else's
+     * GitHub backup (marked) is never taken for the Maven artifact of the same name: it is installed from Maven over it.
+     */
     static boolean usable(File dir) {
-        return new File(dir, "classes.jar").isFile() && new File(dir, "classes.dex").isFile();
+        return new File(dir, "classes.jar").isFile() && new File(dir, "classes.dex").isFile()
+                && !new File(dir, com.sketchware.ai.project.LibraryAutoResolve.FROM_LINK_MARK).exists();
     }
 
     /** Project's local library list entry for a folder, as the local library manager writes it. */

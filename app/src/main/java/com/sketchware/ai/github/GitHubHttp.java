@@ -229,19 +229,20 @@ public final class GitHubHttp {
 
     /**
      * GET a file's raw bytes (Accept: application/vnd.github.raw) into {@code target}; at most {@code maxBytes}.
-     * v2.0.1: a download cut by the network starts again (up to three more times, with pauses).
+     * v2.0.1: a download cut by the network starts again (up to three more times, with pauses); the answer (code and
+     * rate-limit fields; no body when it worked) is returned.
      */
-    static int download(String path, String token, File target, long maxBytes) throws IOException {
+    static Response download(String path, String token, File target, long maxBytes) throws IOException {
         for (int attempt = 0; ; attempt++) {
             Response limited = limitedNow(token);
-            if (limited != null) return limited.code;
+            if (limited != null) return limited;
             try {
-                int code = downloadOnce(path, token, target, maxBytes);
-                if (attempt < backoff.length && (code == 502 || code == 503 || code == 504)) {
+                Response r = downloadOnce(path, token, target, maxBytes);
+                if (attempt < backoff.length && (r.code == 502 || r.code == 503 || r.code == 504)) {
                     pause(backoff[attempt]);
                     continue;
                 }
-                return code;
+                return r;
             } catch (IOException e) {
                 if (attempt >= backoff.length || !worthRetry(e)) throw e;
                 pause(backoff[attempt]);
@@ -263,13 +264,14 @@ public final class GitHubHttp {
         }
     }
 
-    private static int downloadOnce(String path, String token, File target, long maxBytes) throws IOException {
+    private static Response downloadOnce(String path, String token, File target, long maxBytes) throws IOException {
         HttpURLConnection c = open(api() + path, "GET", token);
         c.setRequestProperty("Accept", "application/vnd.github.raw");
         int code = c.getResponseCode();
         if (code < 200 || code >= 300) {
-            note(read(c), token);
-            return code;
+            Response r = read(c);
+            note(r, token);
+            return r;
         }
         File temp = new File(target.getAbsolutePath() + ".part");
         long total = 0;
@@ -280,7 +282,8 @@ public final class GitHubHttp {
             c.disconnect();
             throw new NoRetry("Can't write " + temp, e);
         }
-        try (InputStream in = c.getInputStream(); OutputStream out = file) {
+        // the file first: it is closed even when the answer's stream can't be opened (review)
+        try (OutputStream out = file; InputStream in = c.getInputStream()) {
             byte[] buffer = new byte[64 * 1024];
             int n;
             while ((n = in.read(buffer)) > 0) {
@@ -303,7 +306,7 @@ public final class GitHubHttp {
             temp.delete();
             throw new NoRetry("Couldn't save " + target, null);
         }
-        return code;
+        return new Response(code, "");
     }
 
     // ------------------------------------------------------------------ v2.0.1: retries and limits

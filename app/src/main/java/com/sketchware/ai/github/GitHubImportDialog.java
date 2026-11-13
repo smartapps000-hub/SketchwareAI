@@ -325,7 +325,8 @@ public final class GitHubImportDialog {
                     .setTitle("Local libraries from " + from)
                     .setMessage("This backup brings local libraries. Their code goes into the apps you build with "
                             + "them: copy them only if you trust " + from + ". Libraries already on this phone are "
-                            + "never replaced, and the build's automatic repair never adds these to other projects. "
+                            + "never replaced; Sketchware AI never switches these on in another project by itself "
+                            + "(the Library Resolver installs the Maven library of the same name over them). "
                             + "Without them, the Library Resolver can install the libraries from Maven.")
                     .setPositiveButton("Without libraries", (d, w) -> restorer.restore(swb, false, null))
                     .setNegativeButton("Copy libraries", (d, w) -> restorer.restore(swb, true, from))

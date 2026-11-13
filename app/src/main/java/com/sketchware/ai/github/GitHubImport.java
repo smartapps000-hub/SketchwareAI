@@ -160,9 +160,11 @@ public final class GitHubImport {
         if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Can't create " + folder);
         String name = new File(path).getName().replaceAll("[\\\\/:*?\"<>|]", "_");
         File target = new File(folder, s.owner + "-" + s.repo + "-" + name);
-        int code = GitHubHttp.download(repoPath(s) + "/contents/" + CloudBackup.encPath(path) + "?ref=" + CloudBackup.enc(ref),
-                token, target, CloudBackup.MAX_BYTES + (5 << 20));
+        GitHubHttp.Response r = GitHubHttp.download(repoPath(s) + "/contents/" + CloudBackup.encPath(path) + "?ref="
+                + CloudBackup.enc(ref), token, target, CloudBackup.MAX_BYTES + (5 << 20));
+        int code = r.code;
         if (code == 404) throw notFound(token, s);
+        if (r.rateLimited()) throw CloudBackup.http("Downloading " + name, r);
         if (code < 200 || code >= 300) {
             throw new GitHubException("http_" + code, "Downloading " + name + " failed (HTTP " + code + ").");
         }

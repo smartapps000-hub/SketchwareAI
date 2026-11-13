@@ -115,6 +115,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.0.1: an expired code was renewed once by itself (a second expiry waits for Reload). */
     private boolean renewed;
     private boolean loading;
+    /** The page renderer kept ending and no new WebView is made (the status says so; not "no WebView"). */
+    private boolean webGaveUp;
     /** v2.0.1 (review): uptimes of recent page recoveries and WebView re-creations (loop guards). */
     private final java.util.ArrayDeque<Long> recoveries = new java.util.ArrayDeque<>();
     private final java.util.ArrayDeque<Long> recreations = new java.util.ArrayDeque<>();
@@ -251,7 +253,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
             if (browserWanted) {
                 browserWanted = false;
                 openBrowser();
-            } else if (web == null && !openedBrowser && !signIn.finishing()) {
+            } else if (web == null && !webGaveUp && !openedBrowser && !signIn.finishing()) {
                 status("This phone has no WebView: use “Sign in via browser” below.", false);
             }
         } else {
@@ -541,6 +543,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 } catch (RuntimeException ignored) {
                 }
                 if (!allowAgain(recreations, 2, 60_000L)) {
+                    webGaveUp = true;
                     status("GitHub's page keeps closing on this phone: use “Sign in via browser” below.", true);
                     pulse(chrome.browser);
                     return true;
@@ -592,6 +595,15 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 if (url == null || url.startsWith("about:")) return;
                 v.stopLoading();
                 take(Uri.parse(url));
+            }
+
+            @Override
+            public boolean onRenderProcessGone(WebView v, RenderProcessGoneDetail detail) {
+                // review: every WebView must handle its renderer's end, or Android ends the app
+                taken[0] = true;
+                popups.remove(v);
+                destroyQuietly(v);
+                return true;
             }
 
             private void take(Uri uri) {
@@ -655,24 +667,27 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private void recoverSoon() {
         main.postDelayed(() -> {
             if (closed || web == null) return;
-            if (!allowAgain(recoveries, 2, 30_000L)) {
-                // review: a page that leaves github.com again by itself (single sign-on, a redirect page): no loop
-                status("This sign-in leaves github.com: use “Sign in via browser” below.", true);
-                pulse(chrome.browser);
-                return;
-            }
-            String target = lastGoodUrl != null ? lastGoodUrl : DEVICE_PAGE;
             String url = web.getUrl();
             if (url == null || !allowed(Uri.parse(url))) {
-                web.loadUrl(target);
+                recover();
                 return;
             }
             web.evaluateJavascript("(function(){return document.body?document.body.innerText.trim().length:0;})()",
                     result -> {
                         if (closed || web == null) return;
-                        if (result == null || "0".equals(result) || "null".equals(result)) web.loadUrl(target);
+                        if (result == null || "0".equals(result) || "null".equals(result)) recover();
                     });
         }, 300);
+    }
+
+    /** Loads the last GitHub page again: at most twice in 30 s (review: no loop with a page that leaves by itself). */
+    private void recover() {
+        if (!allowAgain(recoveries, 2, 30_000L)) {
+            status("This sign-in leaves github.com: use “Sign in via browser” below.", true);
+            pulse(chrome.browser);
+            return;
+        }
+        web.loadUrl(lastGoodUrl != null ? lastGoodUrl : DEVICE_PAGE);
     }
 
     private void pageFinished(String url) {

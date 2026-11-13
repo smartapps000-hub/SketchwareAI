@@ -377,6 +377,12 @@ public final class GitHubTest {
                 ((java.util.List<?>) get(marked, "enabled")).isEmpty()
                         && ((java.util.List<?>) get(unmarked, "enabled")).contains("ghtest_lib_v201"),
                 get(marked, "enabled") + " / " + get(unmarked, "enabled"));
+        Class<?> installer = c("com.sketchware.ai.library.LibraryInstaller");
+        boolean usableUnmarked = Boolean.TRUE.equals(call(installer, "usable", testLib));
+        writeText(mark, "Copied from someone/repo by Import from GitHub.\n");
+        boolean usableMarked = Boolean.TRUE.equals(call(installer, "usable", testLib));
+        check("the Library Resolver never reuses a marked folder as the Maven library of that name",
+                usableUnmarked && !usableMarked, usableUnmarked + " / " + usableMarked);
         for (String folder : new String[]{"data", "bak", "mysc", "mysc/list", "resources/images", "resources/icons",
                 "resources/fonts", "resources/sounds"}) {
             deleteTree(new File(sketchware, folder + "/" + linkId));

@@ -179,6 +179,7 @@ public final class SignIn {
     }
 
     public synchronized void cancel() {
+        pausedGeneration = -1;
         generation++;
         pending = null;
         starting = false;
@@ -236,8 +237,9 @@ public final class SignIn {
                 code = DeviceFlow.start(clientId, DeviceFlow.SCOPE);
                 synchronized (this) {
                     if (gen != generation) {
-                        // the window was closed while the code was on its way: kept for the next window
-                        if (gen == pausedGeneration) save(code);
+                        // the window was closed while the code was on its way: kept for the next window, unless a
+                        // newer code is already under way or saved (review: an old answer must not replace it)
+                        if (gen == pausedGeneration && pending == null && !starting && loadSaved() == null) save(code);
                         return;
                     }
                     pending = code;
@@ -281,13 +283,17 @@ public final class SignIn {
             });
             synchronized (this) {
                 if (gen != generation) {
-                    if (gen != pausedGeneration) return;
-                    // review: the window was closed while GitHub's "yes" was on its way: the user approved, so it
-                    // counts (a run started meanwhile for the same code is ended by the new generation)
+                    // review: the window was closed (or opened again) while GitHub's "yes" was on its way: the user
+                    // approved this code, so it counts while the code is still the saved one (a cancel removes it,
+                    // a newer code replaces it); a run started meanwhile for the same code ends with the new
+                    // generation
+                    if (!code.deviceCode.equals(prefs.getString("device_code", null))) return;
                     pausedGeneration = -1;
                     g[0] = ++generation;
+                    pending = null;
                 }
                 finishing = true;
+                starting = false;
             }
             changed();
             CloudBackup.Account account = null;
@@ -320,6 +326,9 @@ public final class SignIn {
                 }
                 pending = null;
                 finishing = false;
+                starting = false;
+                error = null;
+                errorCode = null;
                 signedInNow = account.login;
             }
             clearSaved();

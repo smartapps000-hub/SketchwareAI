@@ -277,8 +277,12 @@ public final class CloudBackup {
 
     /** Downloads the .swb of {@code path} as it was in commit {@code sha}. */
     public void download(String path, String sha, File target) throws IOException, GitHubException {
-        int code = GitHubHttp.download(repoPath("/contents/" + encPath(path) + "?ref=" + enc(sha)), token, target, MAX_BYTES + (5 << 20));
-        if (code < 200 || code >= 300) throw new GitHubException("http_" + code, "Downloading the backup failed (HTTP " + code + ").");
+        GitHubHttp.Response r = GitHubHttp.download(repoPath("/contents/" + encPath(path) + "?ref=" + enc(sha)), token,
+                target, MAX_BYTES + (5 << 20));
+        if (r.rateLimited()) throw http("Downloading the backup", r);
+        if (r.code < 200 || r.code >= 300) {
+            throw new GitHubException("http_" + r.code, "Downloading the backup failed (HTTP " + r.code + ").");
+        }
     }
 
     // ------------------------------------------------------------------ helpers
