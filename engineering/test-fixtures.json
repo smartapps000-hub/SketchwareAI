@@ -758,7 +758,7 @@
       "kind": "`githubtest 940` (h.GitHubTest), ART, offline",
       "content": "v2.0.0 additions to the GitHub checks",
       "checks": [
-        "GITHUBTEST 38/38: the 34 v1.9.9 checks (app-control.json now min 201 / update link to v2.0.0) plus: import links (repository, .git, decoded file path, raw with refs/heads, folder) and refused ones (other hosts, other pages, non-.swb, '..' plain and encoded, garbage); the sign-in window's allowed pages (https github.com and subdomains; http, look-alike host, Google refused); the code script's argument stripped to letters, digits and hyphens"
+        "GITHUBTEST 39/39: the 34 v1.9.9 checks (app-control.json now min 201 / update link to v2.0.0) plus: import links (repository, .git, decoded file path, raw with refs/heads, folder) and refused ones (other hosts, other pages, non-.swb, '..' plain and encoded, garbage); the sign-in window's allowed pages (https github.com and subdomains; http, look-alike host, Google refused); the code script's argument stripped to letters, digits and hyphens; a background-style backup (setReadSavedDataOnly, custom blocks on) makes a .swb without loading or swapping jC's shared project, and its _cloud_temp folder is gone"
       ]
     },
     {

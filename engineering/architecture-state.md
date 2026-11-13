@@ -976,6 +976,9 @@ hardware-bound auth guard (v2.0.0)", with the Liquid Glass design files. Record:
   presses Continue or Authorize. Retried 8 times every 600 ms while the page builds; then "Type the code …" (the code
   chip copies it). Pages under `/login/device/…` (after Continue / Authorize) call `pollNow`. The window closes when
   `takeSignedIn` returns the login (`Done.signedIn`, toast "Signed in as @x"); closing it before that cancels the sign-in.
+  One window at a time (`current`; a window on another / recreated screen is closed quietly, its sign-in goes on); a
+  destroyed host = the WebView freed quietly; success is also seen when another window took the result (a code shown,
+  none pending, a login saved, and none stored when this window began). Sign-out removes the WebView cookies.
   No WebView on the phone / Android < 6: a line, and `AuthGuard.markUnavailable()`.
 - **`SignIn`** (v1.9.9 polling kept: errors while waiting = keep waiting, saved code resumed, checks never closer than
   the interval) minus the browser hand-off; after the token also `CloudBackup.primaryEmail` (GET /user/emails, scope
@@ -990,26 +993,36 @@ hardware-bound auth guard (v2.0.0)", with the Liquid Glass design files. Record:
   projects", tap = sign-in window; signed in: picture (14dp corners) or the mark, name or @login, @login, primary e-mail,
   "Sign out" glass pill with a confirmation). MainDrawer rebinds the header on `GitHubSession` changes
   (`onAttachedToWindow`). `DrawerItem.MENU_GITHUB` ("Cloud Sync & Account") removed.
-- **`github.CloudSync`** (one daemon thread for the app): `upload(scId)` = `BackupFactory` (no local libraries) +
-  `CloudBackup.ensureRepository` + `upload`, the .swb deleted in `finally`; `backUpFromMenu` (project card Back up >
+- **`github.CloudSync`** (one daemon thread for the app): `upload(scId)` = the token and `CloudBackup.ensureRepository`
+  first (offline nothing is zipped), then `BackupFactory` (no local libraries, custom blocks on,
+  `setReadSavedDataOnly(true)`: `CustomBlocksManager(sc_id, true)` reads the saved project into private `hC.i()` /
+  `eC.g()+e()` instances, never `jC`, whose getters empty the editor's live project in place when another project is
+  asked for: review finding), `upload`, then `BackupFactory.deleteUploadedBackup` (the .swb and its empty folder, under
+  `BACKUP_LOCK`: `BackupFactory.backup` runs one at a time, background runs use `<name>_cloud_temp`); `backUpFromMenu` (project card Back up >
   "To GitHub"; signed out: the sign-in window first; toasts at start and end); `projectCreated` (GC's new-project result:
   signed in = backed up by itself); IOException or a Keystore hiccup = `pending` (prefs `sketchware_ai_cloud_sync`,
   string set copied before changing); `syncPending` after a sign-in, `syncPendingSoon` from MainActivity.onResume (every
-  10 min at most, only when something waits); HTTP 401 = signed out, the project waits.
+  10 min at most, only when something waits; `SignIn` also calls `syncPending` after every sign-in); waiting also on
+  HTTP 5xx / 429 / 403 and "not signed in"; HTTP 401 = signed out only when it is still the same token, the project
+  waits; failures of the automatic backup that won't be retried are shown.
 - **`github.GitHubImport`** + **`GitHubImportDialog`** (Restore card > "Import from GitHub"): own backups (signed in:
   `CloudBackup.list`, a version list, download) and a pasted link: `github.com/<o>/<r>` (every .swb of the default
   branch's tree), `…/tree/<ref>/<dir>`, `…/blob|raw/<ref>/<path>.swb`, `raw.githubusercontent.com/<o>/<r>/[refs/heads/]<ref>/<path>`;
   path segments decoded, `.` / `..` / slashes in a segment refused, other hosts refused; downloads through the API
   contents endpoint (raw), the token only to the API host and only when signed in; 404 signed out = "a private
-  repository needs you to sign in". The file goes to `BackupRestoreManager.doRestore` with the projects list's callback.
+  repository needs you to sign in". The file goes to `BackupRestoreManager.doRestore` with the projects list's callback;
+  an own backup holding local libraries asks Copy / Don't copy (as the .swb restore does), a link's backup never copies
+  local libraries (a planted `<artifact>_V_<version>` folder would serve other projects: review finding); the zip check
+  runs on the worker. Looking at own backups never creates the repository (`CloudBackup.openIfExists`).
 - **Project list (`a.a.a.GC`)**: Back up = choice "On this phone (.swb file)" / "To GitHub"; Restore card = choice
   "Restore a .swb file" / "Import from GitHub" (the latter behind `AuthGuard.check`).
 - **`GitHubActivity`** = the sign-in gate only (one card, "Sign in with GitHub" opens the window; finishes once
   signed in); its v1.9.9 project list is gone. `GitHubScreen` replaced by `GitHubViews` (shared view kit: glass card,
   header row, no-glow pills, rows, the sign-in window's chrome).
 - **AuthGuard** also at `LogicEditorActivity.onCreate` (blocks, palette, permissions), `ManageLibraryActivity.onCreate`,
-  `LibraryResolverActivity.onCreate`, and every export button (APK, AAB, Android Studio) on top of the screen's own
-  check; `AppControl.refresh` (MainActivity.onResume, every 6 h, background, no dialogs) re-reads app-control.json and
+  `LibraryResolverActivity.onCreate` (`LogicEditorActivity.finish()` skips its event-history call while the project
+  fields are unset: finishing from onCreate crashed it), and every export button (APK, AAB, Android Studio) on top of the
+  screen's own check; `AppControl.refresh` (MainActivity.onResume, every 6 h, background, no dialogs) re-reads app-control.json and
   opens the gate when sign-in became required. `BuiltInCache`'s repair at app start is not gated (blocking it would
   leave a broken cache for the next build; builds themselves are gated).
 - **Drawables** `ob_cta_pill_soft*` (`GlassDrawable` without `swGlow*`, 16dp; plain shapes below 7.0) for the GitHub UI;

@@ -266,6 +266,19 @@ public final class GitHubTest {
         check("getNewScId: numeric maximum + 1, free", Integer.parseInt(fromList) > Integer.parseInt(freeId)
                 && !(Boolean) call(ids, "inUse", sketchware, Integer.parseInt(fromList)), fromList);
 
+        // --- v2.0.0: a background (cloud) backup reads the saved project privately: jC (the editor's copy) untouched
+        Class<?> jC = c("a.a.a.jC");
+        Object beforeA = get(jC, "a"), beforeB = get(jC, "b");
+        Object cloudFactory = neu("mod.hey.studios.project.backup.BackupFactory", scId);
+        call(cloudFactory, "setBackupCustomBlocks", true);
+        call(cloudFactory, "setReadSavedDataOnly", true);
+        call(cloudFactory, "backup", name);
+        File cloudSwb = (File) call(cloudFactory, "getOutFile");
+        check("cloud backup with custom blocks: a .swb, and jC's shared project not loaded or swapped",
+                cloudSwb != null && cloudSwb.isFile() && cloudSwb.length() > 1000 && get(jC, "a") == beforeA
+                        && get(jC, "b") == beforeB && !new File(BackupFactoryDir(), name + "_cloud_temp").exists(), cloudSwb);
+        if (cloudSwb != null) cloudSwb.delete();
+
         // --- a .swb with an entry outside its folder is refused
         File evilZip = new File(swb.getParentFile(), "evil.swb");
         try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(evilZip))) {
@@ -287,6 +300,10 @@ public final class GitHubTest {
         evilZip.delete();
         swb.delete();
         OUT.println("GITHUBTEST " + ok + "/" + total + (ok == total ? " ok" : " FAILED"));
+    }
+
+    static File BackupFactoryDir() throws Throwable {
+        return new File((String) call(c("mod.hey.studios.project.backup.BackupFactory"), "getBackupDir"));
     }
 
     static void deleteTree(File f) {

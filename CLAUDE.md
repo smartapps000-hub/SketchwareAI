@@ -219,7 +219,26 @@ Account" (drawer + title), drawer-card look, every project with Back up / Restor
 CACHETEST 31/31, DOCTORTEST 19/19, JAVAEDIT 101/101; two review passes (a restore-watcher crash, gate lock-out, a second
 screen after the gate, a lost approval on 5xx: all fixed). APK v1.9.9-6071ad5, versionCode 200 (v1.9.10 takes 201),
 sha256 `85d8d75a...28592d589`, 142,398,392 bytes. The relcheck API step's grep doesn't match api_level.py's output:
-compare `MISSING|NOCLASS` lines by member (`apimembers.sh`: v1.9.8 vs v1.9.9 0 new). Local branch
+compare `MISSING|NOCLASS` lines by member (`apimembers.sh`: v1.9.8 vs v1.9.9 0 new).
+v2.0.0 (owner's 13 Nov directive "in-app zero-Chrome GitHub auth, individual project sync/import, unified glass pill UI &
+deep hardware-bound auth guard", with his Liquid Glass design files; record `engineering/v2.0.0-verification.md`):
+`design/` (PDF + token sheet + tokens-to-resources map; read before visual changes). `github.GitHubInAppAuthDialog`
+(GitHub's device page in the app's own WebView: https github.com main frames only, no JS bridge, Safe Browsing, cookies
+kept while signed in and removed at sign-out; `fillScript` fills the code (8 one-letter boxes or one code box, never half,
+never presses Continue / Authorize; jsdom test `tools/jvm-tests/fill-script-test.js`); one window at a time; closes on
+the token). Custom Tab, `KeepAliveService`, finishActivity route removed. Scope `repo user:email` (primary e-mail).
+`GitHubSession` (profile, sign-out, `recheckOnline` every 6 h: 401 = signed out for that token), drawer account card
+(`main_drawer_header.xml` + `DrawerAccountCard`; "Cloud Sync & Account" item and list gone; `GitHubActivity` = gate only;
+`GitHubScreen` → `GitHubViews`), `CloudSync` (project Back up → "On this phone" / "To GitHub"; new projects backed up when
+signed in, offline pending; **background backups read the saved project with private hC.i()/eC.g()+e() instances via
+`BackupFactory.setReadSavedDataOnly` / `CustomBlocksManager(sc_id, true)`: jC's getters empty the editor's live project
+in place** (review HIGH); `BackupFactory.backup` serialised, `_cloud_temp`), `GitHubImport` + `GitHubImportDialog`
+(Restore card → ".swb file" / "Import from GitHub": own backups or a pasted repository / folder / .swb link; a link never
+copies local libraries), AuthGuard also at the block editor (`LogicEditorActivity.finish()` guarded), Library Manager /
+Resolver and each export button, `AppControl.refresh` every 6 h; GitHub pills without the outer glow
+(`ob_cta_pill_soft*`). Not built: owner-name bypass, "Open in browser" fallback (owner's call). GITHUBTEST 39/39,
+GITHUBCLIENT 34/34, FILLSCRIPT 12/12, CACHETEST 31/31, DOCTORTEST 19/19, JAVAEDIT 101/101; three review passes; APK
+v2.0.0-5148377, versionCode 201 (next 202), sha256 `d4ee6d84...30cb302c0`, 142,414,639 bytes. Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
