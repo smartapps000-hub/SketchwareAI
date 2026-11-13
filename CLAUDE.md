@@ -238,7 +238,32 @@ copies local libraries), AuthGuard also at the block editor (`LogicEditorActivit
 Resolver and each export button, `AppControl.refresh` every 6 h; GitHub pills without the outer glow
 (`ob_cta_pill_soft*`). Not built: owner-name bypass, "Open in browser" fallback (owner's call). GITHUBTEST 39/39,
 GITHUBCLIENT 34/34, FILLSCRIPT 12/12, CACHETEST 31/31, DOCTORTEST 19/19, JAVAEDIT 101/101; three review passes; APK
-v2.0.0-5148377, versionCode 201 (next 202), sha256 `d4ee6d84...30cb302c0`, 142,414,639 bytes. Local branch
+v2.0.0-5148377, versionCode 201 (next 202), sha256 `d4ee6d84...30cb302c0`, 142,414,639 bytes.
+v2.0.1 (owner's 13 Nov directive after the v2.0.0 phone test, screenshots: cut sign-in header, blank page after
+"Continue with Google", GitHub "Too many requests", cut import texts, plain backup list; record
+`engineering/v2.0.1-verification.md`): sign-in window two rows (`GitHubViews.authChrome`: ✕ · "GitHub Sign-In" · ⟳,
+3dp orange loading line, code pill + status up to 5 lines, status under the code with font ≥ 1.15 or < 330dp; never
+`setSingleLine` + centre gravity: it drew the code outside its pill), "Sign in via browser" card (code copied, Custom Tab
+by intent extras, `onWindowFocusChanged` → `pollNow`), `onCreateWindow` (tap only, GitHub's address into the same view),
+`recoverSoon`/`recover` (≤ 2 per 30 s) after a refused redirect, slow 20 s / stalled 60 s lines, GitHub 429 page →
+one-minute countdown, `onRenderProcessGone` on main and popup WebViews (≤ 2 re-creations per 60 s); user agent unchanged
+(removing "; wv" = bypassing Google's embedded-sign-in block: declined). `SignIn.pause` on close keeps the saved code;
+an approval in flight still counts while its code is `rescuableCode`; ≥ 10 s between new codes, none for 60 s after a 429;
+token saved before the e-mail read. `GitHubHttp`: 30 s / 120 s timeouts, GET retries (1/3/7 s + jitter) after IOException
+or 502-504 (never `NoRetry`: local file, too large), Retry-After ≤ 10 s waited once, rate-limit pause **per credential**
+(anon vs token; review HIGH: a signed-out import blocked the account) on `elapsedRealtime` from Retry-After or reset −
+Date, 1 s-1 h; writes never retried; `download` returns a Response. Back up sheet (`ProjectBackupSheets`,
+`GitHubViews.backupSheet`: the two classic boxes, remembered, both on at first; "Save on phone" =
+`BackupRestoreManager.backupNow`, "Back up to GitHub" = `CloudSync.Options`, kept for a waiting backup; automatic backups
+`Options.AUTOMATIC` = blocks on, libraries off), Restore sheet (local .swb / GitHub import); import sheet: short hint,
+two-line rows, offline own-backup list (never creates the repository: `openIfExists` first); a linked backup's local
+libraries only after asking ("Without libraries" first), copied ones get `imported_from_link.txt`
+(`LibraryAutoResolve.FROM_LINK_MARK`: auto-repair never enables them, `LibraryInstaller.usable` false, `LibraryHeal`
+replaces them only after the Maven download). Declined: Google Tink (Keystore AES-GCM already; protobuf-lite clash),
+Credential Manager (no GitHub provider; token would go to a password cloud), an OkHttp rewrite (4.10.0 already in the
+APK; HttpURLConnection is OkHttp on Android). Harness: `stubs/android/os/{Handler,Looper,SystemClock}` (post drops).
+GITHUBCLIENT 48/48, GITHUBTEST 48/48, FILLSCRIPT 12/12, renders `V201Test` / `V201LargeFontTest`; three review passes.
+APK v2.0.1-d450f80, versionCode 202 (next 203), sha256 `c723881f...4242408f5`, 142,434,970 bytes. Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`
