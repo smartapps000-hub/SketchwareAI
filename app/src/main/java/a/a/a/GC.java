@@ -236,7 +236,7 @@ public class GC extends DA implements View.OnClickListener {
         if (requestCode == REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY) {
             toProjectSettingsActivity();
         } else if (requestCode == REQUEST_CODE_RESTORE_PROJECT) {
-            restoreProject();
+            chooseRestore();
         }
     }
 
@@ -365,7 +365,7 @@ public class GC extends DA implements View.OnClickListener {
         } else if (requestCode == REQUEST_CODE_RESTORE_PROJECT) {
             if (resultCode == Activity.RESULT_OK) {
                 refreshProjectsList();
-                restoreProject();
+                chooseRestore();
             }
         }
     }

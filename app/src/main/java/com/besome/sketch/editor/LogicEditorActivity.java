@@ -1910,7 +1910,8 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
 
     @Override
     public void finish() {
-        bC.d(this.B).b(s());
+        // v2.0.0: finishing from onCreate (sign-in gate, storage check) happens before the project fields are set
+        if (this.B != null && this.M != null) bC.d(this.B).b(s());
         super.finish();
     }
 

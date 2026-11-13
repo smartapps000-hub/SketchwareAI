@@ -95,6 +95,16 @@ public final class GitHubSession {
         //noinspection ResultOfMethodCallIgnored
         avatarFile(context).delete();
         AuthGuard.reset();
+        // GitHub's web sign-in in the app's sign-in window goes too (its cookies are the only WebView cookies of the app)
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            try {
+                android.webkit.CookieManager cookies = android.webkit.CookieManager.getInstance();
+                cookies.removeAllCookies(null);
+                cookies.flush();
+            } catch (RuntimeException e) {
+                LogUtil.d("GitHubSession", "No WebView cookies to remove: " + e);
+            }
+        });
         changed();
     }
 
@@ -106,7 +116,11 @@ public final class GitHubSession {
         Context app = context.getApplicationContext();
         if (checking || TokenStore.get(app).login() == null) return;
         SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        if (System.currentTimeMillis() - prefs.getLong("checked_at", 0) < RECHECK_MILLIS) return;
+        long now = System.currentTimeMillis();
+        if (now - prefs.getLong("checked_at", 0) < RECHECK_MILLIS) return;
+        // a failed try (offline, GitHub errors) waits half an hour, not until the next resume
+        if (now - prefs.getLong("tried_at", 0) < 30 * 60_000L) return;
+        prefs.edit().putLong("tried_at", now).apply();
         checking = true;
         Thread thread = new Thread(() -> {
             try {
@@ -116,7 +130,8 @@ public final class GitHubSession {
                 try {
                     account = CloudBackup.account(token);
                 } catch (GitHubException e) {
-                    if ("unauthorized".equals(e.code)) {
+                    // only when it is still this token (a sign-out and a new sign-in meanwhile keep the new session)
+                    if ("unauthorized".equals(e.code) && token.equals(TokenStore.get(app).token())) {
                         LogUtil.d("GitHubSession", "The GitHub token was revoked: signed out");
                         signOut(app);
                     }
@@ -127,6 +142,8 @@ public final class GitHubSession {
                     email = CloudBackup.primaryEmail(token);
                 } catch (IOException ignored) {
                 }
+                // signed out (or another account) meanwhile: nothing is written back
+                if (!token.equals(TokenStore.get(app).token())) return;
                 saveProfile(app, account, email);
                 // a new picture on GitHub replaces the kept one (a failed download keeps the old file)
                 SignIn.downloadAvatar(app, account.avatarUrl);

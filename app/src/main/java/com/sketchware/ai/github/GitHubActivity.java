@@ -89,7 +89,6 @@ public class GitHubActivity extends BaseAppCompatActivity {
             @Override
             public void signedIn(String login) {
                 AuthGuard.reset();
-                CloudSync.get(GitHubActivity.this).syncPending();
                 finish();
             }
 

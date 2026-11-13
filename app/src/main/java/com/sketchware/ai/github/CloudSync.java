@@ -105,7 +105,8 @@ public final class CloudSync {
     public void projectCreated(String scId) {
         if (scId == null || TokenStore.get(app).login() == null) return;
         backUp(scId, (ok, message) -> {
-            if (ok) Toast.makeText(app, message, Toast.LENGTH_SHORT).show();
+            // a failure that waits says nothing (it is tried again); one that won't work again is shown
+            if (ok || !pending().contains(scId)) Toast.makeText(app, message, Toast.LENGTH_SHORT).show();
         });
     }
 
@@ -153,15 +154,12 @@ public final class CloudSync {
                 message = "No connection to GitHub: the backup waits for the next chance.";
                 LogUtil.d("CloudSync", "Backup of " + scId + " waits: " + e);
             } catch (GitHubException e) {
-                if ("keystore".equals(e.code)) addPending(scId);
-                if ("http_401".equals(e.code) && TokenStore.get(app).login() != null) {
-                    // the token was revoked on GitHub: signed out here too; the project waits for the next sign-in
-                    GitHubSession.signOut(app);
+                if ("keystore".equals(e.code) || "unauthorized".equals(e.code) || "signed_out".equals(e.code)
+                        || SignIn.isPassing(e.code)) {
+                    // worth another try: a Keystore hiccup, a server error / rate limit, or a sign-in to come
                     addPending(scId);
-                    message = "GitHub doesn't accept the sign-in any more. Sign in again: the backup waits.";
-                } else {
-                    message = e.getMessage();
                 }
+                message = e.getMessage();
             } catch (Exception e) {
                 LogUtil.e("CloudSync", "Backup of " + scId + " failed", e);
                 message = "The backup didn't work: " + e;
@@ -199,20 +197,36 @@ public final class CloudSync {
         if (token == null) {
             throw new GitHubException("keystore", "The sign-in couldn't be read from the Android Keystore just now. Try again.");
         }
-        BackupFactory factory = new BackupFactory(scId);
-        factory.setBackupLocalLibs(false);
-        factory.setBackupCustomBlocks(true);
-        factory.backup(name);
-        File swb = factory.getOutFile();
-        if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
+        CloudBackup cloud = new CloudBackup(token, login);
         try {
-            CloudBackup cloud = new CloudBackup(token, login);
+            // the network and the token first: offline nothing is zipped
             cloud.ensureRepository();
-            cloud.upload(swb, name, pkg, version, com.sketchware.remod.BuildConfig.VERSION_NAME);
-        } finally {
-            // the .swb was made for the upload only
-            //noinspection ResultOfMethodCallIgnored
-            swb.delete();
+            BackupFactory factory = new BackupFactory(scId);
+            factory.setBackupLocalLibs(false);
+            factory.setBackupCustomBlocks(true);
+            // the saved project, read with its own instances: never the editor's shared copy (it may be open)
+            factory.setReadSavedDataOnly(true);
+            factory.backup(name);
+            File swb = factory.getOutFile();
+            if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
+            try {
+                cloud.upload(swb, name, pkg, version, com.sketchware.remod.BuildConfig.VERSION_NAME);
+            } finally {
+                // the .swb was made for the upload only (and its folder, when nothing else is in it)
+                //noinspection ResultOfMethodCallIgnored
+                swb.delete();
+                File folder = swb.getParentFile();
+                String[] left = folder == null ? null : folder.list();
+                //noinspection ResultOfMethodCallIgnored
+                if (left != null && left.length == 0) folder.delete();
+            }
+        } catch (GitHubException e) {
+            if ("http_401".equals(e.code) && token.equals(store.token())) {
+                // this very token was revoked on GitHub: signed out here too; the project waits for the next sign-in
+                GitHubSession.signOut(app);
+                throw new GitHubException("signed_out", "GitHub doesn't accept the sign-in any more. Sign in again: the backup waits.");
+            }
+            throw e;
         }
         return name;
     }

@@ -290,7 +290,16 @@ public class BackupFactory {
 
     /************************ BACKUP ************************/
 
+    /** v2.0.0: one backup at a time (a phone backup and a background GitHub backup of a project shared a temp folder). */
+    private static final Object BACKUP_LOCK = new Object();
+
     public void backup(String project_name) {
+        synchronized (BACKUP_LOCK) {
+            backupLocked(project_name);
+        }
+    }
+
+    private void backupLocked(String project_name) {
         String customFileName = ConfigActivity.getBackupFileName();
 
         String versionName = yB.c(lC.b(sc_id), "sc_ver_name");
@@ -320,7 +329,7 @@ public class BackupFactory {
 
         // Init temporary backup folder
         File outFolder = new File(getBackupDir(),
-                project_name + "_temp");
+                project_name + (readSavedDataOnly ? "_cloud_temp" : "_temp"));
 
         // Init output zip file
         File outZip = new File(getBackupDir() + File.separator + projectNameOnly, finalFileName +
@@ -329,7 +338,7 @@ public class BackupFactory {
 
         // Create a duplicate if already exists (impossible now :3)
         if (outZip.exists()) {
-            backup(project_name + "_d");
+            backupLocked(project_name + "_d");
             return;
         }
         //delete temp dir if exist
@@ -395,7 +404,7 @@ public class BackupFactory {
 
         // Find custom blocks used and include them in the backup
         if (backupCustomBlocks) {
-            CustomBlocksManager cbm = new CustomBlocksManager(sc_id);
+            CustomBlocksManager cbm = new CustomBlocksManager(sc_id, readSavedDataOnly);
 
             ArrayList<ExtraBlockInfo> blocks = new ArrayList<>();
             for (BlockBean bean : cbm.getUsedBlocks()) {
@@ -449,6 +458,13 @@ public class BackupFactory {
 
     public void setBackupCustomBlocks(boolean b) {
         backupCustomBlocks = b;
+    }
+
+    /** v2.0.0: background backups read the saved project with their own instances (see CustomBlocksManager). */
+    private boolean readSavedDataOnly;
+
+    public void setReadSavedDataOnly(boolean b) {
+        readSavedDataOnly = b;
     }
 
     /************************ RESTORE ************************/

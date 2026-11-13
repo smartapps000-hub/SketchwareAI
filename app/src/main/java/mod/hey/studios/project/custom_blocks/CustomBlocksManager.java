@@ -19,8 +19,18 @@ public class CustomBlocksManager {
     String sc_id;
     ArrayList<BlockBean> blocks;
 
+    // v2.0.0: with savedDataOnly the saved project (data/<sc_id>) is read into private hC / eC instances. The background
+    // cloud backup uses it: jC's getters swap the editor's live project out (its lists are emptied in place) when
+    // another project is asked for, and share objects the editor is changing.
+    private final boolean savedDataOnly;
+
     public CustomBlocksManager(String sc_id) {
+        this(sc_id, false);
+    }
+
+    public CustomBlocksManager(String sc_id, boolean savedDataOnly) {
         this.sc_id = sc_id;
+        this.savedDataOnly = savedDataOnly;
 
         load();
     }
@@ -35,8 +45,18 @@ public class CustomBlocksManager {
 
         ArrayList<String> usedBlocks = new ArrayList<>();
 
-        hC hc = jC.b(sc_id);
-        eC ec = jC.a(sc_id);
+        hC hc;
+        eC ec;
+        if (savedDataOnly) {
+            hc = new hC(sc_id);
+            hc.i();
+            ec = new eC(sc_id);
+            ec.g();
+            ec.e();
+        } else {
+            hc = jC.b(sc_id);
+            ec = jC.a(sc_id);
+        }
 
         for (ProjectFileBean bean : hc.b()) {
 

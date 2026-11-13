@@ -71,10 +71,31 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private int fillTries;
     private boolean signedIn;
     private boolean closed;
+    /** Closed only to make room for a new window: the shared sign-in goes on. */
+    private boolean keepSignIn;
+    /** This window showed a code (so a saved login means this sign-in succeeded). */
+    private boolean sawCode;
 
-    /** Opens the window and starts (or continues) a sign-in. */
+    /** The window on screen, if any: one at a time (they share the one sign-in of {@link SignIn}). */
+    private static GitHubInAppAuthDialog current;
+
+    /** Opens the window and starts (or continues) a sign-in; a window already open on this screen is reused. */
     public static GitHubInAppAuthDialog show(Activity activity, Done done) {
+        GitHubInAppAuthDialog open = current;
+        if (open != null && !open.closed && open.isShowing() && open.activity == activity && !activity.isFinishing()) {
+            return open;
+        }
+        if (open != null && !open.closed) {
+            // a window left on another (or a recreated) screen: closed quietly, its sign-in carries on here
+            open.keepSignIn = true;
+            try {
+                open.dismiss();
+            } catch (RuntimeException ignored) {
+                open.close();
+            }
+        }
         GitHubInAppAuthDialog dialog = new GitHubInAppAuthDialog(activity, done);
+        current = dialog;
         dialog.show();
         return dialog;
     }
@@ -106,7 +127,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
             chrome.retry.setVisibility(View.GONE);
             loadedFor = null;
             filled = false;
-            begin();
+            if (web != null) begin();
         });
         setOnDismissListener(d -> close());
         if (!TokenStore.supported()) {
@@ -142,6 +163,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     // ------------------------------------------------------------------ sign-in
 
     private void begin() {
+        // a result nobody showed (an older window was closed at that moment) is not this window's
+        signIn.takeSignedIn();
         // a code the system interrupted (the app was stopped) continues while it is valid; else a new one
         signIn.resumeSaved(clientId);
         if (signIn.pending() == null) signIn.start(clientId);
@@ -150,7 +173,17 @@ public final class GitHubInAppAuthDialog extends Dialog {
 
     private void onSignInChanged() {
         if (closed) return;
+        if (activity.isDestroyed()) {
+            // the screen under the window is gone (recreated): free the WebView; the sign-in itself goes on
+            keepSignIn = true;
+            close();
+            return;
+        }
         String login = signIn.takeSignedIn();
+        if (login == null && sawCode && signIn.pending() == null && !signIn.busy()) {
+            // another window took the result: the saved login says the same
+            login = TokenStore.get(getContext()).login();
+        }
         if (login != null) {
             signedIn = true;
             Toast.makeText(activity, "Signed in as @" + login, Toast.LENGTH_SHORT).show();
@@ -160,6 +193,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         DeviceFlow.Code code = signIn.pending();
         if (code != null) {
+            sawCode = true;
             chrome.code.setText(code.userCode);
             chrome.code.setVisibility(View.VISIBLE);
             if (!code.deviceCode.equals(loadedFor)) {
@@ -173,7 +207,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
             chrome.code.setVisibility(View.GONE);
         }
         if (signIn.finishing()) {
-            status("Approved. Signing you in…", false);
+            status("Approved. Signing you in… (keep this open)", false);
         } else if (code == null && signIn.busy()) {
             status("Asking GitHub for a code…", false);
         } else if (code == null && signIn.error() != null) {
@@ -185,10 +219,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private void close() {
         if (closed) return;
         closed = true;
+        if (current == this) current = null;
         signIn.removeListener(listener);
         main.removeCallbacksAndMessages(null);
         // the window was closed before GitHub's approval: the sign-in stops
-        if (!signedIn && TokenStore.get(getContext()).login() == null) signIn.cancel();
+        if (!signedIn && !keepSignIn && TokenStore.get(getContext()).login() == null) signIn.cancel();
         if (web != null) {
             try {
                 CookieManager.getInstance().flush();
@@ -257,6 +292,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
             public void onReceivedSslError(WebView view, SslErrorHandler handler, android.net.http.SslError error) {
                 handler.cancel();
                 status("The connection to GitHub isn't secure here (check the date, time and network).", true);
+                chrome.retry.setVisibility(View.VISIBLE);
             }
         });
     }
@@ -272,10 +308,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private boolean refuse(Uri uri) {
         if (allowed(uri)) return false;
         String host = uri == null ? null : uri.getHost();
-        if (host != null && host.contains("google")) {
-            status("Google sign-in doesn't work inside apps: use your GitHub password, passkey or 2FA app.", true);
+        DeviceFlow.Code code = signIn.pending();
+        String other = code == null ? "" : " Or enter " + code.userCode + " at github.com/login/device on another device.";
+        if (host != null && (host.contains("google") || host.contains("apple"))) {
+            status("Google and Apple sign-in don't work inside apps: use your GitHub password." + other, true);
         } else {
-            status("Only github.com opens here.", true);
+            status("Only github.com opens here." + other, true);
         }
         return true;
     }
@@ -346,8 +384,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private void status(String text, boolean error) {
         if (chrome == null) return;
         chrome.status.setText(text);
-        chrome.status.setTextColor(getContext().getResources().getColor(error ? R.color.ob_error : R.color.ob_text_2,
-                getContext().getTheme()));
+        chrome.status.setTextColor(new GitHubViews(getContext()).color(error ? R.color.ob_error : R.color.ob_text_2));
     }
 
     private void copyCode() {

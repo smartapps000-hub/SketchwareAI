@@ -135,6 +135,25 @@ public final class CloudBackup {
         if (branch == null) branch = "main";
     }
 
+    /**
+     * v2.0.0: opens the backup repository only if it exists (reading must never create it); false when there is none.
+     * A public repository of that name is refused as in {@link #ensureRepository}.
+     */
+    public boolean openIfExists() throws IOException, GitHubException {
+        GitHubHttp.Response r = GitHubHttp.api("GET", repoPath(""), token, null);
+        if (r.code == 404) return false;
+        if (!r.ok()) throw http("Opening " + owner + "/" + REPO, r);
+        JsonObject repo = DeviceFlow.parse(r.body);
+        JsonElement isPrivate = repo.get("private");
+        if (isPrivate == null || !isPrivate.getAsBoolean()) {
+            throw new GitHubException("public_repo", owner + "/" + REPO + " exists and is public. Backups go only to a "
+                    + "private repository: make it private on github.com (Settings > Danger Zone) or rename it.");
+        }
+        branch = DeviceFlow.string(repo, "default_branch");
+        if (branch == null) branch = "main";
+        return true;
+    }
+
     /** What index.json lists; empty when nothing was backed up yet. */
     public List<Entry> list() throws IOException, GitHubException {
         List<Entry> entries = new ArrayList<>();

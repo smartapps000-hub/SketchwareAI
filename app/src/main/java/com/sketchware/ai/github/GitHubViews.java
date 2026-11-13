@@ -59,7 +59,7 @@ public final class GitHubViews {
         TextView t = new TextView(c, null, 0, R.style.Ob_Text);
         t.setText(title);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        t.setTypeface(c.getResources().getFont(R.font.sora_bold));
+        t.setTypeface(bold());
         t.setSingleLine(true);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.addView(t);
@@ -161,7 +161,7 @@ public final class GitHubViews {
         TextView t = new TextView(c, null, 0, R.style.Ob_Text_Caption);
         t.setText(text);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        if (error) t.setTextColor(c.getResources().getColor(R.color.ob_error, c.getTheme()));
+        if (error) t.setTextColor(color(R.color.ob_error));
         return t;
     }
 
@@ -216,7 +216,7 @@ public final class GitHubViews {
         AuthChrome a = new AuthChrome();
         LinearLayout root = new LinearLayout(c);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(c.getResources().getColor(R.color.ob_bg, c.getTheme()));
+        root.setBackgroundColor(color(R.color.ob_bg));
         root.setPadding(dp(12), dp(12), dp(12), dp(12));
 
         LinearLayout top = new LinearLayout(c);
@@ -235,7 +235,7 @@ public final class GitHubViews {
         TextView title = new TextView(c, null, 0, R.style.Ob_Text);
         title.setText("Sign in with GitHub");
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        title.setTypeface(c.getResources().getFont(R.font.sora_bold));
+        title.setTypeface(bold());
         title.setSingleLine(true);
         titles.addView(title);
         TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
@@ -297,6 +297,24 @@ public final class GitHubViews {
                 heightDp < 0 ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(heightDp));
         params.topMargin = dp(topMarginDp);
         return params;
+    }
+
+    /** A colour resource on every API level (the minApi21 flavour has no getColor(int, Theme) below 23). */
+    @SuppressWarnings("deprecation")
+    public int color(int id) {
+        return android.os.Build.VERSION.SDK_INT >= 23 ? c.getResources().getColor(id, c.getTheme()) : c.getResources().getColor(id);
+    }
+
+    /** Sora bold (font resources need API 26; bold system type below, minApi21 flavour). */
+    public android.graphics.Typeface bold() {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            try {
+                return c.getResources().getFont(R.font.sora_bold);
+            } catch (RuntimeException ignored) {
+                // a missing font file must not stop the screen
+            }
+        }
+        return android.graphics.Typeface.DEFAULT_BOLD;
     }
 
     public int dp(int value) {

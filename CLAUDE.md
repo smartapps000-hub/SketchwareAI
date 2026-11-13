@@ -416,7 +416,8 @@ white; tiles (`ob_tile_orange`), FAB and toolbar keep `#F4511E` based gradients.
   items; nothing unbuilt goes under "Shipped").
 - Standing rules: offline first, no cloud model in the build; network for Maven artifacts from Google Maven, Maven
   Central and JitPack, and (owner's 12 Nov directive) GitHub sign-in / cloud backup when the user uses them plus one read
-  of `config/app-control.json` at start; never download or run scripts, Gradle hooks or unsigned plugins; never put
+  of `config/app-control.json` at start (v2.0.0: again every 6 h while the app is used, and the token re-checked with
+  GET /user, both in the background); never download or run scripts, Gradle hooks or unsigned plugins; never put
   tokens or secrets in the APK or project; never add permissions silently. A tamper/licence "security kit", a remote
   switch that stops the IDE and a build expiry are out of scope (asked again 12 Nov; reasons in v1.9.8-verification.md).
 - Signing: APK export = `ReleaseSigner` / `ApkSigner` (the owner: keep it untouched; unchanged); AAB export =

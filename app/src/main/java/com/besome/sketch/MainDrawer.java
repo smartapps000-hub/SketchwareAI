@@ -179,10 +179,7 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
                     public void signIn() {
                         if (!(getContext() instanceof Activity)) return;
                         Activity activity = (Activity) getContext();
-                        com.sketchware.ai.github.GitHubInAppAuthDialog.show(activity, login -> {
-                            com.sketchware.ai.github.CloudSync.get(activity).syncPending();
-                            accountListener.changed();
-                        });
+                        com.sketchware.ai.github.GitHubInAppAuthDialog.show(activity, login -> accountListener.changed());
                     }
 
                     @Override

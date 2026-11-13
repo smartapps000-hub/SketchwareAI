@@ -250,6 +250,8 @@ public final class SignIn {
             clearSaved();
             changed();
             GitHubSession.changed();
+            // projects made while signed out of GitHub or offline go up now
+            CloudSync.get(app).syncPending();
             // the picture for the account card (every screen reads the file); a failure only means no picture
             if (downloadAvatar(app, account.avatarUrl)) GitHubSession.changed();
         } catch (GitHubException e) {

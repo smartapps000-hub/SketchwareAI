@@ -69,7 +69,7 @@ public final class GitHubImportDialog {
 
         link = new EditText(activity, null, 0, R.style.Ob_Text);
         link.setHint("github.com/owner/repo or a .swb link");
-        link.setHintTextColor(activity.getResources().getColor(R.color.ob_text_2, activity.getTheme()));
+        link.setHintTextColor(v.color(R.color.ob_text_2));
         link.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         link.setSingleLine(true);
         link.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
@@ -116,8 +116,8 @@ public final class GitHubImportDialog {
             try {
                 String token = token();
                 CloudBackup cloud = new CloudBackup(token, store.login());
-                cloud.ensureRepository();
-                List<CloudBackup.Entry> entries = cloud.list();
+                // looking must not create the repository: none yet = no backups yet
+                List<CloudBackup.Entry> entries = cloud.openIfExists() ? cloud.list() : new java.util.ArrayList<>();
                 ui(() -> showOwn(entries, cloud));
             } catch (Exception e) {
                 ui(() -> {
@@ -179,7 +179,8 @@ public final class GitHubImportDialog {
                 String base = new File(entry.path).getName().replace(".swb", "");
                 File target = new File(folder, base + " " + version.sha.substring(0, 7) + ".swb");
                 cloud.download(entry.path, version.sha, target);
-                ui(() -> finish(target));
+                boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
+                ui(() -> finish(target, libraries, true));
             } catch (Exception e) {
                 ui(() -> setBusy(false, text(e)));
             }
@@ -193,7 +194,7 @@ public final class GitHubImportDialog {
         GitHubImport.Source source = GitHubImport.parse(link.getText().toString());
         if (source == null) {
             setBusy(false, "That isn't a GitHub repository, folder or .swb link.");
-            status.setTextColor(activity.getResources().getColor(R.color.ob_error, activity.getTheme()));
+            status.setTextColor(v.color(R.color.ob_error));
             return;
         }
         setBusy(true, "Looking at " + source.owner + "/" + source.repo + "…");
@@ -226,7 +227,10 @@ public final class GitHubImportDialog {
         work.execute(() -> {
             try {
                 File target = GitHubImport.download(token, source, path, new File(BackupFactory.getBackupDir(), "github"));
-                ui(() -> finish(target));
+                // a backup from someone else's repository never copies its local libraries into the shared
+                // local_libs folder (another project could later use a planted library): the project restores
+                // without them, the Library Resolver installs them from Maven
+                ui(() -> finish(target, false, false));
             } catch (Exception e) {
                 ui(() -> setBusy(false, text(e)));
             }
@@ -235,11 +239,27 @@ public final class GitHubImportDialog {
 
     // ------------------------------------------------------------------ helpers
 
-    /** Hands the file to the app's restore (a new project) and closes the sheet. */
-    private void finish(File swb) {
+    /**
+     * Hands the file to the app's restore (a new project) and closes the sheet. An own backup with local libraries asks
+     * the question the .swb restore asks; a link's backup never brings libraries.
+     */
+    private void finish(File swb, boolean hasLibraries, boolean own) {
         setBusy(false, null);
-        dialog.dismiss();
-        restorer.restore(swb, BackupFactory.zipContainsFile(swb.getAbsolutePath(), "local_libs"));
+        try {
+            dialog.dismiss();
+        } catch (RuntimeException ignored) {
+            // the window went with a recreated screen
+        }
+        if (own && hasLibraries) {
+            new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                    .setTitle("Local libraries")
+                    .setMessage("This backup holds local libraries. Copy them to this phone's libraries?")
+                    .setPositiveButton("Copy", (d, w) -> restorer.restore(swb, true))
+                    .setNegativeButton("Don't copy", (d, w) -> restorer.restore(swb, false))
+                    .show();
+        } else {
+            restorer.restore(swb, false);
+        }
     }
 
     private String token() throws GitHubException {
@@ -254,14 +274,14 @@ public final class GitHubImportDialog {
         this.busy = busy;
         importButton.setEnabled(!busy);
         importButton.setAlpha(busy ? 0.5f : 1f);
-        status.setTextColor(activity.getResources().getColor(R.color.ob_text_2, activity.getTheme()));
+        status.setTextColor(v.color(R.color.ob_text_2));
         status.setText(text == null ? "" : text);
         status.setVisibility(text == null ? View.GONE : View.VISIBLE);
     }
 
     private void ui(Runnable r) {
         activity.runOnUiThread(() -> {
-            if (dialog != null && dialog.isShowing() && !activity.isFinishing()) r.run();
+            if (dialog != null && dialog.isShowing() && !activity.isFinishing() && !activity.isDestroyed()) r.run();
         });
     }
 
