@@ -2,6 +2,17 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.0.0 (versionCode 201, `v2.0.0-5148377-minApi26`)
+
+`apk/Sketchware_AI_v2.0.0.apk`, sha256 `d4ee6d84e7dd268af13aa5f00402d7c467fddd90d64441b2fdcbdef30cb302c0` (Git LFS).
+GitHub sign-in inside the app (no Chrome; the code is filled in, the window closes when signed in); a GitHub account
+card in the drawer; each project backs up to the phone or to GitHub, new projects go up by themselves, Import from
+GitHub beside the .swb restore; the Liquid Glass design reference in `design/` on `main`. Release notes:
+`releases/v2.0.0/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.0.0.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.0.apk
+
 ## v1.9.9 (versionCode 200, `v1.9.9-6071ad5-minApi26`)
 
 `apk/Sketchware_AI_v1.9.9.apk`, sha256 `85d8d75a8947351f0752f84b91167643d3a161c5ba5cddf7083e30428592d589` (Git LFS).
