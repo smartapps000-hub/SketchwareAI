@@ -86,7 +86,7 @@ public final class GitHubViews {
         tile.setContentDescription(null);
         TextView t = (TextView) ((LinearLayout) row.getChildAt(1)).getChildAt(0);
         t.setSingleLine(false);
-        t.setMaxLines(2);
+        t.setMaxLines(3);
         TextView sub = (TextView) ((LinearLayout) row.getChildAt(1)).getChildAt(1);
         sub.setSingleLine(false);
         sub.setMaxLines(2);
@@ -339,9 +339,13 @@ public final class GitHubViews {
         pb.topMargin = dp(8);
         top.addView(progress, pb);
 
+        // v2.0.1: with a large font (or a very narrow phone) the status goes under the code, full width, never cut
+        android.util.DisplayMetrics metrics = c.getResources().getDisplayMetrics();
+        boolean stacked = c.getResources().getConfiguration().fontScale >= 1.15f
+                || metrics.widthPixels / metrics.density < 330;
         LinearLayout row2 = new LinearLayout(c);
-        row2.setOrientation(LinearLayout.HORIZONTAL);
-        row2.setGravity(Gravity.CENTER_VERTICAL);
+        row2.setOrientation(stacked ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+        row2.setGravity(stacked ? Gravity.START : Gravity.CENTER_VERTICAL);
         TextView code = new TextView(c, null, 0, R.style.Ob_Text_Label);
         code.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         code.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -360,16 +364,25 @@ public final class GitHubViews {
         }
         code.setVisibility(View.GONE);
         code.setContentDescription("Sign-in code; tap to copy");
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38));
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                stacked ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(38));
+        if (stacked) {
+            code.setMinHeight(dp(38));
+            code.setPadding(dp(12), dp(6), dp(10), dp(6));
+        }
         cp.rightMargin = dp(10);
         row2.addView(code, cp);
         TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        // up to four lines (a 320dp phone with the code pill, or a large font): never cut
-        status.setMaxLines(4);
+        // up to five lines beside the code (or under it): every status text fits whole
+        status.setMaxLines(5);
         status.setMinHeight(dp(38));
         status.setGravity(Gravity.CENTER_VERTICAL);
-        row2.addView(status, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams sp = stacked
+                ? new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                : new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (stacked) sp.topMargin = dp(6);
+        row2.addView(status, sp);
         LinearLayout.LayoutParams r2 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         r2.topMargin = dp(6);

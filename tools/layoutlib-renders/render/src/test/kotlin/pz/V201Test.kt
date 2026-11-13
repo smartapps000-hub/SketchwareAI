@@ -114,10 +114,11 @@ class V201Test {
         val shots = listOf(
                 shot(window("Sign in below · the code goes in by itself.", false, "WDJB-MJHT", 62)),
                 shot(window("Code auto-filled · tap Continue, then Authorize.", false, "WDJB-MJHT", 100)),
-                shot(window("GitHub got too many requests from this network. Try again in 42 s, or use the browser below.", true, "WDJB-MJHT", 100)),
+                shot(window("Too many requests from this network. Try again in 42 s, or use the browser.", true, "WDJB-MJHT", 100), 360, 860),
+                shot(window("Google, Apple, passkeys: use “Sign in via browser” below.", false, "WDJB-MJHT", 100), 320, 700),
                 shot(window("Sign-in didn't work. Please try again. Tap ⟳ to try again.", true, null, 100), 320, 700),
                 shot(dialog(backup.root)),
-                shot(dialog(backupOut.root)),
+                shot(dialog(backupOut.root), 320, 860),
                 shot(dialog(v.restoreSheet().root)),
                 shot(dialog(importSheet())))
         val gap = dp(12)
@@ -127,5 +128,62 @@ class V201Test {
         var x = gap
         for (s in shots) { canvas.drawBitmap(s, x.toFloat(), gap.toFloat(), null); x += s.width + gap }
         java.io.FileOutputStream(java.io.File(out, "v201_github.png")).use { all.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+}
+
+/** v2.0.1 (review): the same sheets and window with Android's largest common font size (1.3) on a 320dp phone. */
+class V201LargeFontTest {
+    @get:Rule val paparazzi = Paparazzi(
+            deviceConfig = DeviceConfig.PIXEL_5.copy(nightMode = NightMode.NIGHT, fontScale = 1.3f), theme = "android:Theme.Material.NoActionBar")
+
+    private fun dp(v: Int) = (v * paparazzi.context.resources.displayMetrics.density).toInt()
+
+    private fun shot(view: View, widthDp: Int, heightDp: Int): Bitmap {
+        val w = dp(widthDp); val h = dp(heightDp)
+        view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+        view.layout(0, 0, w, h)
+        view.jumpDrawablesToCurrentState()
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bmp))
+        return bmp
+    }
+
+    private fun framed(content: View): View {
+        val c = paparazzi.context
+        val root = FrameLayout(c)
+        root.setBackgroundColor(Color.parseColor("#0B0B0D"))
+        val frame = LinearLayout(c)
+        frame.orientation = LinearLayout.VERTICAL
+        val bg = GradientDrawable(); bg.setColor(Color.parseColor("#1C1C20")); bg.cornerRadius = dp(28).toFloat()
+        frame.background = bg
+        frame.setPadding(0, dp(16), 0, dp(12))
+        frame.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER)
+        lp.leftMargin = dp(16); lp.rightMargin = dp(16)
+        root.addView(frame, lp)
+        return root
+    }
+
+    @Test fun largeFont() {
+        val out = java.io.File("/tmp/claude-0/-home-user-SketchwareAI/7396650f-8b3a-5447-a67d-6edecd23d850/scratchpad/pz/out"); out.mkdirs()
+        val c = paparazzi.context
+        val v = GitHubViews(c)
+        val chrome = v.authChrome()
+        chrome.status.text = "Too many requests from this network. Try again in 42 s, or use the browser."
+        chrome.status.setTextColor(Color.parseColor("#FF8A65"))
+        chrome.code.text = "WDJB-MJHT"; chrome.code.visibility = View.VISIBLE
+        val chrome2 = v.authChrome()
+        chrome2.status.text = "Google, Apple, passkeys: use “Sign in via browser” below."
+        chrome2.code.text = "WDJB-MJHT"; chrome2.code.visibility = View.VISIBLE
+        val shots = listOf(shot(chrome.root, 320, 700), shot(chrome2.root, 393, 700),
+                shot(framed(v.backupSheet("Vehicle Parking Manager Pro", false, true, true).root), 320, 860),
+                shot(framed(v.restoreSheet().root), 320, 860))
+        val gap = dp(12)
+        val all = Bitmap.createBitmap(shots.sumOf { it.width } + gap * (shots.size + 1), shots.maxOf { it.height } + 2 * gap, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(all)
+        canvas.drawColor(Color.parseColor("#3A3A40"))
+        var x = gap
+        for (s in shots) { canvas.drawBitmap(s, x.toFloat(), gap.toFloat(), null); x += s.width + gap }
+        java.io.FileOutputStream(java.io.File(out, "v201_large_font.png")).use { all.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }
