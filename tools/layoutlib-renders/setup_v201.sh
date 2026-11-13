@@ -10,7 +10,7 @@ T=$(cd $(dirname $0) && pwd); REPO=$1; SRC=$REPO/app/src/main; DST=$T/render/src
 G=$DST/java/com/sketchware/ai/github
 mkdir -p $G $DST/res/drawable
 sed 's/^import com\.sketchware\.remod\.R;/import pz.render.R;/' $SRC/java/com/sketchware/ai/github/GitHubViews.java > $G/GitHubViews.java
-for f in ob_ic_refresh ob_ic_open_browser ob_ic_phone ob_ic_cloud_up ob_ic_link ob_ic_copy ob_ic_backup ob_ic_restore \
+for f in ob_ic_refresh ob_ic_open_browser ob_ic_phone ob_ic_copy ob_ic_backup ob_ic_restore \
          ob_pill16 ob_pill16_state ob_field; do
   [ -f $SRC/res/drawable/$f.xml ] && cp $SRC/res/drawable/$f.xml $DST/res/drawable/
 done

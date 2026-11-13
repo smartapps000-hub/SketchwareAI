@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- v2.0.1: back up to the cloud (own line icon in the ob_ic_* style: 2dp round strokes, white). -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:pathData="M8,18.5H7a4,4 0,0 1,-0.6 -7.95A6,6 0,0 1,17.9 9.6a4.5,4.5 0,0 1,-0.9 8.9H16" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
-    <path android:pathData="M12,20.5v-8M9,15.5l3,-3 3,3" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
-</vector>
