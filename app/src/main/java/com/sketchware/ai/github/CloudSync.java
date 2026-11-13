@@ -213,12 +213,7 @@ public final class CloudSync {
                 cloud.upload(swb, name, pkg, version, com.sketchware.remod.BuildConfig.VERSION_NAME);
             } finally {
                 // the .swb was made for the upload only (and its folder, when nothing else is in it)
-                //noinspection ResultOfMethodCallIgnored
-                swb.delete();
-                File folder = swb.getParentFile();
-                String[] left = folder == null ? null : folder.list();
-                //noinspection ResultOfMethodCallIgnored
-                if (left != null && left.length == 0) folder.delete();
+                BackupFactory.deleteUploadedBackup(swb);
             }
         } catch (GitHubException e) {
             if ("http_401".equals(e.code) && token.equals(store.token())) {

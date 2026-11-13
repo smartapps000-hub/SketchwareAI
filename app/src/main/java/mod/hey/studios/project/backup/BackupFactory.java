@@ -460,6 +460,21 @@ public class BackupFactory {
         backupCustomBlocks = b;
     }
 
+    /**
+     * v2.0.0: deletes a .swb made for an upload, and its project folder when nothing else is in it, under the backup
+     * lock (a phone backup of the same project may be creating that folder at that moment).
+     */
+    public static void deleteUploadedBackup(File swb) {
+        synchronized (BACKUP_LOCK) {
+            //noinspection ResultOfMethodCallIgnored
+            swb.delete();
+            File folder = swb.getParentFile();
+            String[] left = folder == null ? null : folder.list();
+            //noinspection ResultOfMethodCallIgnored
+            if (left != null && left.length == 0) folder.delete();
+        }
+    }
+
     /** v2.0.0: background backups read the saved project with their own instances (see CustomBlocksManager). */
     private boolean readSavedDataOnly;
 

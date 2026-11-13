@@ -75,6 +75,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private boolean keepSignIn;
     /** This window showed a code (so a saved login means this sign-in succeeded). */
     private boolean sawCode;
+    /** No login was stored when this window began (a login kept from before proves nothing about this sign-in). */
+    private boolean noLoginAtBegin;
 
     /** The window on screen, if any: one at a time (they share the one sign-in of {@link SignIn}). */
     private static GitHubInAppAuthDialog current;
@@ -163,6 +165,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
     // ------------------------------------------------------------------ sign-in
 
     private void begin() {
+        noLoginAtBegin = TokenStore.get(getContext()).login() == null;
         // a result nobody showed (an older window was closed at that moment) is not this window's
         signIn.takeSignedIn();
         // a code the system interrupted (the app was stopped) continues while it is valid; else a new one
@@ -180,7 +183,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
             return;
         }
         String login = signIn.takeSignedIn();
-        if (login == null && sawCode && signIn.pending() == null && !signIn.busy()) {
+        if (login == null && sawCode && noLoginAtBegin && signIn.pending() == null && !signIn.busy()) {
             // another window took the result: the saved login says the same
             login = TokenStore.get(getContext()).login();
         }
