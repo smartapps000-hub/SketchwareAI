@@ -177,11 +177,16 @@ public class BackupRestoreManager {
     }
 
     public void doRestore(final String file, final boolean restoreLocalLibs) {
+        doRestore(file, restoreLocalLibs, null);
+    }
+
+    /** v2.0.1: {@code librariesFrom} = the GitHub link a backup came from (its copied libraries are marked), or null. */
+    public void doRestore(final String file, final boolean restoreLocalLibs, final String librariesFrom) {
         if (act != null && !com.sketchware.ai.github.AuthGuard.check(act)) {
             android.widget.Toast.makeText(act, "Sign in to restore a backup", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc).execute("");
+        new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc, librariesFrom).execute("");
     }
 
     private static class BackupAsyncTask extends AsyncTask<String, Integer, String> {
@@ -237,11 +242,14 @@ public class BackupRestoreManager {
         private final String file;
         private final GC gc;
         private final boolean restoreLocalLibs;
+        private final String librariesFrom;
         private BackupFactory bm;
         private ProgressDialog dlg;
         private boolean error = false;
 
-        RestoreAsyncTask(WeakReference<Activity> activityWeakReference, String file, boolean restoreLocalLibraries, GC gc) {
+        RestoreAsyncTask(WeakReference<Activity> activityWeakReference, String file, boolean restoreLocalLibraries, GC gc,
+                         String librariesFrom) {
+            this.librariesFrom = librariesFrom;
             this.activityWeakReference = activityWeakReference;
             this.file = file;
             this.gc = gc;
@@ -261,6 +269,7 @@ public class BackupRestoreManager {
             // v1.9.8: an id with leftover folders (a restore cut off half way) is skipped, not merged into
             bm = new BackupFactory(com.sketchware.ai.project.ProjectIds.free(lC.b()));
             bm.setBackupLocalLibs(restoreLocalLibs);
+            bm.setLibrariesFrom(librariesFrom);
 
             try {
                 bm.restore(new File(file));

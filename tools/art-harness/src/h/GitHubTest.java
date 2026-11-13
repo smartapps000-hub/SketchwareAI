@@ -348,6 +348,39 @@ public final class GitHubTest {
                 copied && "dex-kept-on-phone".equals(keptText) && Boolean.TRUE.equals(call(libRestore2, "isRestoreSuccess")), keptText);
         check("the restored project brings its custom blocks file",
                 new File(sketchware, "data/" + libId + "/custom_blocks").isFile(), null);
+        // v2.0.1 (review): libraries copied from someone else's backup are marked, and the build's automatic repair
+        // never switches a marked library on in another project
+        deleteTree(testLib);
+        String linkId = (String) call(ids, "free", String.valueOf(Integer.parseInt(libId2) + 1));
+        Object linkRestore = neu("mod.hey.studios.project.backup.BackupFactory", linkId);
+        call(linkRestore, "setBackupLocalLibs", true);
+        call(linkRestore, "setLibrariesFrom", "someone/repo");
+        call(linkRestore, "restore", boxesSwb);
+        File mark = new File(testLib, "imported_from_link.txt");
+        check("a library copied from a link's backup is marked with where it came from", mark.isFile()
+                && new String(java.nio.file.Files.readAllBytes(mark.toPath()), "UTF-8").contains("someone/repo"), null);
+        try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(
+                new java.io.FileOutputStream(new File(testLib, "classes.jar")))) {
+            z.putNextEntry(new java.util.zip.ZipEntry("com/example/ghtest/Printer.class"));
+            z.write(new byte[]{(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE});
+            z.closeEntry();
+        }
+        String ecjLog = "----------\n1. ERROR in /storage/emulated/0/.sketchware/mysc/" + linkId
+                + "/app/src/main/java/com/my/app/MainActivity.java (at line 5)\n\timport com.example.ghtest.Printer;\n"
+                + "\t       ^^^^^^^^^^^\nThe import com.example.ghtest cannot be resolved\n----------\n1 problem (1 error)\n";
+        Class<?> autoResolve = c("com.sketchware.ai.project.LibraryAutoResolve");
+        java.lang.reflect.Method resolve = autoResolve.getMethod("resolve", String.class, java.util.List.class, File[].class);
+        Object marked = resolve.invoke(null, ecjLog, new java.util.ArrayList<java.util.HashMap<String, Object>>(), new File[]{libsRoot});
+        mark.delete();
+        Object unmarked = resolve.invoke(null, ecjLog, new java.util.ArrayList<java.util.HashMap<String, Object>>(), new File[]{libsRoot});
+        check("the automatic repair skips a marked library and would take it unmarked",
+                ((java.util.List<?>) get(marked, "enabled")).isEmpty()
+                        && ((java.util.List<?>) get(unmarked, "enabled")).contains("ghtest_lib_v201"),
+                get(marked, "enabled") + " / " + get(unmarked, "enabled"));
+        for (String folder : new String[]{"data", "bak", "mysc", "mysc/list", "resources/images", "resources/icons",
+                "resources/fonts", "resources/sounds"}) {
+            deleteTree(new File(sketchware, folder + "/" + linkId));
+        }
         for (String id : new String[]{libId, libId2}) {
             for (String folder : new String[]{"data", "bak", "mysc", "mysc/list", "resources/images", "resources/icons",
                     "resources/fonts", "resources/sounds"}) {

@@ -34,7 +34,8 @@ public final class GitHubImportDialog {
 
     /** The app's restore of a downloaded file (BackupRestoreManager.doRestore with the projects list's callback). */
     public interface Restorer {
-        void restore(File swb, boolean withLocalLibraries);
+        /** {@code librariesFrom}: the GitHub link (owner/repo) of someone else's backup, or null for an own one. */
+        void restore(File swb, boolean withLocalLibraries, String librariesFrom);
     }
 
     private final Activity activity;
@@ -200,6 +201,11 @@ public final class GitHubImportDialog {
         setBusy(true, "Reading the backups of " + name + "…");
         work.execute(() -> {
             try {
+                // review: the list may be the offline copy; looking must never create the repository
+                if (!cloud.openIfExists()) {
+                    throw new GitHubException("not_found", "Your backup repository " + CloudBackup.REPO
+                            + " isn't on GitHub any more.");
+                }
                 List<CloudBackup.Version> list = cloud.history(entry.path);
                 ui(() -> {
                     setBusy(false, null);
@@ -305,23 +311,24 @@ public final class GitHubImportDialog {
             // the window went with a recreated screen
         }
         if (!hasLibraries) {
-            restorer.restore(swb, false);
+            restorer.restore(swb, false, null);
         } else if (own) {
             new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Local libraries")
                     .setMessage("This backup holds local libraries. Copy them to this phone's libraries? Libraries "
                             + "already here are kept as they are.")
-                    .setPositiveButton("Copy", (d, w) -> restorer.restore(swb, true))
-                    .setNegativeButton("Don't copy", (d, w) -> restorer.restore(swb, false))
+                    .setPositiveButton("Copy", (d, w) -> restorer.restore(swb, true, null))
+                    .setNegativeButton("Don't copy", (d, w) -> restorer.restore(swb, false, null))
                     .show();
         } else {
             new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Local libraries from " + from)
-                    .setMessage("This backup brings local libraries. They become part of every app that uses them: "
-                            + "copy them only if you trust " + from + ". Libraries already on this phone are never "
-                            + "replaced. Without them, the Library Resolver can install the libraries from Maven.")
-                    .setPositiveButton("Copy libraries", (d, w) -> restorer.restore(swb, true))
-                    .setNegativeButton("Without libraries", (d, w) -> restorer.restore(swb, false))
+                    .setMessage("This backup brings local libraries. Their code goes into the apps you build with "
+                            + "them: copy them only if you trust " + from + ". Libraries already on this phone are "
+                            + "never replaced, and the build's automatic repair never adds these to other projects. "
+                            + "Without them, the Library Resolver can install the libraries from Maven.")
+                    .setPositiveButton("Without libraries", (d, w) -> restorer.restore(swb, false, null))
+                    .setNegativeButton("Copy libraries", (d, w) -> restorer.restore(swb, true, from))
                     .show();
         }
     }

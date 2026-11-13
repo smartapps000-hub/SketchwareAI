@@ -58,6 +58,8 @@ public class BackupFactory {
     File outPath;
     boolean backupLocalLibs;
     boolean backupCustomBlocks;
+    /** v2.0.1: where libraries copied by a restore came from (a GitHub link), or null (own backup). */
+    String librariesFrom;
     String error = "";
     boolean restoreSuccess = true;
 
@@ -456,6 +458,11 @@ public class BackupFactory {
         backupLocalLibs = b;
     }
 
+    /** v2.0.1: libraries this restore copies came from {@code origin} (a GitHub link): they are marked. */
+    public void setLibrariesFrom(String origin) {
+        librariesFrom = origin;
+    }
+
     public void setBackupCustomBlocks(boolean b) {
         backupCustomBlocks = b;
     }
@@ -569,6 +576,13 @@ public class BackupFactory {
                         if (!local_lib_real_path.exists()) {
                             local_lib_real_path.mkdirs();
                             copy(local_lib, local_lib_real_path);
+                            if (librariesFrom != null) {
+                                // v2.0.1: from someone else's repository: the build's automatic repair never
+                                // switches it on in other projects (LibraryAutoResolve.FROM_LINK_MARK)
+                                FileUtil.writeFile(new File(local_lib_real_path,
+                                        com.sketchware.ai.project.LibraryAutoResolve.FROM_LINK_MARK).getAbsolutePath(),
+                                        "Copied from " + librariesFrom + " by Import from GitHub.\n");
+                            }
                         }
                     }
                 }

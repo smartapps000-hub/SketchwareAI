@@ -329,9 +329,10 @@ public class GC extends DA implements View.OnClickListener {
             if (getActivity() != null) restoreProject();
         }, () -> {
             if (getActivity() != null && com.sketchware.ai.github.AuthGuard.check(getActivity())) {
-                com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries) -> {
+                com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries, librariesFrom) -> {
                     if (getActivity() != null) {
-                        new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries);
+                        new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries,
+                                librariesFrom);
                     }
                 });
             }

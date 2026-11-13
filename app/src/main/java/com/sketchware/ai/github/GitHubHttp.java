@@ -21,9 +21,11 @@ import java.util.Map;
  * v2.0.1 (owner's 13 Nov directive "2G/3G ready, rate-limit protection"): timeouts for slow networks; reads (GET) are
  * tried again on a dropped connection or a passing server error (502/503/504) with growing pauses (1 s, 3 s, 7 s plus
  * a little jitter); GitHub's {@code Retry-After} is honoured when it is short; when GitHub says the hourly limit is
- * used up ({@code X-RateLimit-Remaining: 0}, or a 403/429 with {@code Retry-After}), no further API call goes out
- * until the given time: the answer is HTTP 429 at once ({@link Response#rateLimited()}), so a screen or a background
- * backup never hammers GitHub. Writes (POST, PATCH, PUT, DELETE) are never sent twice.
+ * used up ({@code X-RateLimit-Remaining: 0}, or a 403/429 with {@code Retry-After}), no further API call with the same
+ * credential goes out until then: the answer is HTTP 429 at once ({@link Response#rateLimited()}), so a screen or a
+ * background backup never hammers GitHub. The pause is kept per credential (signed out: GitHub's per-network limit;
+ * each token: the account's own), measured on the uptime clock from the server's own times (a wrong phone clock can't
+ * stretch it), at most one hour. Writes (POST, PATCH, PUT, DELETE) are never sent twice.
  */
 public final class GitHubHttp {
 
@@ -59,6 +61,12 @@ public final class GitHubHttp {
         public int rateRemaining = -1;
         /** v2.0.1: {@code X-RateLimit-Reset} (seconds since 1970), or 0. */
         public long rateReset;
+        /** v2.0.1: the server's {@code Date} (ms since 1970), or 0. */
+        public long serverDate;
+        /** v2.0.1: how long the rate-limit pause lasts from now (ms), when {@link #rateLimited()}. */
+        public long waitMillis;
+        /** v2.0.1: the call was made without a token (GitHub's limit for this network, not the account's). */
+        public boolean anonymous;
 
         Response(int code, String body) {
             this.code = code;
@@ -77,22 +85,30 @@ public final class GitHubHttp {
         }
     }
 
-    /** v2.0.1: no API call before this time (System.currentTimeMillis()), after GitHub said the limit is used up. */
-    private static volatile long blockedUntil;
+    /**
+     * v2.0.1: per credential ("anon", or a key of the token), the uptime ({@code SystemClock.elapsedRealtime()}) until
+     * which no API call goes out, after GitHub said its limit is used up. Review: one shared pause let a signed-out
+     * import (GitHub's per-network limit, often used up on mobile data) block the signed-in account and even the
+     * account read right after a sign-in.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> BLOCKED = new java.util.concurrent.ConcurrentHashMap<>();
     /** v2.0.1: pauses between tries of a read; tests make them short. */
     static long[] backoff = {1000, 3000, 7000};
     /** v2.0.1: a Retry-After up to this long is waited out in place; a longer one ends the call. */
     static final int WAIT_IN_PLACE_SECONDS = 10;
+    private static final long MAX_PAUSE = 60 * 60_000L;
 
-    /** v2.0.1: when the API may be called again, or 0 (shown in "try again at …" messages). */
-    public static long blockedUntil() {
-        long until = blockedUntil;
-        return until > System.currentTimeMillis() ? until : 0;
+    /** Tests: forget the rate-limit pauses. */
+    static void resetLimits() {
+        BLOCKED.clear();
     }
 
-    /** Tests: forget a rate-limit pause. */
-    static void resetLimits() {
-        blockedUntil = 0;
+    private static String key(String token) {
+        return token == null ? "anon" : "t" + Integer.toHexString(token.hashCode());
+    }
+
+    private static long uptime() {
+        return android.os.SystemClock.elapsedRealtime();
     }
 
     /** POST an x-www-form-urlencoded form to github.com (Device Flow), JSON answer. */
@@ -121,7 +137,7 @@ public final class GitHubHttp {
     static Response api(String method, String path, String token, String json) throws IOException {
         boolean read = "GET".equals(method) && json == null;
         for (int attempt = 0; ; attempt++) {
-            Response limited = limitedNow();
+            Response limited = limitedNow(token);
             if (limited != null) return limited;
             Response r;
             try {
@@ -131,7 +147,7 @@ public final class GitHubHttp {
                 pause(backoff[attempt]);
                 continue;
             }
-            note(r);
+            long set = note(r, token);
             if (read && attempt < backoff.length) {
                 if (r.code == 502 || r.code == 503 || r.code == 504) {
                     pause(backoff[attempt]);
@@ -139,7 +155,8 @@ public final class GitHubHttp {
                 }
                 if (r.rateLimited() && r.retryAfter >= 0 && r.retryAfter <= WAIT_IN_PLACE_SECONDS && attempt == 0) {
                     pause(Math.max(1, r.retryAfter) * 1000L);
-                    blockedUntil = 0;
+                    // only the pause this call set (a longer one another call set meanwhile stays)
+                    BLOCKED.remove(key(token), set);
                     continue;
                 }
             }
@@ -165,7 +182,7 @@ public final class GitHubHttp {
     /** A GET of a file's raw text (Accept: application/vnd.github.raw), as a string; tried again like {@link #api}. */
     static Response apiRaw(String path, String token) throws IOException {
         for (int attempt = 0; ; attempt++) {
-            Response limited = limitedNow();
+            Response limited = limitedNow(token);
             if (limited != null) return limited;
             Response r;
             try {
@@ -177,7 +194,7 @@ public final class GitHubHttp {
                 pause(backoff[attempt]);
                 continue;
             }
-            note(r);
+            note(r, token);
             if (attempt < backoff.length && (r.code == 502 || r.code == 503 || r.code == 504)) {
                 pause(backoff[attempt]);
                 continue;
@@ -190,6 +207,8 @@ public final class GitHubHttp {
      * POST /repos/.../git/blobs with the file's bytes streamed as base64 (no copy of the whole file in memory).
      */
     static Response postBlob(String path, String token, File file) throws IOException {
+        Response limited = limitedNow(token);
+        if (limited != null) return limited;
         HttpURLConnection c = open(api() + path, "POST", token);
         c.setRequestProperty("Accept", "application/vnd.github+json");
         c.setRequestProperty("Content-Type", "application/json");
@@ -203,7 +222,9 @@ public final class GitHubHttp {
             Base64Stream.encode(in, out);
             out.write(tail);
         }
-        return read(c);
+        Response r = read(c);
+        note(r, token);
+        return r;
     }
 
     /**
@@ -212,7 +233,7 @@ public final class GitHubHttp {
      */
     static int download(String path, String token, File target, long maxBytes) throws IOException {
         for (int attempt = 0; ; attempt++) {
-            Response limited = limitedNow();
+            Response limited = limitedNow(token);
             if (limited != null) return limited.code;
             try {
                 int code = downloadOnce(path, token, target, maxBytes);
@@ -222,16 +243,23 @@ public final class GitHubHttp {
                 }
                 return code;
             } catch (IOException e) {
-                if (attempt >= backoff.length || !worthRetry(e) || e instanceof TooLarge) throw e;
+                if (attempt >= backoff.length || !worthRetry(e)) throw e;
                 pause(backoff[attempt]);
             }
         }
     }
 
-    /** The file is larger than allowed: trying again doesn't help. */
-    static final class TooLarge extends IOException {
+    /** A failure trying again can't fix (too large, the phone's own storage): never retried. */
+    static class NoRetry extends IOException {
+        NoRetry(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /** The file is larger than allowed. */
+    static final class TooLarge extends NoRetry {
         TooLarge(String message) {
-            super(message);
+            super(message, null);
         }
     }
 
@@ -240,18 +268,30 @@ public final class GitHubHttp {
         c.setRequestProperty("Accept", "application/vnd.github.raw");
         int code = c.getResponseCode();
         if (code < 200 || code >= 300) {
-            note(read(c));
+            note(read(c), token);
             return code;
         }
         File temp = new File(target.getAbsolutePath() + ".part");
         long total = 0;
-        try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(temp)) {
+        OutputStream file;
+        try {
+            file = new FileOutputStream(temp);
+        } catch (IOException e) {
+            c.disconnect();
+            throw new NoRetry("Can't write " + temp, e);
+        }
+        try (InputStream in = c.getInputStream(); OutputStream out = file) {
             byte[] buffer = new byte[64 * 1024];
             int n;
             while ((n = in.read(buffer)) > 0) {
                 total += n;
                 if (total > maxBytes) throw new TooLarge("The file is larger than " + (maxBytes >> 20) + " MB");
-                out.write(buffer, 0, n);
+                try {
+                    out.write(buffer, 0, n);
+                } catch (IOException e) {
+                    // the phone's storage (full, removed): another download wouldn't help
+                    throw new NoRetry("Can't write " + temp + ": " + e.getMessage(), e);
+                }
             }
         } catch (IOException e) {
             temp.delete();
@@ -261,7 +301,7 @@ public final class GitHubHttp {
         }
         if (!temp.renameTo(target)) {
             temp.delete();
-            throw new IOException("Couldn't save " + target);
+            throw new NoRetry("Couldn't save " + target, null);
         }
         return code;
     }
@@ -270,6 +310,7 @@ public final class GitHubHttp {
 
     /** A dropped or timed-out connection is worth another try; a missing host (offline, no DNS) or TLS problem not. */
     static boolean worthRetry(IOException e) {
+        if (e instanceof NoRetry) return false;
         if (e instanceof java.net.UnknownHostException) return false;
         if (e instanceof javax.net.ssl.SSLHandshakeException) return false;
         return true;
@@ -285,31 +326,41 @@ public final class GitHubHttp {
         }
     }
 
-    /** While a rate-limit pause lasts: a 429 answer without going to GitHub; else null. */
-    private static Response limitedNow() {
-        long until = blockedUntil;
-        long now = System.currentTimeMillis();
-        if (until <= now) return null;
+    /** While this credential's rate-limit pause lasts: a 429 answer without going to GitHub; else null. */
+    private static Response limitedNow(String token) {
+        Long until = BLOCKED.get(key(token));
+        long now = uptime();
+        if (until == null || until <= now) return null;
         Response r = new Response(429, "{\"message\":\"API rate limit exceeded (waiting on this phone)\"}");
         r.retryAfter = (int) ((until - now + 999) / 1000);
+        r.waitMillis = until - now;
+        r.anonymous = token == null;
         return r;
     }
 
-    /** Remembers GitHub's "limit used up" so the next calls wait instead of asking again. */
-    private static void note(Response r) {
-        if (!r.rateLimited()) return;
-        long now = System.currentTimeMillis();
-        long until;
+    /**
+     * Remembers GitHub's "limit used up" for this credential so the next calls wait instead of asking again; returns
+     * the uptime the pause ends at (0 when the answer wasn't a rate limit). The length comes from the server's own
+     * clock (Retry-After, or reset minus the answer's Date), between one second and one hour.
+     */
+    private static long note(Response r, String token) {
+        r.anonymous = token == null;
+        if (!r.rateLimited()) return 0;
+        long wait;
         if (r.retryAfter >= 0) {
-            until = now + Math.max(1, r.retryAfter) * 1000L;
+            wait = r.retryAfter * 1000L;
         } else if (r.rateRemaining == 0 && r.rateReset > 0) {
-            until = r.rateReset * 1000L;
+            long serverNow = r.serverDate > 0 ? r.serverDate : System.currentTimeMillis();
+            wait = r.rateReset * 1000L - serverNow;
         } else {
             // a secondary limit without a time: GitHub asks for at least a minute
-            until = now + 60_000L;
+            wait = 60_000L;
         }
-        // never more than an hour (a wrong clock on the phone must not block the account for days)
-        blockedUntil = Math.min(until, now + 60 * 60_000L);
+        wait = Math.max(1000L, Math.min(MAX_PAUSE, wait));
+        r.waitMillis = wait;
+        long until = uptime() + wait;
+        BLOCKED.merge(key(token), until, Math::max);
+        return until;
     }
 
     private static HttpURLConnection open(String url, String method, String token) throws IOException {
@@ -351,6 +402,7 @@ public final class GitHubHttp {
                 }
             }
             Response r = new Response(code, body);
+            r.serverDate = c.getHeaderFieldDate("Date", 0);
             r.retryAfter = intHeader(c, "Retry-After");
             r.rateRemaining = intHeader(c, "X-RateLimit-Remaining");
             String reset = c.getHeaderField("X-RateLimit-Reset");

@@ -95,6 +95,12 @@ public final class LibraryAutoResolve {
      *
      * @param libraries the project's local_library list; new entries are appended
      */
+    /**
+     * v2.0.1: a library copied from someone else's GitHub backup (Import from a link, "Copy libraries") carries this
+     * file; the automatic repair never switches such a library on in a project (the user can, in the Library Manager).
+     */
+    public static final String FROM_LINK_MARK = "imported_from_link.txt";
+
     public static Outcome resolve(String compilerLog, List<HashMap<String, Object>> libraries, File... libraryRoots) {
         Outcome outcome = new Outcome();
         List<String[]> missing = missingNames(compilerLog);
@@ -111,7 +117,8 @@ public final class LibraryAutoResolve {
             Arrays.sort(directories);
             for (File directory : directories) {
                 if (!directory.isDirectory() || enabledNames.contains(directory.getName())
-                        || candidates.containsKey(directory.getName())) continue;
+                        || candidates.containsKey(directory.getName())
+                        || new File(directory, FROM_LINK_MARK).exists()) continue;
                 if (new File(directory, "classes.jar").isFile() && new File(directory, "classes.dex").isFile()) {
                     candidates.put(directory.getName(), directory);
                 }
@@ -212,6 +219,7 @@ public final class LibraryAutoResolve {
             for (File directory : directories) {
                 if (directory.isDirectory() && !enabledJars.containsKey(directory.getName())
                         && !candidates.containsKey(directory.getName())
+                        && !new File(directory, FROM_LINK_MARK).exists()
                         && new File(directory, "classes.jar").isFile() && new File(directory, "classes.dex").isFile()) {
                     candidates.put(directory.getName(), directory);
                 }

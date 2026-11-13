@@ -192,7 +192,7 @@ public final class GitHubViews {
         TextView sub = new TextView(c, null, 0, R.style.Ob_Text_Caption);
         sub.setText(subtitle);
         sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        sub.setMaxLines(2);
+        sub.setMaxLines(3);
         sub.setPadding(0, dp(2), 0, 0);
         text.addView(sub);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
@@ -365,7 +365,8 @@ public final class GitHubViews {
         row2.addView(code, cp);
         TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        status.setMaxLines(3);
+        // up to four lines (a 320dp phone with the code pill, or a large font): never cut
+        status.setMaxLines(4);
         status.setMinHeight(dp(38));
         status.setGravity(Gravity.CENTER_VERTICAL);
         row2.addView(status, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

@@ -54,6 +54,8 @@ public final class SignIn {
     /** v2.0.1: when the last new code was asked for (uptime clock), and no new code before this time. */
     private long lastStartAt;
     private long startBlockedUntil;
+    /** v2.0.1: the generation {@link #pause} ended: an answer still on its way for it is not thrown away. */
+    private int pausedGeneration = -1;
 
     SignIn(Context app) {
         this.app = app;
@@ -197,6 +199,8 @@ public final class SignIn {
      */
     public synchronized void pause() {
         if (finishing) return;
+        // review: a token (or a new code) already on its way for this generation still counts when it arrives
+        pausedGeneration = generation;
         generation++;
         pending = null;
         starting = false;
@@ -224,12 +228,18 @@ public final class SignIn {
             // a pollNow() from before this sign-in must not skip its first wait
             wakeUp = false;
         }
+        // the generation this run works for (an approval that arrives after a pause takes a new one)
+        int[] g = {gen};
         try {
             DeviceFlow.Code code = resumed;
             if (code == null) {
                 code = DeviceFlow.start(clientId, DeviceFlow.SCOPE);
                 synchronized (this) {
-                    if (gen != generation) return;
+                    if (gen != generation) {
+                        // the window was closed while the code was on its way: kept for the next window
+                        if (gen == pausedGeneration) save(code);
+                        return;
+                    }
                     pending = code;
                     starting = false;
                 }
@@ -270,39 +280,39 @@ public final class SignIn {
                 }
             });
             synchronized (this) {
-                if (gen != generation) return;
+                if (gen != generation) {
+                    if (gen != pausedGeneration) return;
+                    // review: the window was closed while GitHub's "yes" was on its way: the user approved, so it
+                    // counts (a run started meanwhile for the same code is ended by the new generation)
+                    pausedGeneration = -1;
+                    g[0] = ++generation;
+                }
                 finishing = true;
             }
             changed();
             CloudBackup.Account account = null;
             long until = System.currentTimeMillis() + 10 * 60_000L;
             while (account == null) {
-                if (!current(gen)) return; // cancelled while finishing: the token is dropped
+                if (!current(g[0])) return; // cancelled while finishing: the token is dropped
                 try {
                     account = CloudBackup.account(token);
                 } catch (IOException | GitHubException e) {
                     // GitHub said yes: keep the token through a cut network, a server error or a rate limit
                     boolean passing = e instanceof IOException || isPassing(((GitHubException) e).code);
-                    if (!passing || System.currentTimeMillis() > until || !current(gen)) throw e;
+                    if (!passing || System.currentTimeMillis() > until || !current(g[0])) throw e;
                     synchronized (this) {
                         lastNetwork = e.toString();
                     }
                     waitOrWake(5000);
                 }
             }
-            if (!current(gen)) return;
-            String email = null;
-            try {
-                email = CloudBackup.primaryEmail(token);
-            } catch (IOException ignored) {
-                // the e-mail is only shown on the account card; the next online re-check reads it
-            }
-            if (!current(gen)) return;
+            if (!current(g[0])) return;
+            // review: the token is saved first; the e-mail (optional, retried on a slow network) is read afterwards
             TokenStore.get(app).save(token, account.login, account.id);
-            GitHubSession.saveProfile(app, account, email);
+            GitHubSession.saveProfile(app, account, null);
             AuthGuard.reset();
             synchronized (this) {
-                if (gen != generation) {
+                if (g[0] != generation) {
                     // cancelled during the save: the screen shows "signed out", so the phone must be too
                     TokenStore.get(app).clear();
                     AuthGuard.reset();
@@ -317,10 +327,19 @@ public final class SignIn {
             GitHubSession.changed();
             // projects made while signed out of GitHub or offline go up now
             CloudSync.get(app).syncPending();
+            try {
+                String email = CloudBackup.primaryEmail(token);
+                if (email != null && token.equals(TokenStore.get(app).token())) {
+                    GitHubSession.saveProfile(app, account, email);
+                    GitHubSession.changed();
+                }
+            } catch (IOException ignored) {
+                // the e-mail is only shown on the account card; the next online re-check reads it
+            }
             // the picture for the account card (every screen reads the file); a failure only means no picture
             if (downloadAvatar(app, account.avatarUrl)) GitHubSession.changed();
         } catch (GitHubException e) {
-            fail(gen, e.code, e.code + ": " + e.getMessage());
+            fail(g[0], e.code, e.code + ": " + e.getMessage());
             if ("rate_limited".equals(e.code) || "http_429".equals(e.code)) {
                 synchronized (this) {
                     // GitHub said "too many requests": no new code for a minute (the window counts it down)
@@ -329,7 +348,7 @@ public final class SignIn {
                 changed();
             }
         } catch (Throwable t) {
-            fail(gen, t instanceof IOException ? "network" : t instanceof java.security.GeneralSecurityException
+            fail(g[0], t instanceof IOException ? "network" : t instanceof java.security.GeneralSecurityException
                     ? "keystore" : "error", t.toString());
             LogUtil.e("SignIn", "Sign-in failed", t);
         }

@@ -385,11 +385,14 @@ public final class CloudBackup {
         String message = DeviceFlow.string(DeviceFlow.parse(r.body), "message");
         if (r.rateLimited()) {
             // v2.0.1: GitHub's rate limit is not a permission problem: say when it is over
-            long until = GitHubHttp.blockedUntil();
-            String when = until == 0 ? "in a minute"
-                    : "after " + new java.text.SimpleDateFormat("HH:mm", Locale.ENGLISH).format(new java.util.Date(until));
-            return new GitHubException("rate_limited", what + " has to wait: GitHub's request limit for your account is "
-                    + "used up for now. Nothing is lost; try again " + when + ".");
+            String when = r.waitMillis <= 0 ? "in a minute" : "after " + new java.text.SimpleDateFormat("HH:mm",
+                    Locale.ENGLISH).format(new java.util.Date(System.currentTimeMillis() + r.waitMillis + 59_999L));
+            if (r.anonymous) {
+                return new GitHubException("rate_limited", what + " has to wait: GitHub's limit for requests without "
+                        + "sign-in (shared by everyone on this network) is used up. Sign in, or try again " + when + ".");
+            }
+            return new GitHubException("rate_limited", what + " has to wait: GitHub's request limit is used up for "
+                    + "now. Nothing is lost; try again " + when + ".");
         }
         String text;
         if (r.code == 401) text = what + " failed: GitHub doesn't accept the sign-in any more. Sign in again.";

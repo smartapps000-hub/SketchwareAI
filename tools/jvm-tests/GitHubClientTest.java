@@ -251,6 +251,44 @@ public class GitHubClientTest {
         }
         resetLimits.invoke(null);
         check("v2.0.1: after the limit the API answers again", "octo".equals(CloudBackup.account(token).login), null);
+        // review: GitHub's per-network limit for signed-out calls never blocks the signed-in account
+        fake.mode = "anonLimited";
+        try {
+            GitHubImport.listBackups(null, pub);
+            check("v2.0.1: a signed-out import over GitHub's network limit says so (sign in or wait)", false, null);
+        } catch (GitHubException e) {
+            check("v2.0.1: a signed-out import over GitHub's network limit says so (sign in or wait)",
+                    "rate_limited".equals(e.code) && e.getMessage().contains("without sign-in"), e.getMessage());
+        }
+        fake.mode = "";
+        fake.userGets = 0;
+        check("v2.0.1: ... and the signed-in account (e.g. the read right after a sign-in) is not blocked by it",
+                "octo".equals(CloudBackup.account(token).login) && fake.userGets == 1, fake.userGets);
+        resetLimits.invoke(null);
+        // a reset far away (a wrong phone clock, or GitHub's own): never more than an hour
+        fake.mode = "limitedFar";
+        try {
+            CloudBackup.account(token);
+        } catch (GitHubException expected) {
+            // rate_limited
+        }
+        java.lang.reflect.Field blockedField = http.getDeclaredField("BLOCKED");
+        blockedField.setAccessible(true);
+        long until = (Long) ((java.util.Map<?, ?>) blockedField.get(null)).values().iterator().next();
+        long rest = until - android.os.SystemClock.elapsedRealtime();
+        check("v2.0.1: a reset five hours away pauses at most one hour", rest > 3_500_000L && rest <= 3_600_000L, rest);
+        resetLimits.invoke(null);
+        fake.mode = "limitedServerClock";
+        try {
+            CloudBackup.account(token);
+        } catch (GitHubException expected) {
+            // rate_limited
+        }
+        until = (Long) ((java.util.Map<?, ?>) blockedField.get(null)).values().iterator().next();
+        rest = until - android.os.SystemClock.elapsedRealtime();
+        check("v2.0.1: the pause is reset minus the server's Date (a phone clock 4.5 h behind doesn't stretch it)",
+                rest > 1_790_000L && rest <= 1_800_000L, rest);
+        resetLimits.invoke(null);
         fake.mode = "";
         fake.postHits = 0;
         java.lang.reflect.Method apiCall = http.getDeclaredMethod("api", String.class, String.class, String.class, String.class);
@@ -417,6 +455,20 @@ public class GitHubClientTest {
                 if ("retry1".equals(mode) && userGets == 1) {
                     return new Object[]{429, "{\"message\":\"secondary rate limit\"}", "Retry-After: 1\r\n"};
                 }
+                if ("limitedServerClock".equals(mode)) {
+                    // the server's clock is 4.5 h ahead of the phone's; its reset is 30 min after its own Date
+                    long serverNow = System.currentTimeMillis() + 270 * 60_000L;
+                    java.text.SimpleDateFormat rfc = new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", java.util.Locale.US);
+                    rfc.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
+                    return new Object[]{403, "{\"message\":\"API rate limit exceeded\"}",
+                            "Date: " + rfc.format(new java.util.Date(serverNow)) + "\r\nX-RateLimit-Remaining: 0\r\nX-RateLimit-Reset: "
+                                    + (serverNow / 1000 + 1800) + "\r\n"};
+                }
+                if ("limitedFar".equals(mode)) {
+                    // the server's clock says the reset is five hours away
+                    return new Object[]{403, "{\"message\":\"API rate limit exceeded\"}",
+                            "X-RateLimit-Remaining: 0\r\nX-RateLimit-Reset: " + (System.currentTimeMillis() / 1000 + 5 * 3600) + "\r\n"};
+                }
                 if ("limited".equals(mode)) {
                     return new Object[]{403, "{\"message\":\"API rate limit exceeded for user ID 583231.\"}",
                             "X-RateLimit-Remaining: 0\r\nX-RateLimit-Reset: " + (System.currentTimeMillis() / 1000 + 1800) + "\r\n"};
@@ -435,6 +487,10 @@ public class GitHubClientTest {
             }
             if (api.startsWith("/repos/pub/demo")) {
                 if (headers.containsKey("authorization")) importSawToken = true;
+                if ("anonLimited".equals(mode) && !headers.containsKey("authorization")) {
+                    return new Object[]{403, "{\"message\":\"API rate limit exceeded for 203.0.113.7.\"}",
+                            "X-RateLimit-Remaining: 0\r\nX-RateLimit-Reset: " + (System.currentTimeMillis() / 1000 + 1200) + "\r\n"};
+                }
                 if (api.equals("/repos/pub/demo")) return new Object[]{200, "{\"default_branch\":\"main\",\"private\":false}"};
                 if (api.equals("/repos/pub/demo/git/trees/main?recursive=1")) {
                     return new Object[]{200, "{\"sha\":\"t\",\"tree\":[{\"path\":\"backups\",\"type\":\"tree\"},"

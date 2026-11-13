@@ -88,13 +88,27 @@ public final class CloudSync {
     }
 
     synchronized void addPending(String scId) {
+        addPending(scId, Options.AUTOMATIC);
+    }
+
+    /** v2.0.1 (review): a waiting backup keeps the Back up sheet's boxes for the later upload. */
+    synchronized void addPending(String scId, Options options) {
         Set<String> set = pending();
-        if (set.add(scId)) prefs.edit().putStringSet("pending", set).apply();
+        set.add(scId);
+        prefs.edit().putStringSet("pending", set)
+                .putString("pending_options_" + scId, (options.localLibraries ? "L" : "") + (options.customBlocks ? "C" : ""))
+                .apply();
+    }
+
+    synchronized Options pendingOptions(String scId) {
+        String flags = prefs.getString("pending_options_" + scId, null);
+        if (flags == null) return Options.AUTOMATIC;
+        return new Options(flags.contains("L"), flags.contains("C"));
     }
 
     synchronized void removePending(String scId) {
         Set<String> set = pending();
-        if (set.remove(scId)) prefs.edit().putStringSet("pending", set).apply();
+        if (set.remove(scId)) prefs.edit().putStringSet("pending", set).remove("pending_options_" + scId).apply();
     }
 
     public synchronized boolean isRunning(String scId) {
@@ -147,7 +161,7 @@ public final class CloudSync {
     public void syncPending() {
         if (TokenStore.get(app).login() == null) return;
         for (String scId : pending()) {
-            backUp(scId, (ok, message) -> {
+            backUp(scId, pendingOptions(scId), (ok, message) -> {
                 if (ok) Toast.makeText(app, message, Toast.LENGTH_SHORT).show();
             });
         }
@@ -177,15 +191,15 @@ public final class CloudSync {
                 removePending(scId);
                 message = e.getMessage();
             } catch (IOException e) {
-                // no network (or GitHub didn't answer): it waits for the next chance
-                addPending(scId);
+                // no network (or GitHub didn't answer): it waits for the next chance, with the same boxes
+                addPending(scId, what);
                 message = "No connection to GitHub: the backup waits for the next chance.";
                 LogUtil.d("CloudSync", "Backup of " + scId + " waits: " + e);
             } catch (GitHubException e) {
                 if ("keystore".equals(e.code) || "unauthorized".equals(e.code) || "signed_out".equals(e.code)
                         || SignIn.isPassing(e.code)) {
                     // worth another try: a Keystore hiccup, a server error / rate limit, or a sign-in to come
-                    addPending(scId);
+                    addPending(scId, what);
                 }
                 message = e.getMessage();
             } catch (Exception e) {

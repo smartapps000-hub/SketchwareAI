@@ -115,6 +115,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.0.1: an expired code was renewed once by itself (a second expiry waits for Reload). */
     private boolean renewed;
     private boolean loading;
+    /** v2.0.1 (review): uptimes of recent page recoveries and WebView re-creations (loop guards). */
+    private final java.util.ArrayDeque<Long> recoveries = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<Long> recreations = new java.util.ArrayDeque<>();
+    /** Throw-away WebViews of new-window links not yet destroyed (destroyed at close as well). */
+    private final java.util.List<WebView> popups = new java.util.ArrayList<>();
 
     /** The window on screen, if any: one at a time (they share the one sign-in of {@link SignIn}). */
     private static GitHubInAppAuthDialog current;
@@ -280,6 +285,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (current == this) current = null;
         signIn.removeListener(listener);
         main.removeCallbacksAndMessages(null);
+        for (WebView popup : new java.util.ArrayList<>(popups)) destroyQuietly(popup);
+        popups.clear();
         // v2.0.1: closed before GitHub's approval: the sign-in pauses and keeps its code for the next window
         if (!signedIn && !keepSignIn && TokenStore.get(getContext()).login() == null) signIn.pause();
         destroyWeb();
@@ -307,12 +314,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (web == null && !createWeb()) return;
         filled = false;
         fillTries = 0;
+        recoveries.clear();
         String url = web.getUrl();
-        if (url != null && allowed(Uri.parse(url))) {
-            web.reload();
-        } else {
-            web.loadUrl(lastGoodUrl != null ? lastGoodUrl : DEVICE_PAGE);
-        }
+        // a fresh GET of the page (reload() of a page that came from a form would ask to send the form again, and
+        // WebView refuses that silently)
+        web.loadUrl(url != null && allowed(Uri.parse(url)) ? url : lastGoodUrl != null ? lastGoodUrl : DEVICE_PAGE);
     }
 
     /**
@@ -343,7 +349,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 AuthGuard.markUnavailable();
                 status("Sign-in needs Android System WebView or a browser on this phone.", true);
             } else {
-                status("No browser on this phone: sign in on the page above.", true);
+                status("No browser here: sign in on the page above.", true);
             }
         }
     }
@@ -383,13 +389,37 @@ public final class GitHubInAppAuthDialog extends Dialog {
         web = null;
         try {
             CookieManager.getInstance().flush();
+        } catch (RuntimeException e) {
+            LogUtil.e("GitHubInAppAuthDialog", "Cookie flush", e);
+        }
+        destroyQuietly(w);
+    }
+
+    /** Stops (when it still can), detaches and destroys a WebView; each step on its own. */
+    private static void destroyQuietly(WebView w) {
+        try {
             w.stopLoading();
+        } catch (RuntimeException ignored) {
+            // a WebView whose renderer is gone
+        }
+        try {
             ViewGroup parent = (ViewGroup) w.getParent();
             if (parent != null) parent.removeView(w);
-            w.destroy();
-        } catch (RuntimeException e) {
-            LogUtil.e("GitHubInAppAuthDialog", "WebView cleanup", e);
+        } catch (RuntimeException ignored) {
         }
+        try {
+            w.destroy();
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    /** True when fewer than {@code max} events happened in the last {@code windowMillis} (and records this one). */
+    private static boolean allowAgain(java.util.ArrayDeque<Long> times, int max, long windowMillis) {
+        long now = SystemClock.elapsedRealtime();
+        while (!times.isEmpty() && now - times.peekFirst() > windowMillis) times.pollFirst();
+        if (times.size() >= max) return false;
+        times.addLast(now);
+        return true;
     }
 
     @SuppressWarnings("deprecation")
@@ -502,9 +532,21 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     return true;
                 }
                 LogUtil.d("GitHubInAppAuthDialog", "WebView renderer gone; a new one is made");
+                // the dead WebView leaves the layout at once (the documented way), a new one comes next
+                web = null;
+                try {
+                    ViewGroup parent = (ViewGroup) v.getParent();
+                    if (parent != null) parent.removeView(v);
+                    v.destroy();
+                } catch (RuntimeException ignored) {
+                }
+                if (!allowAgain(recreations, 2, 60_000L)) {
+                    status("GitHub's page keeps closing on this phone: use “Sign in via browser” below.", true);
+                    pulse(chrome.browser);
+                    return true;
+                }
                 main.post(() -> {
-                    destroyWeb();
-                    if (closed || !createWeb()) return;
+                    if (closed || web != null || !createWeb()) return;
                     loadedFor = null;
                     status("The page was reloaded.", false);
                     onSignInChanged();
@@ -526,12 +568,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
             return false;
         }
         boolean[] taken = {false};
+        popups.add(popup);
         Runnable drop = () -> {
-            try {
-                popup.stopLoading();
-                popup.destroy();
-            } catch (RuntimeException ignored) {
-            }
+            if (popups.remove(popup)) destroyQuietly(popup);
         };
         popup.getSettings().setJavaScriptEnabled(false);
         popup.setWebViewClient(new WebViewClient() {
@@ -601,7 +640,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         if (host != null && (host.contains("google") || host.contains("apple") || host.contains("microsoft")
                 || host.contains("live.com"))) {
-            status("Google, Apple and passkeys sign in through the browser: tap “Sign in via browser” below.", false);
+            status("Google, Apple, passkeys: use “Sign in via browser” below.", false);
             pulse(chrome.browser);
         } else {
             status("Only github.com opens here. Other sign-ins: “Sign in via browser” below.", true);
@@ -616,6 +655,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private void recoverSoon() {
         main.postDelayed(() -> {
             if (closed || web == null) return;
+            if (!allowAgain(recoveries, 2, 30_000L)) {
+                // review: a page that leaves github.com again by itself (single sign-on, a redirect page): no loop
+                status("This sign-in leaves github.com: use “Sign in via browser” below.", true);
+                pulse(chrome.browser);
+                return;
+            }
             String target = lastGoodUrl != null ? lastGoodUrl : DEVICE_PAGE;
             String url = web.getUrl();
             if (url == null || !allowed(Uri.parse(url))) {
@@ -655,7 +700,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
 
     private void pageStalled() {
         if (closed || !loading) return;
-        status("GitHub isn't answering. Tap ⟳ to try again, or use the browser below.", true);
+        status("GitHub isn't answering. Tap ⟳, or use the browser below.", true);
     }
 
     /** GitHub showed "Too many requests": a one-minute pause with a countdown; nothing is loaded meanwhile. */
@@ -680,8 +725,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
             status("Ready again: tap ⟳ to reload GitHub.", false);
             return;
         }
-        status("GitHub got too many requests from this network. Try again in " + ((rest + 999) / 1000)
-                + " s, or use the browser below.", true);
+        status("Too many requests from this network. Try again in " + ((rest + 999) / 1000)
+                + " s, or use the browser.", true);
         main.postDelayed(countdown, 1000);
     }
 
