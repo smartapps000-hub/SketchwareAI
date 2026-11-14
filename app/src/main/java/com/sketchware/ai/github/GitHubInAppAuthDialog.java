@@ -199,6 +199,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     @Override
     public void onBackPressed() {
         if (web != null && web.canGoBack()) {
+            // v2.0.2 review: going back to a landing page is the user's choice (no move to the code page right away)
+            backAt = SystemClock.elapsedRealtime();
             web.goBack();
             return;
         }
@@ -708,12 +710,16 @@ public final class GitHubInAppAuthDialog extends Dialog {
     }
 
     private long lastHandoff;
+    /** v2.0.2 review: the last Back inside the page, and the last move to the code page (uptime clock). */
+    private long backAt, toDeviceAt;
 
     /** Google, Apple, Microsoft: the browser sign-in starts by itself (code copied, GitHub's device page in a tab). */
     private void socialHandoff() {
         long now = SystemClock.elapsedRealtime();
         // one hand-off for one tap (a form and its redirect both arrive here)
         if (now - lastHandoff < 3000) return;
+        // v2.0.2 review: a late redirect of the same tap while the browser tab is in front opens no second tab
+        if (openedBrowser && !focused() && signIn.pending() != null) return;
         lastHandoff = now;
         status("Google / Apple sign-in opens in the browser: the code is copied.", false);
         openBrowser();
@@ -734,14 +740,26 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 || path.startsWith("/explore") || path.startsWith("/welcome") || path.startsWith("/onboarding")
                 || path.startsWith("/copilot") || path.startsWith("/notifications");
         if (!landing) return;
-        if (!front && !signedInOnGitHub()) return;
+        boolean signedIn = signedInOnGitHub();
+        if (!front && !signedIn) return;
+        long now = SystemClock.elapsedRealtime();
+        // v2.0.2 review: never during GitHub's "too many requests" pause; one move per landing (history update and
+        // page end both arrive here); a page reached with Back stays
+        if (limitedUntil > now || now - toDeviceAt < 3000 || now - backAt < 3000) return;
         if (!allowAgain(toDevice, 3, 60_000L)) return;
-        status("Signed in to GitHub · opening the code page…", false);
+        toDeviceAt = now;
+        status(signedIn ? "Signed in to GitHub · opening the code page…" : "Opening GitHub's code page…", false);
         filled = false;
         fillTries = 0;
         main.post(() -> {
             if (!closed && web != null) web.loadUrl(DEVICE_PAGE);
         });
+    }
+
+    /** This window is in front (not the browser tab or another app). */
+    private boolean focused() {
+        android.view.Window w = getWindow();
+        return w != null && w.getDecorView().hasWindowFocus();
     }
 
     /** GitHub's own "signed in" cookie in the window's cookie store. */

@@ -159,18 +159,38 @@ public final class GitHubCode {
      * can read it), naming the file and the token's first characters only; null when none.
      */
     public static String tokenWarning(java.util.List<com.besome.sketch.beans.SrcCodeBean> sources) {
+        return tokenWarning(sources, java.util.Collections.<java.io.File>emptyList());
+    }
+
+    /** v2.0.2 review: also the project's own Java files ({@code files/java}, up to 2 MB each). */
+    public static String tokenWarning(java.util.List<com.besome.sketch.beans.SrcCodeBean> sources,
+                                      java.util.List<java.io.File> customJavaFiles) {
         for (com.besome.sketch.beans.SrcCodeBean bean : sources) {
             if (bean.source == null || bean.srcFileName == null || !bean.srcFileName.endsWith(".java")) continue;
-            java.util.regex.Matcher m = TOKEN.matcher(bean.source);
-            if (m.find()) {
-                String token = m.group(1);
-                return bean.srcFileName + " holds a GitHub token (" + token.substring(0, Math.min(token.length(), 8))
-                        + "…): anyone who has the APK can read it. Use a fine-grained token limited to the repositories "
-                        + "and permissions the app needs (or none for public data), and revoke it on github.com if the "
-                        + "app is shared.";
+            String warning = tokenIn(bean.srcFileName, bean.source);
+            if (warning != null) return warning;
+        }
+        for (java.io.File file : customJavaFiles) {
+            if (file == null || !file.isFile() || !file.getName().endsWith(".java") || file.length() > 2_000_000) continue;
+            try {
+                String warning = tokenIn(file.getName(), new String(java.nio.file.Files.readAllBytes(file.toPath()),
+                        java.nio.charset.StandardCharsets.UTF_8));
+                if (warning != null) return warning;
+            } catch (java.io.IOException | RuntimeException ignored) {
+                // unreadable: the compiler says so
             }
         }
         return null;
+    }
+
+    private static String tokenIn(String fileName, String source) {
+        java.util.regex.Matcher m = TOKEN.matcher(source);
+        if (!m.find()) return null;
+        String token = m.group(1);
+        return fileName + " holds a GitHub token (" + token.substring(0, Math.min(token.length(), 8))
+                + "…): anyone who has the APK can read it. Use a fine-grained token limited to the repositories "
+                + "and permissions the app needs (or none for public data), and revoke it on github.com if the "
+                + "app is shared.";
     }
 
     /** The helper's source with the project's package (an IDE without the resource: a class saying so). */

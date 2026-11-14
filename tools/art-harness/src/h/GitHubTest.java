@@ -415,16 +415,22 @@ public final class GitHubTest {
         File linkFile = new File(sketchware, "data/" + scId + "/github_backup.json");
         linkFile.delete();
         boolean none = call(links, "get", scId) == null;
-        call(links, "save", scId, "https://github.com/octo/SketchwareAI-Projects/blob/main/projects/com.my.app/My_App.swb",
-                "projects/com.my.app/My_App.swb");
+        String url = "https://github.com/octo/SketchwareAI-Projects/blob/main/projects/com.my.app/My_App.swb";
+        call(links, "save", scId, url, "projects/com.my.app/My_App.swb", "Octo");
         Object saved = call(links, "get", scId);
-        writeText(linkFile, "{\"url\":\"https://evil.example/x\",\"path\":\"p\"}");
+        Object sameAccount = call(links, "get", scId, "octo");
+        Object otherAccount = call(links, "get", scId, "someone");
+        writeText(linkFile, "{\"url\":\"https://evil.example/x\",\"path\":\"p\",\"sc_id\":\"" + scId + "\"}");
         Object foreign = call(links, "get", scId);
-        call(links, "save", "999999", "https://github.com/x/y", "p");
+        // a link written for another project (a restored or duplicated copy carries the file): not shown
+        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"601\",\"login\":\"octo\"}");
+        Object copied = call(links, "get", scId);
+        call(links, "save", "999999", "https://github.com/x/y", "p", "octo");
         boolean noFolder = !new File(sketchware, "data/999999/github_backup.json").exists();
-        check("v2.0.2: share link: none before a backup, kept after, only github.com links, never for a missing project",
-                none && "https://github.com/octo/SketchwareAI-Projects/blob/main/projects/com.my.app/My_App.swb".equals(saved)
-                        && foreign == null && noFolder && call(links, "get", "../1") == null, saved);
+        check("v2.0.2: share link: none before a backup, kept after (same account too), not under another account, only "
+                        + "github.com links, not for a copy made for another project id, never for a missing project",
+                none && url.equals(saved) && url.equals(sameAccount) && otherAccount == null && foreign == null
+                        && copied == null && noFolder && call(links, "get", "../1") == null, saved);
         linkFile.delete();
 
         // --- a .swb with an entry outside its folder is refused

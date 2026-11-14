@@ -28,6 +28,9 @@ import java.util.Locale;
  * A token set with setToken is in the app: anyone who has the APK can read it. Use a fine-grained token limited to the
  * repositories and permissions the app needs, or none for public data (GitHub then allows 60 requests per hour per
  * network).
+ *
+ * GitHub accepts TLS 1.2 or newer only: Android 5.0+ uses it by itself; on Android 4.4 (min SDK 19) every call ends in
+ * "No connection to GitHub" unless the app switches TLS 1.2 on itself.
  */
 public class SketchGitHub {
 
@@ -57,7 +60,7 @@ public class SketchGitHub {
     private final Object host;
     private final Handler main = new Handler(Looper.getMainLooper());
     private Listener listener;
-    private String token;
+    private volatile String token;
 
     public SketchGitHub(Object host) {
         this.host = host;
@@ -358,7 +361,8 @@ public class SketchGitHub {
         }
         switch (a.code) {
             case 0:
-                return "No connection to GitHub (" + a.body + "). Check the internet and try again.";
+                return "No connection to GitHub (" + a.body + "). Check the internet and try again."
+                        + (android.os.Build.VERSION.SDK_INT < 21 ? " Android 4.4 also needs TLS 1.2 switched on." : "");
             case 401:
                 return "GitHub doesn't accept the token: it is wrong, expired or revoked. Make a new one on github.com "
                         + "(Settings > Developer settings > Personal access tokens).";
@@ -458,14 +462,29 @@ public class SketchGitHub {
         t.start();
     }
 
-    /** On the main thread, unless the screen is gone (no event into a closed screen). */
+    /** On the main thread, unless the screen is gone (no event into a closed screen or a removed fragment). */
     private void post(final Runnable r) {
         main.post(new Runnable() {
             public void run() {
-                if (host instanceof Activity && (((Activity) host).isFinishing() || ((Activity) host).isDestroyed())) return;
+                if (gone()) return;
                 r.run();
             }
         });
+    }
+
+    private boolean gone() {
+        if (host instanceof Activity) {
+            Activity activity = (Activity) host;
+            return activity.isFinishing() || activity.isDestroyed();
+        }
+        if (host == null) return false;
+        try {
+            // a Fragment (any library's): no event once it is no longer added to its screen
+            Object added = host.getClass().getMethod("isAdded").invoke(host);
+            return added instanceof Boolean && !((Boolean) added).booleanValue();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void error(final String action, final int code, final String message) {

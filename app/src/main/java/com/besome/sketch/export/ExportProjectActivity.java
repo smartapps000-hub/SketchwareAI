@@ -153,6 +153,15 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         tv_apk_path.setText(signed_apk_postfix + File.separator + filePath);
     }
 
+    /** v2.0.2 review: the GitHub-token warning Run builds list (BuildWarnings) also on every export, as a long toast. */
+    static void gitHubTokenWarning(android.app.Activity activity, yq generated) {
+        String warning = generated == null || generated.N == null ? null : generated.N.gitHubTokenWarning;
+        if (warning == null || activity == null) return;
+        android.content.Context app = activity.getApplicationContext();
+        activity.runOnUiThread(() -> android.widget.Toast.makeText(app, "Warning: " + warning,
+                android.widget.Toast.LENGTH_LONG).show());
+    }
+
     private void exportSrc() {
         try {
             FileUtil.deleteFile(project_metadata.projectMyscPath);
@@ -172,6 +181,7 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
 
             /* Start generating project files */
             project_metadata.b(hCVar, eCVar, iCVar, true);
+            gitHubTokenWarning(this, project_metadata);
             // AGP 8 reads the package from build.gradle's namespace (GradleExport)
             com.sketchware.ai.project.GradleExport.stripPackageAttribute(new File(project_metadata.androidManifestPath));
             // widget libraries with no Maven artifact go to app/libs as .aar files
@@ -748,6 +758,7 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
                 kCVar.c(project_metadata.resDirectoryPath + File.separator + "raw");
                 kCVar.a(project_metadata.assetsPath + File.separator + "fonts");
                 project_metadata.b(hCVar, eCVar, iCVar, true);
+                gitHubTokenWarning(activity.get(), project_metadata);
                 if (canceled) {
                     cancel(true);
                     return;

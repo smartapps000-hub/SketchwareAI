@@ -837,7 +837,7 @@ public class yq {
         // v2.0.2: SketchGitHub.java for the GitHub component (its field and "new SketchGitHub(this)" use no "SketchGitHub."
         // when no event is used: any mention of the class counts)
         addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.GitHubCode.CLASS_NAME, com.sketchware.ai.project.GitHubCode.helperClass(packageName), com.sketchware.ai.project.GitHubCode.CLASS_NAME);
-        N.gitHubTokenWarning = com.sketchware.ai.project.GitHubCode.tokenWarning(srcCodeBeans);
+        N.gitHubTokenWarning = com.sketchware.ai.project.GitHubCode.tokenWarning(srcCodeBeans, javaFiles);
 
         // Generate layouts unless a custom version of it exists already
         // at /Internal storage/.sketchware/data/<sc_id>/files/resource/layout/

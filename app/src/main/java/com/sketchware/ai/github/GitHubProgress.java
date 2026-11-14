@@ -51,9 +51,12 @@ public final class GitHubProgress {
         if (alive()) dialog.show();
     }
 
-    /** The work went to the background with "Hide" (its end is a toast then). */
+    /**
+     * The work went to the background with "Hide", or the screen under the sheet is gone (closed, or re-created after
+     * a dark-mode / font / fold change): its end is a toast then (v2.0.2 review).
+     */
     public boolean hidden() {
-        return hidden || !dialog.isShowing();
+        return hidden || !alive() || !dialog.isShowing();
     }
 
     /** A step: {@code percent} 0-100, the text after "N% •". */
@@ -62,13 +65,21 @@ public final class GitHubProgress {
         set(Math.max(shown, Math.min(99, percent)), text, false);
     }
 
-    /** 100%, the closing line; the sheet closes by itself after a moment. */
+    /**
+     * 100%, the closing line. The sheet closes by itself after a moment only while it is in front; when the app was in
+     * the background (Home during an upload) it stays at 100% with "Done" for the user to see on coming back.
+     */
     public void done(String text) {
         if (!alive()) return;
         finished = true;
         set(100, text, false);
         button("Done");
-        main.postDelayed(this::dismiss, 1600);
+        if (inFront()) main.postDelayed(this::dismiss, 1600);
+    }
+
+    private boolean inFront() {
+        android.view.Window w = dialog.getWindow();
+        return w != null && w.getDecorView().hasWindowFocus();
     }
 
     /** The error stays on the sheet (in the error colour) until "Close". */

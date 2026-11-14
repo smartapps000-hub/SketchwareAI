@@ -321,7 +321,7 @@ public final class CloudSync {
                                 step(progress, 92, "Saving the backup in " + CloudBackup.REPO + "…");
                             }
                         });
-                if (cloud.lastPath != null) ProjectLinks.save(scId, cloud.link(cloud.lastPath), cloud.lastPath);
+                if (cloud.lastPath != null) ProjectLinks.save(scId, cloud.link(cloud.lastPath), cloud.lastPath, login);
             } finally {
                 // the .swb was made for the upload only (and its folder, when nothing else is in it)
                 BackupFactory.deleteUploadedBackup(swb);

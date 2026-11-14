@@ -271,9 +271,9 @@ public final class GitHubImportDialog {
                 File target = new File(folder, base + " " + version.sha.substring(0, 7) + ".swb");
                 cloud.download(entry.path, version.sha, target, downloadSteps(progress, entry.size));
                 boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
-                onMain(() -> finish(progress, target, libraries, true, null));
+                downloaded(progress, target, libraries, true, null);
             } catch (Exception e) {
-                onMain(() -> progress.failed(text(e)));
+                failed(progress, e);
             }
         });
     }
@@ -313,6 +313,34 @@ public final class GitHubImportDialog {
     private void onMain(Runnable r) {
         activity.runOnUiThread(() -> {
             if (!activity.isFinishing() && !activity.isDestroyed()) r.run();
+        });
+    }
+
+    /**
+     * v2.0.2 review: a download's end always says something: on the sheet, or as a toast after "Hide" or when the
+     * screen went away meanwhile (the file stays in the backup folder for Restore > ".swb file").
+     */
+    private void downloaded(GitHubProgress progress, File target, boolean libraries, boolean own, String from) {
+        android.content.Context app = activity.getApplicationContext();
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            if (activity.isFinishing() || activity.isDestroyed()) {
+                android.widget.Toast.makeText(app, "Downloaded " + target.getName() + " to " + target.getParent()
+                        + ": restore it with Restore > .swb file.", android.widget.Toast.LENGTH_LONG).show();
+            } else {
+                finish(progress, target, libraries, own, from);
+            }
+        });
+    }
+
+    private void failed(GitHubProgress progress, Exception e) {
+        android.content.Context app = activity.getApplicationContext();
+        String message = text(e);
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            if (progress.hidden()) {
+                android.widget.Toast.makeText(app, message, android.widget.Toast.LENGTH_LONG).show();
+            } else {
+                progress.failed(message);
+            }
         });
     }
 
@@ -364,9 +392,9 @@ public final class GitHubImportDialog {
                         downloadSteps(progress, -1));
                 boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
                 String from = source.owner + "/" + source.repo;
-                onMain(() -> finish(progress, target, libraries, false, from));
+                downloaded(progress, target, libraries, false, from);
             } catch (Exception e) {
-                onMain(() -> progress.failed(text(e)));
+                failed(progress, e);
             }
         });
     }
@@ -412,7 +440,8 @@ public final class GitHubImportDialog {
         progress.update(88, "Restoring as a new project" + (libraries ? " with its local libraries" : "") + "…");
         restorer.restore(swb, libraries, from, (ok, message) -> {
             if (progress.hidden()) {
-                android.widget.Toast.makeText(activity, message, android.widget.Toast.LENGTH_LONG).show();
+                android.widget.Toast.makeText(activity.getApplicationContext(), message,
+                        android.widget.Toast.LENGTH_LONG).show();
             } else if (ok) {
                 progress.done(message + " (custom blocks included)");
             } else {

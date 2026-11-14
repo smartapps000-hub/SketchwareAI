@@ -284,6 +284,17 @@ public class GC extends DA implements View.OnClickListener {
         a(true);
     }
 
+    /** v2.0.2: the project's GitHub backup link for its card (null under another signed-in account). */
+    private String shareLinkOf(String scId) {
+        String login = getContext() == null ? null : com.sketchware.ai.github.TokenStore.get(getContext()).login();
+        return com.sketchware.ai.github.ProjectLinks.get(scId, login);
+    }
+
+    /** v2.0.2 review: a backup to GitHub just wrote a link: the cards show the share button at once. */
+    private final Runnable linksChanged = () -> {
+        if (myProjects != null && myProjects.getAdapter() != null && getActivity() != null) myProjects.getAdapter().c();
+    };
+
     public void showCreateNewProjectLayout() {
         if (allProjects.size() > 0) {
             cvCreateNew.setVisibility(View.GONE);
@@ -378,6 +389,7 @@ public class GC extends DA implements View.OnClickListener {
     public View onCreateView(LayoutInflater inflater, ViewGroup parent, Bundle savedInstanceState) {
         ViewGroup viewGroup = (ViewGroup) inflater.inflate(R.layout.myprojects, parent, false);
         initialize(viewGroup);
+        com.sketchware.ai.github.ProjectLinks.onChanged(linksChanged);
         return viewGroup;
     }
 
@@ -532,7 +544,7 @@ public class GC extends DA implements View.OnClickListener {
 
             viewHolder.tvPublished.setText("#" + scId);
             // v2.0.2: the GitHub backup link's share button (stored with the project, works offline)
-            viewHolder.shareLink.setVisibility(com.sketchware.ai.github.ProjectLinks.get(scId) != null ? View.VISIBLE : View.GONE);
+            viewHolder.shareLink.setVisibility(shareLinkOf(scId) != null ? View.VISIBLE : View.GONE);
             if (target < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
                 viewHolder.targetPill.setText("Target " + target);
                 viewHolder.targetPill.setVisibility(View.VISIBLE);
@@ -592,7 +604,7 @@ public class GC extends DA implements View.OnClickListener {
                     int position = j();
                     if (getActivity() == null || position < 0 || position >= projectsList.size()) return;
                     HashMap<String, Object> project = projectsList.get(position);
-                    String link = com.sketchware.ai.github.ProjectLinks.get(yB.c(project, "sc_id"));
+                    String link = shareLinkOf(yB.c(project, "sc_id"));
                     if (link != null) com.sketchware.ai.github.ProjectLinks.share(getActivity(), yB.c(project, "my_ws_name"), link);
                 });
                 expand = itemView.findViewById(R.id.expand);

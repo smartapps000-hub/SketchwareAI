@@ -18,4 +18,11 @@ public class KeepAliveService extends Service {
     public IBinder onBind(Intent intent) {
         return binder;
     }
+
+    /** v2.0.2 review: only binding means anything; a start from another app leaves no started service behind. */
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        stopSelf(startId);
+        return START_NOT_STICKY;
+    }
 }
