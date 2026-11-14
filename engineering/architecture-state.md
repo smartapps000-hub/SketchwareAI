@@ -1081,3 +1081,65 @@ GitHub's "Too many requests", the import hint and a row title cut, plain backup 
   Tests: `GitHubClientTest` +10 (retries, Retry-After, the gate, POST once, download resume, poll 429, code 429),
   `h.GitHubTest` +6 (pause keeps the code, rate-limit line, automatic options, both boxes in the .swb, restore copies a
   missing library and keeps an existing one, custom blocks restored), render `V201Test` + `setup_v201.sh`.
+
+## v2.0.2 additions (14 Nov 2026): sign-in that lands on the code page, live progress, share links, import guide, GitHub component
+
+Owner's 14 Nov directive after the v2.0.1 phone test (screenshots: GitHub's home feed after signing in, a blank page
+after "Continue with Google", "Sign in with Gi…" / "@cr…" in the drawer, no visible Back up to GitHub). Record:
+`engineering/v2.0.2-verification.md`.
+
+- `GitHubInAppAuthDialog`: `toDevicePageIfSignedIn` (from `pageFinished` and `doUpdateVisitedHistory`): on
+  github.com "/", `/dashboard*`, `/home`, `/feed*`, `/explore*`, `/welcome*`, `/onboarding*`, `/copilot*`,
+  `/notifications*` (all but "/" only with GitHub's `logged_in=yes` cookie) the device page loads again, at most 3 times a
+  minute, only while a code waits. "Continue with Google / Apple": `isSocialSignIn` (github.com `/sessions/social…`,
+  `/session/social…`, `/login/social…`, `…/social/google|apple`; accounts.google.com, appleid.apple.com,
+  login.microsoftonline.com, login.live.com) in `shouldOverrideUrlLoading` → `intercept()` and in `onPageStarted`;
+  `SOCIAL_SCRIPT` (injected on `/login*`, `/session*`, `/signup*`, `/join*`, "/") cancels a click on a social button
+  (link / form / formaction with `/social/`, `social_provider`, `/auth/google|apple`, or the text "Continue / Sign in /
+  Sign up with Google / Apple") and a social form's submit, and navigates to `sketchware-ai://browser-sign-in`
+  (`HANDOFF_URL`), which `intercept()` answers with `socialHandoff()` (≥ 3 s apart) → `openBrowser()`. The Custom Tab:
+  `startActivityForResult(…, REQUEST_BROWSER 7311)`, the keep-alive extra naming `KeepAliveService` again (exported, an
+  empty Binder; manifest), and `activity.finishActivity(7311)` when the token arrives. `MainDrawer` closes the drawer after
+  a sign-in from the account card (`DrawerLayout.b()` = closeDrawers in the bundled obfuscated copy).
+- Drawer card (`main_drawer_header.xml`, `DrawerAccountCard`): texts take the whole width; signed out the title and
+  line wrap (2 lines); signed in name, @login and e-mail are single-line marquee (`setSelected(true)`, repeat forever);
+  "Sign out" sits under them.
+- `GitHubProgress` (opaque glass sheet from `GitHubViews.progressSheet`: icon + title, percentage in Sora 34sp, 6dp
+  orange bar 0-1000, step line "N% • …"; "Hide" keeps the work running with a toast at the end; "Done" closes after
+  1.6 s; failures stay in the error colour). Backup: `CloudSync.backUpFromMenu` shows it; `upload(scId, options,
+  progress)`: 5% repository, 15% packing (what the boxes include), 30% packed size, 30-90% upload bytes
+  (`CloudBackup.UploadProgress`, `GitHubHttp.postBlob(..., Progress)` through `CountingStream`, reports every 32 KB),
+  92% saving, then done. Import: the sheet closes, `startImport` shows the progress, downloads run on their own threads
+  (`background`: the sheet's executor stops with the sheet), 5-80% bytes (`GitHubHttp.download(..., Progress)`:
+  Content-Length via `getContentLength()`, else the index size, else a slow creep), 82% downloaded, the libraries
+  question (not cancelable), 88% restoring, `BackupRestoreManager.doRestore(file, libs, origin, RestoreDone)` (no
+  ProgressDialog of its own; refused by AuthGuard → done(false)).
+- `ProjectLinks`: `data/<sc_id>/github_backup.json` {url, path, time} written atomically after each upload to GitHub
+  (`CloudBackup.link(path)` = github.com/<owner>/SketchwareAI-Projects/blob/<branch>/<path>); only github.com links read
+  back, numeric ids only, never written for a missing project folder. `myprojects_item.xml`: `ob_share_link` (34dp
+  glass pill, `ob_ic_share`) beside `tv_published` (#id); `GC` shows it when a link exists; a tap copies the link and
+  opens Android's share sheet.
+- `GitHubImportDialog`: ⓘ in the header → `showGuide` (`GitHubViews.importGuide`: three step cards with an orange number
+  disc and diagrams built from the app's own views: the share button next to "#663", the link field with Import, a found
+  backup with Import; the tap targets ringed in orange); backups a repository / folder link holds are rows with Import in
+  the sheet (`found`); an own backup's versions are a glass sheet of rows ("Newest backup", "Backup N").
+- GitHub component (`project.GitHubCode`): type **2026** (above 36, so `%m.GitHub` menus list it like a custom
+  component), type name "GitHub", class `SketchGitHub` (class info `Component.SketchGitHub`), built in like AsyncTask in
+  `ComponentsHandler` (id, typeName, name, icon `ob_c_github`, description, docs, buildClass, add, var, class);
+  `Lx` field `private SketchGitHub <name>;`, initializer `<name> = new SketchGitHub(this);`, listener
+  `<name>.setListener(new SketchGitHub.Listener() {…});` (`gitHubListener`), events `onGitHubUserLoaded`,
+  `onGitHubReposListed`, `onGitHubFileDownloaded`, `onGitHubFileUploaded`, `onGitHubWorkflowTriggered`, `onGitHubError`
+  (`oq` lists, `EventsHandler` icon / description / parameters / spec); `yq`: INTERNET for the component, `SketchGitHub.java`
+  from `GitHubCode.helperClass` when any code mentions the class (`addCodeHelper` with a marker: the field and the
+  initializer have no "SketchGitHub."). Blocks (`ExtraBlocks`, palette 101 "GitHub", `ExtraPaletteBlock` shows a hint and
+  the guide when the screen has no GitHub component): gitHubSetToken, gitHubHasToken, gitHubGetUser, gitHubListRepos,
+  gitHubGetFile, gitHubUploadFile, gitHubTriggerWorkflow; `BlockGuide.GITHUB_BLOCKS`. The helper
+  (`resources/com/sketchware/ai/project/SketchGitHub.java.txt`, Java 7, min SDK 19, ASCII, framework + org.json only):
+  each call on its own thread, answers on the main thread unless the Activity is finishing / destroyed, abstract
+  `Listener` with six methods, `explain()` turns GitHub's answer into a sentence (no network, 401 token, 403/429 rate
+  limit with the reset time vs missing permission per action, 404, 409, 422 with the workflow_dispatch hint, 5xx).
+  `GitHubCode.tokenWarning` → `jq.gitHubTokenWarning` → `BuildWarnings.begin` warns when generated code holds
+  `gh[pousr]_…` or `github_pat_…`; `BuildDoctor.gitHub` adds advice for compile errors around SketchGitHub.
+- Tests: fixture 934 `github` (`Fixtures.gitHubBlocks`), `h.CallGitHub` (GITHUBCALL), lane item `ghcall`;
+  `GitHubTest` (social addresses, SOCIAL_SCRIPT has no field reads, ProjectLinks), `GitHubClientTest` (upload / download
+  progress, link), `tools/jvm-tests/social-script-test.js` + `SocialScriptPrint`, render `V202Test` + `setup_v202.sh`.
