@@ -329,10 +329,12 @@ public class GC extends DA implements View.OnClickListener {
             if (getActivity() != null) restoreProject();
         }, () -> {
             if (getActivity() != null && com.sketchware.ai.github.AuthGuard.check(getActivity())) {
-                com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries, librariesFrom) -> {
+                com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries, librariesFrom, done) -> {
                     if (getActivity() != null) {
                         new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries,
-                                librariesFrom);
+                                librariesFrom, done::done);
+                    } else {
+                        done.done(false, "The projects screen was closed: open Restore again.");
                     }
                 });
             }
@@ -529,6 +531,8 @@ public class GC extends DA implements View.OnClickListener {
             viewHolder.badgeMin.setText("Min " + settings.getMinSdkVersion());
 
             viewHolder.tvPublished.setText("#" + scId);
+            // v2.0.2: the GitHub backup link's share button (stored with the project, works offline)
+            viewHolder.shareLink.setVisibility(com.sketchware.ai.github.ProjectLinks.get(scId) != null ? View.VISIBLE : View.GONE);
             if (target < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
                 viewHolder.targetPill.setText("Target " + target);
                 viewHolder.targetPill.setVisibility(View.VISIBLE);
@@ -548,6 +552,7 @@ public class GC extends DA implements View.OnClickListener {
 
         public class ViewHolder extends RecyclerView.v {
             public final TextView tvPublished;
+            public final ImageView shareLink;
             public final View expand;
             public final MyProjectButtonLayout projectButtonLayout;
             public final LinearLayout projectOptionLayout;
@@ -582,6 +587,14 @@ public class GC extends DA implements View.OnClickListener {
                 packageName = itemView.findViewById(R.id.package_name);
                 projectVersion = itemView.findViewById(R.id.project_version);
                 tvPublished = itemView.findViewById(R.id.tv_published);
+                shareLink = itemView.findViewById(R.id.ob_share_link);
+                shareLink.setOnClickListener(v -> {
+                    int position = j();
+                    if (getActivity() == null || position < 0 || position >= projectsList.size()) return;
+                    HashMap<String, Object> project = projectsList.get(position);
+                    String link = com.sketchware.ai.github.ProjectLinks.get(yB.c(project, "sc_id"));
+                    if (link != null) com.sketchware.ai.github.ProjectLinks.share(getActivity(), yB.c(project, "my_ws_name"), link);
+                });
                 expand = itemView.findViewById(R.id.expand);
                 projectOptionLayout = itemView.findViewById(R.id.project_option_layout);
                 projectOption = itemView.findViewById(R.id.project_option);

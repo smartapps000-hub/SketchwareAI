@@ -179,7 +179,11 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
                     public void signIn() {
                         if (!(getContext() instanceof Activity)) return;
                         Activity activity = (Activity) getContext();
-                        com.sketchware.ai.github.GitHubInAppAuthDialog.show(activity, login -> accountListener.changed());
+                        com.sketchware.ai.github.GitHubInAppAuthDialog.show(activity, login -> {
+                            accountListener.changed();
+                            // v2.0.2: signed in: back on the projects list (the drawer closes)
+                            closeDrawer();
+                        });
                     }
 
                     @Override
@@ -192,6 +196,19 @@ public class MainDrawer extends LinearLayout implements View.OnClickListener {
                                 .show();
                     }
                 });
+    }
+
+    /** v2.0.2: closes the DrawerLayout this drawer is in (none: nothing). */
+    private void closeDrawer() {
+        android.view.ViewParent parent = getParent();
+        while (parent != null) {
+            if (parent instanceof androidx.drawerlayout.widget.DrawerLayout) {
+                // DrawerLayout#closeDrawers() (the bundled copy is obfuscated, as MainActivity uses it)
+                ((androidx.drawerlayout.widget.DrawerLayout) parent).b();
+                return;
+            }
+            parent = parent.getParent();
+        }
     }
 
     private void showAppThemeDialog(Activity activity) {

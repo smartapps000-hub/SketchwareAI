@@ -16,6 +16,10 @@ import com.sketchware.remod.R;
  * back up projects"; a tap opens the in-app sign-in window. Signed in: the account picture (else the mark), the profile
  * name (else @login), @login, the primary e-mail when GitHub gave it, and a "Sign out" glass pill. Plain view binding,
  * so layoutlib draws this code (V200Test).
+ * <p>
+ * v2.0.2 (owner's 14 Nov phone test: "Sign in with Gi…", "@cr…", "createn…"): signed out, the title wraps to a second
+ * line instead of being cut; signed in, the name, @login and e-mail take the whole width and scroll sideways when longer
+ * (marquee, endlessly), and "Sign out" sits under them.
  */
 public final class DrawerAccountCard {
 
@@ -38,6 +42,8 @@ public final class DrawerAccountCard {
         GitHubViews v = new GitHubViews(card.getContext());
         if (profile == null) {
             v.showPicture(picture, null);
+            wrap(title);
+            wrap(subtitle);
             title.setText("Sign in with GitHub");
             subtitle.setText("Sync & back up projects");
             email.setVisibility(View.GONE);
@@ -50,9 +56,12 @@ public final class DrawerAccountCard {
         boolean named = profile.name != null && !profile.name.trim().isEmpty();
         title.setText(named ? profile.name.trim() : "@" + profile.login);
         subtitle.setText(named ? "@" + profile.login : "GitHub account");
+        marquee(title);
+        marquee(subtitle);
         if (profile.email != null && !profile.email.isEmpty()) {
             email.setText(profile.email);
             email.setVisibility(View.VISIBLE);
+            marquee(email);
         } else {
             email.setVisibility(View.GONE);
         }
@@ -61,6 +70,25 @@ public final class DrawerAccountCard {
         card.setOnClickListener(null);
         card.setClickable(false);
         card.setContentDescription("GitHub account @" + profile.login);
+    }
+
+    /** Up to two lines, nothing cut (signed out). */
+    private static void wrap(TextView t) {
+        t.setSelected(false);
+        t.setSingleLine(false);
+        t.setMaxLines(2);
+        t.setEllipsize(null);
+        t.setHorizontallyScrolling(false);
+    }
+
+    /** One line that scrolls sideways, endlessly, when the text is wider than the card (the owner's ask). */
+    static void marquee(TextView t) {
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
+        t.setMarqueeRepeatLimit(-1);
+        t.setHorizontallyScrolling(true);
+        // marquee runs only on a selected (or focused) view
+        t.setSelected(true);
     }
 
     private static Drawable picture(View card, GitHubSession.Profile profile) {

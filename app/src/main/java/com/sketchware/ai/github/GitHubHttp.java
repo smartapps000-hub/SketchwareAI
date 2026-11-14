@@ -203,10 +203,20 @@ public final class GitHubHttp {
         }
     }
 
+    /** v2.0.2: bytes of a transfer so far and in all (-1 when the size isn't known); called on the worker thread. */
+    public interface Progress {
+        void bytes(long done, long total);
+    }
+
+    static Response postBlob(String path, String token, File file) throws IOException {
+        return postBlob(path, token, file, null);
+    }
+
     /**
      * POST /repos/.../git/blobs with the file's bytes streamed as base64 (no copy of the whole file in memory).
+     * v2.0.2: {@code progress} hears the bytes sent.
      */
-    static Response postBlob(String path, String token, File file) throws IOException {
+    static Response postBlob(String path, String token, File file, Progress progress) throws IOException {
         Response limited = limitedNow(token);
         if (limited != null) return limited;
         HttpURLConnection c = open(api() + path, "POST", token);
@@ -217,7 +227,9 @@ public final class GitHubHttp {
         byte[] head = "{\"encoding\":\"base64\",\"content\":\"".getBytes(StandardCharsets.US_ASCII);
         byte[] tail = "\"}".getBytes(StandardCharsets.US_ASCII);
         c.setFixedLengthStreamingMode(head.length + encoded + tail.length);
-        try (OutputStream out = c.getOutputStream(); InputStream in = new FileInputStream(file)) {
+        long total = head.length + encoded + tail.length;
+        try (OutputStream raw = c.getOutputStream(); InputStream in = new FileInputStream(file)) {
+            OutputStream out = progress == null ? raw : new CountingStream(raw, total, progress);
             out.write(head);
             Base64Stream.encode(in, out);
             out.write(tail);
@@ -233,11 +245,16 @@ public final class GitHubHttp {
      * rate-limit fields; no body when it worked) is returned.
      */
     static Response download(String path, String token, File target, long maxBytes) throws IOException {
+        return download(path, token, target, maxBytes, null);
+    }
+
+    /** v2.0.2: the same, {@code progress} hearing the bytes received (total from Content-Length, else -1). */
+    static Response download(String path, String token, File target, long maxBytes, Progress progress) throws IOException {
         for (int attempt = 0; ; attempt++) {
             Response limited = limitedNow(token);
             if (limited != null) return limited;
             try {
-                Response r = downloadOnce(path, token, target, maxBytes);
+                Response r = downloadOnce(path, token, target, maxBytes, progress);
                 if (attempt < backoff.length && (r.code == 502 || r.code == 503 || r.code == 504)) {
                     pause(backoff[attempt]);
                     continue;
@@ -264,7 +281,8 @@ public final class GitHubHttp {
         }
     }
 
-    private static Response downloadOnce(String path, String token, File target, long maxBytes) throws IOException {
+    private static Response downloadOnce(String path, String token, File target, long maxBytes, Progress progress)
+            throws IOException {
         HttpURLConnection c = open(api() + path, "GET", token);
         c.setRequestProperty("Accept", "application/vnd.github.raw");
         int code = c.getResponseCode();
@@ -283,11 +301,13 @@ public final class GitHubHttp {
             throw new NoRetry("Can't write " + temp, e);
         }
         // the file first: it is closed even when the answer's stream can't be opened (review)
+        long length = c.getContentLength(); // int on every API level (files here stay under 100 MB)
         try (OutputStream out = file; InputStream in = c.getInputStream()) {
             byte[] buffer = new byte[64 * 1024];
             int n;
             while ((n = in.read(buffer)) > 0) {
                 total += n;
+                if (progress != null) progress.bytes(total, length);
                 if (total > maxBytes) throw new TooLarge("The file is larger than " + (maxBytes >> 20) + " MB");
                 try {
                     out.write(buffer, 0, n);
@@ -427,6 +447,40 @@ public final class GitHubHttp {
             return Math.max(0, Integer.parseInt(value.trim()));
         } catch (NumberFormatException e) {
             return -1;
+        }
+    }
+
+    /** v2.0.2: counts what goes through to the network for {@link Progress} (about every 32 KB). */
+    static final class CountingStream extends java.io.FilterOutputStream {
+        private final long total;
+        private final Progress progress;
+        private long done;
+        private long told;
+
+        CountingStream(OutputStream out, long total, Progress progress) {
+            super(out);
+            this.total = total;
+            this.progress = progress;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            out.write(b);
+            count(1);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            out.write(b, off, len);
+            count(len);
+        }
+
+        private void count(long n) {
+            done += n;
+            if (done - told >= 32 * 1024 || done >= total) {
+                told = done;
+                progress.bytes(done, total);
+            }
         }
     }
 

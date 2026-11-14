@@ -143,6 +143,12 @@
             android:name="com.sketchware.ai.ui.NewProjectActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
+        <!-- v2.0.2 (as in v1.9.9): bound by the Custom Tab of "Sign in via browser" while it is open, so the sign-in's
+             checks keep their network and the tab can be closed the moment GitHub says yes -->
+        <service
+            android:name="com.sketchware.ai.github.KeepAliveService"
+            android:exported="true"
+            tools:ignore="ExportedService" />
         <activity
             android:name="com.sketchware.ai.github.GitHubActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"

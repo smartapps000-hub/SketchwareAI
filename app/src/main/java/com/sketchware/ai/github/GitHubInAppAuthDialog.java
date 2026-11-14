@@ -80,6 +80,14 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private static final long STALLED_MILLIS = 60_000L;
     /** GitHub's "too many requests": Reload waits this long. */
     private static final long LIMIT_PAUSE_MILLIS = 60_000L;
+    /** v2.0.2: the Custom Tab of "Sign in via browser", closed with finishActivity when GitHub says yes. */
+    static final int REQUEST_BROWSER = 7311;
+    /**
+     * v2.0.2: the address the page's own click handler goes to when a "Continue with Google / Apple" button is tapped
+     * (see {@link #SOCIAL_SCRIPT}): not a bridge into the app, only a navigation the window refuses and answers with
+     * the browser hand-off.
+     */
+    static final String HANDOFF_URL = "sketchware-ai://browser-sign-in";
 
     private final Activity activity;
     private final Done done;
@@ -115,6 +123,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.0.1: an expired code was renewed once by itself (a second expiry waits for Reload). */
     private boolean renewed;
     private boolean loading;
+    /** v2.0.2: uptimes of recent "signed in, now to the device page" moves (no loop with a page GitHub insists on). */
+    private final java.util.ArrayDeque<Long> toDevice = new java.util.ArrayDeque<>();
     /** The page renderer kept ending and no new WebView is made (the status says so; not "no WebView"). */
     private boolean webGaveUp;
     /** v2.0.1 (review): uptimes of recent page recoveries and WebView re-creations (loop guards). */
@@ -231,6 +241,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         if (login != null) {
             signedIn = true;
+            // v2.0.2: the browser tab of "Sign in via browser" closes too, back to the screen the window was opened on
+            try {
+                activity.finishActivity(REQUEST_BROWSER);
+            } catch (RuntimeException ignored) {
+                // no tab open
+            }
             Toast.makeText(activity, "Signed in as @" + login, Toast.LENGTH_SHORT).show();
             dismiss();
             if (done != null) done.signedIn(login);
@@ -341,10 +357,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         copyCode(false);
         try {
-            activity.startActivity(customTab(code.verificationUri != null
-                    && code.verificationUri.startsWith("https://github.com/") ? code.verificationUri : DEVICE_PAGE));
+            // v2.0.2: started for a result so the tab can be closed with finishActivity when GitHub says yes
+            activity.startActivityForResult(customTab(activity, code.verificationUri != null
+                    && code.verificationUri.startsWith("https://github.com/") ? code.verificationUri : DEVICE_PAGE),
+                    REQUEST_BROWSER);
             openedBrowser = true;
-            status("Paste " + code.userCode + " in the browser, approve, then come back here.", false);
+            status("Code copied: paste " + code.userCode + " in the browser and approve. This closes by itself.", false);
         } catch (ActivityNotFoundException e) {
             if (web == null) {
                 // neither a WebView nor a browser: sign-in can't work here, a required sign-in is lifted for this run
@@ -356,8 +374,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
     }
 
-    /** A Custom Tab without the androidx.browser library (the protocol's extras); a plain browser page otherwise. */
-    static Intent customTab(String url) {
+    /**
+     * A Custom Tab without the androidx.browser library (the protocol's extras); a plain browser page otherwise.
+     * v2.0.2: with the keep-alive extra naming {@link KeepAliveService} (the browser binds it while the tab is open, so
+     * the app keeps its network and sees GitHub's "yes" while the tab is still in front).
+     */
+    static Intent customTab(Context context, String url) {
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
         Bundle extras = new Bundle();
@@ -365,6 +387,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         intent.putExtras(extras);
         intent.putExtra("android.support.customtabs.extra.TOOLBAR_COLOR", 0xFF0B0B0D);
         intent.putExtra("androidx.browser.customtabs.extra.SHARE_STATE", 2);
+        intent.putExtra("android.support.customtabs.extra.KEEP_ALIVE",
+                new Intent().setClassName(context.getPackageName(), KeepAliveService.class.getName()));
         return intent;
     }
 
@@ -458,26 +482,27 @@ public final class GitHubInAppAuthDialog extends Dialog {
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
                 // frames inside GitHub's page (a captcha from another host) stay; only the page itself is limited
                 if (!request.isForMainFrame()) return false;
-                if (!refuse(request.getUrl())) return false;
-                recoverSoon();
-                return true;
+                return intercept(request.getUrl());
             }
 
             @Override
             @SuppressWarnings("deprecation")
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
-                if (!refuse(Uri.parse(url))) return false;
-                recoverSoon();
-                return true;
+                return intercept(Uri.parse(url));
             }
 
             @Override
             public void onPageStarted(WebView v, String url, Bitmap favicon) {
                 if (v != web) return;
-                if (!allowed(Uri.parse(url))) {
-                    // a redirect we didn't get to see: stop it and go back to GitHub (never a blank page)
+                Uri uri = Uri.parse(url);
+                if (!allowed(uri) || isSocialSignIn(uri)) {
+                    // a redirect or form we didn't get to see: stop it and go back to GitHub (never a blank page)
                     v.stopLoading();
-                    refuse(Uri.parse(url));
+                    if (isSocialSignIn(uri)) {
+                        socialHandoff();
+                    } else {
+                        refuse(uri);
+                    }
                     recoverSoon();
                     return;
                 }
@@ -500,6 +525,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     return;
                 }
                 pageFinished(url);
+            }
+
+            @Override
+            public void doUpdateVisitedHistory(WebView v, String url, boolean isReload) {
+                // v2.0.2: GitHub moves between its pages without a new load (Turbo): the landing check runs here too
+                if (v == web && url != null) toDevicePageIfSignedIn(Uri.parse(url));
             }
 
             @Override
@@ -641,6 +672,107 @@ public final class GitHubInAppAuthDialog extends Dialog {
         return host != null && (host.equals("github.com") || host.endsWith(".github.com"));
     }
 
+    /**
+     * v2.0.2: the navigation decision for the page itself: the hand-off address and GitHub's own "Continue with Google /
+     * Apple" addresses start the browser sign-in at once (nothing loads, so no blank page); other hosts are refused.
+     */
+    private boolean intercept(Uri uri) {
+        if (uri != null && HANDOFF_URL.equals(uri.toString())) {
+            socialHandoff();
+            return true;
+        }
+        if (isSocialSignIn(uri)) {
+            socialHandoff();
+            return true;
+        }
+        if (!refuse(uri)) return false;
+        recoverSoon();
+        return true;
+    }
+
+    /**
+     * GitHub's sign-in with another account (Google, Apple, Microsoft): GitHub's own {@code /sessions/social/…}
+     * addresses and the providers' sign-in hosts. Those providers refuse sign-in inside an app's WebView.
+     */
+    static boolean isSocialSignIn(Uri uri) {
+        if (uri == null) return false;
+        String host = uri.getHost();
+        if (host == null) return false;
+        if (allowed(uri)) {
+            String path = uri.getPath() == null ? "" : uri.getPath();
+            return path.startsWith("/sessions/social") || path.startsWith("/session/social")
+                    || path.startsWith("/login/social") || path.contains("/social/google") || path.contains("/social/apple");
+        }
+        return host.equals("accounts.google.com") || host.endsWith(".google.com") && host.startsWith("accounts")
+                || host.equals("appleid.apple.com") || host.equals("login.microsoftonline.com") || host.equals("login.live.com");
+    }
+
+    private long lastHandoff;
+
+    /** Google, Apple, Microsoft: the browser sign-in starts by itself (code copied, GitHub's device page in a tab). */
+    private void socialHandoff() {
+        long now = SystemClock.elapsedRealtime();
+        // one hand-off for one tap (a form and its redirect both arrive here)
+        if (now - lastHandoff < 3000) return;
+        lastHandoff = now;
+        status("Google / Apple sign-in opens in the browser: the code is copied.", false);
+        openBrowser();
+    }
+
+    /**
+     * v2.0.2 (owner's 13 Nov phone test: after signing in, GitHub's home feed stayed on screen): when GitHub lands on
+     * its home page, dashboard or a welcome page, the device page opens again so the code goes in and Authorize comes
+     * next. Signed out, only GitHub's front page is moved. At most three times a minute (a page GitHub insists on
+     * stays).
+     */
+    private void toDevicePageIfSignedIn(Uri uri) {
+        if (closed || web == null || uri == null || !allowed(uri) || !"github.com".equals(uri.getHost())) return;
+        if (signIn.pending() == null || signIn.finishing()) return;
+        String path = uri.getPath() == null || uri.getPath().isEmpty() ? "/" : uri.getPath();
+        boolean front = path.equals("/");
+        boolean landing = front || path.startsWith("/dashboard") || path.equals("/home") || path.startsWith("/feed")
+                || path.startsWith("/explore") || path.startsWith("/welcome") || path.startsWith("/onboarding")
+                || path.startsWith("/copilot") || path.startsWith("/notifications");
+        if (!landing) return;
+        if (!front && !signedInOnGitHub()) return;
+        if (!allowAgain(toDevice, 3, 60_000L)) return;
+        status("Signed in to GitHub · opening the code page…", false);
+        filled = false;
+        fillTries = 0;
+        main.post(() -> {
+            if (!closed && web != null) web.loadUrl(DEVICE_PAGE);
+        });
+    }
+
+    /** GitHub's own "signed in" cookie in the window's cookie store. */
+    static boolean signedInOnGitHub() {
+        try {
+            String cookies = CookieManager.getInstance().getCookie("https://github.com");
+            return cookies != null && cookies.contains("logged_in=yes");
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * v2.0.2: on GitHub's sign-in and sign-up pages, a tap on "Continue with Google / Apple" goes to
+     * {@link #HANDOFF_URL} instead (the window answers with the browser sign-in before anything loads). Checks only the
+     * button's own link, form address or text; touches nothing else on the page and reads no field.
+     */
+    static final String SOCIAL_SCRIPT = "(function(){try{if(window.__swSocial)return 'again';window.__swSocial=1;"
+            + "function social(el){if(!el)return false;var a=el.closest('a,button,form');if(!a)return false;"
+            + "var target=(a.getAttribute('href')||a.getAttribute('action')||a.getAttribute('formaction')||'');"
+            + "var form=a.form||a.closest('form');if(form)target+=' '+(form.getAttribute('action')||'');"
+            + "if(/\\/social\\/|social_provider|\\/auth\\/(google|apple)/i.test(target))return true;"
+            + "var text=(a.textContent||'').replace(/\\s+/g,' ').trim();"
+            + "return /^(continue|sign (in|up)) with (google|apple)$/i.test(text);}"
+            + "function go(e){if(social(e.target)){e.preventDefault();e.stopPropagation();"
+            + "location.href='" + HANDOFF_URL + "';}}"
+            + "document.addEventListener('click',go,true);"
+            + "document.addEventListener('submit',function(e){var f=e.target;var t=(f&&f.getAttribute('action'))||'';"
+            + "if(/\\/social\\/|social_provider/i.test(t)){e.preventDefault();e.stopPropagation();"
+            + "location.href='" + HANDOFF_URL + "';}},true);return 'ok';}catch(e){return 'error:'+e;}})()";
+
     /** True (the page doesn't go there) for any address but GitHub's, with a short line why. */
     private boolean refuse(Uri uri) {
         if (allowed(uri)) return false;
@@ -696,6 +828,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (!allowed(uri)) return;
         String path = uri.getPath() == null ? "" : uri.getPath();
         if (!path.contains("/social") && !path.contains("/oauth")) lastGoodUrl = url;
+        if (path.startsWith("/login") || path.startsWith("/session") || path.startsWith("/signup")
+                || path.startsWith("/join") || path.equals("/")) {
+            // v2.0.2: "Continue with Google / Apple" goes to the browser sign-in before anything loads
+            web.evaluateJavascript(SOCIAL_SCRIPT, null);
+        }
+        toDevicePageIfSignedIn(uri);
         if (path.equals("/login/device") || path.equals("/login/device/")) {
             fill();
         } else if (path.startsWith("/login/device/")) {

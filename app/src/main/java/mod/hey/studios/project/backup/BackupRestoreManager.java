@@ -180,13 +180,25 @@ public class BackupRestoreManager {
         doRestore(file, restoreLocalLibs, null);
     }
 
+    /** v2.0.2: the end of a restore for a caller showing its own progress (GitHub import): ok, and a line to show. */
+    public interface RestoreDone {
+        void done(boolean ok, String message);
+    }
+
     /** v2.0.1: {@code librariesFrom} = the GitHub link a backup came from (its copied libraries are marked), or null. */
     public void doRestore(final String file, final boolean restoreLocalLibs, final String librariesFrom) {
+        doRestore(file, restoreLocalLibs, librariesFrom, null);
+    }
+
+    /** v2.0.2: the same; with {@code done}, no dialog of its own (the caller's progress sheet shows it). */
+    public void doRestore(final String file, final boolean restoreLocalLibs, final String librariesFrom,
+                          final RestoreDone done) {
         if (act != null && !com.sketchware.ai.github.AuthGuard.check(act)) {
             android.widget.Toast.makeText(act, "Sign in to restore a backup", android.widget.Toast.LENGTH_SHORT).show();
+            if (done != null) done.done(false, "Sign in to restore a backup.");
             return;
         }
-        new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc, librariesFrom).execute("");
+        new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc, librariesFrom, done).execute("");
     }
 
     private static class BackupAsyncTask extends AsyncTask<String, Integer, String> {
@@ -243,13 +255,15 @@ public class BackupRestoreManager {
         private final GC gc;
         private final boolean restoreLocalLibs;
         private final String librariesFrom;
+        private final RestoreDone done;
         private BackupFactory bm;
         private ProgressDialog dlg;
         private boolean error = false;
 
         RestoreAsyncTask(WeakReference<Activity> activityWeakReference, String file, boolean restoreLocalLibraries, GC gc,
-                         String librariesFrom) {
+                         String librariesFrom, RestoreDone done) {
             this.librariesFrom = librariesFrom;
+            this.done = done;
             this.activityWeakReference = activityWeakReference;
             this.file = file;
             this.gc = gc;
@@ -258,6 +272,7 @@ public class BackupRestoreManager {
 
         @Override
         protected void onPreExecute() {
+            if (done != null) return;
             dlg = new ProgressDialog(activityWeakReference.get(), com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
             dlg.setMessage("Restoring...");
             dlg.setCancelable(false);
@@ -283,7 +298,13 @@ public class BackupRestoreManager {
 
         @Override
         protected void onPostExecute(String _result) {
-            dlg.dismiss();
+            if (dlg != null) dlg.dismiss();
+            if (done != null) {
+                boolean ok = bm.isRestoreSuccess() && !error;
+                if (ok && gc != null) gc.refreshProjectsList();
+                done.done(ok, ok ? "Imported as a new project" : "Couldn't restore: " + bm.error);
+                return;
+            }
 
             if (!bm.isRestoreSuccess() || error) {
                 SketchwareUtil.toastError("Couldn't restore: " + bm.error, Toast.LENGTH_LONG);

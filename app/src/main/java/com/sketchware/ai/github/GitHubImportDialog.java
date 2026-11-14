@@ -34,8 +34,16 @@ public final class GitHubImportDialog {
 
     /** The app's restore of a downloaded file (BackupRestoreManager.doRestore with the projects list's callback). */
     public interface Restorer {
-        /** {@code librariesFrom}: the GitHub link (owner/repo) of someone else's backup, or null for an own one. */
-        void restore(File swb, boolean withLocalLibraries, String librariesFrom);
+        /**
+         * {@code librariesFrom}: the GitHub link (owner/repo) of someone else's backup, or null for an own one;
+         * {@code done} (v2.0.2) hears the end on the main thread (the progress sheet shows it).
+         */
+        void restore(File swb, boolean withLocalLibraries, String librariesFrom, Restored done);
+    }
+
+    /** v2.0.2: the end of a restore. */
+    public interface Restored {
+        void done(boolean ok, String message);
     }
 
     private final Activity activity;
@@ -51,6 +59,7 @@ public final class GitHubImportDialog {
     private TextView status;
     private EditText link;
     private TextView importButton;
+    private LinearLayout found;
     private boolean busy;
 
     public static void show(Activity activity, Restorer restorer) {
@@ -70,7 +79,14 @@ public final class GitHubImportDialog {
         content.setPadding(v.dp(20), v.dp(8), v.dp(20), v.dp(4));
         scroll.addView(content);
 
-        content.addView(v.header(R.drawable.ob_ic_github, "GitHub import project", "Your backups or a GitHub link"));
+        LinearLayout header = v.header(R.drawable.ob_ic_github, "GitHub import project", "Your backups or a GitHub link");
+        // v2.0.2 (owner's 14 Nov directive): ⓘ opens the step-by-step guide
+        android.widget.ImageView info = v.iconButton(R.drawable.ob_ic_help, "How to import from GitHub");
+        info.setOnClickListener(x -> showGuide(activity));
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(v.dp(40), v.dp(40));
+        ip.leftMargin = v.dp(8);
+        header.addView(info, ip);
+        content.addView(header);
 
         link = new EditText(activity, null, 0, R.style.Ob_Text);
         link.setHint("Paste a GitHub link");
@@ -91,6 +107,10 @@ public final class GitHubImportDialog {
         status = v.line("", false);
         status.setVisibility(View.GONE);
         content.addView(status, v.full(-1, 10));
+        // v2.0.2: the backups a repository or folder link holds, as rows (no plain list)
+        found = new LinearLayout(activity);
+        found.setOrientation(LinearLayout.VERTICAL);
+        content.addView(found, v.full(-1, 4));
 
         TextView title = new TextView(activity, null, 0, R.style.Ob_Text_Title);
         title.setText("Your backups");
@@ -213,13 +233,25 @@ public final class GitHubImportDialog {
                         setBusy(false, "No backups of " + name + " were found.");
                         return;
                     }
-                    String[] labels = new String[list.size()];
-                    for (int i = 0; i < labels.length; i++) {
-                        labels[i] = list.get(i).date.replace('T', ' ').replace("Z", " UTC") + (i == 0 ? "  (newest)" : "");
+                    // v2.0.2: the versions as glass rows, newest first
+                    ScrollView scroll = new ScrollView(activity);
+                    LinearLayout rows = new LinearLayout(activity);
+                    rows.setOrientation(LinearLayout.VERTICAL);
+                    rows.setPadding(v.dp(20), v.dp(8), v.dp(20), v.dp(4));
+                    scroll.addView(rows);
+                    rows.addView(v.header(R.drawable.ob_ic_restore, "Restore " + name, "Always as a new project"));
+                    AlertDialog[] sheet = new AlertDialog[1];
+                    for (int i = 0; i < list.size(); i++) {
+                        CloudBackup.Version version = list.get(i);
+                        String when = version.date.replace('T', ' ').replace("Z", " UTC");
+                        rows.addView(v.row(i == 0 ? "Newest backup" : "Backup " + (list.size() - i), when,
+                                v.smallPill("Restore", true, true, x -> {
+                                    sheet[0].dismiss();
+                                    downloadOwn(cloud, entry, version, name);
+                                })), v.full(-1, i == 0 ? 14 : 8));
                     }
-                    new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
-                            .setTitle("Restore " + name + " as a new project")
-                            .setItems(labels, (d, which) -> downloadOwn(cloud, entry, list.get(which), name))
+                    sheet[0] = new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                            .setView(scroll)
                             .setNegativeButton(android.R.string.cancel, null)
                             .show();
                 });
@@ -230,19 +262,57 @@ public final class GitHubImportDialog {
     }
 
     private void downloadOwn(CloudBackup cloud, CloudBackup.Entry entry, CloudBackup.Version version, String name) {
-        setBusy(true, "Downloading " + name + "…");
-        work.execute(() -> {
+        GitHubProgress progress = startImport(name);
+        background(() -> {
             try {
                 File folder = new File(BackupFactory.getBackupDir(), "cloud");
                 if (!folder.isDirectory() && !folder.mkdirs()) throw new java.io.IOException("Can't create " + folder);
                 String base = new File(entry.path).getName().replace(".swb", "");
                 File target = new File(folder, base + " " + version.sha.substring(0, 7) + ".swb");
-                cloud.download(entry.path, version.sha, target);
+                cloud.download(entry.path, version.sha, target, downloadSteps(progress, entry.size));
                 boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
-                ui(() -> finish(target, libraries, true, null));
+                onMain(() -> finish(progress, target, libraries, true, null));
             } catch (Exception e) {
-                ui(() -> setBusy(false, text(e)));
+                onMain(() -> progress.failed(text(e)));
             }
+        });
+    }
+
+    /** v2.0.2: the import's progress sheet; the import sheet itself closes. */
+    private GitHubProgress startImport(String name) {
+        try {
+            dialog.dismiss();
+        } catch (RuntimeException ignored) {
+        }
+        GitHubProgress progress = GitHubProgress.show(activity, R.drawable.ob_ic_github, "Import " + name);
+        progress.update(2, "Connecting to GitHub…");
+        return progress;
+    }
+
+    /** Download bytes → 5-80% (the size from Content-Length, else the backup list's, else a slow creep). */
+    private GitHubHttp.Progress downloadSteps(GitHubProgress progress, long knownSize) {
+        int[] last = {4};
+        return (done, total) -> {
+            long all = total > 0 ? total : knownSize;
+            int percent = all > 0 ? 5 + (int) (75 * Math.min(1.0, done / (double) all))
+                    : Math.min(75, 5 + (int) (done / (512 * 1024)));
+            if (percent <= last[0]) return;
+            last[0] = percent;
+            String text = "Downloading… " + CloudSync.megabytes(done) + (all > 0 ? " of " + CloudSync.megabytes(all) : "");
+            onMain(() -> progress.update(percent, text));
+        };
+    }
+
+    /** A download that outlives the import sheet (its own thread: the sheet's executor stops with the sheet). */
+    private static void background(Runnable r) {
+        Thread t = new Thread(r, "GitHubImportDownload");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void onMain(Runnable r) {
+        activity.runOnUiThread(() -> {
+            if (!activity.isFinishing() && !activity.isDestroyed()) r.run();
         });
     }
 
@@ -260,19 +330,24 @@ public final class GitHubImportDialog {
         work.execute(() -> {
             try {
                 String token = TokenStore.get(activity).login() == null ? null : token();
-                List<String> found = GitHubImport.listBackups(token, source);
+                List<String> list = GitHubImport.listBackups(token, source);
                 ui(() -> {
-                    if (found.isEmpty()) {
+                    found.removeAllViews();
+                    if (list.isEmpty()) {
                         setBusy(false, "No .swb backups in " + source.owner + "/" + source.repo + ".");
-                    } else if (found.size() == 1) {
-                        downloadLink(token, source, found.get(0));
-                    } else {
+                    } else if (list.size() == 1 && source.file) {
                         setBusy(false, null);
-                        new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
-                                .setTitle("Pick a backup")
-                                .setItems(found.toArray(new String[0]), (d, which) -> downloadLink(token, source, found.get(which)))
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show();
+                        downloadLink(token, source, list.get(0));
+                    } else {
+                        // v2.0.2: every backup found in the repository or folder, as rows with Import
+                        setBusy(false, list.size() == 1 ? "1 backup in " + source.owner + "/" + source.repo + ":"
+                                : list.size() + " backups in " + source.owner + "/" + source.repo + ":");
+                        for (String path : list) {
+                            String file = new File(path).getName();
+                            String folder = path.contains("/") ? path.substring(0, path.lastIndexOf('/')) : "(top folder)";
+                            found.addView(v.row(file, folder, v.smallPill("Import", true, true,
+                                    x -> downloadLink(token, source, path))), v.full(-1, 8));
+                        }
                     }
                 });
             } catch (Exception e) {
@@ -282,15 +357,16 @@ public final class GitHubImportDialog {
     }
 
     private void downloadLink(String token, GitHubImport.Source source, String path) {
-        setBusy(true, "Downloading " + new File(path).getName() + "…");
-        work.execute(() -> {
+        GitHubProgress progress = startImport(new File(path).getName());
+        background(() -> {
             try {
-                File target = GitHubImport.download(token, source, path, new File(BackupFactory.getBackupDir(), "github"));
+                File target = GitHubImport.download(token, source, path, new File(BackupFactory.getBackupDir(), "github"),
+                        downloadSteps(progress, -1));
                 boolean libraries = BackupFactory.zipContainsFile(target.getAbsolutePath(), "local_libs");
                 String from = source.owner + "/" + source.repo;
-                ui(() -> finish(target, libraries, false, from));
+                onMain(() -> finish(progress, target, libraries, false, from));
             } catch (Exception e) {
-                ui(() -> setBusy(false, text(e)));
+                onMain(() -> progress.failed(text(e)));
             }
         });
     }
@@ -303,22 +379,18 @@ public final class GitHubImportDialog {
      * too, with a trust note, and "Without libraries" first. Libraries already on the phone are never replaced
      * (BackupFactory copies only missing ones).
      */
-    private void finish(File swb, boolean hasLibraries, boolean own, String from) {
-        setBusy(false, null);
-        try {
-            dialog.dismiss();
-        } catch (RuntimeException ignored) {
-            // the window went with a recreated screen
-        }
+    private void finish(GitHubProgress progress, File swb, boolean hasLibraries, boolean own, String from) {
+        progress.update(82, "Downloaded " + CloudSync.megabytes(swb.length()));
         if (!hasLibraries) {
-            restorer.restore(swb, false, null);
+            restoreWith(progress, swb, false, null);
         } else if (own) {
             new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Local libraries")
                     .setMessage("This backup holds local libraries. Copy them to this phone's libraries? Libraries "
                             + "already here are kept as they are.")
-                    .setPositiveButton("Copy", (d, w) -> restorer.restore(swb, true, null))
-                    .setNegativeButton("Don't copy", (d, w) -> restorer.restore(swb, false, null))
+                    .setCancelable(false)
+                    .setPositiveButton("Copy", (d, w) -> restoreWith(progress, swb, true, null))
+                    .setNegativeButton("Don't copy", (d, w) -> restoreWith(progress, swb, false, null))
                     .show();
         } else {
             new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
@@ -328,10 +400,33 @@ public final class GitHubImportDialog {
                             + "never replaced; Sketchware AI never switches these on in another project by itself "
                             + "(the Library Resolver installs the Maven library of the same name over them). "
                             + "Without them, the Library Resolver can install the libraries from Maven.")
-                    .setPositiveButton("Without libraries", (d, w) -> restorer.restore(swb, false, null))
-                    .setNegativeButton("Copy libraries", (d, w) -> restorer.restore(swb, true, from))
+                    .setCancelable(false)
+                    .setPositiveButton("Without libraries", (d, w) -> restoreWith(progress, swb, false, null))
+                    .setNegativeButton("Copy libraries", (d, w) -> restoreWith(progress, swb, true, from))
                     .show();
         }
+    }
+
+    /** v2.0.2: the restore (a new project, custom blocks included) with its end on the progress sheet. */
+    private void restoreWith(GitHubProgress progress, File swb, boolean libraries, String from) {
+        progress.update(88, "Restoring as a new project" + (libraries ? " with its local libraries" : "") + "…");
+        restorer.restore(swb, libraries, from, (ok, message) -> {
+            if (progress.hidden()) {
+                android.widget.Toast.makeText(activity, message, android.widget.Toast.LENGTH_LONG).show();
+            } else if (ok) {
+                progress.done(message + " (custom blocks included)");
+            } else {
+                progress.failed(message);
+            }
+        });
+    }
+
+    /** v2.0.2: the ⓘ guide (three steps with diagrams, all drawn by the app: nothing to download). */
+    public static void showGuide(Activity activity) {
+        new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                .setView(new GitHubViews(activity).importGuide())
+                .setPositiveButton("Got it", null)
+                .show();
     }
 
     private String token() throws GitHubException {

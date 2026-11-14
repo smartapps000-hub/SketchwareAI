@@ -193,6 +193,28 @@ public final class CloudBackup {
      */
     public String upload(File swb, String projectName, String packageName, String versionName, String appVersion)
             throws IOException, GitHubException {
+        return upload(swb, projectName, packageName, versionName, appVersion, null);
+    }
+
+    /** v2.0.2: what an upload reports while it runs (on the worker thread). */
+    public interface UploadProgress {
+        /** The .swb's bytes on their way. */
+        void uploading(long sent, long total);
+
+        /** The file is on GitHub; the commit and index.json are being written. */
+        void saving();
+    }
+
+    /** v2.0.2: the path the last {@link #upload} wrote, and the link of the file on github.com. */
+    String lastPath;
+
+    public String link(String path) {
+        return "https://github.com/" + owner + "/" + REPO + "/blob/" + (branch == null ? "main" : branch) + "/"
+                + encPath(path);
+    }
+
+    public String upload(File swb, String projectName, String packageName, String versionName, String appVersion,
+                         UploadProgress progress) throws IOException, GitHubException {
         if (!swb.isFile()) throw new GitHubException("no_file", "The backup file wasn't made.");
         if (swb.length() > MAX_BYTES) {
             throw new GitHubException("too_large", "The backup is " + ((swb.length() + (1 << 20) - 1) >> 20) + " MB; cloud "
@@ -201,8 +223,10 @@ public final class CloudBackup {
         }
         if (branch == null) ensureRepository();
         String path = pathFor(packageName, projectName);
-        GitHubHttp.Response blob = GitHubHttp.postBlob(repoPath("/git/blobs"), token, swb);
+        GitHubHttp.Response blob = GitHubHttp.postBlob(repoPath("/git/blobs"), token, swb,
+                progress == null ? null : progress::uploading);
         if (!blob.ok()) throw http("Uploading the backup", blob);
+        if (progress != null) progress.saving();
         String blobSha = DeviceFlow.string(DeviceFlow.parse(blob.body), "sha");
         for (int attempt = 0; ; attempt++) {
             String head = headCommit();
@@ -242,7 +266,10 @@ public final class CloudBackup {
             refBody.addProperty("sha", commit);
             refBody.addProperty("force", false);
             GitHubHttp.Response ref = GitHubHttp.api("PATCH", repoPath("/git/refs/heads/" + branch), token, refBody.toString());
-            if (ref.ok()) return commit;
+            if (ref.ok()) {
+                lastPath = path;
+                return commit;
+            }
             if (ref.code == 422 && attempt == 0) continue; // the branch moved: once more on top of it
             throw http("Saving the backup", ref);
         }
@@ -277,8 +304,14 @@ public final class CloudBackup {
 
     /** Downloads the .swb of {@code path} as it was in commit {@code sha}. */
     public void download(String path, String sha, File target) throws IOException, GitHubException {
+        download(path, sha, target, null);
+    }
+
+    /** v2.0.2: the same with the bytes received reported. */
+    public void download(String path, String sha, File target, GitHubHttp.Progress progress)
+            throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.download(repoPath("/contents/" + encPath(path) + "?ref=" + enc(sha)), token,
-                target, MAX_BYTES + (5 << 20));
+                target, MAX_BYTES + (5 << 20), progress);
         if (r.rateLimited()) throw http("Downloading the backup", r);
         if (r.code < 200 || r.code >= 300) {
             throw new GitHubException("http_" + r.code, "Downloading the backup failed (HTTP " + r.code + ").");

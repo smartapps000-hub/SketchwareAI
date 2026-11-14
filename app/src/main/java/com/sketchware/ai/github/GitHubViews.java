@@ -484,6 +484,218 @@ public final class GitHubViews {
         return r;
     }
 
+    /** v2.0.2: the live progress sheet of "Back up to GitHub" and "GitHub import project". */
+    public static final class ProgressSheet {
+        public LinearLayout root;
+        public TextView title;
+        public TextView percent;
+        public android.widget.ProgressBar bar;
+        public TextView status;
+    }
+
+    /**
+     * v2.0.2 (owner's 14 Nov directive "live 0%-100% progress"): header (line icon, title), the percentage in large Sora,
+     * a 6dp orange bar on the divider track, and the step ("25% • Packing libraries & blocks…") on up to three lines.
+     */
+    public ProgressSheet progressSheet(int icon, String title) {
+        ProgressSheet p = new ProgressSheet();
+        LinearLayout content = new LinearLayout(c);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(8), dp(20), dp(4));
+        LinearLayout head = header(icon, title, "Keep the app open; you can hide this");
+        content.addView(head);
+        p.title = (TextView) ((LinearLayout) head.getChildAt(1)).getChildAt(0);
+        TextView percent = new TextView(c, null, 0, R.style.Ob_Text);
+        percent.setTypeface(bold());
+        percent.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34);
+        percent.setText("0%");
+        content.addView(percent, full(-1, 18));
+        android.widget.ProgressBar bar = new android.widget.ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(1000);
+        bar.setIndeterminate(false);
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(color(R.color.ob_orange)));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(color(R.color.ob_divider)));
+        content.addView(bar, full(6, 10));
+        TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        status.setMaxLines(3);
+        content.addView(status, full(-1, 12));
+        p.root = content;
+        p.percent = percent;
+        p.bar = bar;
+        p.status = status;
+        return p;
+    }
+
+    // ------------------------------------------------------------------ v2.0.2: the import guide
+
+    /**
+     * v2.0.2 (owner's 14 Nov directive "ⓘ step-by-step visual guide, bundled offline"): three glass cards, each with a
+     * number, a title, a line and a small diagram drawn from the app's own views (the share button next to "#663", the
+     * link field with Import, a found backup with the libraries question); the part to tap has an orange ring.
+     */
+    public android.widget.ScrollView importGuide() {
+        LinearLayout content = sheet();
+        content.addView(header(R.drawable.ob_ic_help, "Import from GitHub", "Three steps, also offline"));
+
+        // step 1: where a link comes from
+        LinearLayout card1 = miniCard();
+        card1.addView(miniTile("MA"));
+        LinearLayout texts = miniTexts("My App", "com.my.app · 1.0");
+        card1.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView share = new ImageView(c);
+        share.setImageResource(R.drawable.ob_ic_share);
+        share.setPadding(dp(6), dp(6), dp(6), dp(6));
+        share.setBackground(ring(R.drawable.ob_pill16));
+        card1.addView(share, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        TextView id = new TextView(c, null, 0, R.style.Ob_Text_Label);
+        id.setText("#663");
+        id.setTextColor(color(R.color.ob_accent));
+        id.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        id.setPadding(dp(8), 0, 0, 0);
+        card1.addView(id);
+        LinearLayout diagram1 = new LinearLayout(c);
+        diagram1.setOrientation(LinearLayout.VERTICAL);
+        diagram1.addView(card1);
+        TextView or = miniCaption("or any address like  github.com/user/repo");
+        diagram1.addView(or, full(-1, 6));
+        content.addView(step(1, "Copy a link", "Tap the share button next to a project's #number (it appears after "
+                + "Back up to GitHub), or copy a GitHub repository, folder or .swb address.", diagram1), full(-1, 14));
+
+        // step 2: paste and import
+        LinearLayout diagram2 = new LinearLayout(c);
+        diagram2.setOrientation(LinearLayout.VERTICAL);
+        TextView field = new TextView(c, null, 0, R.style.Ob_Text);
+        field.setText("github.com/user/repo");
+        field.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        field.setGravity(Gravity.CENTER_VERTICAL);
+        field.setBackgroundResource(R.drawable.ob_field);
+        field.setPadding(dp(10), 0, dp(10), 0);
+        diagram2.addView(field, full(34, 0));
+        TextView importPill = new TextView(c, null, 0, R.style.Ob_Text_Button_Cta);
+        importPill.setText("Import from link");
+        importPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        importPill.setGravity(Gravity.CENTER);
+        importPill.setBackground(ring(R.drawable.ob_cta_pill_soft));
+        diagram2.addView(importPill, full(32, 6));
+        content.addView(step(2, "Paste and import", "Open Restore projects > GitHub import project, paste the link "
+                + "and tap Import from link.", diagram2), full(-1, 10));
+
+        // step 3: pick and restore
+        LinearLayout diagram3 = new LinearLayout(c);
+        diagram3.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout row = miniCard();
+        row.addView(miniTexts("App One.swb", "backups"), new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView importSmall = new TextView(c, null, 0, R.style.Ob_Text_Button_Cta);
+        importSmall.setText("Import");
+        importSmall.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        importSmall.setGravity(Gravity.CENTER);
+        importSmall.setPadding(dp(10), 0, dp(10), 0);
+        importSmall.setBackground(ring(R.drawable.ob_cta_pill_soft));
+        row.addView(importSmall, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(26)));
+        diagram3.addView(row);
+        diagram3.addView(miniCaption("0% → 100% · local libraries: Without / Copy · custom blocks come along"),
+                full(-1, 6));
+        content.addView(step(3, "Pick and restore", "Pick a backup. It is restored as a new project; local libraries "
+                + "only if you choose Copy.", diagram3), full(-1, 10));
+        return (android.widget.ScrollView) content.getParent();
+    }
+
+    /** One step card: the number in an orange disc, title, line, then the diagram on a darker panel. */
+    private LinearLayout step(int number, String title, String text, View diagram) {
+        LinearLayout card = glassCard();
+        LinearLayout top = new LinearLayout(c);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView n = new TextView(c, null, 0, R.style.Ob_Text_Button_Cta);
+        n.setText(String.valueOf(number));
+        n.setGravity(Gravity.CENTER);
+        n.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        android.graphics.drawable.GradientDrawable disc = new android.graphics.drawable.GradientDrawable();
+        disc.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        disc.setColor(color(R.color.ob_orange));
+        n.setBackground(disc);
+        top.addView(n, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        TextView t = new TextView(c, null, 0, R.style.Ob_Text);
+        t.setText(title);
+        t.setTypeface(bold());
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tp.leftMargin = dp(10);
+        top.addView(t, tp);
+        card.addView(top);
+        TextView line = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        line.setText(text);
+        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        card.addView(line, full(-1, 8));
+        LinearLayout panel = new LinearLayout(c);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(0xFF0F0F12);
+        bg.setCornerRadius(dp(14));
+        panel.setBackground(bg);
+        panel.setPadding(dp(10), dp(10), dp(10), dp(10));
+        panel.addView(diagram);
+        card.addView(panel, full(-1, 10));
+        card.setContentDescription("Step " + number + ": " + title + ". " + text);
+        return card;
+    }
+
+    private LinearLayout miniCard() {
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.ob_pill16);
+        row.setPadding(dp(8), dp(8), dp(8), dp(8));
+        return row;
+    }
+
+    private TextView miniTile(String letters) {
+        TextView tile = new TextView(c, null, 0, R.style.Ob_Text_Label);
+        tile.setText(letters);
+        tile.setGravity(Gravity.CENTER);
+        tile.setTextColor(color(R.color.ob_accent));
+        tile.setBackgroundResource(R.drawable.ob_tile);
+        tile.setLayoutParams(new LinearLayout.LayoutParams(dp(30), dp(30)));
+        return tile;
+    }
+
+    private LinearLayout miniTexts(String title, String detail) {
+        LinearLayout texts = new LinearLayout(c);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.setPadding(dp(8), 0, dp(6), 0);
+        TextView t = new TextView(c, null, 0, R.style.Ob_Text_Label);
+        t.setText(title);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        t.setSingleLine(true);
+        texts.addView(t);
+        TextView d = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        d.setText(detail);
+        d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        d.setSingleLine(true);
+        texts.addView(d);
+        return texts;
+    }
+
+    private TextView miniCaption(String text) {
+        TextView t = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        t.setText(text);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        return t;
+    }
+
+    /** The diagram's "tap here" ring: an orange 2dp outline drawn over {@code base}. */
+    private Drawable ring(int base) {
+        android.graphics.drawable.GradientDrawable outline = new android.graphics.drawable.GradientDrawable();
+        outline.setColor(0x00000000);
+        outline.setCornerRadius(dp(16));
+        outline.setStroke(dp(2), color(R.color.ob_orange));
+        Drawable inner = c.getDrawable(base);
+        return new android.graphics.drawable.LayerDrawable(inner == null ? new Drawable[]{outline}
+                : new Drawable[]{inner, outline});
+    }
+
     /** A sheet's scrolling column (20dp sides) inside a ScrollView. */
     private LinearLayout sheet() {
         android.widget.ScrollView scroll = new android.widget.ScrollView(c);

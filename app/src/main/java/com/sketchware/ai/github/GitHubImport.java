@@ -156,12 +156,18 @@ public final class GitHubImport {
 
     /** Downloads one .swb of the link's repository into {@code folder}; the file's name is kept. */
     public static File download(String token, Source s, String path, File folder) throws IOException, GitHubException {
+        return download(token, s, path, folder, null);
+    }
+
+    /** v2.0.2: the same with the bytes received reported. */
+    public static File download(String token, Source s, String path, File folder, GitHubHttp.Progress progress)
+            throws IOException, GitHubException {
         String ref = ref(token, s);
         if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Can't create " + folder);
         String name = new File(path).getName().replaceAll("[\\\\/:*?\"<>|]", "_");
         File target = new File(folder, s.owner + "-" + s.repo + "-" + name);
         GitHubHttp.Response r = GitHubHttp.download(repoPath(s) + "/contents/" + CloudBackup.encPath(path) + "?ref="
-                + CloudBackup.enc(ref), token, target, CloudBackup.MAX_BYTES + (5 << 20));
+                + CloudBackup.enc(ref), token, target, CloudBackup.MAX_BYTES + (5 << 20), progress);
         int code = r.code;
         if (code == 404) throw notFound(token, s);
         if (r.rateLimited()) throw CloudBackup.http("Downloading " + name, r);

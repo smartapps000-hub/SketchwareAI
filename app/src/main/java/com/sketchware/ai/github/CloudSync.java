@@ -17,6 +17,8 @@ import java.util.concurrent.Executors;
 
 import a.a.a.lC;
 import a.a.a.yB;
+import com.sketchware.remod.R;
+
 import mod.hey.studios.project.backup.BackupFactory;
 import mod.jbk.util.LogUtil;
 
@@ -42,6 +44,11 @@ public final class CloudSync {
     /** Called on the main thread when one backup ended. */
     public interface Result {
         void done(boolean ok, String message);
+    }
+
+    /** v2.0.2: a step of a backup (0-100 and what is happening), on the main thread. */
+    public interface Progress {
+        void step(int percent, String text);
     }
 
     /** v2.0.1: what goes into the .swb (the Back up sheet's two boxes). */
@@ -133,8 +140,18 @@ public final class CloudSync {
             Toast.makeText(activity, name + " is being backed up", Toast.LENGTH_SHORT).show();
             return;
         }
-        Toast.makeText(activity, "Backing up " + name + " to GitHub…", Toast.LENGTH_SHORT).show();
-        sync.backUp(scId, options, (ok, message) -> Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show());
+        // v2.0.2 (owner's 14 Nov phone test: "Back up to GitHub did not visibly run"): the live progress sheet
+        GitHubProgress progress = GitHubProgress.show(activity, R.drawable.ob_ic_github, "Back up " + name);
+        progress.update(1, "Starting…");
+        sync.backUp(scId, options, progress::update, (ok, message) -> {
+            if (progress.hidden()) {
+                Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show();
+            } else if (ok) {
+                progress.done(message);
+            } else {
+                progress.failed(message);
+            }
+        });
     }
 
     /** A project was just created: back it up when signed in, else nothing; offline it waits. */
@@ -174,7 +191,13 @@ public final class CloudSync {
 
     /** v2.0.1: one project with the given contents. */
     public void backUp(String scId, Options options, Result result) {
+        backUp(scId, options, null, result);
+    }
+
+    /** v2.0.2: the same, with its steps reported on the main thread. */
+    public void backUp(String scId, Options options, Progress progress, Result result) {
         Options what = options == null ? Options.AUTOMATIC : options;
+        Progress steps = progress == null ? null : (percent, text) -> main.post(() -> progress.step(percent, text));
         synchronized (this) {
             if (!running.add(scId)) return;
         }
@@ -182,10 +205,10 @@ public final class CloudSync {
             boolean ok = false;
             String message;
             try {
-                String name = upload(scId, what);
+                String name = upload(scId, what, steps);
                 removePending(scId);
                 ok = true;
-                message = name + " backed up to GitHub";
+                message = name + " backed up to GitHub · the share link is on its card";
             } catch (MissingProject e) {
                 // deleted meanwhile: nothing to wait for
                 removePending(scId);
@@ -219,6 +242,15 @@ public final class CloudSync {
 
     // ------------------------------------------------------------------ the work
 
+    private static void step(Progress progress, int percent, String text) {
+        if (progress != null) progress.step(percent, text);
+    }
+
+    static String megabytes(long bytes) {
+        if (bytes < 1024 * 1024) return Math.max(1, bytes / 1024) + " KB";
+        return String.format(java.util.Locale.ENGLISH, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
     static final class MissingProject extends Exception {
         MissingProject(String message) {
             super(message);
@@ -230,8 +262,16 @@ public final class CloudSync {
         return upload(scId, Options.AUTOMATIC);
     }
 
-    /** v2.0.1: the same with the given contents (the .swb "Save on phone" makes with the same boxes). */
     String upload(String scId, Options options) throws Exception {
+        return upload(scId, options, null);
+    }
+
+    /**
+     * v2.0.1: the same with the given contents (the .swb "Save on phone" makes with the same boxes). v2.0.2: the steps
+     * go to {@code progress} (any thread), and the link of the uploaded file is kept with the project
+     * ({@link ProjectLinks}).
+     */
+    String upload(String scId, Options options, Progress progress) throws Exception {
         HashMap<String, Object> project = lC.b(scId);
         if (project == null) throw new MissingProject("Project #" + scId + " isn't on this phone any more.");
         String name = yB.c(project, "my_ws_name");
@@ -247,7 +287,11 @@ public final class CloudSync {
         CloudBackup cloud = new CloudBackup(token, login);
         try {
             // the network and the token first: offline nothing is zipped
+            step(progress, 5, "Checking your private repository " + CloudBackup.REPO + "…");
             cloud.ensureRepository();
+            step(progress, 15, options.localLibraries || options.customBlocks
+                    ? "Packing the project" + (options.localLibraries ? ", local libraries" : "")
+                    + (options.customBlocks ? " & custom blocks" : "") + "…" : "Packing the project…");
             BackupFactory factory = new BackupFactory(scId);
             factory.setBackupLocalLibs(options.localLibraries);
             factory.setBackupCustomBlocks(options.customBlocks);
@@ -257,7 +301,27 @@ public final class CloudSync {
             File swb = factory.getOutFile();
             if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
             try {
-                cloud.upload(swb, name, pkg, version, com.sketchware.remod.BuildConfig.VERSION_NAME);
+                long size = swb.length();
+                step(progress, 30, "Packed " + megabytes(size) + " · uploading to GitHub…");
+                int[] last = {30};
+                cloud.upload(swb, name, pkg, version, com.sketchware.remod.BuildConfig.VERSION_NAME,
+                        new CloudBackup.UploadProgress() {
+                            @Override
+                            public void uploading(long sent, long total) {
+                                int percent = 30 + (int) (60 * Math.min(1.0, sent / (double) Math.max(1, total)));
+                                if (percent > last[0]) {
+                                    last[0] = percent;
+                                    step(progress, percent, "Uploading to GitHub… " + megabytes(Math.min(size, sent * 3 / 4))
+                                            + " of " + megabytes(size));
+                                }
+                            }
+
+                            @Override
+                            public void saving() {
+                                step(progress, 92, "Saving the backup in " + CloudBackup.REPO + "…");
+                            }
+                        });
+                if (cloud.lastPath != null) ProjectLinks.save(scId, cloud.link(cloud.lastPath), cloud.lastPath);
             } finally {
                 // the .swb was made for the upload only (and its folder, when nothing else is in it)
                 BackupFactory.deleteUploadedBackup(swb);
