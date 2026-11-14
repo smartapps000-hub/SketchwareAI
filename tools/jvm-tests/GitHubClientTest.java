@@ -297,6 +297,41 @@ public class GitHubClientTest {
         java.lang.reflect.Field codeField = postAnswer.getClass().getField("code");
         check("v2.0.1: a POST answered 503 is not sent again", fake.postHits == 1 && (Integer) codeField.get(postAnswer) == 503,
                 fake.postHits);
+        // v2.0.2: the progress of an upload (bytes sent) and of a download (bytes received, Content-Length)
+        fake.mode = "";
+        java.util.List<long[]> sent = new java.util.ArrayList<>();
+        java.lang.reflect.Method postBlob = http.getDeclaredMethod("postBlob", String.class, String.class, File.class,
+                Class.forName("com.sketchware.ai.github.GitHubHttp$Progress"));
+        postBlob.setAccessible(true);
+        File progressFile = File.createTempFile("progress", ".swb");
+        java.nio.file.Files.write(progressFile.toPath(), new byte[200_000]);
+        Object listener = java.lang.reflect.Proxy.newProxyInstance(GitHubClientTest.class.getClassLoader(),
+                new Class<?>[]{Class.forName("com.sketchware.ai.github.GitHubHttp$Progress")}, (proxy, m, values) -> {
+                    if (m.getName().equals("bytes")) sent.add(new long[]{(Long) values[0], (Long) values[1]});
+                    return null;
+                });
+        postBlob.invoke(null, "/repos/octo/SketchwareAI-Projects/git/blobs", token, progressFile, listener);
+        long[] lastSent = sent.isEmpty() ? new long[]{0, -1} : sent.get(sent.size() - 1);
+        check("v2.0.2: upload progress: several reports, ending at the total", sent.size() > 3 && lastSent[0] == lastSent[1]
+                && lastSent[1] > 200_000, sent.size() + " reports, last " + lastSent[0] + "/" + lastSent[1]);
+        java.util.List<long[]> received = new java.util.ArrayList<>();
+        Object downListener = java.lang.reflect.Proxy.newProxyInstance(GitHubClientTest.class.getClassLoader(),
+                new Class<?>[]{Class.forName("com.sketchware.ai.github.GitHubHttp$Progress")}, (proxy, m, values) -> {
+                    if (m.getName().equals("bytes")) received.add(new long[]{(Long) values[0], (Long) values[1]});
+                    return null;
+                });
+        GitHubImport.download(null, pub, "backups/App One.swb", importDir,
+                (com.sketchware.ai.github.GitHubHttp.Progress) downListener);
+        long[] lastReceived = received.isEmpty() ? new long[]{0, 0} : received.get(received.size() - 1);
+        check("v2.0.2: download progress: bytes received with the total from Content-Length",
+                !received.isEmpty() && lastReceived[0] == fake.importBytes.length && lastReceived[1] == fake.importBytes.length,
+                lastReceived[0] + "/" + lastReceived[1]);
+        CloudBackup linkCloud = new CloudBackup(token, "octo");
+        check("v2.0.2: the backup link points at the file on github.com",
+                linkCloud.link("projects/com.my.app/My App.swb").equals(
+                        "https://github.com/octo/SketchwareAI-Projects/blob/main/projects/com.my.app/My%20App.swb"),
+                linkCloud.link("projects/com.my.app/My App.swb"));
+        progressFile.delete();
         fake.mode = "dropDownloadOnce";
         fake.downloadHits = 0;
         File again2 = GitHubImport.download(null, pub, "backups/App One.swb", importDir);

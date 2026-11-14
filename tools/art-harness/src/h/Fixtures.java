@@ -181,6 +181,9 @@ public class Fixtures {
         } else if (spec.equals("perm") || spec.equals("permplain")) {
             // v1.9.4: Button, TextView (the permission blocks' test project)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
+        } else if (spec.equals("github")) {
+            // v2.0.2: Button, TextView (the GitHub component's test project)
+            for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("javaedit")) {
             // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit); v1.8.9 a CheckBox
             for (int[] t : new int[][]{{3}, {3, 2}, {4}, {5}, {11}}) widgets.add(t);
@@ -253,6 +256,9 @@ public class Fixtures {
         } else if (spec.equals("javaedit")) {
             // v1.8.9: an intent for the Java editor's setScreen / StartActivity / putExtra blocks
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 1, "intent1"));
+        } else if (spec.equals("github")) {
+            // v2.0.2: the built-in GitHub component (GitHubCode.TYPE)
+            comps.add(neu("com.besome.sketch.beans.ComponentBean", 2026, "github1"));
         } else if (spec.equals("held")) {
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 6, "db", "users"));
             comps.add(neu("com.besome.sketch.beans.ComponentBean", 12, "auth"));
@@ -391,6 +397,9 @@ public class Fixtures {
         if (spec.equals("perm") || spec.equals("permplain")) {
             // permplain: AppCompat off (android.app.Activity: onRequestPermissionsResult only from API 23)
             permissionBlocks(proj, javaName);
+        }
+        if (spec.equals("github")) {
+            gitHubBlocks(proj, javaName);
         }
         if (spec.equals("resolver")) {
             resolveLibraries(sc_id, "com.squareup.retrofit2:converter-gson:2.9.0");
@@ -589,6 +598,76 @@ public class Fixtures {
         ArrayList<Object> greet = new ArrayList<>();
         greet.add(block("10", "add source directly %s.inputOnly", " ", "addSourceDirectly", "android.util.Log.d(\"greet\", _who);"));
         call(proj, "a", javaName, "greet_moreBlock", greet);
+    }
+
+    /**
+     * v2.0.2 github: onCreate sets an empty token and calls every GitHub block (get user, list repositories, get file,
+     * upload file, run workflow; has token in an "if"); github1's six events show their values with setText / Toast
+     * blocks, so every event parameter is used in the generated code.
+     */
+    @SuppressWarnings("unchecked")
+    static void gitHubBlocks(Object proj, String javaName) throws Throwable {
+        HashMap<String, ArrayList<Object>> events = (HashMap<String, ArrayList<Object>>) get(proj, "i");
+        ArrayList<Object> ev = events.computeIfAbsent(javaName, k -> new ArrayList<>());
+        String[][] eventParams = {
+                {"onGitHubUserLoaded", "login", "name", "avatarUrl", "json"},
+                {"onGitHubReposListed", "user", "reposJson"},
+                {"onGitHubFileDownloaded", "path", "content", "sha"},
+                {"onGitHubFileUploaded", "path", "sha", "htmlUrl"},
+                {"onGitHubWorkflowTriggered", "workflow", "ref"},
+                {"onGitHubError", "action", "message"}};
+        for (String[] e : eventParams) {
+            ev.add(neu("com.besome.sketch.beans.EventBean", 2, 2026, "github1", e[0]));
+            ArrayList<Object> logic = new ArrayList<>();
+            // setText(textview1, first) -> Toast(second) -> ... : every string parameter used once
+            int id = 10;
+            for (int i = 1; i < e.length; i++, id++) {
+                Object show = i % 2 == 1 ? block(String.valueOf(id), "%m.textview setText %s", " ", "setText", "textview1",
+                        "@" + (id + 40)) : block(String.valueOf(id), "Toast %s", " ", "doToast", "@" + (id + 40));
+                if (i < e.length - 1) set(show, "nextBlock", id + 1);
+                logic.add(show);
+                logic.add(block(String.valueOf(id + 40), e[i], "s", "getArg"));
+            }
+            if (e[0].equals("onGitHubReposListed") || e[0].equals("onGitHubError")) {
+                // the number parameter too
+                Object last = logic.get(logic.size() - 2);
+                set(last, "nextBlock", 30);
+                logic.add(block("30", "Toast %s", " ", "doToast", "@31"));
+                logic.add(block("31", "toString %d without decimal", "s", "toString", "@32"));
+                logic.add(block("32", e[0].equals("onGitHubError") ? "code" : "count", "d", "getArg"));
+            }
+            call(proj, "a", javaName, "github1_" + e[0], logic);
+        }
+
+        ArrayList<Object> create = new ArrayList<>();
+        Object token = block("10", "%m.GitHub set token %s.token", " ", "gitHubSetToken", "github1", "");
+        Object user = block("11", "%m.GitHub get user %s.userOrEmptyForMe", " ", "gitHubGetUser", "github1", "octocat");
+        Object repos = block("12", "%m.GitHub list repositories of %s.userOrEmptyForMine", " ", "gitHubListRepos", "github1", "octocat");
+        Object file = block("13", "%m.GitHub get file owner %s.owner repo %s.repo path %s.path", " ", "gitHubGetFile",
+                "github1", "octocat", "Hello-World", "README");
+        Object upload = block("14", "%m.GitHub upload file owner %s.owner repo %s.repo path %s.path text %s.content message %s.message",
+                " ", "gitHubUploadFile", "github1", "me", "notes", "docs/note \"one\".txt", "Hello \\n World", "Save from app");
+        Object workflow = block("15", "%m.GitHub run workflow owner %s.owner repo %s.repo file %s.workflow branch %s.branch",
+                " ", "gitHubTriggerWorkflow", "github1", "me", "app", "build.yml", "main");
+        Object ifToken = block("16", "if %b then", "c", "if", "@20");
+        Object yes = block("17", "%m.textview setText %s", " ", "setText", "textview1", "token set");
+        set(token, "nextBlock", 11);
+        set(user, "nextBlock", 12);
+        set(repos, "nextBlock", 13);
+        set(file, "nextBlock", 14);
+        set(upload, "nextBlock", 15);
+        set(workflow, "nextBlock", 16);
+        set(ifToken, "subStack1", 17);
+        create.add(token);
+        create.add(user);
+        create.add(repos);
+        create.add(file);
+        create.add(upload);
+        create.add(workflow);
+        create.add(ifToken);
+        create.add(yes);
+        create.add(block("20", "%m.GitHub has token", "b", "gitHubHasToken", "github1"));
+        call(proj, "a", javaName, "onCreate_initializeLogic", create);
     }
 
     /**

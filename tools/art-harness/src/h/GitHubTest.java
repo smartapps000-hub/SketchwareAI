@@ -213,6 +213,18 @@ public final class GitHubTest {
                 && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "https://evilgithub.com/login")))
                 && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "https://accounts.google.com/o/oauth2")));
         check("sign-in window: https github.com and its subdomains only", pages, null);
+        // v2.0.2: "Continue with Google / Apple" addresses start the browser sign-in instead of loading
+        boolean social = Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://github.com/sessions/social/google/initiate?return_to=x")))
+                && Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://accounts.google.com/o/oauth2/v2/auth?client_id=1")))
+                && Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://appleid.apple.com/auth/authorize")))
+                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://github.com/login/device")))
+                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://github.com/signup")))
+                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://www.google.com/search?q=github")));
+        check("v2.0.2: GitHub's social sign-in and the Google / Apple sign-in hosts go to the browser; other pages don't", social, null);
+        String social2 = (String) get(auth, "SOCIAL_SCRIPT");
+        check("v2.0.2: the social-button script only navigates to the hand-off address (no bridge, no field read)",
+                social2.contains("location.href='sketchware-ai://browser-sign-in'") && !social2.contains(".value")
+                        && !social2.contains("password"), social2.length());
         String script = (String) call(auth, "fillScript", "AB12-CD34');alert(1);//");
         check("sign-in window: the code script carries only letters, digits and hyphens of the code",
                 script.endsWith("('AB12-CD34alert1')") && script.contains("location.pathname.indexOf('/login/device')"), script.substring(script.length() - 24));
@@ -397,6 +409,23 @@ public final class GitHubTest {
         if (usedBefore == null) usedLibs.delete();
         else writeText(usedLibs, usedBefore);
         if (boxesSwb != null) boxesSwb.delete();
+
+        // --- v2.0.2: the backup link kept with the project (share button on its card)
+        Class<?> links = c("com.sketchware.ai.github.ProjectLinks");
+        File linkFile = new File(sketchware, "data/" + scId + "/github_backup.json");
+        linkFile.delete();
+        boolean none = call(links, "get", scId) == null;
+        call(links, "save", scId, "https://github.com/octo/SketchwareAI-Projects/blob/main/projects/com.my.app/My_App.swb",
+                "projects/com.my.app/My_App.swb");
+        Object saved = call(links, "get", scId);
+        writeText(linkFile, "{\"url\":\"https://evil.example/x\",\"path\":\"p\"}");
+        Object foreign = call(links, "get", scId);
+        call(links, "save", "999999", "https://github.com/x/y", "p");
+        boolean noFolder = !new File(sketchware, "data/999999/github_backup.json").exists();
+        check("v2.0.2: share link: none before a backup, kept after, only github.com links, never for a missing project",
+                none && "https://github.com/octo/SketchwareAI-Projects/blob/main/projects/com.my.app/My_App.swb".equals(saved)
+                        && foreign == null && noFolder && call(links, "get", "../1") == null, saved);
+        linkFile.delete();
 
         // --- a .swb with an entry outside its folder is refused
         File evilZip = new File(swb.getParentFile(), "evil.swb");
