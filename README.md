@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.0.1)
+## Shipped (v1.0 – v2.0.2)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -72,6 +72,12 @@ Everything in this section is in the released APK and was exercised as described
 | Sign-in window, steadier | Two-row header (✕ · GitHub Sign-In · ⟳ Reload, thin orange loading line, the code and a status that is never cut); "Sign in via browser" for Google, Apple or passkey accounts (code copied, GitHub's device page in the browser, checked when you come back); no blank page after a refused redirect; GitHub's "Too many requests" waited out with a countdown; closing the window keeps the code; new-window links stay in the window; a crashed page renderer is replaced (Android 8+) | v2.0.1 |
 | Backup and restore sheets | Back up: "Include used Local libraries" / "Include used Custom Blocks", then "Save on phone" or "Back up to GitHub" (the same .swb); Restore: "Restore local .swb file" or "GitHub import project"; a linked backup's local libraries only after asking, marked so builds never switch them on elsewhere by themselves | v2.0.1 |
 | GitHub on slow networks | Longer timeouts for 2G/3G, reads tried again after a dropped connection or a passing server error, GitHub's Retry-After and rate limits respected (no requests while a limit lasts; signed-out limits never block the account); your list of GitHub backups shown offline | v2.0.1 |
+| Sign-in lands on the code page | After you sign in on GitHub's page, the window goes from GitHub's home feed or dashboard back to the code page by itself (never during GitHub's "Too many requests" pause, never on a page you went Back to); "Continue with Google / Apple" starts the browser sign-in before a blank page can load (code copied); the browser tab closes when GitHub says yes (browsers that open it in the app's task), the drawer closes and you are on the projects list | v2.0.2 |
+| Drawer account card without cuts | "Sign in with GitHub" in full; signed in, name, @username and e-mail scroll sideways when long; Sign out under them | v2.0.2 |
+| Live 0-100% progress | Back up to GitHub and GitHub import show a sheet with the percentage, an orange bar and the step ("65% • Uploading to GitHub… 1.3 MB of 2.0 MB"); "Hide" keeps it running (a toast says when it ends); after Home the sheet waits at 100% | v2.0.2 |
+| Share link on project cards | After a backup to GitHub a share button sits next to the project's #id: it copies the backup's link and opens Android's share sheet; stored with the project, works offline; shown only for that project and the account that made it (the backup repository is private: the link opens for that account) | v2.0.2 |
+| Import guide | ⓘ in Import from GitHub: three steps with diagrams drawn by the app (copy the link with the share button, paste and Import, pick a backup and choose libraries); a repository or folder link lists the backups it holds as rows with Import | v2.0.2 |
+| GitHub component for apps | Components → + → GitHub; blocks *set token*, *has token*, *get user*, *list repositories*, *get file*, *upload file*, *run workflow* (drawer category "GitHub"); events *user loaded*, *repositories listed*, *file downloaded*, *file uploaded*, *workflow started*, *error* (GitHub's answer explained: token, permission, rate limit, not found, workflow trigger, no network). A helper file is written into the project (nothing downloaded), INTERNET added; the build warns when a GitHub token is written into the code | v2.0.2 |
 | Build Doctor rules | Duplicate classes name both libraries and which to switch off; Material 3 names without the Material library, invalid resource file names, libraries for a newer Java explained; generated manifests get `android:exported="true"` on components with an intent filter and none set (target 31+); storage note for target 33+ | v1.9.8 |
 | Project data safety | Restores and new projects take an id with no leftover folders (a damaged project's files are never merged into or deleted); `.swb` entries can't write outside their folder; a failed backup leaves no partial file | v1.9.8 |
 | Contrast and Play readiness | Orange buttons and selected pills keep their white label on a deeper orange (#D34115 to #C64F14, 4.6:1); guide blocks keep white on a deeper teal and brown. Generated apps: storage permissions of File blocks declared for Android 12L and older only when the project targets 33+; a network security configuration beside `usesCleartextTraffic`; the camera declared not required when the app asks for CAMERA; exported projects lose eleven Android Studio lint errors | v1.9.7.1 |
@@ -95,19 +101,19 @@ Everything in this section is in the released APK and was exercised as described
 ## How it is tested, and what is not
 
 - **Android runtime harness** (`tools/art-harness`): the APK's own classes run on an Android 12 (API 31) ART runtime
-  **without the Android framework**: whole Run builds of fixture projects 901–933 (914–918 created by the New Project
+  **without the Android framework**: whole Run builds of fixture projects 901–934 (914–918 created by the New Project
   screen's own code; 919 edited through the Java editor's save; 920 with libraries installed by the Library Resolver) and
   AAB exports (aapt2,
   ECJ, Kotlin, D8/L8, DEX merge, packaging, signing); the generated permission helper's group table for API 23-37 and the
-  web helper's filters, download names, file-type sniffing and ad-host list run there from built apps (931-933). This is not a device test and says nothing about other
+  web helper's filters, download names, file-type sniffing and ad-host list run there from built apps (931-933), and the GitHub component's helper (path encoding, Base64, error explanations) from app 934. This is not a device test and says nothing about other
   Android versions.
 - **layoutlib** (`tools/layoutlib-renders`): Android 14's view, theme and text code on a desktop JVM, for generated
   layouts and themes (on light and night-mode device settings, large font and bold-text settings), Telugu text and IDE
   dialog layouts. No Android emulator: the build machine has no hardware virtualisation.
 - **Host checks**: resource-ID pinning, API-level and linkage scans of the APK, signatures, 16 KB alignment.
 - **Not run here**: the IDE's screens (logic editor, design editor, compile log, Java editor, Library Resolver, GitHub
-  sign-in window, drawer account card, sign-in gate, backup and restore sheets), GitHub itself and its pages inside the app's WebView (the
-  sign-in, backup and import code runs against a fake GitHub on a desktop JVM; the code fill against stand-in pages), Maven downloads on a phone's network, aapt2 on a real phone, installing or
+  sign-in window, drawer account card, sign-in gate, backup and restore sheets, progress sheets, share button, import guide), GitHub itself and its pages inside the app's WebView (the
+  sign-in, backup and import code runs against a fake GitHub on a desktop JVM; the code fill and the Google / Apple interception against stand-in pages), a generated app's GitHub calls, Maven downloads on a phone's network, aapt2 on a real phone, installing or
   starting generated apps. Device testing is done by the maintainer on his phone (Android 15) after each build; its
   results go to `engineering/compatibility-matrix.md`.
 

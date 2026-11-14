@@ -263,7 +263,32 @@ replaces them only after the Maven download). Declined: Google Tink (Keystore AE
 Credential Manager (no GitHub provider; token would go to a password cloud), an OkHttp rewrite (4.10.0 already in the
 APK; HttpURLConnection is OkHttp on Android). Harness: `stubs/android/os/{Handler,Looper,SystemClock}` (post drops).
 GITHUBCLIENT 48/48, GITHUBTEST 48/48, FILLSCRIPT 12/12, renders `V201Test` / `V201LargeFontTest`; three review passes.
-APK v2.0.1-d450f80, versionCode 202 (next 203), sha256 `c723881f...4242408f5`, 142,434,970 bytes. Local branch
+APK v2.0.1-d450f80, versionCode 202 (next 203), sha256 `c723881f...4242408f5`, 142,434,970 bytes.
+v2.0.2 (owner's 14 Nov directive after the v2.0.1 phone test, 7 screenshots: GitHub's home feed after signing in, blank
+page after "Continue with Google", drawer "Sign in with Gi…" / "@cr…", Back up to GitHub not visibly running; record
+`engineering/v2.0.2-verification.md`): `GitHubInAppAuthDialog.toDevicePageIfSignedIn` (GitHub landing pages "/",
+/dashboard, /home, /feed, /explore, /welcome, /onboarding, /copilot, /notifications → device page; all but "/" only with
+the `logged_in=yes` cookie; ≤ 3 a minute, 3 s apart, never during the 429 pause, never on the page Back reached:
+`backPending` → `backUrl`, 10 s); Google / Apple: `isSocialSignIn` in `shouldOverrideUrlLoading` / `onPageStarted` +
+injected `SOCIAL_SCRIPT` → `sketchware-ai://browser-sign-in` → `socialHandoff` → `openBrowser` (jsdom
+`tools/jvm-tests/social-script-test.js`); Custom Tab by `startActivityForResult(…, 7311)` + keep-alive extra
+(`KeepAliveService` back, stops itself on a start) and `finishActivity(7311)` on the token; `MainDrawer` closes the
+drawer (`DrawerLayout.b()`). Drawer card: marquee name / @login / e-mail, Sign out under them. `GitHubProgress` (0-100%
+sheet: backup via `CloudSync.upload(…, Progress)` with upload bytes, import via `GitHubImportDialog.startImport`; Hide =
+toast at the end; after Home it stays at 100%; a gone screen = toast). `ProjectLinks` (`data/<sc_id>/github_backup.json`
+{url, path, sc_id, login}: travels inside .swb backups, so a link counts only for its own project id and not under
+another account; `onChanged` refreshes `GC`) + share button `ob_share_link` beside #id. Import ⓘ guide
+(`GitHubViews.importGuide`), found backups / versions as rows. GitHub component `project.GitHubCode` (type **2026**, type
+name "GitHub", class `SketchGitHub`, listener `gitHubListener`, six events, palette 101, seven blocks; helper
+`resources/com/sketchware/ai/project/SketchGitHub.java.txt`, Java 7, framework + org.json, `explain()` per HTTP answer,
+fragment `isAdded` by reflection; INTERNET; `GitHubCode.tokenWarning` (also `files/java`) → `BuildWarnings` on Run and
+a two-line toast on exports; `BuildDoctor.gitHub`). Fixture 934 `github` (16 steps, 0 warnings; `h.CallGitHub`
+GITHUBCALL 17/17; export built with Gradle), GITHUBTEST 51/51, GITHUBCLIENT 51/51, SOCIALSCRIPT 13/13, DOCTORTEST
+21/21, render `V202Test`; three review passes (MEDIUM: a backup's end lost after Home / a re-created screen; LOWs:
+share button late and carried by restored copies, silent import errors after Hide, device-page move during a 429 /
+twice per landing / on Back, a second browser tab, a started keep-alive service, token warning Run-only, helper in
+fragments; all fixed). Known limit: a user's own custom component named "GitHub" or with id 2026 is shadowed by the
+built-in. APK v2.0.2-4d98560, versionCode 203 (next 204), sha256 `018a34b7...2e4ed537e7`, 142,463,769 bytes. Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

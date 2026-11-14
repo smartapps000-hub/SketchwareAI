@@ -1143,3 +1143,16 @@ after "Continue with Google", "Sign in with Gi…" / "@cr…" in the drawer, no 
 - Tests: fixture 934 `github` (`Fixtures.gitHubBlocks`), `h.CallGitHub` (GITHUBCALL), lane item `ghcall`;
   `GitHubTest` (social addresses, SOCIAL_SCRIPT has no field reads, ProjectLinks), `GitHubClientTest` (upload / download
   progress, link), `tools/jvm-tests/social-script-test.js` + `SocialScriptPrint`, render `V202Test` + `setup_v202.sh`.
+- Review fixes (three passes, all before the final build): `GitHubProgress.hidden()` also counts a gone screen (the
+  result is then a toast through the application context) and `done()` closes by itself only while the sheet's window has
+  focus (after Home it stays at 100% / "Done"); import download ends go through `downloaded()` / `failed()` (a toast after
+  "Hide" or when the screen went away, with the .swb's folder); `ProjectLinks` stores `sc_id` and `login`: a link counts
+  only for the project id it was written for (the file travels inside .swb backups, so restored or duplicated copies,
+  which get new ids, show no foreign link) and not while another account is signed in (`get(scId, login)`), and
+  `onChanged` (one weakly held Runnable, `GC`'s adapter refresh) shows the button right after a backup;
+  `toDevicePageIfSignedIn` never runs during GitHub's 429 pause (also re-checked in the posted load), once per landing
+  (3 s) and never on the page Back reached (`backPending` → `backUrl` at the next commit, within 10 s);
+  `socialHandoff` opens no second tab while the browser is in front; `KeepAliveService.onStartCommand` stops itself;
+  the token warning also scans `files/java` and is a two-line toast on every export (Run builds list the full advice);
+  the helper drops events into a fragment that is no longer added (`isAdded` by reflection; R8 renaming it = delivered as
+  before), `token` volatile, a TLS 1.2 note for Android 4.4.

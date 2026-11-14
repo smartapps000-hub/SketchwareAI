@@ -230,3 +230,19 @@ Whether a generated APK runs on a given Android version depends on that project'
   on Android the platform's OkHttp-based implementation); ART can't open sockets here.
 - Back up / Restore sheets: dialogs, **not run** here (review); their views rendered with layoutlib. The .swb with both
   boxes and its restore (libraries copied only when missing, custom blocks restored) ran on ART API 31.
+
+## v2.0.2 (14 Nov 2026)
+
+- Sign-in window: the move from GitHub's home feed / dashboard to the code page, the Google / Apple interception
+  (`shouldOverrideUrlLoading`, `onPageStarted`, the injected `SOCIAL_SCRIPT`) and the Custom Tab closed with
+  `finishActivity(7311)` are WebView / browser behaviour: **not run** here (no WebView, no GitHub pages, no browser); the
+  script ran in Node 22 + jsdom against copies of GitHub's markup. Whether a browser's tab closes on `finishActivity`
+  depends on the browser (Chrome's Custom Tab activity is in the app's task; a browser started as its own task stays and
+  the window still closes in the app).
+- Progress sheets for Back up to GitHub and GitHub import, the share button on project cards, the import guide, the
+  drawer marquee: Activities and dialogs, **not run** here (review); their views rendered with layoutlib (Android 14 view
+  code). The upload / download byte progress ran on JVM 17 against a fake GitHub.
+- GitHub component in generated apps: fixture 934 compiled, dexed and packaged on ART API 31 with min SDK 21; its helper
+  compiles as Java 7 against android-26 and with ECJ 3.26 `-1.7`; the helper's pure functions ran on ART API 31 from the
+  built app (CallGitHub). Network calls of a generated app were **not run** (ART here can't open sockets). GitHub needs
+  TLS 1.2: Android 5.0+ only, unless an app switches TLS 1.2 on itself on Android 4.4 (min SDK 19 projects).

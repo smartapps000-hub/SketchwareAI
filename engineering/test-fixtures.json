@@ -800,6 +800,49 @@
       "checks": [
         "v201_github.png: sign-in window (login page with the loading line, code filled, too-many-requests countdown at 360dp, browser hint and an error without a code at 320dp): title, code and status whole; Back up sheet (long project name, both boxes; signed out at 320dp), Restore sheet, import sheet signed out (short hint, explanation line, row title on one line). v201_large_font.png (font 1.3, 320dp): status under the code, sheet titles and card subtitles whole, boxes ticked"
       ]
+    },
+    {
+      "id": "934 github (v2.0.2)",
+      "kind": "ART fixture `run.sh <apk> <root> create github 934` + build (Fixtures.gitHubBlocks); lane items `github:934`, `ghcall:934`, `export:934`",
+      "content": "Button + TextView, the GitHub component github1 (type 2026); onCreate uses every GitHub block (set token, has token, get user, list repositories, get file, upload file, run workflow); all six events with getArg / setText / Toast",
+      "checks": [
+        "16 steps ok, 0 warnings",
+        "generated MainActivity: `private SketchGitHub github1;`, `github1 = new SketchGitHub(this);`, `github1.setListener(new SketchGitHub.Listener()`, `public void onUserLoaded(final String _login`, `github1.uploadFile(\"me\", \"notes\"`; manifest INTERNET; `SketchGitHub.java` written",
+        "h.CallGitHub on the built app (GITHUBCALL 17/17): path encoding, Base64 both ways (UTF-8, Telugu, GitHub's wrapped content), repositories summary, error explanations (no network, 401, 403 limit vs permission, 404, 422 workflow_dispatch, 5xx), Listener abstract with six methods, blank token = none, token trimmed",
+        "Export to Android Studio built with Gradle 9.8.2 / AGP 9.5.0: assembleDebug OK, SketchGitHub classes in the dex, INTERNET, every referenced R class defined"
+      ]
+    },
+    {
+      "id": "940 (githubtest, v2.0.2)",
+      "kind": "ART `run.sh <apk> <root> githubtest 940` (after `cache:940`)",
+      "content": "v2.0.1's 48 checks plus the v2.0.2 ones",
+      "checks": [
+        "GITHUBTEST 51/51: social sign-in addresses recognised (github.com /sessions/social…, accounts.google.com, appleid.apple.com; not GitHub's own login pages), SOCIAL_SCRIPT reads no field, share link: none before a backup, kept after, same account ok, another account hidden, only github.com links, a copy written for another project id hidden, never written for a missing project; app-control.json min 203 + the v2.0.2 link"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v2.0.2)",
+      "kind": "JVM 17, the app's github sources, fake GitHub",
+      "content": "v2.0.1's 48 checks plus upload / download progress and the backup link",
+      "checks": [
+        "GITHUBCLIENT 51/51"
+      ]
+    },
+    {
+      "id": "social-script-test.js (v2.0.2)",
+      "kind": "Node 22 + jsdom, `SocialScriptPrint` prints GitHubInAppAuthDialog.SOCIAL_SCRIPT from the compiled class",
+      "content": "copies of GitHub's sign-in / sign-up markup (Continue with Google / Apple links, forms, formaction buttons)",
+      "checks": [
+        "SOCIALSCRIPT 13/13: social links, forms and buttons go to the hand-off address; the username / password form, 'Create an account', 'Forgot password?' and passkey buttons are untouched; no field value is read"
+      ]
+    },
+    {
+      "id": "V202Test (v2.0.2)",
+      "kind": "tools/layoutlib-renders V202Test + setup_v202.sh",
+      "content": "drawer account card, progress sheet, import guide, project card share button",
+      "checks": [
+        "v202_github.png: drawer signed out ('Sign in with GitHub' whole) and signed in (marquee name / @login / e-mail, Sign out under them); progress sheet at 65%, 100% and failed; the three-step import guide; a project card with the share button next to #663"
+      ]
     }
   ]
 }

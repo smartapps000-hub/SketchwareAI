@@ -96,6 +96,28 @@ public final class DoctorTest {
                 && String.valueOf(get(d3, "found")).contains("switch off okhttp_V_4.12.0"), get(d3, "found"));
         check("versions compare numerically", (Integer) call(doctor, "compareVersions", "1.9.0", "1.13.1") < 0, null);
 
+        // v2.0.2: the GitHub component's advice and the token warning
+        String gh = "ERROR in /storage/emulated/0/.sketchware/mysc/934/app/src/main/java/com/my/app/MainActivity.java (at line 40)\n"
+                + "\tprivate SketchGitHub github1;\n\t        ^^^^^^^^^^^^\nSketchGitHub cannot be resolved to a type\n"
+                + "\n\nBuild map:\n    FAILED  Java compile\n";
+        Object dg = call(doctor, "diagnose", gh);
+        check("v2.0.2: SketchGitHub not resolved: add the GitHub component", String.valueOf(get(dg, "advice"))
+                .contains("Components > + > GitHub"), get(dg, "advice"));
+        Class<?> code = c("com.sketchware.ai.project.GitHubCode");
+        Class<?> bean = c("com.besome.sketch.beans.SrcCodeBean");
+        java.lang.reflect.Constructor<?> make = bean.getConstructor(String.class, String.class);
+        List<Object> clean = new ArrayList<>();
+        clean.add(make.newInstance("MainActivity.java", "github1.setToken(\"\");"));
+        List<Object> classic = new ArrayList<>();
+        classic.add(make.newInstance("MainActivity.java", "github1.setToken(\"ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8\");"));
+        List<Object> fine = new ArrayList<>();
+        fine.add(make.newInstance("Second.java", "String t = \"github_pat_" + "11ABCDEFG0123456789_abcdefghij\";"));
+        java.lang.reflect.Method warn = code.getMethod("tokenWarning", List.class);
+        Object w1 = warn.invoke(null, classic), w2 = warn.invoke(null, fine);
+        check("v2.0.2: token warning: classic and fine-grained tokens found (file named, 8 characters shown), none without",
+                warn.invoke(null, clean) == null && String.valueOf(w1).startsWith("MainActivity.java holds a GitHub token (ghp_A1b2")
+                        && !String.valueOf(w1).contains("C3d4E5") && String.valueOf(w2).startsWith("Second.java holds"), w1);
+
         OUT.println("DOCTORTEST " + ok + "/" + total + (ok == total ? " ok" : " FAILED"));
     }
 }

@@ -775,6 +775,44 @@
       "verifiedOn": [
         "layoutlib V201Test (393dp and 320dp widths)"
       ]
+    },
+    {
+      "fingerprint": "GitHub's home feed ('Good evening, <name>!') or dashboard stays in the sign-in window after signing in (v2.0.1)",
+      "rootCause": "GitHub sends a fresh sign-in to its home page, not back to /login/device; the window only filled the code on the device page",
+      "repair": "v2.0.2: toDevicePageIfSignedIn loads the device page again from GitHub's landing pages (cookie logged_in=yes), at most 3 times a minute, never during a 429 pause or on a page reached with Back",
+      "scope": "GitHub sign-in",
+      "verifiedOn": [
+        "review (three passes); WebView not run here"
+      ]
+    },
+    {
+      "fingerprint": "Blank page 'This sign-in leaves github.com' after 'Continue with Google' (v2.0.1)",
+      "rootCause": "Google refuses its sign-in inside an embedded WebView; the redirect was refused only after the page had started",
+      "repair": "v2.0.2: SOCIAL_SCRIPT and shouldOverrideUrlLoading catch the tap / redirect first and start the browser sign-in (code copied, GitHub's device page in a Custom Tab)",
+      "scope": "GitHub sign-in",
+      "verifiedOn": [
+        "jsdom social-script-test.js (SOCIALSCRIPT 13/13)",
+        "ART GitHubTest (addresses)"
+      ]
+    },
+    {
+      "fingerprint": "'Back up to GitHub' shows nothing while it runs; no way to see it finished (v2.0.1)",
+      "rootCause": "the backup ran in the background with a toast at start and end only",
+      "repair": "v2.0.2: GitHubProgress sheet 0-100% (upload bytes counted); after Home it waits at 100%; a gone screen = toast",
+      "scope": "GitHub backup",
+      "verifiedOn": [
+        "JVM GitHubClientTest (progress)",
+        "layoutlib V202Test"
+      ]
+    },
+    {
+      "fingerprint": "SketchGitHub cannot be resolved to a type (generated app)",
+      "rootCause": "GitHub blocks or code using SketchGitHub on a screen without the GitHub component (the helper is written only when code mentions the class; a custom SketchGitHub.java replaces it)",
+      "repair": "Build Doctor advice: add the GitHub component (Components > + > GitHub)",
+      "scope": "generated app, Java compile",
+      "verifiedOn": [
+        "ART DOCTORTEST (Build Doctor rules)"
+      ]
     }
   ]
 }
