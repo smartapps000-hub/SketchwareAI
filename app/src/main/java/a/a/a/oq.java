@@ -450,6 +450,11 @@ public class oq {
             eventList.add("onErrorResponse");
         }
 
+        // v2.0.2: the GitHub component
+        if (classInfo.a(com.sketchware.ai.project.GitHubCode.CLASS_NAME)) {
+            java.util.Collections.addAll(eventList, com.sketchware.ai.project.GitHubCode.EVENTS);
+        }
+
         if (classInfo.a("SpeechToText")) {
             eventList.add("onSpeechResult");
             eventList.add("onSpeechError");
@@ -554,6 +559,10 @@ public class oq {
             eventList.add("requestListener");
         }
 
+        if (classInfo.a(com.sketchware.ai.project.GitHubCode.CLASS_NAME)) {
+            eventList.add(com.sketchware.ai.project.GitHubCode.LISTENER);
+        }
+
         if (classInfo.a("SpeechToText")) {
             eventList.add("recognitionListener");
         }
@@ -615,6 +624,10 @@ public class oq {
             case com.sketchware.ai.project.WebCode.LISTENER:
                 eventList.add(com.sketchware.ai.project.WebCode.EVENT_DOWNLOAD_START);
                 eventList.add(com.sketchware.ai.project.WebCode.EVENT_DOWNLOAD_COMPLETE);
+                break;
+
+            case com.sketchware.ai.project.GitHubCode.LISTENER:
+                java.util.Collections.addAll(eventList, com.sketchware.ai.project.GitHubCode.EVENTS);
                 break;
 
             case "onDateChangeListener":

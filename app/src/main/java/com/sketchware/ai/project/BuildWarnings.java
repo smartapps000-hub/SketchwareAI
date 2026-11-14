@@ -66,6 +66,8 @@ public final class BuildWarnings {
             if (features != null && features.permissionNote != null) note(features.permissionNote);
             // v1.9.8: components given android:exported="true" (Ix.settleExported)
             if (features != null && features.exportedNote != null) note(features.exportedNote);
+            // v2.0.2: a GitHub token written into the app's code (GitHubCode.tokenWarning)
+            if (features != null && features.gitHubTokenWarning != null) add(features.gitHubTokenWarning);
 
             if (target > BUNDLED_ANDROID_JAR_API && customJar.trim().isEmpty()) {
                 note("Target API " + target + " (Android " + (target - 20) + "), but code is compiled against the bundled "

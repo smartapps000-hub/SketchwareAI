@@ -204,6 +204,7 @@ public final class BuildDoctor {
                     : "The compiler stopped.";
             d.found = "Each error is listed below with the block it comes from. What the build could repair by itself, it "
                     + "already tried: the Auto-fix report at the end of the log says what and why it wasn't enough.";
+            gitHub(d);
         } else if ("DEX".equals(stage) || "DEX merge".equals(stage) || "ProGuard / R8".equals(stage)) {
             dex(d, stage);
         } else {
@@ -226,6 +227,27 @@ public final class BuildDoctor {
         }
         if (d.firstError == null || d.firstError.isEmpty()) d.firstError = firstLine(d.failureText);
         return d;
+    }
+
+    /**
+     * v2.0.2: compile errors around the GitHub component's helper ({@code SketchGitHub}): what they usually mean. The
+     * component's runtime problems (token, access, rate limit, network) are explained by the helper's own error event.
+     */
+    static void gitHub(Diagnosis d) {
+        String text = d.failureText;
+        if (!text.contains("SketchGitHub") && !text.contains("gitHub")) return;
+        if (text.contains("SketchGitHub cannot be resolved")) {
+            d.advice.add("GitHub: the code uses SketchGitHub, but the helper wasn't written into the project. Add the "
+                    + "GitHub component to that screen (Components > + > GitHub); a custom Java file named "
+                    + "SketchGitHub.java in the project replaces the helper.");
+        } else if (text.contains("in the type SketchGitHub is not applicable")
+                || text.contains("in the type SketchGitHub.Listener")) {
+            d.advice.add("GitHub: a GitHub block got a value of the wrong kind. Owner, repository, path, text and message "
+                    + "are text slots: put a number into them with a \"toString\" (Number to String) block.");
+        } else if (text.contains("SketchGitHub")) {
+            d.advice.add("GitHub: the error is in code that uses the GitHub component; the GitHub blocks guide (GitHub "
+                    + "category, ⓘ) shows what each block expects.");
+        }
     }
 
     /**

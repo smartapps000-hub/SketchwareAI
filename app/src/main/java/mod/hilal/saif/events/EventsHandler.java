@@ -238,6 +238,16 @@ public class EventsHandler {
             case "onDownloadStart":
                 return R.drawable.event_on_page_started_48dp;
 
+            case com.sketchware.ai.project.GitHubCode.EVENT_USER:
+            case com.sketchware.ai.project.GitHubCode.EVENT_REPOS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILE:
+            case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
+            case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
+                return R.drawable.event_on_response_48dp;
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+                return R.drawable.event_on_error_response_48dp;
+
             case "onDownloadComplete":
                 return R.drawable.event_on_page_finished_48dp;
 
@@ -308,6 +318,14 @@ public class EventsHandler {
 
             case "onDownloadStart":
                 return "On download start";
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_USER:
+            case com.sketchware.ai.project.GitHubCode.EVENT_REPOS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILE:
+            case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
+            case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
+            case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+                return com.sketchware.ai.project.GitHubCode.description(name);
 
             case "onDownloadComplete":
                 return "On download complete";
@@ -477,6 +495,14 @@ public class EventsHandler {
             case "onDownloadStart":
                 return "%s.url %s.mimeType %d.contentLength";
 
+            case com.sketchware.ai.project.GitHubCode.EVENT_USER:
+            case com.sketchware.ai.project.GitHubCode.EVENT_REPOS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILE:
+            case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
+            case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
+            case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+                return com.sketchware.ai.project.GitHubCode.parameters(name);
+
             case "onDownloadComplete":
                 return "%s.url %s.fileName %b.success";
 
@@ -532,6 +558,14 @@ public class EventsHandler {
 
             case "onDownloadStart":
                 return "When " + name + " download starts %s.url %s.mimeType %d.contentLength";
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_USER:
+            case com.sketchware.ai.project.GitHubCode.EVENT_REPOS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILE:
+            case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
+            case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
+            case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+                return com.sketchware.ai.project.GitHubCode.spec(name, event);
 
             case "onDownloadComplete":
                 return "When " + name + " download completes %s.url %s.fileName %b.success";

@@ -94,6 +94,14 @@ public class ExtraBlocks {
         arrayList.add(addBlock("webGetHistory", " ", "", "SketchWeb.history(%1$s, %2$s);", "#4a6cd4", "%m.webview history to list %m.listStr"));
         arrayList.add(addBlock("webSetUserAgent", " ", "", "SketchWeb.setUserAgent(%1$s, %2$s);", "#4a6cd4", "%m.webview user agent %s"));
         arrayList.add(addBlock("sketchDownloadFile", " ", "", "SketchWeb.downloadFile({host}, %1$s, %2$s, %3$s, %4$s, \"%5$s\");", "#a1887f", "download file %s to folder %s name %s notify %b type %m.downloadType"));
+        // v2.0.2: the GitHub component (com.sketchware.ai.project.GitHubCode); answers arrive in its events
+        arrayList.add(addBlock("gitHubSetToken", " ", "", "%1$s.setToken(%2$s);", "#24292F", "%m.GitHub set token %s.token"));
+        arrayList.add(addBlock("gitHubHasToken", "b", "", "%s.hasToken()", "#24292F", "%m.GitHub has token"));
+        arrayList.add(addBlock("gitHubGetUser", " ", "", "%1$s.getUser(%2$s);", "#24292F", "%m.GitHub get user %s.userOrEmptyForMe"));
+        arrayList.add(addBlock("gitHubListRepos", " ", "", "%1$s.listRepos(%2$s);", "#24292F", "%m.GitHub list repositories of %s.userOrEmptyForMine"));
+        arrayList.add(addBlock("gitHubGetFile", " ", "", "%1$s.getFile(%2$s, %3$s, %4$s);", "#24292F", "%m.GitHub get file owner %s.owner repo %s.repo path %s.path"));
+        arrayList.add(addBlock("gitHubUploadFile", " ", "", "%1$s.uploadFile(%2$s, %3$s, %4$s, %5$s, %6$s);", "#24292F", "%m.GitHub upload file owner %s.owner repo %s.repo path %s.path text %s.content message %s.message"));
+        arrayList.add(addBlock("gitHubTriggerWorkflow", " ", "", "%1$s.triggerWorkflow(%2$s, %3$s, %4$s, %5$s);", "#24292F", "%m.GitHub run workflow owner %s.owner repo %s.repo file %s.workflow branch %s.branch"));
     }
 
     /**

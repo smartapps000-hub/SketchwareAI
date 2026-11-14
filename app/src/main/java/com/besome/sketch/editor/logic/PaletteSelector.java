@@ -90,6 +90,8 @@ public class PaletteSelector extends LinearLayout implements View.OnClickListene
         // v1.9.5: runtime permission blocks (PermissionCode); an id custom palettes never get (they count from 9)
         addPalette(com.sketchware.ai.project.PermissionCode.PALETTE_ID, "Permission",
                 com.sketchware.ai.project.PermissionCode.PALETTE_COLOR);
+        // v2.0.2: the GitHub component's blocks (GitHubCode)
+        addPalette(com.sketchware.ai.project.GitHubCode.PALETTE_ID, "GitHub", com.sketchware.ai.project.GitHubCode.PALETTE_COLOR);
 
         for (HashMap<String, Object> palette : new mod.agus.jcoderz.editor.manage.block.palette.PaletteSelector().getPaletteSelector()) {
             addPalette(

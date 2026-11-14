@@ -348,6 +348,15 @@ public class Lx {
                 // v1.9.4 (com.sketchware.ai.project.WebCode)
                 return com.sketchware.ai.project.WebCode.eventCode(eventName, eventLogic);
 
+            case com.sketchware.ai.project.GitHubCode.EVENT_USER:
+            case com.sketchware.ai.project.GitHubCode.EVENT_REPOS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILE:
+            case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
+            case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
+            case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+                // v2.0.2: the GitHub component
+                return com.sketchware.ai.project.GitHubCode.eventCode(eventName, eventLogic);
+
             case "onPageFinished":
                 return "@Override\r\n" +
                         "public void onPageFinished(WebView _param1, String _param2) {\r\n" +
@@ -1301,6 +1310,9 @@ public class Lx {
             case "RequestNetwork":
                 return componentName + " = new RequestNetwork(this);";
 
+            case com.sketchware.ai.project.GitHubCode.CLASS_NAME:
+                return com.sketchware.ai.project.GitHubCode.initializer(componentName);
+
             case "TextToSpeech":
                 return componentName + " = new TextToSpeech(getApplicationContext(), null);";
 
@@ -1839,6 +1851,9 @@ public class Lx {
 
             case com.sketchware.ai.project.WebCode.LISTENER:
                 return com.sketchware.ai.project.WebCode.listenerCode(componentName, eventLogic);
+
+            case com.sketchware.ai.project.GitHubCode.LISTENER:
+                return com.sketchware.ai.project.GitHubCode.listenerCode(componentName, eventLogic);
 
             case "webViewClient":
                 return componentName + ".setWebViewClient(new WebViewClient() {\r\n"

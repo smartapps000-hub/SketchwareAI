@@ -29,6 +29,7 @@ public final class BlockGuide {
     public static final int WEB = 0xFF4A6CD4;
     public static final int PERMISSION = 0xFF009688;
     public static final int FILE = 0xFFA1887F;
+    public static final int GITHUB = 0xFF24292F;
 
     /** One block's guide. */
     public static final class Entry {
@@ -57,6 +58,9 @@ public final class BlockGuide {
             "webClearCookiesAndCache", "webEnableFileUpload"};
     public static final String[] PERMISSION_BLOCKS = {"requestAutoPermission", "requestCustomPermission",
             "hasAutoPermission", "getPermissionStatus"};
+    /** v2.0.2: the GitHub component's blocks. */
+    public static final String[] GITHUB_BLOCKS = {"gitHubSetToken", "gitHubGetUser", "gitHubListRepos", "gitHubGetFile",
+            "gitHubUploadFile", "gitHubTriggerWorkflow", "gitHubHasToken"};
 
     static {
         put("webAllowDownloads", "webview1 allow downloads to folder [MyApp] notify [true] only types [ ]", WEB,
@@ -131,6 +135,41 @@ public final class BlockGuide {
                 "Inside an \"if\" block, before using the feature.",
                 "A group or a permission.",
                 "true when every permission the group needs on this phone is granted.");
+        // v2.0.2: the GitHub component (Components > + > GitHub); every answer arrives in its events
+        put("gitHubSetToken", "github1 set token [text]", GITHUB,
+                "onCreate, before the other GitHub blocks (only for private data or writing).",
+                "The GitHub component and a personal access token (github.com > Settings > Developer settings). The "
+                        + "token is inside the app: anyone with the APK can read it, so use a fine-grained token with "
+                        + "only the repositories and permissions the app needs. Public data needs no token.",
+                "The next requests are sent with the token (5000 requests an hour instead of 60).");
+        put("gitHubGetUser", "github1 get user [name]", GITHUB,
+                "A button's onClick, or onCreate.",
+                "A GitHub user name; empty = the token's own account.",
+                "Event \"When github1 user loaded\": login, name, avatarUrl and the whole answer as json; or \"When "
+                        + "github1 error\" with what went wrong and what to do.");
+        put("gitHubListRepos", "github1 list repositories of [user]", GITHUB,
+                "A button's onClick, or onCreate.",
+                "A user name; empty = the token's own repositories (private ones included).",
+                "Event \"repositories listed\": reposJson (name, fullName, description, url, isPrivate, stars, "
+                        + "language for each; turn it into a list with the Json to List Map block) and count.");
+        put("gitHubGetFile", "github1 get file owner [ ] repo [ ] path [ ]", GITHUB,
+                "Any event.",
+                "Owner, repository and the file's path (e.g. docs/notes.txt); a private repository needs a token.",
+                "Event \"file downloaded\": path, content (the text) and sha.");
+        put("gitHubUploadFile", "github1 upload file owner [ ] repo [ ] path [ ] text [ ] message [ ]", GITHUB,
+                "A Save button's onClick.",
+                "Owner, repository, path, the new text and a commit message; needs a token with Contents: read and "
+                        + "write. An existing file is replaced, a new one created.",
+                "Event \"file uploaded\": path, sha and htmlUrl (the file on github.com).");
+        put("gitHubTriggerWorkflow", "github1 run workflow owner [ ] repo [ ] file [build.yml] branch [main]", GITHUB,
+                "A button's onClick.",
+                "Owner, repository, the workflow file in .github/workflows (it needs a workflow_dispatch trigger) "
+                        + "and a branch; needs a token with Actions: read and write.",
+                "GitHub Actions starts the workflow; event \"workflow started\".");
+        put("gitHubHasToken", "github1 has token", GITHUB,
+                "Inside an \"if\" block.",
+                "The GitHub component.",
+                "true when a token is set.");
         put("getPermissionStatus", "permission status [CAMERA]", PERMISSION,
                 "A text slot, e.g. setText or an \"if equals\".",
                 "A group or a permission.",
@@ -140,7 +179,8 @@ public final class BlockGuide {
 
     private static void put(String opCode, String block, int color, String where, String plug, String result) {
         // the two permission checks are a boolean and a value block; every other guided block is a command
-        String kind = "hasAutoPermission".equals(opCode) ? "b" : "getPermissionStatus".equals(opCode) ? "s" : " ";
+        String kind = "hasAutoPermission".equals(opCode) || "gitHubHasToken".equals(opCode) ? "b"
+                : "getPermissionStatus".equals(opCode) ? "s" : " ";
         ENTRIES.put(opCode, new Entry(block, kind, color, where, plug, result));
     }
 

@@ -39,6 +39,7 @@ public final class ComponentIcons {
             case 27: return 0xFF818CF8;  // FragmentAdapter - indigo
             case 31: return 0xFF4285F4;  // Google login - Google blue
             case 32: return 0xFFF43F5E;  // OneSignal - red
+            case com.sketchware.ai.project.GitHubCode.TYPE: return 0xFFE6EDF3; // v2.0.2: GitHub - light grey
             default: return 0;
         }
     }
@@ -91,6 +92,7 @@ public final class ComponentIcons {
             case 30: return R.drawable.ob_c_cloud_message;
             case 31: return R.drawable.ob_c_google_login;
             case 32: return R.drawable.ob_c_onesignal;
+            case com.sketchware.ai.project.GitHubCode.TYPE: return R.drawable.ob_c_github;
             case 33: return R.drawable.ob_c_fb_ads_banner;
             case 34: return R.drawable.ob_c_fb_ads_interstitial;
             default: return ComponentBean.getIconResource(type);

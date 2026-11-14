@@ -45,6 +45,10 @@ public class ComponentsHandler {
         if (name.equals("AsyncTask")) {
             return 36;
         }
+        // v2.0.2: the built-in GitHub component
+        if (name.equals(com.sketchware.ai.project.GitHubCode.TYPE_NAME)) {
+            return com.sketchware.ai.project.GitHubCode.TYPE;
+        }
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
             HashMap<String, Object> component = cachedCustomComponents.get(i);
@@ -84,6 +88,9 @@ public class ComponentsHandler {
     public static String typeName(int id) {
         if (id == 36) {
             return "AsyncTask";
+        }
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return com.sketchware.ai.project.GitHubCode.TYPE_NAME;
         }
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
@@ -127,6 +134,9 @@ public class ComponentsHandler {
         if (id == 36) {
             return "AsyncTask";
         }
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return com.sketchware.ai.project.GitHubCode.TYPE_NAME;
+        }
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
             HashMap<String, Object> component = cachedCustomComponents.get(i);
@@ -167,6 +177,9 @@ public class ComponentsHandler {
     public static int icon(int id) {
         if (id == 36) {
             return R.drawable.ic_cycle_color_48dp;
+        }
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return R.drawable.ob_c_github;
         }
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
@@ -224,6 +237,10 @@ public class ComponentsHandler {
      * @return Component description of a Custom Component
      */
     public static String description2(int id) {
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return "GitHub: user profiles, repositories, files and Actions workflows (REST API; token optional for "
+                    + "public data). Errors come with an explanation.";
+        }
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
             HashMap<String, Object> component = cachedCustomComponents.get(i);
             if (component != null) {
@@ -262,6 +279,9 @@ public class ComponentsHandler {
      */
     // √give id and return docs url
     public static String docs(int id) {
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return "https://docs.github.com/en/rest";
+        }
         if (id != 36) {
             for (int i = 0; i < cachedCustomComponents.size(); i++) {
                 HashMap<String, Object> component = cachedCustomComponents.get(i);
@@ -303,6 +323,9 @@ public class ComponentsHandler {
     public static String c(int id) {
         if (id == 36) {
             return "AsyncTask";
+        }
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return com.sketchware.ai.project.GitHubCode.CLASS_NAME;
         }
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
@@ -348,6 +371,7 @@ public class ComponentsHandler {
     //structure : list.add(new ComponentBean(27));
     public static void add(ArrayList<ComponentBean> list) {
         list.add(new ComponentBean(36));
+        list.add(new ComponentBean(com.sketchware.ai.project.GitHubCode.TYPE));
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
             HashMap<String, Object> component = cachedCustomComponents.get(i);
@@ -373,6 +397,9 @@ public class ComponentsHandler {
     public static String var(int id) {
         if (id == 36) {
             return "#";
+        }
+        if (id == com.sketchware.ai.project.GitHubCode.TYPE) {
+            return com.sketchware.ai.project.GitHubCode.CLASS_NAME;
         }
 
         for (int i = 0; i < cachedCustomComponents.size(); i++) {
@@ -416,6 +443,9 @@ public class ComponentsHandler {
     public static String c(String name) {
         if (name.equals("AsyncTask")) {
             return "Component.AsyncTask";
+        }
+        if (name.equals(com.sketchware.ai.project.GitHubCode.CLASS_NAME)) {
+            return com.sketchware.ai.project.GitHubCode.CLASS_INFO;
         }
 
         for (int i = 0, customComponentsSize = cachedCustomComponents.size(); i < customComponentsSize; i++) {

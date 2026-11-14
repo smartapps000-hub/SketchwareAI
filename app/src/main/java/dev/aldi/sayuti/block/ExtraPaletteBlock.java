@@ -1208,6 +1208,27 @@ public class ExtraPaletteBlock {
                 }
                 return;
 
+            case com.sketchware.ai.project.GitHubCode.PALETTE_ID:
+                // v2.0.2: the GitHub component's blocks; without a GitHub component the menus would stay empty
+                if (!extraBlocks.isComponentUsed(com.sketchware.ai.project.GitHubCode.TYPE)) {
+                    logicEditor.a("Add the GitHub component first (Components > + > GitHub)", 0xff555555);
+                    logicEditor.b("\u24d8 GitHub blocks guide", "gitHubGuide", v -> com.sketchware.ai.ui.BlockGuide.show(
+                            logicEditor, "GitHub blocks", com.sketchware.ai.ui.BlockGuide.GITHUB_BLOCKS));
+                    return;
+                }
+                logicEditor.a("Token (optional for public data)", 0xff555555);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_SET_TOKEN);
+                logicEditor.a("b", com.sketchware.ai.project.GitHubCode.OP_HAS_TOKEN);
+                logicEditor.a("Ask GitHub (answers arrive in the component's events)", 0xff555555);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_GET_USER);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_LIST_REPOS);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_GET_FILE);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_UPLOAD_FILE);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_TRIGGER_WORKFLOW);
+                logicEditor.b("\u24d8 GitHub blocks guide", "gitHubGuide", v -> com.sketchware.ai.ui.BlockGuide.show(
+                        logicEditor, "GitHub blocks", com.sketchware.ai.ui.BlockGuide.GITHUB_BLOCKS));
+                return;
+
             case com.sketchware.ai.project.PermissionCode.PALETTE_ID:
                 // v1.9.5: the Permission category (v1.9.4 had these rows at the end of Component's first part)
                 logicEditor.a("Ask", 0xff555555);

@@ -1,0 +1,478 @@
+package __PACKAGE__;
+
+import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Base64;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+/**
+ * Sketchware AI's GitHub component: the GitHub REST API (api.github.com) for an app, written into the project when the
+ * GitHub component is added. Every call runs on its own background thread; the answer comes back on the main thread to
+ * the component's events (Listener). Errors arrive in onError with a plain explanation of what went wrong and what to
+ * do (bad token, missing access, rate limit, not found, no network).
+ *
+ * A token set with setToken is in the app: anyone who has the APK can read it. Use a fine-grained token limited to the
+ * repositories and permissions the app needs, or none for public data (GitHub then allows 60 requests per hour per
+ * network).
+ */
+public class SketchGitHub {
+
+    /** The component's events; the generated code overrides the ones it uses. */
+    public static abstract class Listener {
+        public void onUserLoaded(String login, String name, String avatarUrl, String json) {
+        }
+
+        public void onReposListed(String user, String reposJson, double count) {
+        }
+
+        public void onFileDownloaded(String path, String content, String sha) {
+        }
+
+        public void onFileUploaded(String path, String sha, String htmlUrl) {
+        }
+
+        public void onWorkflowTriggered(String workflow, String ref) {
+        }
+
+        public void onError(String action, double code, String message) {
+        }
+    }
+
+    static String apiBase = "https://api.github.com";
+
+    private final Object host;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private Listener listener;
+    private String token;
+
+    public SketchGitHub(Object host) {
+        this.host = host;
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    /** A personal access token (fine-grained recommended); empty = no token (public data only). */
+    public void setToken(String token) {
+        this.token = token == null || token.trim().length() == 0 ? null : token.trim();
+    }
+
+    public boolean hasToken() {
+        return token != null;
+    }
+
+    /** The token's own account (empty user), or a public profile. */
+    public void getUser(String user) {
+        final String path = empty(user) ? "/user" : "/users/" + segment(user.trim());
+        if (empty(user) && token == null) {
+            error("getUser", 0, "Set a token first, or give a user name.");
+            return;
+        }
+        run(new Runnable() {
+            public void run() {
+                Answer a = request("GET", path, null);
+                if (!a.ok()) {
+                    error("getUser", a.code, explain(a, "getUser"));
+                    return;
+                }
+                try {
+                    final JSONObject o = new JSONObject(a.body);
+                    final String json = a.body;
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onUserLoaded(o.optString("login"), text(o, "name"),
+                                    text(o, "avatar_url"), json);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("getUser", a.code, "GitHub's answer couldn't be read: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** The repositories of a user (empty = the token's own, private ones included), newest first, up to 100. */
+    public void listRepos(final String user) {
+        if (empty(user) && token == null) {
+            error("listRepos", 0, "Set a token first, or give a user name.");
+            return;
+        }
+        final String path = empty(user) ? "/user/repos?per_page=100&sort=updated"
+                : "/users/" + segment(user.trim()) + "/repos?per_page=100&sort=updated";
+        run(new Runnable() {
+            public void run() {
+                Answer a = request("GET", path, null);
+                if (!a.ok()) {
+                    error("listRepos", a.code, explain(a, "listRepos"));
+                    return;
+                }
+                try {
+                    final String repos = repoSummary(a.body);
+                    final double count = new JSONArray(repos).length();
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onReposListed(empty(user) ? "" : user.trim(), repos, count);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("listRepos", a.code, "GitHub's answer couldn't be read: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** A text file of a repository (UTF-8), from its default branch. */
+    public void getFile(String owner, String repo, final String path) {
+        if (empty(owner) || empty(repo) || empty(path)) {
+            error("getFile", 0, "Owner, repository and path are needed.");
+            return;
+        }
+        final String address = "/repos/" + segment(owner.trim()) + "/" + segment(repo.trim()) + "/contents/"
+                + encodePath(path.trim());
+        run(new Runnable() {
+            public void run() {
+                Answer a = request("GET", address, null);
+                if (!a.ok()) {
+                    error("getFile", a.code, explain(a, "getFile"));
+                    return;
+                }
+                try {
+                    JSONObject o = new JSONObject(a.body);
+                    if (!"file".equals(o.optString("type", "file"))) {
+                        error("getFile", a.code, path + " is a folder, not a file.");
+                        return;
+                    }
+                    final String sha = o.optString("sha");
+                    String content = o.optString("content", "");
+                    final String text;
+                    if (content.length() == 0 && o.optLong("size", 0) > 0) {
+                        // over 1 MB: GitHub leaves "content" empty; the raw file is asked for separately
+                        Answer raw = request("GET", address, "application/vnd.github.raw");
+                        if (!raw.ok()) {
+                            error("getFile", raw.code, explain(raw, "getFile"));
+                            return;
+                        }
+                        text = raw.body;
+                    } else {
+                        text = fromBase64(content);
+                    }
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onFileDownloaded(path, text, sha);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("getFile", a.code, "GitHub's answer couldn't be read: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** Creates or replaces a text file in a repository (one commit with {@code message}); needs a token. */
+    public void uploadFile(String owner, String repo, final String path, final String content, final String message) {
+        if (token == null) {
+            error("uploadFile", 0, "Set a token with write access (Contents: read and write) first.");
+            return;
+        }
+        if (empty(owner) || empty(repo) || empty(path)) {
+            error("uploadFile", 0, "Owner, repository and path are needed.");
+            return;
+        }
+        final String address = "/repos/" + segment(owner.trim()) + "/" + segment(repo.trim()) + "/contents/"
+                + encodePath(path.trim());
+        run(new Runnable() {
+            public void run() {
+                try {
+                    // the file's current version, when there is one (GitHub needs it to replace a file)
+                    Answer existing = request("GET", address, null);
+                    String sha = null;
+                    if (existing.ok()) {
+                        sha = new JSONObject(existing.body).optString("sha", null);
+                    } else if (existing.code != 404) {
+                        error("uploadFile", existing.code, explain(existing, "uploadFile"));
+                        return;
+                    }
+                    JSONObject body = new JSONObject();
+                    body.put("message", empty(message) ? "Update " + path : message);
+                    body.put("content", toBase64(content == null ? "" : content));
+                    if (sha != null) body.put("sha", sha);
+                    Answer a = request("PUT", address, null, body.toString());
+                    if (!a.ok()) {
+                        error("uploadFile", a.code, explain(a, "uploadFile"));
+                        return;
+                    }
+                    JSONObject file = new JSONObject(a.body).optJSONObject("content");
+                    final String newSha = file == null ? "" : file.optString("sha");
+                    final String url = file == null ? "" : file.optString("html_url");
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onFileUploaded(path, newSha, url);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("uploadFile", 0, "The upload couldn't be prepared: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** Starts a GitHub Actions workflow that has a workflow_dispatch trigger; needs a token with Actions write. */
+    public void triggerWorkflow(String owner, String repo, final String workflow, final String ref) {
+        if (token == null) {
+            error("triggerWorkflow", 0, "Set a token with Actions: read and write first.");
+            return;
+        }
+        if (empty(owner) || empty(repo) || empty(workflow)) {
+            error("triggerWorkflow", 0, "Owner, repository and workflow file (e.g. build.yml) are needed.");
+            return;
+        }
+        final String branch = empty(ref) ? "main" : ref.trim();
+        final String address = "/repos/" + segment(owner.trim()) + "/" + segment(repo.trim()) + "/actions/workflows/"
+                + segment(workflow.trim()) + "/dispatches";
+        run(new Runnable() {
+            public void run() {
+                try {
+                    JSONObject body = new JSONObject();
+                    body.put("ref", branch);
+                    Answer a = request("POST", address, null, body.toString());
+                    if (!a.ok()) {
+                        error("triggerWorkflow", a.code, explain(a, "triggerWorkflow"));
+                        return;
+                    }
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onWorkflowTriggered(workflow, branch);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("triggerWorkflow", 0, "The request couldn't be prepared: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------ HTTP
+
+    static final class Answer {
+        int code;
+        String body = "";
+        int remaining = -1;
+        long reset;
+
+        boolean ok() {
+            return code >= 200 && code < 300;
+        }
+    }
+
+    Answer request(String method, String path, String accept) {
+        return request(method, path, accept, null);
+    }
+
+    Answer request(String method, String path, String accept, String json) {
+        Answer a = new Answer();
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(apiBase + path).openConnection();
+            c.setConnectTimeout(30000);
+            c.setReadTimeout(60000);
+            c.setRequestMethod(method);
+            c.setRequestProperty("Accept", accept == null ? "application/vnd.github+json" : accept);
+            c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+            c.setRequestProperty("User-Agent", "SketchwareAI-App");
+            if (token != null) c.setRequestProperty("Authorization", "Bearer " + token);
+            if (json != null) {
+                byte[] bytes = json.getBytes("UTF-8");
+                c.setDoOutput(true);
+                c.setRequestProperty("Content-Type", "application/json");
+                c.setFixedLengthStreamingMode(bytes.length);
+                OutputStream out = c.getOutputStream();
+                try {
+                    out.write(bytes);
+                } finally {
+                    out.close();
+                }
+            }
+            a.code = c.getResponseCode();
+            a.remaining = header(c, "X-RateLimit-Remaining");
+            a.reset = header(c, "X-RateLimit-Reset");
+            InputStream in = a.code >= 400 ? c.getErrorStream() : c.getInputStream();
+            if (in != null) {
+                try {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[16384];
+                    int n;
+                    while ((n = in.read(buffer)) > 0) {
+                        if (out.size() > 20 * 1024 * 1024) throw new IOException("The answer is larger than 20 MB");
+                        out.write(buffer, 0, n);
+                    }
+                    a.body = new String(out.toByteArray(), "UTF-8");
+                } finally {
+                    in.close();
+                }
+            }
+        } catch (IOException e) {
+            a.code = 0;
+            a.body = String.valueOf(e.getMessage());
+        } finally {
+            if (c != null) c.disconnect();
+        }
+        return a;
+    }
+
+    private static int header(HttpURLConnection c, String name) {
+        try {
+            String v = c.getHeaderField(name);
+            return v == null ? -1 : Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    // ------------------------------------------------------------------ the explanations
+
+    /**
+     * What went wrong and what to do, from GitHub's answer: the "diagnostics" of the component (no network, a token
+     * GitHub refuses, missing access, the rate limit, a wrong name or path, a conflict).
+     */
+    static String explain(Answer a, String action) {
+        String message = "";
+        try {
+            message = new JSONObject(a.body).optString("message", "");
+        } catch (Exception ignored) {
+            // not JSON
+        }
+        switch (a.code) {
+            case 0:
+                return "No connection to GitHub (" + a.body + "). Check the internet and try again.";
+            case 401:
+                return "GitHub doesn't accept the token: it is wrong, expired or revoked. Make a new one on github.com "
+                        + "(Settings > Developer settings > Personal access tokens).";
+            case 403:
+            case 429:
+                if (a.remaining == 0 || message.toLowerCase(Locale.ROOT).contains("rate limit")) {
+                    String when = a.reset > 0 ? " after " + new SimpleDateFormat("HH:mm", Locale.ENGLISH)
+                            .format(new Date(a.reset * 1000L)) : " in a while";
+                    return "GitHub's request limit is used up; try again" + when + ". Without a token GitHub allows 60 "
+                            + "requests an hour per network, with a token 5000.";
+                }
+                return "The token has no permission for this (" + message + "). Give it access to the repository"
+                        + ("triggerWorkflow".equals(action) ? " and Actions: read and write."
+                        : "uploadFile".equals(action) ? " and Contents: read and write." : ".");
+            case 404:
+                return "Not found: check the owner, repository" + ("getUser".equals(action) || "listRepos".equals(action)
+                        ? " or user name" : " and path") + ". A private repository needs a token with access to it.";
+            case 409:
+                return "GitHub refused the change because the file changed meanwhile (" + message + "). Try again.";
+            case 422:
+                return "GitHub refused the request: " + message + ("triggerWorkflow".equals(action)
+                        ? ". The workflow needs a workflow_dispatch trigger and the branch must exist." : ".");
+            default:
+                if (a.code >= 500) return "GitHub has a problem right now (HTTP " + a.code + "). Try again later.";
+                return "GitHub answered HTTP " + a.code + (message.length() > 0 ? ": " + message : "") + ".";
+        }
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    /** The repositories' main fields only (name, fullName, description, url, isPrivate, stars, language). */
+    static String repoSummary(String body) throws Exception {
+        JSONArray in = new JSONArray(body);
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject r = in.getJSONObject(i);
+            JSONObject o = new JSONObject();
+            o.put("name", r.optString("name"));
+            o.put("fullName", r.optString("full_name"));
+            o.put("description", text(r, "description"));
+            o.put("url", r.optString("html_url"));
+            o.put("isPrivate", r.optBoolean("private"));
+            o.put("stars", r.optInt("stargazers_count"));
+            o.put("language", text(r, "language"));
+            out.put(o);
+        }
+        return out.toString();
+    }
+
+    /** Each part of a path percent-encoded (slashes kept). */
+    static String encodePath(String path) {
+        StringBuilder out = new StringBuilder();
+        String[] parts = path.split("/");
+        for (int i = 0; i < parts.length; i++) {
+            if (parts[i].length() == 0) continue;
+            if (out.length() > 0) out.append('/');
+            out.append(segment(parts[i]));
+        }
+        return out.toString();
+    }
+
+    static String segment(String part) {
+        try {
+            return URLEncoder.encode(part, "UTF-8").replace("+", "%20");
+        } catch (IOException e) {
+            return part;
+        }
+    }
+
+    static String toBase64(String text) {
+        try {
+            return Base64.encodeToString(text.getBytes("UTF-8"), Base64.NO_WRAP);
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    static String fromBase64(String content) {
+        try {
+            return new String(Base64.decode(content.replace("\n", ""), Base64.DEFAULT), "UTF-8");
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    private static String text(JSONObject o, String name) {
+        return o.isNull(name) ? "" : o.optString(name, "");
+    }
+
+    private static boolean empty(String s) {
+        return s == null || s.trim().length() == 0;
+    }
+
+    private void run(Runnable r) {
+        Thread t = new Thread(r, "SketchGitHub");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** On the main thread, unless the screen is gone (no event into a closed screen). */
+    private void post(final Runnable r) {
+        main.post(new Runnable() {
+            public void run() {
+                if (host instanceof Activity && (((Activity) host).isFinishing() || ((Activity) host).isDestroyed())) return;
+                r.run();
+            }
+        });
+    }
+
+    private void error(final String action, final int code, final String message) {
+        post(new Runnable() {
+            public void run() {
+                if (listener != null) listener.onError(action, code, message);
+            }
+        });
+    }
+}

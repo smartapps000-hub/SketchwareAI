@@ -533,6 +533,11 @@ public class yq {
                         N.addPermission(next.getActivityName(), jq.PERMISSION_ACCESS_NETWORK_STATE);
                         break;
 
+                    case com.sketchware.ai.project.GitHubCode.TYPE:
+                        // v2.0.2: the GitHub component talks to api.github.com (as RequestNetwork, INTERNET)
+                        N.addPermission(next.getActivityName(), jq.PERMISSION_INTERNET);
+                        break;
+
                     case ComponentBean.COMPONENT_TYPE_SPEECH_TO_TEXT:
                         N.addPermission(next.getActivityName(), jq.PERMISSION_RECORD_AUDIO);
                         break;
@@ -829,6 +834,10 @@ public class yq {
                 com.sketchware.ai.project.PermissionCode.helperClass(packageName, N.g));
         addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.WebCode.CLASS_NAME,
                 com.sketchware.ai.project.WebCode.helperClass(packageName, N.g));
+        // v2.0.2: SketchGitHub.java for the GitHub component (its field and "new SketchGitHub(this)" use no "SketchGitHub."
+        // when no event is used: any mention of the class counts)
+        addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.GitHubCode.CLASS_NAME, com.sketchware.ai.project.GitHubCode.helperClass(packageName), com.sketchware.ai.project.GitHubCode.CLASS_NAME);
+        N.gitHubTokenWarning = com.sketchware.ai.project.GitHubCode.tokenWarning(srcCodeBeans);
 
         // Generate layouts unless a custom version of it exists already
         // at /Internal storage/.sketchware/data/<sc_id>/files/resource/layout/
@@ -1046,8 +1055,13 @@ public class yq {
     /** v1.9.4: a helper class a generated activity or a custom Java file of the project calls ({@code Name.}). */
     private static void addCodeHelper(List<SrcCodeBean> srcCodeBeans, List<File> javaFiles, String javaDir,
                                       String className, String source) {
+        addCodeHelper(srcCodeBeans, javaFiles, javaDir, className, source, className + ".");
+    }
+
+    /** v2.0.2: with the text that marks a use ({@code call}). */
+    private static void addCodeHelper(List<SrcCodeBean> srcCodeBeans, List<File> javaFiles, String javaDir,
+                                      String className, String source, String call) {
         if (javaFiles.contains(new File(javaDir + className + ".java"))) return;
-        String call = className + ".";
         boolean used = false;
         for (SrcCodeBean bean : srcCodeBeans) {
             if (bean.srcFileName != null && bean.srcFileName.endsWith(".java") && bean.source != null
