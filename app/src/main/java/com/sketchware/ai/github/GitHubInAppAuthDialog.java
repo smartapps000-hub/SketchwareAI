@@ -199,8 +199,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     @Override
     public void onBackPressed() {
         if (web != null && web.canGoBack()) {
-            // v2.0.2 review: going back to a landing page is the user's choice (no move to the code page right away)
-            backAt = SystemClock.elapsedRealtime();
+            // v2.0.2 review: the page Back reaches is the user's choice (no move to the code page from it)
+            backPending = true;
             web.goBack();
             return;
         }
@@ -532,7 +532,14 @@ public final class GitHubInAppAuthDialog extends Dialog {
             @Override
             public void doUpdateVisitedHistory(WebView v, String url, boolean isReload) {
                 // v2.0.2: GitHub moves between its pages without a new load (Turbo): the landing check runs here too
-                if (v == web && url != null) toDevicePageIfSignedIn(Uri.parse(url));
+                if (v != web || url == null) return;
+                if (backPending) {
+                    backPending = false;
+                    backUrl = url;
+                    return;
+                }
+                if (!url.equals(backUrl)) backUrl = null;
+                toDevicePageIfSignedIn(Uri.parse(url));
             }
 
             @Override
@@ -711,7 +718,10 @@ public final class GitHubInAppAuthDialog extends Dialog {
 
     private long lastHandoff;
     /** v2.0.2 review: the last Back inside the page, and the last move to the code page (uptime clock). */
-    private long backAt, toDeviceAt;
+    private long toDeviceAt;
+    /** v2.0.2 review: Back was pressed and its page hasn't committed yet; the page Back reached (it stays). */
+    private boolean backPending;
+    private String backUrl;
 
     /** Google, Apple, Microsoft: the browser sign-in starts by itself (code copied, GitHub's device page in a tab). */
     private void socialHandoff() {
@@ -745,14 +755,14 @@ public final class GitHubInAppAuthDialog extends Dialog {
         long now = SystemClock.elapsedRealtime();
         // v2.0.2 review: never during GitHub's "too many requests" pause; one move per landing (history update and
         // page end both arrive here); a page reached with Back stays
-        if (limitedUntil > now || now - toDeviceAt < 3000 || now - backAt < 3000) return;
+        if (limitedUntil > now || now - toDeviceAt < 3000 || uri.toString().equals(backUrl)) return;
         if (!allowAgain(toDevice, 3, 60_000L)) return;
         toDeviceAt = now;
         status(signedIn ? "Signed in to GitHub · opening the code page…" : "Opening GitHub's code page…", false);
         filled = false;
         fillTries = 0;
         main.post(() -> {
-            if (!closed && web != null) web.loadUrl(DEVICE_PAGE);
+            if (!closed && web != null && limitedUntil <= SystemClock.elapsedRealtime()) web.loadUrl(DEVICE_PAGE);
         });
     }
 

@@ -479,7 +479,8 @@ public class SketchGitHub {
         }
         if (host == null) return false;
         try {
-            // a Fragment (any library's): no event once it is no longer added to its screen
+            // a Fragment (any library's): no event once it is no longer added to its screen (with R8 renaming the
+            // library's isAdded, this check can't tell and the event is delivered, as without it)
             Object added = host.getClass().getMethod("isAdded").invoke(host);
             return added instanceof Boolean && !((Boolean) added).booleanValue();
         } catch (Exception e) {

@@ -424,13 +424,13 @@ public final class GitHubTest {
         Object foreign = call(links, "get", scId);
         // a link written for another project (a restored or duplicated copy carries the file): not shown
         writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"601\",\"login\":\"octo\"}");
-        Object copied = call(links, "get", scId);
+        Object otherProject = call(links, "get", scId);
         call(links, "save", "999999", "https://github.com/x/y", "p", "octo");
         boolean noFolder = !new File(sketchware, "data/999999/github_backup.json").exists();
         check("v2.0.2: share link: none before a backup, kept after (same account too), not under another account, only "
                         + "github.com links, not for a copy made for another project id, never for a missing project",
                 none && url.equals(saved) && url.equals(sameAccount) && otherAccount == null && foreign == null
-                        && copied == null && noFolder && call(links, "get", "../1") == null, saved);
+                        && otherProject == null && noFolder && call(links, "get", "../1") == null, saved);
         linkFile.delete();
 
         // --- a .swb with an entry outside its folder is refused

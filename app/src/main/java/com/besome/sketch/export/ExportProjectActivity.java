@@ -158,8 +158,10 @@ public class ExportProjectActivity extends BaseAppCompatActivity {
         String warning = generated == null || generated.N == null ? null : generated.N.gitHubTokenWarning;
         if (warning == null || activity == null) return;
         android.content.Context app = activity.getApplicationContext();
-        activity.runOnUiThread(() -> android.widget.Toast.makeText(app, "Warning: " + warning,
-                android.widget.Toast.LENGTH_LONG).show());
+        // Android 12+ shows two lines of a toast: the short form (Run builds list the whole advice)
+        String file = warning.contains(" holds ") ? warning.substring(0, warning.indexOf(" holds ")) : "The code";
+        activity.runOnUiThread(() -> android.widget.Toast.makeText(app, file + " holds a GitHub token: anyone "
+                + "with this APK can read it.", android.widget.Toast.LENGTH_LONG).show());
     }
 
     private void exportSrc() {
