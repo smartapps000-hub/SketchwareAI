@@ -201,6 +201,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (web != null && web.canGoBack()) {
             // v2.0.2 review: the page Back reaches is the user's choice (no move to the code page from it)
             backPending = true;
+            backAt = SystemClock.elapsedRealtime();
             web.goBack();
             return;
         }
@@ -535,8 +536,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 if (v != web || url == null) return;
                 if (backPending) {
                     backPending = false;
-                    backUrl = url;
-                    return;
+                    // third review pass: a Back that never committed (refused redirect, failed load, a load of
+                    // the app's own) doesn't hold over a page that comes much later
+                    if (SystemClock.elapsedRealtime() - backAt < 10_000L) {
+                        backUrl = url;
+                        return;
+                    }
                 }
                 if (!url.equals(backUrl)) backUrl = null;
                 toDevicePageIfSignedIn(Uri.parse(url));
@@ -721,6 +726,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private long toDeviceAt;
     /** v2.0.2 review: Back was pressed and its page hasn't committed yet; the page Back reached (it stays). */
     private boolean backPending;
+    private long backAt;
     private String backUrl;
 
     /** Google, Apple, Microsoft: the browser sign-in starts by itself (code copied, GitHub's device page in a tab). */
