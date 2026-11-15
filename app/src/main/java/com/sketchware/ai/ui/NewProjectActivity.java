@@ -598,9 +598,6 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         choices.versionCode = code.isEmpty() ? "1" : code;
         choices.versionName = name.isEmpty() ? "1.0" : name;
         choices.sketchwareVersion = GB.d(getApplicationContext());
-        // v2.0.3 review: the id was picked when the screen opened; a project made meanwhile (the GitHub sample made by
-        // itself) may have taken it: then the next free one
-        scId = com.sketchware.ai.project.ProjectIds.free(scId);
         creating = true;
         k();
         new Thread(() -> {

@@ -339,6 +339,8 @@ public final class SignIn {
             // review: the token is saved first; the e-mail (optional, retried on a slow network) is read afterwards.
             // v2.0.3 review: checked and saved under the same lock as cancel(): a sign-in cancelled at this moment is
             // simply not saved (it used to be saved and cleared, which also removed the sign-in from before)
+            // second review: the Keystore key is made (or found) before the lock, so the screen's getters don't wait for it
+            TokenStore.get(app).prepareKey();
             synchronized (this) {
                 if (g[0] != generation) return;
                 TokenStore.get(app).save(token, account.login, account.id);

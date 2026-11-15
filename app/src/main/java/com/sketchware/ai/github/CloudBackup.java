@@ -268,8 +268,9 @@ public final class CloudBackup {
         int count = SwbParts.count(size);
         boolean inParts = size > SwbParts.PART_BYTES;
         String blobSha = null;
-        // review (v2.0.3, M7): every backup has its parts list, a single .swb too (one part, the file itself), and the
-        // share link names the list: the link stays the same when a project grows past 4 MiB or shrinks again
+        // review (v2.0.3, M7): every backup has its parts list, a single .swb too (one part, the file itself). Second
+        // review: the link names the .swb while the backup is one file (a page that downloads it, and a link the app's
+        // v2.0.2 imports), the list only for a backup in parts
         SwbParts.Manifest manifest = new SwbParts.Manifest();
         manifest.name = new File(path).getName();
         manifest.size = size;
@@ -339,7 +340,7 @@ public final class CloudBackup {
             refBody.addProperty("force", false);
             GitHubHttp.Response ref = GitHubHttp.api("PATCH", repoPath("/git/refs/heads/" + branch), token, refBody.toString());
             if (ref.ok()) {
-                lastPath = manifestPath;
+                lastPath = inParts ? manifestPath : path;
                 return commit;
             }
             if (ref.code == 422 && attempt < 2) continue; // the branch moved (another phone): again on top of it
@@ -471,23 +472,23 @@ public final class CloudBackup {
 
     /**
      * v2.0.2: the same with the bytes received reported. v2.0.3: a backup in parts (its manifest is in that commit) is
-     * downloaded part by part, joined and checked.
+     * downloaded part by part, joined and checked. Second review: the .swb first when that commit has one (a backup in
+     * parts removes it, so a .swb next to a parts list is newer: written by an older app version on another phone).
      */
     public void download(String path, String sha, File target, GitHubHttp.Progress progress)
             throws IOException, GitHubException {
-        GitHubHttp.Response m = GitHubHttp.apiRaw(repoPath("/contents/" + encPath(SwbParts.manifestPath(path)) + "?ref="
-                + enc(sha)), token);
-        if (m.ok()) {
-            SwbParts.download(token, repoPath(""), SwbParts.Manifest.parse(m.body), target, progress);
-            return;
-        }
-        if (m.code != 404) throw http("Reading the backup's parts list", m);
         GitHubHttp.Response r = GitHubHttp.download(repoPath("/contents/" + encPath(path) + "?ref=" + enc(sha)), token,
                 target, MAX_BYTES + (5 << 20), progress);
-        if (r.rateLimited()) throw http("Downloading the backup", r);
-        if (r.code < 200 || r.code >= 300) {
+        if (r.ok()) return;
+        if (r.code != 404) {
+            if (r.rateLimited()) throw http("Downloading the backup", r);
             throw new GitHubException("http_" + r.code, "Downloading the backup failed (HTTP " + r.code + ").");
         }
+        GitHubHttp.Response m = GitHubHttp.apiRaw(repoPath("/contents/" + encPath(SwbParts.manifestPath(path)) + "?ref="
+                + enc(sha)), token);
+        if (m.code == 404) throw new GitHubException("http_404", "That backup isn't in the repository any more.");
+        if (!m.ok()) throw http("Reading the backup's parts list", m);
+        SwbParts.download(token, repoPath(""), SwbParts.Manifest.parse(m.body), target, progress);
     }
 
     // ------------------------------------------------------------------ helpers

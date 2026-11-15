@@ -124,10 +124,24 @@ public final class ProjectLinks {
         return id != null && id.matches("[0-9a-f]{12}") ? id : null;
     }
 
-    /** v2.0.3: the fingerprint of the saved project at its last backup, or null. */
-    static String lastFingerprint(String scId) {
+    /** Second review: the public copy's repository number (GitHub's id: kept through renames, never reused), or 0. */
+    static long publicNumber(String scId, String signedInLogin) {
         JsonObject json = read(scId);
-        return json == null ? null : DeviceFlow.string(json, "fingerprint");
+        if (json == null || !publicFieldsOf(json, signedInLogin)) return 0;
+        try {
+            return json.has("public_number") ? json.get("public_number").getAsLong() : 0;
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * v2.0.3: the fingerprint of the saved project at its last backup, or null; second review: only a backup by the
+     * account signed in now (another account's repository doesn't have it).
+     */
+    static String lastFingerprint(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        return json == null || !publicFieldsOf(json, signedInLogin) ? null : DeviceFlow.string(json, "fingerprint");
     }
 
     /** v2.0.3: the boxes of the project's last backup (an automatic backup after a save uses them), or null. */
@@ -180,7 +194,8 @@ public final class ProjectLinks {
         File dir = file(scId).getParentFile();
         if (dir == null || !dir.isDirectory()) return; // the project is gone
         JsonObject old = read(scId);
-        if (old != null && !ownedBy(old, login)) old = null; // another account's record: not carried over
+        // another account's record, or (second review) one that names no account: its public copy isn't carried over
+        if (old != null && !publicFieldsOf(old, login)) old = null;
         JsonObject json = new JsonObject();
         json.addProperty("url", url);
         json.addProperty("path", path);
@@ -196,16 +211,19 @@ public final class ProjectLinks {
                 String value = DeviceFlow.string(old, key);
                 if (value != null) json.addProperty(key, value);
             }
+            if (old.has("public_number")) json.add("public_number", old.get("public_number"));
         }
         write(scId, json);
     }
 
-    /** v2.0.3 review: a new public copy (still private) was made for the project: its repository and id. */
-    static synchronized void copyMade(String scId, String repo, String id) {
+    /** v2.0.3 review: a new public copy (still private) was made for the project: its repository, id and number. */
+    static synchronized void copyMade(String scId, String repo, String id, long number) {
         JsonObject json = read(scId);
         if (json == null) return;
         json.addProperty("public_repo", repo);
         json.addProperty("public_id", id);
+        if (number > 0) json.addProperty("public_number", number);
+        else json.remove("public_number");
         write(scId, json);
     }
 

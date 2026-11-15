@@ -425,6 +425,16 @@ public final class CloudSync {
         if (MAKE_PUBLIC.equals(job.kind) || MAKE_PRIVATE.equals(job.kind)) {
             return changeVisibility(job, MAKE_PUBLIC.equals(job.kind));
         }
+        if (job.afterRunning && !job.user) {
+            // second review: a backup after a save that waited behind a running one: skipped when that one (or an
+            // earlier one) already holds these saved files
+            String login = TokenStore.get(app).login();
+            String last = ProjectLinks.lastFingerprint(job.scId, login);
+            if (last != null && last.equals(fingerprint(job.scId))) {
+                removePending(job.scId);
+                return "No changes since the last backup to GitHub";
+            }
+        }
         String name = upload(job.scId, job.options, (percent, text) -> step(job, percent, text));
         removePending(job.scId);
         return name + " backed up to GitHub · the share link is on its card" + lastNote;
@@ -546,7 +556,7 @@ public final class CloudSync {
             try {
                 if (lC.b(scId) == null) return;
                 String now = fingerprint(scId);
-                if (now.equals(ProjectLinks.lastFingerprint(scId))) return;
+                if (now.equals(ProjectLinks.lastFingerprint(scId, TokenStore.get(app).login()))) return;
                 if (!leaving && System.currentTimeMillis() - ProjectLinks.lastBackup(scId) < 5 * 60_000L) return;
                 Options options = ProjectLinks.lastOptions(scId);
                 Job job = new Job(scId, BACKUP, null, options == null ? Options.AUTOMATIC : options, false);
@@ -616,6 +626,7 @@ public final class CloudSync {
         String token = session[1];
         CloudBackup cloud = new CloudBackup(token, login);
         String fingerprint = fingerprint(scId);
+        String stamp = stamp(scId);
         try {
             // the network and the token first: offline nothing is zipped
             step(progress, 5, "Checking your private repository " + CloudBackup.REPO + "…");
@@ -636,12 +647,16 @@ public final class CloudSync {
                 swb = factory.getOutFile();
                 if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
                 String after = fingerprint(scId);
-                if (after.equals(fingerprint) || pack >= 2) {
+                // second review: also by size and time, so a save that wrote the same bytes while the files were
+                // copied (each file is rewritten in place) packs again too
+                String stampAfter = stamp(scId);
+                if ((after.equals(fingerprint) && stampAfter.equals(stamp)) || pack >= 2) {
                     fingerprint = after;
                     break;
                 }
                 BackupFactory.deleteUploadedBackup(swb);
                 fingerprint = after;
+                stamp = stampAfter;
             }
             try {
                 long size = swb.length();
@@ -737,6 +752,19 @@ public final class CloudSync {
             }
         }
         return SwbParts.hex(all.digest()) + ":" + files.size();
+    }
+
+    /** Second review: names, sizes and modification times of the project's saved files (a save rewrites them all). */
+    static String stamp(String scId) {
+        File data = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/data/" + scId);
+        java.util.TreeMap<String, File> files = new java.util.TreeMap<>();
+        collect(data, "", files, 0);
+        StringBuilder out = new StringBuilder();
+        for (java.util.Map.Entry<String, File> e : files.entrySet()) {
+            out.append(e.getKey()).append(':').append(e.getValue().length()).append(':')
+                    .append(e.getValue().lastModified()).append('\n');
+        }
+        return out.toString();
     }
 
     private static void collect(File dir, String prefix, java.util.Map<String, File> out, int depth) {

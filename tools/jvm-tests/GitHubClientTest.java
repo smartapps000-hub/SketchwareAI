@@ -37,6 +37,18 @@ public class GitHubClientTest {
         System.out.println("CLIENT CHECK " + (result ? "ok  " : "FAIL") + " " + name + (detail == null ? "" : " - " + detail));
     }
 
+    static Object field(Object o, String name) throws Exception {
+        java.lang.reflect.Field f = o.getClass().getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(o);
+    }
+
+    static Object linkCall(String name, Class<?>[] types, Object... args) throws Exception {
+        java.lang.reflect.Method m = Class.forName("com.sketchware.ai.github.ProjectLinks").getDeclaredMethod(name, types);
+        m.setAccessible(true);
+        return m.invoke(null, args);
+    }
+
     public static void main(String[] args) throws Exception {
         Fake fake = new Fake();
         fake.start();
@@ -387,6 +399,16 @@ public class GitHubClientTest {
         check("v2.0.3: a link to the parts list imports the whole backup (named Large_App.swb)",
                 java.util.Arrays.equals(java.nio.file.Files.readAllBytes(linked.toPath()), largeBytes)
                         && linked.getName().equals("octo-SketchwareAI-Projects-Large_App.swb"), linked.getName());
+        java.lang.reflect.Field lastPathField = CloudBackup.class.getDeclaredField("lastPath");
+        lastPathField.setAccessible(true);
+        check("second review: a backup in parts: its share link names the parts list",
+                (largePath + ".parts.json").equals(lastPathField.get(partsCloud)), lastPathField.get(partsCloud));
+        linked.delete();
+        File viaSwbLink = GitHubImport.download(token, GitHubImport.parse("https://github.com/octo/SketchwareAI-Projects/blob/main/"
+                + largePath), largePath, importDir);
+        check("second review: a .swb link shared before the project grew past one part imports it from its parts list",
+                java.util.Arrays.equals(java.nio.file.Files.readAllBytes(viaSwbLink.toPath()), largeBytes), viaSwbLink.length());
+        viaSwbLink.delete();
         // a one-off 401 on a part while GET /user accepts the sign-in: the part is sent again
         fake.mode = "blob401once";
         fake.blobFailures = 0;
@@ -427,6 +449,11 @@ public class GitHubClientTest {
                 !fake.deleted.contains(largePath + ".parts.json") && fake.deleted.contains(largePath + ".parts/000")
                         && fake.deleted.contains(largePath + ".parts/002") && fake.deleted.size() == 3
                         && partsCloud.list().stream().anyMatch(e -> (largePath + ".parts.json").equals(e.parts)), fake.deleted);
+        check("second review: one .swb again: its share link names the .swb (a page that downloads it; v2.0.2 imports it)",
+                largePath.equals(lastPathField.get(partsCloud)), lastPathField.get(partsCloud));
+        java.util.List<String> listedSmall = GitHubImport.listBackups(token, own);
+        check("second review: a .swb and its parts list of the same name are listed once, by the .swb",
+                listedSmall.contains(largePath) && !listedSmall.contains(largePath + ".parts.json"), listedSmall);
         java.util.List<CloudBackup.Version> largeHistory = partsCloud.history(largePath);
         // (the backups of 2.1 and 2.2 sent the same bytes: their parts and parts list didn't change, only index.json)
         check("v2.0.3: history lists the backup in parts and the single one after it, newest first",
@@ -437,7 +464,10 @@ public class GitHubClientTest {
         partsCloud.download(largePath, largeCommit, oldBack);
         File newBack = new File(large.getParent(), "large-new.swb");
         newBack.delete();
+        fake.blobGets = 0;
         partsCloud.download(largePath, smallCommit, newBack);
+        check("second review: a commit with a .swb restores the .swb (a newer one from an older app version wins over a "
+                + "parts list)", fake.blobGets == 0, fake.blobGets);
         check("v2.0.3: each version downloads as it was (parts then, one file now)",
                 java.util.Arrays.equals(java.nio.file.Files.readAllBytes(oldBack.toPath()), largeBytes)
                         && java.util.Arrays.equals(java.nio.file.Files.readAllBytes(newBack.toPath()), smallBytes), null);
@@ -454,7 +484,7 @@ public class GitHubClientTest {
         setPrivate.setAccessible(true);
         java.lang.reflect.Method ours = publicCopy.getDeclaredMethod("ours", String.class, String.class, String.class, String.class);
         ours.setAccessible(true);
-        String publicRepo = (String) choose.invoke(null, token, "octo", "My App", "com.my.app", "a1b2c3d4e5f6");
+        String publicRepo = (String) field(choose.invoke(null, token, "octo", "My App", "com.my.app", "a1b2c3d4e5f6"), "name");
         check("v2.0.3: Public: the project's own repository SketchwareAI-Public-My_App, made private (public only after "
                         + "its upload), its id in the description",
                 "SketchwareAI-Public-My_App".equals(publicRepo) && fake.createdRepos.contains("SketchwareAI-Public-My_App private auto_init")
@@ -464,7 +494,7 @@ public class GitHubClientTest {
                 (Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Public-My_App", "a1b2c3d4e5f6")
                         && !(Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Public-My_App", "ffffffffffff")
                         && !(Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Projects", "a1b2c3d4e5f6"), null);
-        String second = (String) choose.invoke(null, token, "octo", "My_App", "com.other", "0123456789ab");
+        String second = (String) field(choose.invoke(null, token, "octo", "My_App", "com.other", "0123456789ab"), "name");
         check("v2.0.3: a second project of that name gets its own repository (-2), the first copy isn't reused",
                 "SketchwareAI-Public-My_App-2".equals(second), second);
         for (String backupRepo : new String[]{"SketchwareAI-Projects", "sketchwareai-projects"}) {
@@ -495,6 +525,66 @@ public class GitHubClientTest {
                 fake.patches);
         setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-Gone", true);
         check("v2.0.3: Private for a public copy deleted on github.com is fine (nothing to hide)", true, null);
+        // second review: a project made public and private end to end, its copy known by its repository number
+        File projectData = new File("/storage/emulated/0/.sketchware/data/9301");
+        projectData.mkdirs();
+        new File(projectData, "github_backup.json").delete();
+        Class<?>[] saveTypes = {String.class, String.class, String.class, String.class};
+        linkCall("save", saveTypes, "9301", "https://github.com/octo/SketchwareAI-Projects/blob/main/p.swb", "p.swb", "octo");
+        java.lang.reflect.Method makePublic = publicCopy.getDeclaredMethod("makePublic", String.class, String.class, String.class,
+                String.class, String.class, String.class, File.class, CloudBackup.UploadProgress.class);
+        makePublic.setAccessible(true);
+        java.lang.reflect.Method makePrivate = publicCopy.getDeclaredMethod("makePrivate", String.class, String.class, String.class);
+        makePrivate.setAccessible(true);
+        java.lang.reflect.Method update = publicCopy.getDeclaredMethod("update", String.class, String.class, String.class,
+                String.class, String.class, String.class, File.class, CloudBackup.UploadProgress.class);
+        update.setAccessible(true);
+        Class<?>[] two = {String.class, String.class};
+        String demoLink = (String) makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.0", small, null);
+        Fake.Repo demo = fake.repos.get("SketchwareAI-Public-Demo_App");
+        check("second review: Public: the copy made, uploaded, public; the share link is its repository's page; its number "
+                        + "recorded", "https://github.com/octo/SketchwareAI-Public-Demo_App".equals(demoLink) && demo != null
+                        && !demo.isPrivate && demo.filesAt("main").containsKey("projects/com.demo/Demo_App.swb")
+                        && Long.valueOf(demo.number).equals(linkCall("publicNumber", two, "9301", "octo"))
+                        && "public".equals(linkCall("visibility", two, "9301", "octo"))
+                        && demoLink.equals(linkCall("get", two, "9301", "octo")), demoLink);
+        demo.description = "My own words now";
+        int commitsBefore = demo.log.size();
+        update.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.1", small, null);
+        check("second review: a copy whose description was edited on github.com is still updated (known by its number) and "
+                        + "the project stays public", demo.log.size() == commitsBefore + 1
+                        && "public".equals(linkCall("visibility", two, "9301", "octo")), demo.log.size() - commitsBefore);
+        int patchesBefore = fake.patches.size();
+        makePrivate.invoke(null, token, "octo", "9301");
+        check("second review: Private: PATCH private:true on that copy", demo.isPrivate && fake.patches.size() == patchesBefore + 1
+                && "private".equals(linkCall("visibility", two, "9301", "octo")), fake.patches.size() - patchesBefore);
+        // the copy deleted on github.com and its name taken by another repository: Private never touches that one
+        demo.exists = false;
+        java.lang.reflect.Method choose2 = choose;
+        Object other = choose2.invoke(null, token, "octo", "Demo App", "com.someone", "fedcba987654");
+        Fake.Repo otherRepo = fake.repos.get((String) field(other, "name"));
+        setPrivate.invoke(null, token, "octo", (String) field(other, "name"), false);
+        patchesBefore = fake.patches.size();
+        makePrivate.invoke(null, token, "octo", "9301");
+        check("second review: Private when the copy's name now belongs to another repository: that one isn't changed",
+                "SketchwareAI-Public-Demo_App".equals(field(other, "name")) && !otherRepo.isPrivate
+                        && fake.patches.size() == patchesBefore && "private".equals(linkCall("visibility", two, "9301", "octo")),
+                fake.patches.size() - patchesBefore);
+        // Public again: a new copy (-2), not the other repository; a refused PATCH leaves the card on Private
+        fake.mode = "patch500";
+        try {
+            makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.2", small, null);
+            check("second review: a refused PATCH: an error, the card stays Private", false, null);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            check("second review: a refused PATCH: an error, the card stays Private; the new copy is -2, still private",
+                    e.getCause() instanceof GitHubException && "private".equals(linkCall("visibility", two, "9301", "octo"))
+                            && "SketchwareAI-Public-Demo_App-2".equals(linkCall("publicRepository", two, "9301", "octo"))
+                            && fake.repos.get("SketchwareAI-Public-Demo_App-2").isPrivate && !otherRepo.isPrivate,
+                    e.getCause().getMessage());
+        }
+        fake.mode = "";
+        new File(projectData, "github_backup.json").delete();
+        projectData.delete();
         // the sign-in code request: short timeouts, tried again when the network drops it
         java.lang.reflect.Field startPauses = DeviceFlow.class.getDeclaredField("startPauses");
         startPauses.setAccessible(true);
@@ -739,13 +829,18 @@ public class GitHubClientTest {
                     main.exists = true;
                     main.isPrivate = true;
                 } else {
-                    Repo r = repos.computeIfAbsent(name, k -> new Repo());
+                    Repo old = repos.get(name);
+                    if (old != null && old.exists) return new Object[]{422, "{\"message\":\"name already exists\"}"};
+                    Repo r = new Repo();
+                    repos.put(name, r);
                     r.exists = true;
                     r.isPrivate = o.get("private").getAsBoolean();
                     r.description = o.has("description") ? o.get("description").getAsString() : "";
                     createdRepos.add(name + (r.isPrivate ? " private" : " public") + (body.contains("\"auto_init\":true") ? " auto_init" : ""));
                 }
-                return new Object[]{201, "{\"private\":" + o.get("private").getAsBoolean() + ",\"default_branch\":\"main\"}"};
+                Repo made = repos.get(name);
+                return new Object[]{201, "{\"id\":" + made.number + ",\"name\":\"" + name + "\",\"private\":"
+                        + o.get("private").getAsBoolean() + ",\"default_branch\":\"main\"}"};
             }
             java.util.regex.Matcher rm = java.util.regex.Pattern.compile("^/repos/octo/([A-Za-z0-9_.-]+)(.*)$").matcher(api);
             if (rm.matches()) {
@@ -761,6 +856,8 @@ public class GitHubClientTest {
         static final class Repo {
             boolean exists = true, isPrivate = true;
             String description = "";
+            /** GitHub's repository id (never reused). */
+            long number = ++numbers;
             final Map<String, byte[]> blobs = new HashMap<>();
             final Map<String, Map<String, String>> trees = new HashMap<>();
             final Map<String, String> commitTree = new HashMap<>();
@@ -781,6 +878,7 @@ public class GitHubClientTest {
             }
         }
 
+        static long numbers = 1000;
         final Map<String, Repo> repos = new HashMap<>();
         final List<String> createdRepos = new ArrayList<>();
         final List<String> patches = new ArrayList<>();
@@ -812,10 +910,11 @@ public class GitHubClientTest {
         Object[] repoRoute(Repo r, String method, String rest, Map<String, String> headers, String body) throws Exception {
             boolean raw = "application/vnd.github.raw".equals(headers.get("accept"));
             if (rest.isEmpty() && method.equals("GET")) {
-                return new Object[]{200, "{\"private\":" + r.isPrivate + ",\"default_branch\":\"main\",\"description\":"
-                        + new com.google.gson.Gson().toJson(r.description) + "}"};
+                return new Object[]{200, "{\"id\":" + r.number + ",\"private\":" + r.isPrivate
+                        + ",\"default_branch\":\"main\",\"description\":" + new com.google.gson.Gson().toJson(r.description) + "}"};
             }
             if (rest.isEmpty() && method.equals("PATCH")) {
+                if ("patch500".equals(mode)) return new Object[]{500, "{\"message\":\"Server Error\"}"};
                 patches.add(body);
                 r.isPrivate = body.contains("\"private\":true");
                 return new Object[]{200, "{\"private\":" + r.isPrivate + "}"};

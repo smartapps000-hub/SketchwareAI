@@ -131,6 +131,11 @@ public final class SwbParts {
         return path != null && path.toLowerCase(Locale.ROOT).endsWith(".swb" + MANIFEST_SUFFIX);
     }
 
+    /** Second review: the .swb path a manifest path stands for ("a/My_App.swb" for "a/My_App.swb.parts.json"). */
+    public static String displayPath(String path) {
+        return isManifest(path) ? path.substring(0, path.length() - MANIFEST_SUFFIX.length()) : path;
+    }
+
     /** The backup's own file name for a .swb path or a manifest path ("My_App.swb"). */
     public static String displayName(String path) {
         String name = new File(path).getName();
@@ -178,8 +183,10 @@ public final class SwbParts {
                     long done = before;
                     //noinspection ResultOfMethodCallIgnored
                     piece.delete();
+                    // second review: room for GitHub's JSON answer (base64: 4/3 of the size) when it doesn't send raw
                     GitHubHttp.Response r = GitHubHttp.download(repoPath + "/git/blobs/" + p.sha, token, piece,
-                            p.size + 1024, progress == null ? null : (got, all) -> progress.bytes(done + got, m.size));
+                            p.size * 4 / 3 + 64 * 1024, progress == null ? null
+                                    : (got, all) -> progress.bytes(done + Math.min(got, p.size), m.size));
                     if (r.rateLimited()) throw CloudBackup.http("Downloading part " + index + " of " + m.parts.size(), r);
                     if (r.code < 200 || r.code >= 300) {
                         throw new GitHubException("http_" + r.code, "Downloading part " + index + " of " + m.parts.size()

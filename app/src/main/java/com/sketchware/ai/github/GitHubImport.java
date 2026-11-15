@@ -131,8 +131,9 @@ public final class GitHubImport {
 
     /**
      * The .swb files of a repository or folder link (paths, sorted); for a file link just that file. v2.0.3: a backup
-     * in parts is listed by its manifest ({@code .swb.parts.json}); its .swb of an older backup, if still there, isn't
-     * listed twice.
+     * in parts is listed by its manifest ({@code .swb.parts.json}). Second review: a .swb and a parts list of the same
+     * name are one backup, listed by its .swb (a single-file backup's list names the .swb itself; a backup in parts
+     * removes its .swb, so a .swb beside its parts list was written later, by an older app version).
      */
     public static List<String> listBackups(String token, Source s) throws IOException, GitHubException {
         List<String> found = new ArrayList<>();
@@ -156,10 +157,9 @@ public final class GitHubImport {
             if (path == null || !"blob".equals(DeviceFlow.string(o, "type")) || !path.startsWith(prefix)) continue;
             if (path.toLowerCase(Locale.ROOT).endsWith(".swb") || SwbParts.isManifest(path)) found.add(path);
         }
-        // a manifest stands for its backup: the plain .swb of the same name goes
         List<String> out = new ArrayList<>();
         for (String path : found) {
-            if (!SwbParts.isManifest(path) && found.contains(SwbParts.manifestPath(path))) continue;
+            if (SwbParts.isManifest(path) && found.contains(SwbParts.displayPath(path))) continue;
             out.add(path);
         }
         Collections.sort(out);
@@ -190,6 +190,15 @@ public final class GitHubImport {
         GitHubHttp.Response r = GitHubHttp.download(repoPath(s) + "/contents/" + CloudBackup.encPath(path) + "?ref="
                 + CloudBackup.enc(ref), token, target, CloudBackup.MAX_BYTES + (5 << 20), progress);
         int code = r.code;
+        if (code == 404 && path.toLowerCase(Locale.ROOT).endsWith(".swb")) {
+            // second review: a link to a .swb shared before the project grew past one part: its parts list
+            GitHubHttp.Response m = GitHubHttp.apiRaw(repoPath(s) + "/contents/"
+                    + CloudBackup.encPath(SwbParts.manifestPath(path)) + "?ref=" + CloudBackup.enc(ref), token);
+            if (m.ok()) {
+                SwbParts.download(token, repoPath(s), SwbParts.Manifest.parse(m.body), target, progress);
+                return target;
+            }
+        }
         if (code == 404) throw notFound(token, s);
         if (r.rateLimited()) throw CloudBackup.http("Downloading " + name, r);
         if (code < 200 || code >= 300) {

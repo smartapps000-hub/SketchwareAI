@@ -52,8 +52,9 @@ public final class TokenStore {
     }
 
     /**
-     * v2.0.3 review: every instance ({@link #get} makes a new one per call) shares this lock, so a read that seals the
-     * token again can't overwrite a sign-in saved at the same moment.
+     * v2.0.3 review: every instance ({@link #get} makes a new one per call) shares this lock for the writes (save, a
+     * re-seal, sign-out), so a read that seals the token again can't overwrite a sign-in saved at the same moment. Second
+     * review: reads take no lock (a project card or the drawer on the main thread never waits for a Keystore call).
      */
     private static final Object LOCK = new Object();
 
@@ -125,6 +126,11 @@ public final class TokenStore {
         return Build.VERSION.SDK_INT >= 23;
     }
 
+    /** Second review: makes the Keystore key ahead of {@link #save} (key generation can take a moment). */
+    public void prepareKey() throws GeneralSecurityException {
+        keys.key(true);
+    }
+
     public void save(String token, String login, String userId) throws GeneralSecurityException {
         synchronized (LOCK) {
             SecretKey key = keys.key(true);
@@ -148,71 +154,67 @@ public final class TokenStore {
      * removed (only {@link #clear()} signs out); {@link #problem()} says why.
      */
     public String token() {
-        synchronized (LOCK) {
-            String value = prefs.getString(KEY_TOKEN, null);
-            if (value == null) {
-                problem = null;
-                return null;
-            }
-            String[] parts = value.split(":");
-            if (parts.length != 3 || !parts[0].equals("v2")) {
-                problem = "it was saved by an older version of the app";
-                return null;
-            }
-            byte[] iv;
-            byte[] sealed;
+        String value = prefs.getString(KEY_TOKEN, null);
+        if (value == null) {
+            problem = null;
+            return null;
+        }
+        String[] parts = value.split(":");
+        if (parts.length != 3 || !parts[0].equals("v2")) {
+            problem = "it was saved by an older version of the app";
+            return null;
+        }
+        byte[] iv;
+        byte[] sealed;
+        try {
+            iv = unb64(parts[1]);
+            sealed = unb64(parts[2]);
+        } catch (IllegalArgumentException e) {
+            problem = "it is damaged";
+            return null;
+        }
+        SecretKey key;
+        try {
+            key = keys.key(false);
+        } catch (GeneralSecurityException | RuntimeException e) {
+            // a passing Keystore problem: the next call tries again
+            problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
+            return null;
+        }
+        if (key == null) {
+            problem = "its key is no longer in the Android Keystore";
+            return null;
+        }
+        String userId = prefs.getString(KEY_USER_ID, null);
+        String device = binding == null ? "" : binding.device();
+        for (String candidate : bindings(device)) {
+            String token;
             try {
-                iv = unb64(parts[1]);
-                sealed = unb64(parts[2]);
-            } catch (IllegalArgumentException e) {
-                problem = "it is damaged";
-                return null;
-            }
-            SecretKey key;
-            try {
-                key = keys.key(false);
+                token = open(key, iv, sealed, candidate, userId);
+            } catch (javax.crypto.AEADBadTagException e) {
+                continue; // not this binding
             } catch (GeneralSecurityException | RuntimeException e) {
-                // a passing Keystore problem: the next call tries again
                 problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
                 return null;
             }
-            if (key == null) {
-                problem = "its key is no longer in the Android Keystore";
-                return null;
-            }
-            String userId = prefs.getString(KEY_USER_ID, null);
-            String device = binding == null ? "" : binding.device();
-            for (String candidate : bindings(device)) {
-                String token;
+            problem = null;
+            if (!candidate.equals(device) && !device.contains("?")) {
+                // sealed in a run that couldn't read a part of the binding: sealed again with all of it
                 try {
-                    token = open(key, iv, sealed, candidate, userId);
-                } catch (javax.crypto.AEADBadTagException e) {
-                    continue; // not this binding
-                } catch (GeneralSecurityException | RuntimeException e) {
-                    problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
-                    return null;
+                    seal(key, token, userId, device, value);
+                } catch (GeneralSecurityException | RuntimeException ignored) {
+                    // the old seal still opens: tried again next time
                 }
-                problem = null;
-                if (!candidate.equals(device) && !device.contains("?")) {
-                    // sealed in a run that couldn't read a part of the binding: sealed again with all of it
-                    try {
-                        seal(key, token, userId, device);
-                    } catch (GeneralSecurityException | RuntimeException ignored) {
-                        // the old seal still opens: tried again next time
-                    }
-                }
-                return token;
             }
-            problem = "it is bound to another phone, app signature or GitHub account";
-            return null;
+            return token;
         }
+        problem = "it is bound to another phone, app signature or GitHub account";
+        return null;
     }
 
     /** v2.0.3: why a stored sign-in can't be read (after {@link #token()} returned null), else null. */
     public String problem() {
-        synchronized (LOCK) {
-            return prefs.getString(KEY_TOKEN, null) == null ? null : problem;
-        }
+        return prefs.getString(KEY_TOKEN, null) == null ? null : problem;
     }
 
     /** The binding as read now, then the same with a part a run may not have been able to read ("?"). */
@@ -238,33 +240,31 @@ public final class TokenStore {
         return new String(cipher.doFinal(sealed), StandardCharsets.UTF_8);
     }
 
-    private void seal(SecretKey key, String token, String userId, String device) throws GeneralSecurityException {
+    /** Seals the token again, only while the stored value is still {@code read} (a new sign-in or a sign-out wins). */
+    private void seal(SecretKey key, String token, String userId, String device, String read) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key);
         cipher.updateAAD(associatedData(device, userId));
         byte[] iv = cipher.getIV();
         byte[] sealed = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
-        prefs.edit().putString(KEY_TOKEN, "v2:" + b64(iv) + ":" + b64(sealed)).commit();
+        synchronized (LOCK) {
+            if (!read.equals(prefs.getString(KEY_TOKEN, null))) return;
+            prefs.edit().putString(KEY_TOKEN, "v2:" + b64(iv) + ":" + b64(sealed)).commit();
+        }
     }
 
     /** v2.0.3: a short fingerprint of the stored (sealed) sign-in: marks that belong to this one sign-in use it. */
     public String sealedKey() {
-        synchronized (LOCK) {
-            String value = prefs.getString(KEY_TOKEN, null);
-            return value == null ? null : Integer.toHexString(value.hashCode());
-        }
+        String value = prefs.getString(KEY_TOKEN, null);
+        return value == null ? null : Integer.toHexString(value.hashCode());
     }
 
     public String login() {
-        synchronized (LOCK) {
-            return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_LOGIN, null);
-        }
+        return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_LOGIN, null);
     }
 
     public String userId() {
-        synchronized (LOCK) {
-            return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_USER_ID, null);
-        }
+        return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_USER_ID, null);
     }
 
     /** Signs out: the token, the login, the id and the key are deleted. */

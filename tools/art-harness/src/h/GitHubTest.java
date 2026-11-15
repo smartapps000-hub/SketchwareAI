@@ -471,18 +471,21 @@ public final class GitHubTest {
         check("v2.0.3: after a backup: private, the private link, its boxes and fingerprint kept",
                 "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
                         && Boolean.TRUE.equals(get(lastOpts, "localLibraries")) && Boolean.FALSE.equals(get(lastOpts, "customBlocks"))
-                        && "fp-1".equals(call(links, "lastFingerprint", scId)) && (Long) call(links, "lastBackup", scId) > 0, null);
-        call(links, "copyMade", scId, "SketchwareAI-Public-My_App", "a1b2c3d4e5f6");
-        check("v2.0.3 review: a new copy (still private) keeps its repository and id; the project stays private",
+                        && "fp-1".equals(call(links, "lastFingerprint", scId, "octo")) && (Long) call(links, "lastBackup", scId) > 0, null);
+        call(links, "copyMade", scId, "SketchwareAI-Public-My_App", "a1b2c3d4e5f6", 4242L);
+        check("v2.0.3 review: a new copy (still private) keeps its repository, id and number; the project stays private",
                 "private".equals(call(links, "visibility", scId, "octo")) && "a1b2c3d4e5f6".equals(call(links, "publicId", scId, "octo"))
-                        && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo")), null);
+                        && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo"))
+                        && Long.valueOf(4242L).equals(call(links, "publicNumber", scId, "octo"))
+                        && call(links, "lastFingerprint", scId, "someone") == null, null);
         call(links, "publicNow", scId, "SketchwareAI-Public-My_App", publicUrl, privatePath);
         check("v2.0.3: Public: the share pill shares the public copy's link", "public".equals(call(links, "visibility", scId, "octo"))
                 && publicUrl.equals(call(links, "get", scId, "octo")) && Boolean.TRUE.equals(call(links, "isPublic", scId, "octo"))
                 && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo")), call(links, "get", scId, "octo"));
         call(links, "saved", scId, url, privatePath, "octo", autoOptions, "fp-2");
-        check("v2.0.3: a later backup keeps it public (and its public link)", "public".equals(call(links, "visibility", scId, "octo"))
-                && publicUrl.equals(call(links, "get", scId, "octo")) && "fp-2".equals(call(links, "lastFingerprint", scId)), null);
+        check("v2.0.3: a later backup keeps it public (and its public link and number)", "public".equals(call(links, "visibility", scId, "octo"))
+                && publicUrl.equals(call(links, "get", scId, "octo")) && "fp-2".equals(call(links, "lastFingerprint", scId, "octo"))
+                && Long.valueOf(4242L).equals(call(links, "publicNumber", scId, "octo")), null);
         call(links, "privateNow", scId);
         check("v2.0.3: Private again: the private link; the public repository and its id kept for a later Public",
                 "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
@@ -499,6 +502,14 @@ public final class GitHubTest {
                 + "\"visibility\":\"public\",\"public_repo\":\"sketchwareai-projects\",\"public_id\":\"a1b2c3d4e5f6\"}");
         check("v2.0.3 review: a record without its account, or naming the backup repository, never makes anything public",
                 noAccount && call(links, "publicRepository", scId, "octo") == null, null);
+        // second review (N5): a backup over a record without its account doesn't adopt that record's public copy
+        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"" + scId + "\",\"visibility\":\"public\","
+                + "\"public_repo\":\"SketchwareAI-Public-Victim\",\"public_id\":\"a1b2c3d4e5f6\",\"public_number\":77}");
+        call(links, "saved", scId, url, privatePath, "octo", autoOptions, "fp-3");
+        check("second review: a backup over a record without its account keeps none of its public copy",
+                "private".equals(call(links, "visibility", scId, "octo")) && call(links, "publicRepository", scId, "octo") == null
+                        && call(links, "publicId", scId, "octo") == null && Long.valueOf(0L).equals(call(links, "publicNumber", scId, "octo"))
+                        && "fp-3".equals(call(links, "lastFingerprint", scId, "octo")), readText(linkFile));
         linkFile.delete();
         call(links, "saved", scId, url, privatePath, "octo", libsOnly, "fp-1");
 
@@ -719,6 +730,14 @@ public final class GitHubTest {
         f.getParentFile().mkdirs();
         try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
             out.write(text.getBytes("UTF-8"));
+        }
+    }
+
+    static String readText(File f) {
+        try {
+            return new String(java.nio.file.Files.readAllBytes(f.toPath()), "UTF-8");
+        } catch (Exception e) {
+            return String.valueOf(e);
         }
     }
 
