@@ -67,6 +67,8 @@ public final class GitHubHttp {
         public long waitMillis;
         /** v2.0.1: the call was made without a token (GitHub's limit for this network, not the account's). */
         public boolean anonymous;
+        /** v2.0.3: GitHub's {@code X-GitHub-Request-Id} (for an error report), or null. */
+        public String requestId;
 
         Response(int code, String body) {
             this.code = code;
@@ -113,12 +115,22 @@ public final class GitHubHttp {
 
     /** POST an x-www-form-urlencoded form to github.com (Device Flow), JSON answer. */
     static Response postForm(String path, Map<String, String> form) throws IOException {
+        return postForm(path, form, 0, 0);
+    }
+
+    /**
+     * v2.0.3: the same with its own timeouts (0 = the defaults): the sign-in code request uses short ones and tries
+     * again ({@link DeviceFlow#start}) instead of showing "Getting a sign-in code…" for minutes.
+     */
+    static Response postForm(String path, Map<String, String> form, int connectMillis, int readMillis) throws IOException {
         StringBuilder body = new StringBuilder();
         for (Map.Entry<String, String> e : form.entrySet()) {
             if (body.length() > 0) body.append('&');
             body.append(URLEncoder.encode(e.getKey(), "UTF-8")).append('=').append(URLEncoder.encode(e.getValue(), "UTF-8"));
         }
         HttpURLConnection c = open(web() + path, "POST", null);
+        if (connectMillis > 0) c.setConnectTimeout(connectMillis);
+        if (readMillis > 0) c.setReadTimeout(readMillis);
         c.setRequestProperty("Accept", "application/json");
         c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
         byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
@@ -217,18 +229,29 @@ public final class GitHubHttp {
      * v2.0.2: {@code progress} hears the bytes sent.
      */
     static Response postBlob(String path, String token, File file, Progress progress) throws IOException {
+        return postBlob(path, token, file, 0, file.length(), progress);
+    }
+
+    /**
+     * v2.0.3: one part of a file ({@code length} bytes from {@code offset}) as a blob: backups over
+     * {@link SwbParts#PART_BYTES} go up in parts, each its own short request that can be tried again.
+     */
+    static Response postBlob(String path, String token, File file, long offset, long length, Progress progress)
+            throws IOException {
         Response limited = limitedNow(token);
         if (limited != null) return limited;
         HttpURLConnection c = open(api() + path, "POST", token);
         c.setRequestProperty("Accept", "application/vnd.github+json");
         c.setRequestProperty("Content-Type", "application/json");
         c.setDoOutput(true);
-        long encoded = (file.length() + 2) / 3 * 4;
+        long encoded = (length + 2) / 3 * 4;
         byte[] head = "{\"encoding\":\"base64\",\"content\":\"".getBytes(StandardCharsets.US_ASCII);
         byte[] tail = "\"}".getBytes(StandardCharsets.US_ASCII);
         c.setFixedLengthStreamingMode(head.length + encoded + tail.length);
         long total = head.length + encoded + tail.length;
-        try (OutputStream raw = c.getOutputStream(); InputStream in = new FileInputStream(file)) {
+        try (OutputStream raw = c.getOutputStream(); InputStream source = new FileInputStream(file)) {
+            skipFully(source, offset);
+            InputStream in = new Limited(source, length);
             OutputStream out = progress == null ? raw : new CountingStream(raw, total, progress);
             out.write(head);
             Base64Stream.encode(in, out);
@@ -237,6 +260,49 @@ public final class GitHubHttp {
         Response r = read(c);
         note(r, token);
         return r;
+    }
+
+    private static void skipFully(InputStream in, long bytes) throws IOException {
+        long left = bytes;
+        while (left > 0) {
+            long n = in.skip(left);
+            if (n <= 0) {
+                if (in.read() < 0) throw new java.io.EOFException("The file is shorter than expected");
+                n = 1;
+            }
+            left -= n;
+        }
+    }
+
+    /** v2.0.3: at most {@code left} bytes of a stream. */
+    static final class Limited extends java.io.FilterInputStream {
+        private long left;
+
+        Limited(InputStream in, long left) {
+            super(in);
+            this.left = left;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (left <= 0) return -1;
+            int b = super.read();
+            if (b >= 0) left--;
+            return b;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (left <= 0) return -1;
+            int n = super.read(b, off, (int) Math.min(len, left));
+            if (n > 0) left -= n;
+            return n;
+        }
+
+        @Override
+        public void close() {
+            // the caller closes the file
+        }
     }
 
     /**
@@ -425,6 +491,7 @@ public final class GitHubHttp {
                 }
             }
             Response r = new Response(code, body);
+            r.requestId = c.getHeaderField("X-GitHub-Request-Id");
             r.serverDate = c.getHeaderFieldDate("Date", 0);
             r.retryAfter = intHeader(c, "Retry-After");
             r.rateRemaining = intHeader(c, "X-RateLimit-Remaining");

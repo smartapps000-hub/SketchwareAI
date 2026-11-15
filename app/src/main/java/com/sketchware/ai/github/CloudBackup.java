@@ -18,6 +18,12 @@ import java.util.Locale;
  * downloads one commit's .swb and restores it as a new project (never over an existing one).
  * <p>
  * Uses the Git Data API (blob, tree, commit, ref) so files up to {@link #MAX_BYTES} work and the bytes are streamed.
+ * <p>
+ * v2.0.3: a backup over {@link SwbParts#PART_BYTES} goes up in parts (each blob checked against its git id and sent
+ * again on its own after a dropped connection, a server error or a one-off 401 while GET /user still works), with a
+ * manifest ({@link SwbParts}); files a backup no longer uses (a single .swb replaced by parts, or the other way round,
+ * or parts left over) are removed in the same commit. The same class writes a project's public copy
+ * ({@link PublicCopy}) to its own repository.
  */
 public final class CloudBackup {
 
@@ -27,12 +33,26 @@ public final class CloudBackup {
 
     private final String token;
     private final String owner;
+    /** v2.0.3: the repository ({@link #REPO}, or a project's public copy). */
+    private final String repo;
+    private final boolean publicCopy;
     private String branch;
     private boolean headRetried;
 
     public CloudBackup(String token, String owner) {
+        this(token, owner, REPO, false);
+    }
+
+    /** v2.0.3: the same for another repository of the account (a project's public copy: public is expected there). */
+    CloudBackup(String token, String owner, String repo, boolean publicCopy) {
         this.token = token;
         this.owner = owner;
+        this.repo = repo;
+        this.publicCopy = publicCopy;
+    }
+
+    public String repository() {
+        return repo;
     }
 
     /** The signed-in user's login (GET /user). */
@@ -50,12 +70,16 @@ public final class CloudBackup {
         public String name;
         /** v2.0.0: the public e-mail of the profile (may be null; {@link #primaryEmail} reads the primary one). */
         public String email;
+        /** v2.0.3: public + private repositories GitHub counts for the account, or -1. */
+        public int repositories = -1;
     }
 
     /** GET /user: login, numeric id and avatar. */
     public static Account account(String token) throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.api("GET", "/user", token, null);
-        if (r.code == 401) throw new GitHubException("unauthorized", "GitHub doesn't accept the sign-in any more. Sign in again.");
+        if (r.code == 401) {
+            throw new GitHubException("unauthorized", "GitHub didn't accept the saved sign-in (HTTP 401" + said(r) + ").");
+        }
         if (!r.ok()) throw http("Reading your GitHub account", r);
         JsonObject user = DeviceFlow.parse(r.body);
         Account a = new Account();
@@ -65,6 +89,9 @@ public final class CloudBackup {
         a.avatarUrl = avatar != null && avatar.startsWith("https://avatars.githubusercontent.com/") ? avatar : null;
         a.name = DeviceFlow.string(user, "name");
         a.email = DeviceFlow.string(user, "email");
+        int open = DeviceFlow.integer(user, "public_repos", -1);
+        int closed = DeviceFlow.integer(user, "total_private_repos", -1);
+        a.repositories = open < 0 ? -1 : open + Math.max(0, closed);
         if (a.login == null) throw new GitHubException("bad_answer", "GitHub's answer had no user name.");
         if (a.id == null) a.id = a.login;
         return a;
@@ -102,6 +129,8 @@ public final class CloudBackup {
         public String versionName;
         public long time;
         public long size;
+        /** v2.0.3: the manifest's path when the backup is in parts, else null. */
+        public String parts;
     }
 
     /** One backup of a project (a commit that changed its .swb). */
@@ -111,27 +140,30 @@ public final class CloudBackup {
         public String date;
     }
 
-    /** Creates the private repository when it isn't there; refuses a public one with the same name. */
+    /**
+     * Creates the private repository when it isn't there ({@code auto_init}: its branch exists from the start); refuses
+     * a public one with the same name. v2.0.3: a project's public copy is opened as it is (it must exist).
+     */
     public void ensureRepository() throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.api("GET", repoPath(""), token, null);
-        if (r.code == 404) {
+        if (r.code == 404 && !publicCopy) {
             JsonObject body = new JsonObject();
-            body.addProperty("name", REPO);
+            body.addProperty("name", repo);
             body.addProperty("private", true);
             body.addProperty("auto_init", true);
             body.addProperty("description", "Sketchware AI project backups");
             r = GitHubHttp.api("POST", "/user/repos", token, body.toString());
-            if (!r.ok()) throw http("Creating the private repository " + REPO, r);
+            if (!r.ok()) throw http("Creating the private repository " + repo, r);
         } else if (!r.ok()) {
-            throw http("Opening " + owner + "/" + REPO, r);
+            throw http("Opening " + owner + "/" + repo, r);
         }
-        JsonObject repo = DeviceFlow.parse(r.body);
-        JsonElement isPrivate = repo.get("private");
-        if (isPrivate == null || !isPrivate.getAsBoolean()) {
-            throw new GitHubException("public_repo", owner + "/" + REPO + " exists and is public. Backups go only to a "
+        JsonObject answer = DeviceFlow.parse(r.body);
+        JsonElement isPrivate = answer.get("private");
+        if (!publicCopy && (isPrivate == null || !isPrivate.getAsBoolean())) {
+            throw new GitHubException("public_repo", owner + "/" + repo + " exists and is public. Backups go only to a "
                     + "private repository: make it private on github.com (Settings > Danger Zone) or rename it.");
         }
-        branch = DeviceFlow.string(repo, "default_branch");
+        branch = DeviceFlow.string(answer, "default_branch");
         if (branch == null) branch = "main";
     }
 
@@ -142,14 +174,14 @@ public final class CloudBackup {
     public boolean openIfExists() throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.api("GET", repoPath(""), token, null);
         if (r.code == 404) return false;
-        if (!r.ok()) throw http("Opening " + owner + "/" + REPO, r);
-        JsonObject repo = DeviceFlow.parse(r.body);
-        JsonElement isPrivate = repo.get("private");
-        if (isPrivate == null || !isPrivate.getAsBoolean()) {
-            throw new GitHubException("public_repo", owner + "/" + REPO + " exists and is public. Backups go only to a "
+        if (!r.ok()) throw http("Opening " + owner + "/" + repo, r);
+        JsonObject answer = DeviceFlow.parse(r.body);
+        JsonElement isPrivate = answer.get("private");
+        if (!publicCopy && (isPrivate == null || !isPrivate.getAsBoolean())) {
+            throw new GitHubException("public_repo", owner + "/" + repo + " exists and is public. Backups go only to a "
                     + "private repository: make it private on github.com (Settings > Danger Zone) or rename it.");
         }
-        branch = DeviceFlow.string(repo, "default_branch");
+        branch = DeviceFlow.string(answer, "default_branch");
         if (branch == null) branch = "main";
         return true;
     }
@@ -169,6 +201,8 @@ public final class CloudBackup {
             entry.versionName = DeviceFlow.string(o, "versionName");
             entry.time = o.has("time") ? o.get("time").getAsLong() : 0;
             entry.size = o.has("size") ? o.get("size").getAsLong() : 0;
+            entry.parts = DeviceFlow.string(o, "parts");
+            if (entry.parts != null && !entry.parts.equals(SwbParts.manifestPath(String.valueOf(entry.path)))) entry.parts = null;
             if (entry.path != null && entry.path.startsWith("projects/") && entry.path.endsWith(".swb")) entries.add(entry);
         }
         return entries;
@@ -198,36 +232,60 @@ public final class CloudBackup {
 
     /** v2.0.2: what an upload reports while it runs (on the worker thread). */
     public interface UploadProgress {
-        /** The .swb's bytes on their way. */
+        /** v2.0.3: the backup's bytes sent so far, of {@code total} (all parts together). */
         void uploading(long sent, long total);
 
         /** The file is on GitHub; the commit and index.json are being written. */
         void saving();
+
+        /** v2.0.3: a part is sent again (what happened, which try). */
+        default void retrying(String text) {
+        }
     }
 
     /** v2.0.2: the path the last {@link #upload} wrote, and the link of the file on github.com. */
     String lastPath;
 
     public String link(String path) {
-        return "https://github.com/" + owner + "/" + REPO + "/blob/" + (branch == null ? "main" : branch) + "/"
+        return "https://github.com/" + owner + "/" + repo + "/blob/" + (branch == null ? "main" : branch) + "/"
                 + encPath(path);
     }
+
+    /** v2.0.3: tries of one blob (the first and two more), and the pauses between them; tests make them short. */
+    static long[] blobPauses = {2000, 6000};
 
     public String upload(File swb, String projectName, String packageName, String versionName, String appVersion,
                          UploadProgress progress) throws IOException, GitHubException {
         if (!swb.isFile()) throw new GitHubException("no_file", "The backup file wasn't made.");
         if (swb.length() > MAX_BYTES) {
             throw new GitHubException("too_large", "The backup is " + ((swb.length() + (1 << 20) - 1) >> 20) + " MB; cloud "
-                    + "backup takes files up to 95 MB (GitHub refuses files over 100 MB). Back it up without local "
-                    + "libraries, or keep it on the phone.");
+                    + "backup takes files up to 95 MB. Back it up without local libraries, or keep it on the phone.");
         }
         if (branch == null) ensureRepository();
         String path = pathFor(packageName, projectName);
-        GitHubHttp.Response blob = GitHubHttp.postBlob(repoPath("/git/blobs"), token, swb,
-                progress == null ? null : progress::uploading);
-        if (!blob.ok()) throw http("Uploading the backup", blob);
+        String manifestPath = SwbParts.manifestPath(path);
+        long size = swb.length();
+        int count = SwbParts.count(size);
+        boolean inParts = size > SwbParts.PART_BYTES;
+        String blobSha = null;
+        SwbParts.Manifest manifest = null;
+        if (!inParts) {
+            blobSha = uploadBlob(swb, 0, size, 0, size, progress, "the backup");
+        } else {
+            manifest = new SwbParts.Manifest();
+            manifest.name = new File(path).getName();
+            manifest.size = size;
+            manifest.sha256 = SwbParts.sha256(swb);
+            long done = 0;
+            for (int i = 0; i < count; i++) {
+                long offset = i * SwbParts.PART_BYTES;
+                long length = Math.min(SwbParts.PART_BYTES, size - offset);
+                String sha = uploadBlob(swb, offset, length, done, size, progress, "part " + (i + 1) + " of " + count);
+                manifest.parts.add(new SwbParts.Part(SwbParts.partPath(path, i), length, sha));
+                done += length;
+            }
+        }
         if (progress != null) progress.saving();
-        String blobSha = DeviceFlow.string(DeviceFlow.parse(blob.body), "sha");
         for (int attempt = 0; ; attempt++) {
             String head = headCommit();
             String baseTree = treeOf(head);
@@ -238,11 +296,27 @@ public final class CloudBackup {
             entry.packageName = packageName;
             entry.versionName = versionName;
             entry.time = System.currentTimeMillis();
-            entry.size = swb.length();
+            entry.size = size;
+            entry.parts = inParts ? manifestPath : null;
             String indexJson = withEntry(index, entry);
 
             JsonArray tree = new JsonArray();
-            tree.add(treeItem(path, blobSha, null));
+            java.util.Set<String> keep = new java.util.HashSet<>();
+            if (!inParts) {
+                tree.add(treeItem(path, blobSha, null));
+                keep.add(path);
+            } else {
+                for (SwbParts.Part part : manifest.parts) {
+                    tree.add(treeItem(part.path, part.sha, null));
+                    keep.add(part.path);
+                }
+                tree.add(treeItem(manifestPath, null, manifest.toJson()));
+                keep.add(manifestPath);
+            }
+            // what this backup no longer uses: the single file, the manifest, parts past the new count
+            for (String old : backupFiles(baseTree, path)) {
+                if (!keep.contains(old)) tree.add(deletion(old));
+            }
             tree.add(treeItem("index.json", null, indexJson));
             JsonObject treeBody = new JsonObject();
             treeBody.addProperty("base_tree", baseTree);
@@ -253,7 +327,8 @@ public final class CloudBackup {
 
             JsonObject commitBody = new JsonObject();
             commitBody.addProperty("message", "Backup of " + projectName + (versionName == null ? "" : " v" + versionName)
-                    + " (" + (packageName == null ? "?" : packageName) + ") from Sketchware AI " + appVersion);
+                    + " (" + (packageName == null ? "?" : packageName) + ") from Sketchware AI " + appVersion
+                    + (inParts ? " in " + count + " parts" : ""));
             commitBody.addProperty("tree", newTree);
             JsonArray parents = new JsonArray();
             parents.add(head);
@@ -267,38 +342,128 @@ public final class CloudBackup {
             refBody.addProperty("force", false);
             GitHubHttp.Response ref = GitHubHttp.api("PATCH", repoPath("/git/refs/heads/" + branch), token, refBody.toString());
             if (ref.ok()) {
-                lastPath = path;
+                lastPath = inParts ? manifestPath : path;
                 return commit;
             }
-            if (ref.code == 422 && attempt == 0) continue; // the branch moved: once more on top of it
+            if (ref.code == 422 && attempt < 2) continue; // the branch moved (another phone): again on top of it
             throw http("Saving the backup", ref);
         }
     }
 
-    /** The backups of one project, newest first (commits that changed its file). */
+    /**
+     * v2.0.3: one blob ({@code length} bytes of {@code file} from {@code offset}), checked against its git id. A blob
+     * is named by its content, so sending it again is harmless: after a dropped connection, a server error, a short
+     * rate-limit wait, or a 401 while GET /user still accepts the sign-in (a one-off refusal), up to three tries.
+     */
+    private String uploadBlob(File file, long offset, long length, long before, long total, UploadProgress progress,
+                              String what) throws IOException, GitHubException {
+        String expected = SwbParts.gitBlobSha(file, offset, length);
+        int tries = blobPauses.length + 1;
+        for (int attempt = 1; ; attempt++) {
+            GitHubHttp.Response r;
+            try {
+                r = GitHubHttp.postBlob(repoPath("/git/blobs"), token, file, offset, length, progress == null ? null
+                        : (sent, all) -> progress.uploading(before + Math.min(length, sent * length / Math.max(1, all)), total));
+            } catch (IOException e) {
+                if (attempt >= tries || !GitHubHttp.worthRetry(e)) throw e;
+                retry(progress, "Sending " + what + " again: the network dropped it (try " + (attempt + 1) + " of "
+                        + tries + ")…", attempt);
+                continue;
+            }
+            if (r.ok()) {
+                String sha = DeviceFlow.string(DeviceFlow.parse(r.body), "sha");
+                if (sha == null || !sha.equals(expected)) {
+                    throw new GitHubException("bad_answer", "GitHub stored " + what + " with another checksum ("
+                            + sha + " instead of " + expected + "): try again.");
+                }
+                return sha;
+            }
+            boolean again = attempt < tries;
+            if (again && (r.code >= 500 || r.code == 408)) {
+                retry(progress, "Sending " + what + " again: GitHub answered HTTP " + r.code + " (try " + (attempt + 1)
+                        + " of " + tries + ")…", attempt);
+                continue;
+            }
+            if (again && r.code == 401 && signInWorks()) {
+                retry(progress, "Sending " + what + " again: GitHub refused it once (HTTP 401" + said(r)
+                        + ") but accepts the sign-in (try " + (attempt + 1) + " of " + tries + ")…", attempt);
+                continue;
+            }
+            throw http("Uploading " + what, r);
+        }
+    }
+
+    private static void retry(UploadProgress progress, String text, int attempt) throws IOException {
+        if (progress != null) progress.retrying(text);
+        try {
+            Thread.sleep(blobPauses[Math.min(attempt, blobPauses.length) - 1]);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new java.io.InterruptedIOException("Stopped while waiting to send again");
+        }
+    }
+
+    /** v2.0.3: GET /user answers 200 with this token (a 401 elsewhere was a one-off); false on 401. */
+    public boolean signInWorks() throws IOException {
+        GitHubHttp.Response r = GitHubHttp.api("GET", "/user", token, null);
+        return r.ok();
+    }
+
+    /**
+     * v2.0.3: the files of one backup in a tree: its .swb, its manifest and its parts (what a new backup of it may
+     * replace or remove). Empty when GitHub truncates the listing (a huge repository): nothing is removed then.
+     */
+    private List<String> backupFiles(String tree, String path) throws IOException, GitHubException {
+        List<String> found = new ArrayList<>();
+        GitHubHttp.Response r = GitHubHttp.api("GET", repoPath("/git/trees/" + enc(tree) + "?recursive=1"), token, null);
+        if (!r.ok()) throw http("Reading the repository", r);
+        JsonObject answer = DeviceFlow.parse(r.body);
+        if (answer.has("truncated") && answer.get("truncated").isJsonPrimitive() && answer.get("truncated").getAsBoolean()) {
+            return found;
+        }
+        JsonElement entries = answer.get("tree");
+        if (entries == null || !entries.isJsonArray()) return found;
+        String manifest = SwbParts.manifestPath(path);
+        String partsFolder = path + ".parts/";
+        for (JsonElement e : entries.getAsJsonArray()) {
+            if (!e.isJsonObject()) continue;
+            JsonObject o = e.getAsJsonObject();
+            String p = DeviceFlow.string(o, "path");
+            if (p == null || !"blob".equals(DeviceFlow.string(o, "type"))) continue;
+            if (p.equals(path) || p.equals(manifest) || p.startsWith(partsFolder)) found.add(p);
+        }
+        return found;
+    }
+
+    /** The backups of one project, newest first (commits that changed its file or, v2.0.3, its parts list). */
     public List<Version> history(String path) throws IOException, GitHubException {
         if (branch == null) ensureRepository();
-        GitHubHttp.Response r = GitHubHttp.api("GET", repoPath("/commits?sha=" + enc(branch) + "&path=" + enc(path)
-                + "&per_page=100"), token, null);
-        if (!r.ok()) throw http("Reading the backup history", r);
         List<Version> versions = new ArrayList<>();
-        try {
-            for (JsonElement e : com.google.gson.JsonParser.parseString(r.body).getAsJsonArray()) {
-                JsonObject o = e.getAsJsonObject();
-                Version v = new Version();
-                v.sha = DeviceFlow.string(o, "sha");
-                JsonObject commit = o.getAsJsonObject("commit");
-                String message = commit == null ? null : DeviceFlow.string(commit, "message");
-                v.message = message == null ? "" : message;
-                JsonObject author = commit == null || !commit.has("author") || !commit.get("author").isJsonObject()
-                        ? null : commit.getAsJsonObject("author");
-                String date = author == null ? null : DeviceFlow.string(author, "date");
-                v.date = date == null ? "" : date;
-                if (v.sha != null) versions.add(v);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String p : new String[]{path, SwbParts.manifestPath(path)}) {
+            GitHubHttp.Response r = GitHubHttp.api("GET", repoPath("/commits?sha=" + enc(branch) + "&path=" + enc(p)
+                    + "&per_page=100"), token, null);
+            if (!r.ok()) throw http("Reading the backup history", r);
+            try {
+                for (JsonElement e : com.google.gson.JsonParser.parseString(r.body).getAsJsonArray()) {
+                    JsonObject o = e.getAsJsonObject();
+                    Version v = new Version();
+                    v.sha = DeviceFlow.string(o, "sha");
+                    JsonObject commit = o.getAsJsonObject("commit");
+                    String message = commit == null ? null : DeviceFlow.string(commit, "message");
+                    v.message = message == null ? "" : message;
+                    JsonObject author = commit == null || !commit.has("author") || !commit.get("author").isJsonObject()
+                            ? null : commit.getAsJsonObject("author");
+                    String date = author == null ? null : DeviceFlow.string(author, "date");
+                    v.date = date == null ? "" : date;
+                    if (v.sha != null && seen.add(v.sha)) versions.add(v);
+                }
+            } catch (RuntimeException e) {
+                throw new GitHubException("bad_answer", "GitHub's answer for the backup history couldn't be read.");
             }
-        } catch (RuntimeException e) {
-            throw new GitHubException("bad_answer", "GitHub's answer for the backup history couldn't be read.");
         }
+        // newest first (ISO dates sort as text)
+        java.util.Collections.sort(versions, (x, y) -> y.date.compareTo(x.date));
         return versions;
     }
 
@@ -307,9 +472,19 @@ public final class CloudBackup {
         download(path, sha, target, null);
     }
 
-    /** v2.0.2: the same with the bytes received reported. */
+    /**
+     * v2.0.2: the same with the bytes received reported. v2.0.3: a backup in parts (its manifest is in that commit) is
+     * downloaded part by part, joined and checked.
+     */
     public void download(String path, String sha, File target, GitHubHttp.Progress progress)
             throws IOException, GitHubException {
+        GitHubHttp.Response m = GitHubHttp.apiRaw(repoPath("/contents/" + encPath(SwbParts.manifestPath(path)) + "?ref="
+                + enc(sha)), token);
+        if (m.ok()) {
+            SwbParts.download(token, repoPath(""), SwbParts.Manifest.parse(m.body), target, progress);
+            return;
+        }
+        if (m.code != 404) throw http("Reading the backup's parts list", m);
         GitHubHttp.Response r = GitHubHttp.download(repoPath("/contents/" + encPath(path) + "?ref=" + enc(sha)), token,
                 target, MAX_BYTES + (5 << 20), progress);
         if (r.rateLimited()) throw http("Downloading the backup", r);
@@ -360,7 +535,7 @@ public final class CloudBackup {
             if (!e.isJsonObject()) throw new IllegalStateException("not an object");
             return e.getAsJsonObject();
         } catch (RuntimeException e) {
-            throw new GitHubException("bad_index", "index.json in " + owner + "/" + REPO + " can't be read; fix or delete "
+            throw new GitHubException("bad_index", "index.json in " + owner + "/" + repo + " can't be read; fix or delete "
                     + "it on github.com (the backups themselves are in projects/).");
         }
     }
@@ -379,12 +554,29 @@ public final class CloudBackup {
         o.addProperty("versionName", entry.versionName);
         o.addProperty("time", entry.time);
         o.addProperty("size", entry.size);
+        if (entry.parts != null) o.addProperty("parts", entry.parts);
         projects.add(o);
         JsonObject out = new JsonObject();
         out.addProperty("format", 1);
         out.addProperty("app", "Sketchware AI");
         out.add("projects", projects);
         return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(out) + "\n";
+    }
+
+    /** v2.0.3: a tree entry that removes {@code path} (its sha null). */
+    private static JsonObject deletion(String path) {
+        JsonObject o = new JsonObject();
+        o.addProperty("path", path);
+        o.addProperty("mode", "100644");
+        o.addProperty("type", "blob");
+        o.add("sha", com.google.gson.JsonNull.INSTANCE);
+        return o;
+    }
+
+    /** v2.0.3: ": <GitHub's message>, request <id>" for an error line (empty parts left out). */
+    static String said(GitHubHttp.Response r) {
+        String message = r.body == null ? null : DeviceFlow.string(DeviceFlow.parse(r.body), "message");
+        return (message == null ? "" : ": " + message) + (r.requestId == null ? "" : ", request " + r.requestId);
     }
 
     private static JsonObject treeItem(String path, String sha, String content) {
@@ -398,7 +590,7 @@ public final class CloudBackup {
     }
 
     private String repoPath(String rest) {
-        return "/repos/" + enc(owner) + "/" + REPO + rest;
+        return "/repos/" + enc(owner) + "/" + enc(repo) + rest;
     }
 
     static String enc(String s) {
@@ -432,10 +624,10 @@ public final class CloudBackup {
                     + "now. Nothing is lost; try again " + when + ".");
         }
         String text;
-        if (r.code == 401) text = what + " failed: GitHub doesn't accept the sign-in any more. Sign in again.";
+        if (r.code == 401) text = what + " failed: GitHub didn't accept the saved sign-in (HTTP 401" + said(r) + ").";
         else if (r.code == 403 || r.code == 404) text = what + " failed (HTTP " + r.code + (message == null ? "" : ": " + message)
                 + "). The sign-in may lack repository access: sign out and in again.";
-        else text = what + " failed (HTTP " + r.code + (message == null ? "" : ": " + message) + ").";
+        else text = what + " failed (HTTP " + r.code + said(r) + ").";
         return new GitHubException("http_" + r.code, text);
     }
 

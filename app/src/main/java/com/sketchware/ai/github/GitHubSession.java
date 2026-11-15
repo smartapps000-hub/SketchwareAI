@@ -12,8 +12,13 @@ import mod.jbk.util.LogUtil;
  * v2.0.0: what the app shows about the signed-in GitHub account (the drawer's account card) and the session's upkeep:
  * the profile (name, login, primary e-mail, picture file) kept in the app's private preferences, sign-out, and the
  * online re-check (owner's 13 Nov directive): whenever the app comes to the front with a network, at most every
- * {@link #RECHECK_MILLIS}, GET /user with the token in the background. HTTP 401 = the token was revoked on GitHub: the
- * session is removed on this phone too. Offline the session is what {@link TokenStore} decrypts on this phone.
+ * {@link #RECHECK_MILLIS}, GET /user with the token in the background. Offline the session is what {@link TokenStore}
+ * decrypts on this phone.
+ * <p>
+ * v2.0.3 (owner's 15 Nov directive "never auto-logout once signed in"): only the account card's "Sign out" signs out.
+ * When GitHub answers 401 (a re-check, a backup) the session stays; it is marked "not accepted" ({@link #markRefused})
+ * with the time and GitHub's message, the account card says so and offers "Sign in again" (a new sign-in replaces the
+ * token and clears the mark; so does any later call GitHub accepts with the same token).
  */
 public final class GitHubSession {
 
@@ -27,6 +32,15 @@ public final class GitHubSession {
         public String email;
         /** The picture in the app's files, or null. */
         public File avatar;
+        /** v2.0.3: public + private repositories GitHub counted at the last check, or -1. */
+        public int repositories = -1;
+        /** v2.0.3: when GitHub last confirmed the sign-in (ms since 1970), or 0. */
+        public long checkedAt;
+        /**
+         * v2.0.3: why the saved sign-in can't be used now (GitHub didn't accept it, or this phone can't read it), else
+         * null. The session stays; "Sign in again" renews it.
+         */
+        public String problem;
     }
 
     /** Called on the main thread when the profile or the session changed (sign-in, sign-out, re-check). */
@@ -75,7 +89,56 @@ public final class GitHubSession {
         p.email = prefs.getString("email", null);
         File avatar = avatarFile(context);
         p.avatar = avatar.isFile() ? avatar : null;
+        p.repositories = prefs.getInt("repositories", -1);
+        p.checkedAt = prefs.getLong("checked_at", 0);
+        TokenStore store = TokenStore.get(context);
+        String refused = prefs.getString("refused", null);
+        if (refused != null && refused.equals(store.sealedKey())) {
+            p.problem = prefs.getString("refused_note", "GitHub didn't accept the saved sign-in.");
+        } else if (store.token() == null && store.problem() != null) {
+            // a quick Keystore read: the card says why this phone can't use the saved sign-in (it stays saved)
+            p.problem = "This phone can't read the saved sign-in: " + store.problem() + ". Tap Sign in again.";
+        }
         return p;
+    }
+
+    /**
+     * v2.0.3: the account card's line about the sign-in's state: GitHub's refusal, or why this phone can't read the saved
+     * sign-in (a quick Keystore read), else null.
+     */
+    public static String problemOf(Context context) {
+        Profile p = profile(context);
+        return p == null ? null : p.problem;
+    }
+
+    /** v2.0.3: the account card's and the messages' words for a 401. */
+    static String refusedNote(String gitHubMessage) {
+        String when = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.ENGLISH).format(new java.util.Date());
+        String said = gitHubMessage == null || gitHubMessage.trim().isEmpty() ? "" : " (" + gitHubMessage.trim() + ")";
+        return "GitHub didn't accept the saved sign-in at " + when + said + ". You're still signed in here: tap Sign in "
+                + "again to renew it.";
+    }
+
+    /**
+     * v2.0.3: GitHub answered 401 for the saved token: the session stays, marked "not accepted" with {@code note}
+     * (shown on the account card and in messages) until a new sign-in or a call GitHub accepts.
+     */
+    static void markRefused(Context context, String note) {
+        TokenStore store = TokenStore.get(context);
+        if (store.login() == null) return;
+        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString("refused", store.sealedKey())
+                .putString("refused_note", note)
+                .apply();
+        changed();
+    }
+
+    /** v2.0.3: GitHub accepted the saved token again (or a new sign-in): the mark goes. */
+    static void clearRefused(Context context) {
+        SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (prefs.getString("refused", null) == null) return;
+        prefs.edit().remove("refused").remove("refused_note").apply();
+        changed();
     }
 
     /** Saves what GET /user (and /user/emails) said; the picture is downloaded separately. */
@@ -84,7 +147,10 @@ public final class GitHubSession {
                 .putString("name", account.name)
                 .putString("email", primaryEmail != null ? primaryEmail : account.email)
                 .putString("avatar_url", account.avatarUrl)
+                .putInt("repositories", account.repositories)
                 .putLong("checked_at", System.currentTimeMillis())
+                .remove("refused")
+                .remove("refused_note")
                 .apply();
     }
 
@@ -109,8 +175,9 @@ public final class GitHubSession {
     }
 
     /**
-     * In the background, when signed in and the last check is older than {@link #RECHECK_MILLIS}: GET /user. A revoked
-     * token (401) signs out; a network problem changes nothing (offline, the hardware-bound session stands).
+     * In the background, when signed in and the last check is older than {@link #RECHECK_MILLIS}: GET /user. v2.0.3: a
+     * 401 marks the session "not accepted" ({@link #markRefused}) and never signs out; a network problem changes
+     * nothing (offline, the hardware-bound session stands).
      */
     public static void recheckOnline(Context context) {
         Context app = context.getApplicationContext();
@@ -130,10 +197,10 @@ public final class GitHubSession {
                 try {
                     account = CloudBackup.account(token);
                 } catch (GitHubException e) {
-                    // only when it is still this token (a sign-out and a new sign-in meanwhile keep the new session)
+                    // only when it is still this token (a new sign-in meanwhile keeps the new session)
                     if ("unauthorized".equals(e.code) && token.equals(TokenStore.get(app).token())) {
-                        LogUtil.d("GitHubSession", "The GitHub token was revoked: signed out");
-                        signOut(app);
+                        LogUtil.d("GitHubSession", "GitHub didn't accept the saved token: marked, not signed out");
+                        markRefused(app, refusedNote(e.getMessage()));
                     }
                     return;
                 }

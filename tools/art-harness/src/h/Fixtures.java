@@ -96,6 +96,11 @@ public class Fixtures {
             createLikeNewProjectScreen(spec, sc_id);
             return;
         }
+        if (spec.equals("ghsample")) {
+            // v2.0.3: the "GitHub API Demo" sample, made by the app's own GitHubSample (as the guide's button makes it)
+            call(c("com.sketchware.ai.project.GitHubSample"), "create", Main.CTX, sc_id);
+            return;
+        }
         Class<?> jC = c("a.a.a.jC"), wq = c("a.a.a.wq"), lC = c("a.a.a.lC");
         HashMap<String, Object> data = new HashMap<>();
         data.put("sc_id", sc_id);

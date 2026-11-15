@@ -18,8 +18,13 @@ import com.sketchware.remod.R;
  * so layoutlib draws this code (V200Test).
  * <p>
  * v2.0.2 (owner's 14 Nov phone test: "Sign in with Gi…", "@cr…", "createn…"): signed out, the title wraps to a second
- * line instead of being cut; signed in, the name, @login and e-mail take the whole width and scroll sideways when longer
- * (marquee, endlessly), and "Sign out" sits under them.
+ * line instead of being cut.
+ * <p>
+ * v2.0.3 (owner's 15 Nov phone test: the marquee lines drew over each other, "wararao @l", "nail.com bammid"): the top row
+ * holds the picture, "GitHub" with the sign-in's state and the Sign out pill; below it the name, @login, e-mail and
+ * the account line (repositories, last check) each wrap onto as many lines as they need. When GitHub didn't accept the
+ * saved sign-in (or this phone can't read it), the line says so in the error colour with "Sign in again": the session is
+ * never removed by itself.
  */
 public final class DrawerAccountCard {
 
@@ -37,58 +42,81 @@ public final class DrawerAccountCard {
         ImageView picture = card.findViewById(R.id.drawer_account_picture);
         TextView title = card.findViewById(R.id.drawer_account_title);
         TextView subtitle = card.findViewById(R.id.drawer_account_subtitle);
-        TextView email = card.findViewById(R.id.drawer_account_email);
         TextView action = card.findViewById(R.id.drawer_account_action);
+        View details = card.findViewById(R.id.drawer_account_details);
+        TextView name = card.findViewById(R.id.drawer_account_name);
+        TextView login = card.findViewById(R.id.drawer_account_login);
+        TextView email = card.findViewById(R.id.drawer_account_email);
+        TextView status = card.findViewById(R.id.drawer_account_status);
+        TextView renew = card.findViewById(R.id.drawer_account_renew);
         GitHubViews v = new GitHubViews(card.getContext());
         if (profile == null) {
             v.showPicture(picture, null);
-            wrap(title);
-            wrap(subtitle);
             title.setText("Sign in with GitHub");
             subtitle.setText("Sync & back up projects");
-            email.setVisibility(View.GONE);
+            subtitle.setTextColor(v.color(R.color.ob_text_2));
             action.setVisibility(View.GONE);
+            details.setVisibility(View.GONE);
             card.setOnClickListener(x -> actions.signIn());
+            card.setClickable(true);
             card.setContentDescription("Sign in with GitHub");
             return;
         }
         v.showPicture(picture, picture(card, profile));
+        // the top row: the picture, "GitHub" and its state, Sign out
+        title.setText("GitHub");
+        boolean trouble = profile.problem != null;
+        subtitle.setText(trouble ? "Signed in · needs renewing" : "Signed in · connected");
+        subtitle.setTextColor(v.color(trouble ? R.color.ob_error : R.color.ob_text_2));
+        action.setVisibility(View.VISIBLE);
+        action.setOnClickListener(x -> actions.signOut());
+        // the details, each on its own lines, wrapping (nothing cut, nothing drawn over)
+        details.setVisibility(View.VISIBLE);
         boolean named = profile.name != null && !profile.name.trim().isEmpty();
-        title.setText(named ? profile.name.trim() : "@" + profile.login);
-        subtitle.setText(named ? "@" + profile.login : "GitHub account");
-        marquee(title);
-        marquee(subtitle);
+        wrap(name, named ? profile.name.trim() : "@" + profile.login);
+        wrap(login, named ? "@" + profile.login : "GitHub account");
         if (profile.email != null && !profile.email.isEmpty()) {
-            email.setText(profile.email);
+            wrap(email, profile.email);
             email.setVisibility(View.VISIBLE);
-            marquee(email);
         } else {
             email.setVisibility(View.GONE);
         }
-        action.setVisibility(View.VISIBLE);
-        action.setOnClickListener(x -> actions.signOut());
+        if (trouble) {
+            wrap(status, profile.problem);
+            status.setTextColor(v.color(R.color.ob_error));
+            renew.setVisibility(View.VISIBLE);
+            renew.setOnClickListener(x -> actions.signIn());
+        } else {
+            StringBuilder line = new StringBuilder();
+            if (profile.repositories >= 0) {
+                line.append(profile.repositories).append(profile.repositories == 1 ? " repository" : " repositories");
+            }
+            if (profile.checkedAt > 0) {
+                if (line.length() > 0) line.append(" · ");
+                line.append("checked ").append(CloudBackup.formatTime(profile.checkedAt));
+            }
+            if (line.length() == 0) line.append("Backups go to your private repository ").append(CloudBackup.REPO);
+            wrap(status, line.toString());
+            status.setTextColor(v.color(R.color.ob_text_2));
+            renew.setVisibility(View.GONE);
+        }
         card.setOnClickListener(null);
         card.setClickable(false);
         card.setContentDescription("GitHub account @" + profile.login);
     }
 
-    /** Up to two lines, nothing cut (signed out). */
-    private static void wrap(TextView t) {
+    /** All of the text on as many lines as it needs: long words (an e-mail) break inside instead of being cut. */
+    private static void wrap(TextView t, String text) {
         t.setSelected(false);
         t.setSingleLine(false);
-        t.setMaxLines(2);
+        t.setMaxLines(Integer.MAX_VALUE);
         t.setEllipsize(null);
         t.setHorizontallyScrolling(false);
-    }
-
-    /** One line that scrolls sideways, endlessly, when the text is wider than the card (the owner's ask). */
-    static void marquee(TextView t) {
-        t.setSingleLine(true);
-        t.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
-        t.setMarqueeRepeatLimit(-1);
-        t.setHorizontallyScrolling(true);
-        // marquee runs only on a selected (or focused) view
-        t.setSelected(true);
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            t.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);
+            t.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);
+        }
+        t.setText(text);
     }
 
     private static Drawable picture(View card, GitHubSession.Profile profile) {

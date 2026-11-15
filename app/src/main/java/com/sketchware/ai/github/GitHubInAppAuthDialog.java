@@ -101,6 +101,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private GitHubViews.AuthChrome chrome;
     private WebView web;
     private String loadedFor;
+    /** v2.0.3: the main page is (being) GitHub's device page: a code that arrives is filled in without a reload. */
+    private boolean onDevicePage;
     private boolean filled;
     private int fillTries;
     private boolean signedIn;
@@ -225,7 +227,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
         signIn.takeSignedIn();
         // a code from before (this window closed, or the app was stopped) continues while it is valid; else a new one
         signIn.resumeSaved(clientId);
-        if (signIn.pending() == null) signIn.start(clientId);
+        if (signIn.pending() == null) {
+            signIn.start(clientId);
+            // v2.0.3 (owner's 15 Nov phone test: a blank window under "Getting a sign-in code…"): GitHub's device page
+            // opens at once (sign in there meanwhile); the code goes into it when GitHub sends it
+            if (web != null && limitedUntil == 0) web.loadUrl(DEVICE_PAGE);
+        }
         onSignInChanged();
     }
 
@@ -264,7 +271,10 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 loadedFor = code.deviceCode;
                 filled = false;
                 fillTries = 0;
-                if (limitedUntil == 0) {
+                if (onDevicePage) {
+                    // v2.0.3: the page opened before the code came: filled now (or when it has finished loading)
+                    if (!loading) fill();
+                } else if (limitedUntil == 0) {
                     status("Opening GitHub…", false);
                     web.loadUrl(DEVICE_PAGE);
                 }
@@ -281,7 +291,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (signIn.finishing()) {
             status("Approved · signing you in… (keep this open)", false);
         } else if (code == null && signIn.busy()) {
-            status("Getting a sign-in code…", false);
+            String note = signIn.startNote();
+            status(note == null ? "Getting a sign-in code…" : "Getting a sign-in code… (" + note + ")", false);
         } else if (code == null && signIn.error() != null) {
             String errorCode = signIn.errorCode();
             if (("expired_token".equals(errorCode) || "token_expired".equals(errorCode)) && !renewed && isShowing()) {
@@ -382,7 +393,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
      * v2.0.2: with the keep-alive extra naming {@link KeepAliveService} (the browser binds it while the tab is open, so
      * the app keeps its network and sees GitHub's "yes" while the tab is still in front).
      */
-    static Intent customTab(Context context, String url) {
+    public static Intent customTab(Context context, String url) {
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
         Bundle extras = new Bundle();
@@ -510,6 +521,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     return;
                 }
                 loading = true;
+                String startedPath = uri.getPath() == null ? "" : uri.getPath();
+                onDevicePage = "github.com".equals(uri.getHost())
+                        && (startedPath.equals("/login/device") || startedPath.equals("/login/device/"));
                 main.removeCallbacks(slow);
                 main.removeCallbacks(stalled);
                 main.postDelayed(slow, SLOW_MILLIS);

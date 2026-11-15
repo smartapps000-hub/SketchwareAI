@@ -63,15 +63,53 @@ public final class DeviceFlow {
         public int retryAfter = -1;
     }
 
+    /** v2.0.3: hears each try of the code request after the first (on the sign-in thread). */
+    public interface Tries {
+        void retrying(int attempt, int of, Exception last);
+    }
+
+    /** v2.0.3: the code request's short timeouts and its pauses between tries (tests make the pauses short). */
+    static int startConnectMillis = 10_000;
+    static int startReadMillis = 15_000;
+    static long[] startPauses = {1500, 4000};
+
     /** Step 1: a device code and the code the user types on github.com. */
     public static Code start(String clientId, String scope) throws IOException, GitHubException {
+        return start(clientId, scope, null);
+    }
+
+    /**
+     * Step 1. v2.0.3 (owner's 15 Nov phone test: "Getting a sign-in code…" for minutes): short timeouts (10 s to connect,
+     * 15 s for the answer) and up to three tries when the network drops the request or GitHub answers with a server
+     * error; a request that never got an answer made no code, so asking again is safe.
+     */
+    public static Code start(String clientId, String scope, Tries tries) throws IOException, GitHubException {
         if (clientId == null || clientId.trim().isEmpty()) {
             throw new GitHubException("no_client_id", "No OAuth Client ID is set for GitHub sign-in.");
         }
         Map<String, String> form = new LinkedHashMap<>();
         form.put("client_id", clientId.trim());
         form.put("scope", scope);
-        GitHubHttp.Response r = GitHubHttp.postForm("/login/device/code", form);
+        GitHubHttp.Response r = null;
+        int attempts = startPauses.length + 1;
+        for (int attempt = 1; ; attempt++) {
+            Exception last;
+            try {
+                r = GitHubHttp.postForm("/login/device/code", form, startConnectMillis, startReadMillis);
+                if (r.code < 500 || attempt >= attempts) break;
+                last = new IOException("GitHub answered HTTP " + r.code);
+            } catch (IOException e) {
+                if (attempt >= attempts) throw e;
+                last = e;
+            }
+            if (tries != null) tries.retrying(attempt + 1, attempts, last);
+            try {
+                Thread.sleep(startPauses[attempt - 1]);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new java.io.InterruptedIOException("Stopped while asking for a code");
+            }
+        }
         JsonObject json = parse(r.body);
         String error = string(json, "error");
         if (error != null || !r.ok()) throw failure(error == null ? "http_" + r.code : error, string(json, "error_description"));

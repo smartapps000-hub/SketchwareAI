@@ -52,7 +52,10 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- v2.0.0: the GitHub account card (com.sketchware.ai.github.DrawerAccountCard), the same glass card as above. -->
+    <!-- v2.0.0: the GitHub account card (com.sketchware.ai.github.DrawerAccountCard), the same glass card as above.
+         v2.0.3 (owner's 15 Nov phone test: "wararao @l", "nail.com bammid"): one clean top row (picture or mark,
+         "GitHub" and its state, the Sign out pill), the account's details below on their own lines; they wrap instead
+         of scrolling (a marquee draws the next pass's start beside the end: that was the overlap) -->
     <LinearLayout
         android:id="@+id/drawer_account"
         android:layout_width="match_parent"
@@ -61,59 +64,110 @@
         android:background="@drawable/ob_glass"
         android:clickable="true"
         android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:padding="14dp">
 
-        <ImageView
-            android:id="@+id/drawer_account_picture"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/ob_tile"
-            android:contentDescription="GitHub"
-            android:padding="10dp"
-            android:src="@drawable/ob_ic_github" />
-
-        <!-- v2.0.2: the texts take the whole width (name, @login and e-mail scroll when longer: marquee, set in
-             DrawerAccountCard); "Sign out" sits under them instead of beside them -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="12dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/drawer_account_picture"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/ob_tile"
+                android:contentDescription="GitHub"
+                android:padding="10dp"
+                android:src="@drawable/ob_ic_github" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/drawer_account_title"
+                    style="@style/Ob.Text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/sora_bold"
+                    android:maxLines="2"
+                    android:text="Sign in with GitHub"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/drawer_account_subtitle"
+                    style="@style/Ob.Text.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="2"
+                    android:text="Sync &amp; back up projects" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/drawer_account_title"
+                android:id="@+id/drawer_account_action"
+                style="@style/Ob.Text.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginLeft="8dp"
+                android:background="@drawable/ob_pill16_state"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:text="Sign out"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/drawer_account_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/drawer_account_name"
                 style="@style/Ob.Text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/sora_bold"
-                android:maxLines="2"
-                android:text="Sign in with GitHub"
-                android:textSize="16sp" />
+                android:textSize="15sp" />
 
             <TextView
-                android:id="@+id/drawer_account_subtitle"
+                android:id="@+id/drawer_account_login"
                 style="@style/Ob.Text.Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:maxLines="2"
-                android:text="Sync &amp; back up projects" />
+                android:layout_marginTop="3dp"
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/drawer_account_email"
                 style="@style/Ob.Text.Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:singleLine="true"
-                android:textSize="12sp"
+                android:layout_marginTop="2dp"
+                android:textSize="13sp"
                 android:visibility="gone" />
 
             <TextView
-                android:id="@+id/drawer_account_action"
+                android:id="@+id/drawer_account_status"
+                style="@style/Ob.Text.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/drawer_account_renew"
                 style="@style/Ob.Text.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
@@ -122,7 +176,7 @@
                 android:gravity="center"
                 android:paddingLeft="14dp"
                 android:paddingRight="14dp"
-                android:text="Sign out"
+                android:text="Sign in again"
                 android:textSize="13sp"
                 android:visibility="gone" />
         </LinearLayout>

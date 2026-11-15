@@ -1567,6 +1567,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         public void a() {
             bB.a(a, Helper.getResString(R.string.common_message_complete_save), bB.TOAST_NORMAL).show();
             saveVersionCodeInformationToProject();
+            // v2.0.3: signed in to GitHub: the saved project goes up in the background when it changed
+            com.sketchware.ai.github.CloudSync.get(getApplicationContext()).projectSaved(sc_id, false);
             h();
             jC.d(sc_id).f();
             jC.d(sc_id).g();
@@ -1605,6 +1607,8 @@ public class DesignActivity extends BaseAppCompatActivity implements OnClickList
         public void a() {
             bB.a(a, Helper.getResString(R.string.common_message_complete_save), bB.TOAST_NORMAL).show();
             saveVersionCodeInformationToProject();
+            // v2.0.3: Save & exit (or Back with "Automatically save"): the project goes up to GitHub in the background
+            com.sketchware.ai.github.CloudSync.get(getApplicationContext()).projectSaved(sc_id, true);
             h();
             finish();
         }

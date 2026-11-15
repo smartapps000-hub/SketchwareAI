@@ -24,10 +24,14 @@ public class SystemSettingActivity extends BaseAppCompatActivity {
     private SharedPreferences.Editor preferenceEditor;
 
     private void addPreference(int key, int resName, int resDescription, boolean value) {
+        addPreference(key, Helper.getResString(resName), Helper.getResString(resDescription), value);
+    }
+
+    private void addPreference(int key, String name, String description, boolean value) {
         PropertySwitchItem switchItem = new PropertySwitchItem(this);
         switchItem.setKey(key);
-        switchItem.setName(Helper.getResString(resName));
-        switchItem.setDesc(Helper.getResString(resDescription));
+        switchItem.setName(name);
+        switchItem.setDesc(description);
         switchItem.setValue(value);
         contentLayout.addView(switchItem);
     }
@@ -66,6 +70,12 @@ public class SystemSettingActivity extends BaseAppCompatActivity {
         addPreference(1, R.string.system_settings_title_automatically_save,
                 R.string.system_settings_description_automatically_save,
                 preferences.getBoolean("P12I2", false));
+
+        // v2.0.3 (owner's 15 Nov directive "auto-backup on project auto-save and Save & Exit")
+        addPreference(2, "Back up to GitHub after saving",
+                "When you're signed in to GitHub, a project saved in the editor (Save, Save & exit, or Automatically "
+                        + "save) goes up in the background, only when it changed; its share link stays up to date",
+                preferences.getBoolean(com.sketchware.ai.github.CloudSync.AUTO_BACKUP_KEY, true));
     }
 
     private boolean saveSettings() {
@@ -77,6 +87,8 @@ public class SystemSettingActivity extends BaseAppCompatActivity {
                     preferenceEditor.putBoolean("P12I0", propertySwitchItem.getValue());
                 } else if (1 == propertySwitchItem.getKey()) {
                     preferenceEditor.putBoolean("P12I2", propertySwitchItem.getValue());
+                } else if (2 == propertySwitchItem.getKey()) {
+                    preferenceEditor.putBoolean(com.sketchware.ai.github.CloudSync.AUTO_BACKUP_KEY, propertySwitchItem.getValue());
                 }
             }
         }

@@ -29,7 +29,9 @@ public final class BlockGuide {
     public static final int WEB = 0xFF4A6CD4;
     public static final int PERMISSION = 0xFF009688;
     public static final int FILE = 0xFFA1887F;
-    public static final int GITHUB = 0xFF24292F;
+    public static final int GITHUB = 0xFF1F6FEB;
+    /** v2.0.3: the GitHub true/false block (GitHub's green). */
+    public static final int GITHUB_GREEN = 0xFF2EA043;
 
     /** One block's guide. */
     public static final class Entry {
@@ -166,7 +168,7 @@ public final class BlockGuide {
                 "Owner, repository, the workflow file in .github/workflows (it needs a workflow_dispatch trigger) "
                         + "and a branch; needs a token with Actions: read and write.",
                 "GitHub Actions starts the workflow; event \"workflow started\".");
-        put("gitHubHasToken", "github1 has token", GITHUB,
+        put("gitHubHasToken", "github1 has token", GITHUB_GREEN,
                 "Inside an \"if\" block.",
                 "The GitHub component.",
                 "true when a token is set.");
@@ -239,10 +241,88 @@ public final class BlockGuide {
             Entry entry = ENTRIES.get(opCode);
             if (entry != null) cards.addView(card(context, entry));
         }
-        int maxHeight = context.getResources().getDisplayMetrics().heightPixels * 70 / 100;
+        boolean gitHub = false;
+        for (String opCode : opCodes) gitHub |= opCode != null && opCode.startsWith("gitHub");
+        int maxHeight = context.getResources().getDisplayMetrics().heightPixels * (gitHub ? 58 : 70) / 100;
         root.addView(new PermissionPicker.Capped(context, scroll, maxHeight), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        if (gitHub) root.addView(gitHubActions(context));
         return root;
+    }
+
+    /** v2.0.3: GitHub's token page. */
+    static final String TOKEN_PAGE = "https://github.com/settings/tokens/new?description=Sketchware%20AI%20app";
+
+    /**
+     * v2.0.3 (owner's 15 Nov directive): under the GitHub blocks' guide, "Open GitHub Token Page" (the browser, where you
+     * are signed in to GitHub) and "Create GitHub Sample Project" (a ready-to-run project with the GitHub blocks).
+     */
+    private static View gitHubActions(Context context) {
+        LinearLayout box = new LinearLayout(context);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(0, PermissionPicker.dp(context, 10), 0, PermissionPicker.dp(context, 6));
+        TextView token = action(context, "Open GitHub Token Page", true);
+        token.setOnClickListener(v -> {
+            try {
+                context.startActivity(com.sketchware.ai.github.GitHubInAppAuthDialog.customTab(context, TOKEN_PAGE)
+                        .addFlags(context instanceof android.app.Activity ? 0 : android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException e) {
+                android.widget.Toast.makeText(context, "No browser on this phone: open " + TOKEN_PAGE,
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
+        });
+        box.addView(token, actionParams(context, 0));
+        TextView sample = action(context, "Create GitHub Sample Project", false);
+        sample.setOnClickListener(v -> {
+            sample.setEnabled(false);
+            sample.setText("Creating…");
+            Context app = context.getApplicationContext();
+            new Thread(() -> {
+                String id = null;
+                Throwable failure = null;
+                try {
+                    id = com.sketchware.ai.project.GitHubSample.create(app);
+                } catch (Throwable t) {
+                    failure = t;
+                }
+                String text = failure == null ? "\u201c" + com.sketchware.ai.project.GitHubSample.NAME + "\u201d (#" + id
+                        + ") is in your projects: open it and tap Run." : "Couldn't create the sample: " + failure;
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    android.widget.Toast.makeText(app, text, android.widget.Toast.LENGTH_LONG).show();
+                    sample.setText("Create GitHub Sample Project");
+                    sample.setEnabled(true);
+                    com.sketchware.ai.github.ProjectLinks.listChanged();
+                });
+            }, "GitHubSample").start();
+        });
+        box.addView(sample, actionParams(context, 8));
+        return box;
+    }
+
+    private static TextView action(Context context, String label, boolean filled) {
+        TextView view = text(context, label, 14, Color.WHITE, true);
+        view.setGravity(Gravity.CENTER);
+        view.setMinHeight(PermissionPicker.dp(context, 44));
+        view.setPadding(PermissionPicker.dp(context, 14), 0, PermissionPicker.dp(context, 14), 0);
+        GradientDrawable pill = new GradientDrawable();
+        pill.setCornerRadius(PermissionPicker.dp(context, 22));
+        if (filled) {
+            pill.setColor(GITHUB);
+        } else {
+            pill.setColor(Color.TRANSPARENT);
+            pill.setStroke(PermissionPicker.dp(context, 2), GITHUB);
+        }
+        view.setBackground(pill);
+        view.setClickable(true);
+        view.setFocusable(true);
+        return view;
+    }
+
+    private static LinearLayout.LayoutParams actionParams(Context context, int topDp) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = PermissionPicker.dp(context, topDp);
+        return params;
     }
 
     private static View card(Context context, Entry entry) {

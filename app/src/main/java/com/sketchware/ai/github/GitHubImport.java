@@ -31,7 +31,7 @@ public final class GitHubImport {
         public String repo;
         public String ref;
         public String path;
-        /** The link names one file (it must end in .swb). */
+        /** The link names one file (it must end in .swb, or v2.0.3 .swb.parts.json: a backup in parts). */
         public boolean file;
 
         @Override
@@ -95,7 +95,10 @@ public final class GitHubImport {
             return null;
         }
         if (!src.owner.matches(NAME) || !src.repo.matches(NAME) || src.repo.isEmpty()) return null;
-        if (src.file && (src.path.isEmpty() || !src.path.toLowerCase(Locale.ROOT).endsWith(".swb"))) return null;
+        if (src.file && (src.path.isEmpty() || !(src.path.toLowerCase(Locale.ROOT).endsWith(".swb")
+                || SwbParts.isManifest(src.path)))) {
+            return null;
+        }
         return src;
     }
 
@@ -126,7 +129,11 @@ public final class GitHubImport {
         return branch == null ? "main" : branch;
     }
 
-    /** The .swb files of a repository or folder link (paths, sorted); for a file link just that file. */
+    /**
+     * The .swb files of a repository or folder link (paths, sorted); for a file link just that file. v2.0.3: a backup
+     * in parts is listed by its manifest ({@code .swb.parts.json}); its .swb of an older backup, if still there, isn't
+     * listed twice.
+     */
     public static List<String> listBackups(String token, Source s) throws IOException, GitHubException {
         List<String> found = new ArrayList<>();
         if (s.file) {
@@ -146,12 +153,17 @@ public final class GitHubImport {
             if (!e.isJsonObject()) continue;
             JsonObject o = e.getAsJsonObject();
             String path = DeviceFlow.string(o, "path");
-            if (path == null || !"blob".equals(DeviceFlow.string(o, "type"))) continue;
-            if (!path.toLowerCase(Locale.ROOT).endsWith(".swb") || !path.startsWith(prefix)) continue;
-            found.add(path);
+            if (path == null || !"blob".equals(DeviceFlow.string(o, "type")) || !path.startsWith(prefix)) continue;
+            if (path.toLowerCase(Locale.ROOT).endsWith(".swb") || SwbParts.isManifest(path)) found.add(path);
         }
-        Collections.sort(found);
-        return found;
+        // a manifest stands for its backup: the plain .swb of the same name goes
+        List<String> out = new ArrayList<>();
+        for (String path : found) {
+            if (!SwbParts.isManifest(path) && found.contains(SwbParts.manifestPath(path))) continue;
+            out.add(path);
+        }
+        Collections.sort(out);
+        return out;
     }
 
     /** Downloads one .swb of the link's repository into {@code folder}; the file's name is kept. */
@@ -164,8 +176,17 @@ public final class GitHubImport {
             throws IOException, GitHubException {
         String ref = ref(token, s);
         if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Can't create " + folder);
-        String name = new File(path).getName().replaceAll("[\\\\/:*?\"<>|]", "_");
+        String name = SwbParts.displayName(path).replaceAll("[\\\\/:*?\"<>|]", "_");
         File target = new File(folder, s.owner + "-" + s.repo + "-" + name);
+        if (SwbParts.isManifest(path)) {
+            // v2.0.3: a backup in parts: its manifest, then its parts by their blob ids, joined and checked
+            GitHubHttp.Response m = GitHubHttp.apiRaw(repoPath(s) + "/contents/" + CloudBackup.encPath(path) + "?ref="
+                    + CloudBackup.enc(ref), token);
+            if (m.code == 404) throw notFound(token, s);
+            if (!m.ok()) throw CloudBackup.http("Reading the backup's parts list", m);
+            SwbParts.download(token, repoPath(s), SwbParts.Manifest.parse(m.body), target, progress);
+            return target;
+        }
         GitHubHttp.Response r = GitHubHttp.download(repoPath(s) + "/contents/" + CloudBackup.encPath(path) + "?ref="
                 + CloudBackup.enc(ref), token, target, CloudBackup.MAX_BYTES + (5 << 20), progress);
         int code = r.code;

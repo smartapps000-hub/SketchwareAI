@@ -35,8 +35,8 @@ public final class GitHubCode {
     public static final String[] EVENTS = {EVENT_USER, EVENT_REPOS, EVENT_FILE, EVENT_UPLOADED, EVENT_WORKFLOW, EVENT_ERROR};
 
     public static final int PALETTE_ID = 101;
-    public static final int PALETTE_COLOR = 0xff24292f;
-    public static final String COLOR = "#24292F";
+    public static final int PALETTE_COLOR = 0xff1f6feb;
+    public static final String COLOR = "#1F6FEB";
 
     public static final String OP_SET_TOKEN = "gitHubSetToken";
     public static final String OP_GET_USER = "gitHubGetUser";

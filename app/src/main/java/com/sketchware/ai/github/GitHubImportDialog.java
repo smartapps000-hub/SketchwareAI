@@ -130,6 +130,11 @@ public final class GitHubImportDialog {
 
     // ------------------------------------------------------------------ own backups
 
+    /**
+     * v2.0.3 (owner's 15 Nov phone test: "Loading…" for long, then "No connection to GitHub."): the list kept on this
+     * phone is shown at once (backups made from this phone are added to it as they finish), and GitHub is asked in the
+     * background; GitHub's answer replaces it. When GitHub can't be reached the kept list stays, marked, with Try again.
+     */
     private void loadOwnBackups() {
         backups.removeAllViews();
         TokenStore store = TokenStore.get(activity);
@@ -140,51 +145,50 @@ public final class GitHubImportDialog {
                     }))), v.full(-1, 8));
             return;
         }
-        backups.addView(v.line("Loading…", false), v.full(-1, 8));
         String login = store.login();
+        long[] at = new long[1];
+        List<CloudBackup.Entry> kept = cachedList(activity, login, at);
+        if (kept != null) {
+            showOwn(kept, login, "Checking GitHub for changes…", false);
+        } else {
+            backups.addView(v.line("Loading…", false), v.full(-1, 8));
+        }
         work.execute(() -> {
-            CloudBackup cloud = null;
             try {
-                String token = token();
-                cloud = new CloudBackup(token, login);
+                CloudBackup cloud = new CloudBackup(token(), login);
                 // looking must not create the repository: none yet = no backups yet
                 List<CloudBackup.Entry> entries = cloud.openIfExists() ? cloud.list() : new java.util.ArrayList<>();
-                saveCachedList(login, entries);
-                CloudBackup c = cloud;
-                ui(() -> showOwn(entries, c, 0));
-            } catch (java.io.IOException e) {
-                // offline (or GitHub didn't answer): the list from the last time, marked as such
-                long[] at = new long[1];
-                List<CloudBackup.Entry> cached = cachedList(login, at);
-                CloudBackup c = cloud;
+                saveCachedList(activity, login, entries, true);
+                ui(() -> showOwn(entries, login, null, false));
+            } catch (Exception e) {
+                String why = text(e);
                 ui(() -> {
-                    if (cached != null && c != null) {
-                        showOwn(cached, c, at[0]);
+                    if (kept != null) {
+                        showOwn(kept, login, "Kept on this phone" + (at[0] > 0 ? " · checked " + CloudBackup.formatTime(at[0])
+                                : "") + " · " + why, true);
                     } else {
                         backups.removeAllViews();
-                        backups.addView(v.line(text(e), true), v.full(-1, 8));
+                        backups.addView(v.line(why, true), v.full(-1, 8));
+                        backups.addView(v.smallPill("Try again", true, true, x -> loadOwnBackups()), pillAt(6));
                     }
-                });
-            } catch (Exception e) {
-                ui(() -> {
-                    backups.removeAllViews();
-                    backups.addView(v.line(text(e), true), v.full(-1, 8));
                 });
             }
         });
     }
 
     /** v2.0.1: the last list of own backups, for showing it offline (names and times only, no token). */
-    private void saveCachedList(String login, List<CloudBackup.Entry> entries) {
-        activity.getSharedPreferences(CloudSync.PREFS, android.content.Context.MODE_PRIVATE).edit()
+    static void saveCachedList(android.content.Context context, String login, List<CloudBackup.Entry> entries,
+                               boolean fromGitHub) {
+        android.content.SharedPreferences.Editor edit = context.getSharedPreferences(CloudSync.PREFS,
+                android.content.Context.MODE_PRIVATE).edit()
                 .putString("backup_list_login", login)
-                .putString("backup_list", new com.google.gson.Gson().toJson(entries))
-                .putLong("backup_list_at", System.currentTimeMillis())
-                .apply();
+                .putString("backup_list", new com.google.gson.Gson().toJson(entries));
+        if (fromGitHub) edit.putLong("backup_list_at", System.currentTimeMillis());
+        edit.apply();
     }
 
-    private List<CloudBackup.Entry> cachedList(String login, long[] at) {
-        android.content.SharedPreferences prefs = activity.getSharedPreferences(CloudSync.PREFS,
+    static List<CloudBackup.Entry> cachedList(android.content.Context context, String login, long[] at) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences(CloudSync.PREFS,
                 android.content.Context.MODE_PRIVATE);
         if (login == null || !login.equals(prefs.getString("backup_list_login", null))) return null;
         try {
@@ -192,17 +196,20 @@ public final class GitHubImportDialog {
                     CloudBackup.Entry[].class);
             if (list == null) return null;
             at[0] = prefs.getLong("backup_list_at", 0);
-            return new java.util.ArrayList<>(java.util.Arrays.asList(list));
+            List<CloudBackup.Entry> out = new java.util.ArrayList<>(java.util.Arrays.asList(list));
+            // newest first
+            java.util.Collections.sort(out, (x, y) -> Long.compare(y.time, x.time));
+            return out;
         } catch (RuntimeException e) {
             return null;
         }
     }
 
-    private void showOwn(List<CloudBackup.Entry> entries, CloudBackup cloud, long offlineSince) {
+    private void showOwn(List<CloudBackup.Entry> entries, String login, String note, boolean failed) {
         backups.removeAllViews();
-        if (offlineSince > 0) {
-            backups.addView(v.line("Offline · the list from " + CloudBackup.formatTime(offlineSince), false),
-                    v.full(-1, 4));
+        if (note != null) {
+            backups.addView(v.line(note, failed), v.full(-1, 4));
+            if (failed) backups.addView(v.smallPill("Try again", true, true, x -> loadOwnBackups()), pillAt(6));
         }
         if (entries.isEmpty()) {
             backups.addView(v.line("No backups yet. Use Back up > Back up to GitHub on a project.", false), v.full(-1, 8));
@@ -210,17 +217,19 @@ public final class GitHubImportDialog {
         }
         for (CloudBackup.Entry entry : entries) {
             String name = entry.name == null ? entry.path : entry.name;
-            String detail = (entry.packageName == null ? "" : entry.packageName + " · ") + CloudBackup.formatTime(entry.time);
-            backups.addView(v.row(name, detail, v.smallPill("Restore", true, true, x -> versions(cloud, entry, name))),
+            String detail = (entry.packageName == null ? "" : entry.packageName + " · ") + CloudBackup.formatTime(entry.time)
+                    + (entry.size > 0 ? " · " + CloudSync.megabytes(entry.size) : "");
+            backups.addView(v.row(name, detail, v.smallPill("Restore", true, true, x -> versions(login, entry, name))),
                     v.full(-1, 8));
         }
     }
 
-    private void versions(CloudBackup cloud, CloudBackup.Entry entry, String name) {
+    private void versions(String login, CloudBackup.Entry entry, String name) {
         if (busy) return;
         setBusy(true, "Reading the backups of " + name + "…");
         work.execute(() -> {
             try {
+                CloudBackup cloud = new CloudBackup(token(), login);
                 // review: the list may be the offline copy; looking must never create the repository
                 if (!cloud.openIfExists()) {
                     throw new GitHubException("not_found", "Your backup repository " + CloudBackup.REPO
@@ -371,7 +380,7 @@ public final class GitHubImportDialog {
                         setBusy(false, list.size() == 1 ? "1 backup in " + source.owner + "/" + source.repo + ":"
                                 : list.size() + " backups in " + source.owner + "/" + source.repo + ":");
                         for (String path : list) {
-                            String file = new File(path).getName();
+                            String file = SwbParts.displayName(path);
                             String folder = path.contains("/") ? path.substring(0, path.lastIndexOf('/')) : "(top folder)";
                             found.addView(v.row(file, folder, v.smallPill("Import", true, true,
                                     x -> downloadLink(token, source, path))), v.full(-1, 8));
@@ -385,7 +394,7 @@ public final class GitHubImportDialog {
     }
 
     private void downloadLink(String token, GitHubImport.Source source, String path) {
-        GitHubProgress progress = startImport(new File(path).getName());
+        GitHubProgress progress = startImport(SwbParts.displayName(path));
         background(() -> {
             try {
                 File target = GitHubImport.download(token, source, path, new File(BackupFactory.getBackupDir(), "github"),
@@ -459,9 +468,13 @@ public final class GitHubImportDialog {
     }
 
     private String token() throws GitHubException {
-        String token = TokenStore.get(activity).token();
+        TokenStore store = TokenStore.get(activity);
+        String token = store.token();
         if (token == null) {
-            throw new GitHubException("keystore", "The sign-in couldn't be read from the Android Keystore just now. Try again.");
+            String problem = store.problem();
+            throw new GitHubException("keystore", problem == null
+                    ? "The sign-in couldn't be read from the Android Keystore just now. Try again."
+                    : "This phone can't read the saved sign-in (" + problem + "): tap Sign in again on the account card.");
         }
         return token;
     }
@@ -481,12 +494,33 @@ public final class GitHubImportDialog {
         });
     }
 
+    /** A pill's own width under a line. */
+    private LinearLayout.LayoutParams pillAt(int topDp) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = v.dp(topDp);
+        return params;
+    }
+
+    /** v2.0.3: what went wrong, in words, with the network's own reason (no more bare "No connection"). */
     static String text(Exception e) {
         if (e instanceof GitHubException) return e.getMessage();
-        if (e instanceof java.net.UnknownHostException || e instanceof java.net.ConnectException
-                || e instanceof java.net.SocketTimeoutException) {
-            return "No connection to GitHub.";
+        if (e instanceof java.net.UnknownHostException) {
+            return "No connection to GitHub: github.com couldn't be found (no internet, or the network's DNS failed).";
         }
-        return "Something went wrong: " + e.getMessage();
+        if (e instanceof java.net.SocketTimeoutException) {
+            return "No connection to GitHub: it didn't answer in time (slow or busy network). Try again.";
+        }
+        if (e instanceof java.net.ConnectException) {
+            return "No connection to GitHub: the connection was refused (no internet, or a firewall).";
+        }
+        if (e instanceof javax.net.ssl.SSLException) {
+            return "The secure connection to GitHub failed (" + e.getMessage() + "): check the phone's date and time.";
+        }
+        if (e instanceof java.io.IOException) {
+            return "Network error talking to GitHub (" + e.getClass().getSimpleName()
+                    + (e.getMessage() == null ? "" : ": " + e.getMessage()) + ").";
+        }
+        return "Something went wrong: " + e;
     }
 }

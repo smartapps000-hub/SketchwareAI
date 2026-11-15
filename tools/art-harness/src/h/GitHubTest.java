@@ -40,6 +40,16 @@ public final class GitHubTest {
     }
 
     @SuppressWarnings("unchecked")
+    /** v2.0.3: polls {@code condition} until it holds or {@code millis} pass; true when it held. */
+    static boolean waitFor(java.util.function.BooleanSupplier condition, long millis) throws InterruptedException {
+        long end = System.currentTimeMillis() + millis;
+        while (System.currentTimeMillis() < end) {
+            if (condition.getAsBoolean()) return true;
+            Thread.sleep(50);
+        }
+        return condition.getAsBoolean();
+    }
+
     static void run(String scId) throws Throwable {
         // --- base64 streaming = java.util.Base64
         int[] sizes = {0, 1, 2, 3, 4, 5, 49151, 49152, 49153, 100003};
@@ -87,30 +97,48 @@ public final class GitHubTest {
         String first = stored;
         call(store, "save", token, "octo", "583231");
         check("new IV every save", !first.equals(call(prefs, "getString", "token", null)), null);
+        // v2.0.3 (owner: "never auto-logout"): a token that can't be read gives nothing, but stays stored (login kept),
+        // with the reason; only "Sign out" (clear) removes it
         current[0] = KeyGenerator.getInstance("AES").generateKey();
-        check("other key: signed out, nothing returned", call(again, "token") == null && call(again, "login") == null, null);
+        check("v2.0.3: other key: nothing returned, the sign-in kept, the reason given", call(again, "token") == null
+                && "octo".equals(call(again, "login")) && String.valueOf(call(again, "problem")).contains("bound to another"),
+                call(again, "problem"));
         current[0] = key;
-        call(store, "save", token, "octo", "583231");
+        check("v2.0.3: ... the right key again: the same token (nothing was removed)", token.equals(call(again, "token"))
+                && call(again, "problem") == null, null);
         device[0] = "android-id-2|cert-A";
-        check("app data copied to another phone (other ANDROID_ID): signed out", call(again, "token") == null
-                && call(again, "login") == null && call(prefs, "getString", "token", null) == null, null);
-        device[0] = "android-id-1|cert-A";
-        call(store, "save", token, "octo", "583231");
+        check("app data copied to another phone (other ANDROID_ID): unreadable there; v2.0.3: kept, not removed",
+                call(again, "token") == null && "octo".equals(call(again, "login"))
+                        && call(prefs, "getString", "token", null) != null, null);
         device[0] = "android-id-1|cert-B";
-        check("another signing certificate (a re-signed copy): signed out", call(again, "token") == null, null);
+        check("another signing certificate (a re-signed copy): unreadable", call(again, "token") == null, null);
         device[0] = "android-id-1|cert-A";
-        call(store, "save", token, "octo", "583231");
+        check("v2.0.3: back on this phone and app: readable again", token.equals(call(again, "token")), null);
         Object editor = call(prefs, "edit");
         call(editor, "putString", "user_id", "999");
         call(editor, "commit");
-        check("session moved to another user id: signed out", call(again, "token") == null, null);
+        check("session moved to another user id: unreadable (kept)", call(again, "token") == null
+                && "octo".equals(call(again, "login")), null);
         call(store, "save", token, "octo", "583231");
+        // v2.0.3: sealed in a run that couldn't read the certificate ("?"): opens with the full binding, sealed again
+        device[0] = "android-id-1|?";
+        call(store, "save", token, "octo", "583231");
+        String partial = (String) call(prefs, "getString", "token", null);
+        device[0] = "android-id-1|cert-A";
+        boolean opened = token.equals(call(again, "token"));
+        String resealed = (String) call(prefs, "getString", "token", null);
+        device[0] = "android-id-9|cert-Z";
+        boolean strict = call(again, "token") == null;
+        device[0] = "android-id-1|cert-A";
+        check("v2.0.3: a sign-in sealed while the certificate couldn't be read opens, is sealed again with the whole "
+                + "binding, and still no other phone's binding opens it", opened && !partial.equals(resealed) && strict
+                && token.equals(call(again, "token")), null);
         String v2 = (String) call(prefs, "getString", "token", null);
         Object editor1 = call(prefs, "edit");
         call(editor1, "putString", "token", "v1:" + v2.substring(3));
         call(editor1, "commit");
-        check("a v1.9.8 token (v1, not bound): signed out, sign in again", call(again, "token") == null
-                && call(again, "login") == null, null);
+        check("a v1.9.8 token (v1, not bound): unreadable, the reason says so (sign in again)", call(again, "token") == null
+                && String.valueOf(call(again, "problem")).contains("older version"), call(again, "problem"));
         call(store, "save", token, "octo", "583231");
         call(store, "clear");
         check("sign-out removes token, login, user id and key", call(store, "token") == null && call(store, "userId") == null
@@ -233,13 +261,13 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 203, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(203).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 204, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(204).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.0.2 (203) with it: no notice", call(control, "decide", shipped, 203, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 202, false, null);
-        check("an older version (v2.0.1, 202): Update with the v2.0.2 URL", old198 != null && "update".equals(get(old198, "kind"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.2.apk"),
+        check("v2.0.3 (204) with it: no notice", call(control, "decide", shipped, 204, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 203, false, null);
+        check("an older version (v2.0.2, 203): Update with the v2.0.3 URL", old198 != null && "update".equals(get(old198, "kind"))
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.3.apk"),
                 old198 == null ? null : get(old198, "url"));
         Object msg = call(control, "parse", "{\"status_message\":\"Server maintenance tonight\"}");
         Object m1 = call(control, "decide", msg, 199, true, null);
@@ -431,6 +459,166 @@ public final class GitHubTest {
                         + "github.com links, not for a copy made for another project id, never for a missing project",
                 none && url.equals(saved) && url.equals(sameAccount) && otherAccount == null && foreign == null
                         && otherProject == null && noFolder && call(links, "get", "../1") == null, saved);
+        linkFile.delete();
+
+        // --- v2.0.3: the project's record: visibility, its public copy, the backup's boxes and fingerprint
+        Object autoOptions = get(c("com.sketchware.ai.github.CloudSync$Options"), "AUTOMATIC");
+        Object libsOnly = neu("com.sketchware.ai.github.CloudSync$Options", true, false);
+        String privatePath = "projects/com.my.app/My_App.swb";
+        String publicUrl = "https://github.com/octo/SketchwareAI-My_App/blob/main/projects/com.my.app/My_App.swb";
+        call(links, "saved", scId, url, privatePath, "octo", libsOnly, "fp-1");
+        Object lastOpts = call(links, "lastOptions", scId);
+        check("v2.0.3: after a backup: private, the private link, its boxes and fingerprint kept",
+                "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
+                        && Boolean.TRUE.equals(get(lastOpts, "localLibraries")) && Boolean.FALSE.equals(get(lastOpts, "customBlocks"))
+                        && "fp-1".equals(call(links, "lastFingerprint", scId)) && (Long) call(links, "lastBackup", scId) > 0, null);
+        call(links, "publicNow", scId, "SketchwareAI-My_App", publicUrl, privatePath);
+        check("v2.0.3: Public: the share pill shares the public copy's link", "public".equals(call(links, "visibility", scId, "octo"))
+                && publicUrl.equals(call(links, "get", scId, "octo")) && Boolean.TRUE.equals(call(links, "isPublic", scId))
+                && "SketchwareAI-My_App".equals(call(links, "publicRepository", scId)), call(links, "get", scId, "octo"));
+        call(links, "saved", scId, url, privatePath, "octo", autoOptions, "fp-2");
+        check("v2.0.3: a later backup keeps it public (and its public link)", "public".equals(call(links, "visibility", scId, "octo"))
+                && publicUrl.equals(call(links, "get", scId, "octo")) && "fp-2".equals(call(links, "lastFingerprint", scId)), null);
+        call(links, "privateNow", scId);
+        check("v2.0.3: Private again: the private link; the public repository's name kept for a later Public",
+                "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
+                        && "SketchwareAI-My_App".equals(call(links, "publicRepository", scId)), null);
+        check("v2.0.3: no pills under another account", call(links, "visibility", scId, "someone") == null, null);
+
+        // --- v2.0.3: "never auto-logout": GitHub's refusal is a mark with a note; the session stays
+        Class<?> session = c("com.sketchware.ai.github.GitHubSession");
+        Object githubPrefs = call(CTX, "getSharedPreferences", "sketchware_ai_github", 0);
+        Object pe = call(githubPrefs, "edit");
+        call(pe, "putString", "token", "v2:AAAA:AAAA");
+        call(pe, "putString", "login", "octo");
+        call(pe, "putString", "user_id", "583231");
+        call(pe, "commit");
+        call(session, "markRefused", CTX, "GitHub didn't accept the saved sign-in at 22:17. You're still signed in here.");
+        Object refusedProfile = call(session, "profile", CTX);
+        check("v2.0.3: a 401 marks the sign-in (the card says so), the login stays", refusedProfile != null
+                && "octo".equals(get(refusedProfile, "login")) && String.valueOf(get(refusedProfile, "problem")).contains("didn't accept"),
+                refusedProfile == null ? null : get(refusedProfile, "problem"));
+        Object account = neu("com.sketchware.ai.github.CloudBackup$Account");
+        set(account, "login", "octo");
+        set(account, "id", "583231");
+        set(account, "repositories", 12);
+        call(session, "saveProfile", CTX, account, null);
+        Object checkedProfile = call(session, "profile", CTX);
+        check("v2.0.3: GitHub accepting the sign-in again clears the mark; the card's line counts 12 repositories "
+                        + "(this harness can't read the stand-in token: its reason shows instead of the mark)",
+                Integer.valueOf(12).equals(get(checkedProfile, "repositories"))
+                        && !String.valueOf(get(checkedProfile, "problem")).contains("didn't accept")
+                        && String.valueOf(get(checkedProfile, "problem")).contains("can't read"), get(checkedProfile, "problem"));
+        check("v2.0.3: still signed in after all of it (only Sign out removes the sign-in)",
+                "octo".equals(call(githubPrefs, "getString", "login", null)) && call(githubPrefs, "getString", "token", null) != null, null);
+
+        // --- v2.0.3: the backup queue: a tap goes first, a second tap joins, a job's Error ends only that job
+        Class<?> syncClass = c("com.sketchware.ai.github.CloudSync");
+        Object cloudSync = call(syncClass, "get", CTX);
+        List<String> ran = java.util.Collections.synchronizedList(new ArrayList<>());
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release2 = new java.util.concurrent.CountDownLatch(1);
+        Object runner = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {
+            if (!m.equals("run")) return null;
+            String id;
+            try {
+                id = (String) get(a[0], "scId");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            ran.add(id);
+            try {
+                if (id.equals("9001")) release.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (id.equals("9006")) release2.await(20, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+            }
+            if (id.equals("9004")) throw new OutOfMemoryError("test: a backup too large for memory");
+            return "done " + id;
+        });
+        set(syncClass, "runnerForTests", runner);
+        set(syncClass, "mainForTests", (java.util.concurrent.Executor) Runnable::run);
+        List<String> results = java.util.Collections.synchronizedList(new ArrayList<>());
+        List<String> steps = java.util.Collections.synchronizedList(new ArrayList<>());
+        java.util.function.Function<String, Object> result = tag -> proxy("com.sketchware.ai.github.CloudSync$Result", (m, a) -> {
+            if (m.equals("done")) results.add(tag + ":" + a[0] + ":" + a[1]);
+            return null;
+        });
+        Object watcher = proxy("com.sketchware.ai.github.CloudSync$Progress", (m, a) -> {
+            if (m.equals("step")) steps.add(a[0] + " " + a[1]);
+            return null;
+        });
+        String jobClass = "com.sketchware.ai.github.CloudSync$Job";
+        call(cloudSync, "enqueue", neu(jobClass, "9001", "backup", "First", autoOptions, false), null, result.apply("A"));
+        waitFor(() -> ran.contains("9001"), 5000);
+        call(cloudSync, "enqueue", neu(jobClass, "9003", "backup", null, autoOptions, false), null, result.apply("C"));
+        call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), watcher, result.apply("B1"));
+        call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), null, result.apply("B2"));
+        boolean waitingShown = steps.size() > 0 && steps.get(0).contains("Waiting: First goes first");
+        boolean busy = Boolean.TRUE.equals(call(cloudSync, "isRunning", "9002"));
+        release.countDown();
+        waitFor(() -> ran.size() >= 3 && results.size() >= 4, 10000);
+        check("v2.0.3: a tap's backup waits visibly behind a running one, then goes before the automatic ones",
+                waitingShown && busy && ran.subList(0, 3).equals(java.util.Arrays.asList("9001", "9002", "9003")), ran + " " + steps);
+        check("v2.0.3: a second tap on the same project joins its backup (one upload, both hear the end)",
+                results.contains("B1:true:done 9002") && results.contains("B2:true:done 9002")
+                        && java.util.Collections.frequency(ran, "9002") == 1, results);
+        call(cloudSync, "enqueue", neu(jobClass, "9004", "backup", null, autoOptions, false), null, result.apply("E"));
+        call(cloudSync, "enqueue", neu(jobClass, "9005", "backup", null, autoOptions, false), null, result.apply("F"));
+        waitFor(() -> ran.contains("9005") && results.size() >= 6, 10000);
+        String eResult = null;
+        for (String r : results) if (r.startsWith("E:")) eResult = r;
+        check("v2.0.3: an Error in a backup (out of memory) ends that job with its message, frees the project, and the "
+                        + "next job runs (no second-tap \"is being backed up\" forever)",
+                eResult != null && eResult.startsWith("E:false:") && eResult.contains("OutOfMemoryError")
+                        && results.contains("F:true:done 9005") && Boolean.FALSE.equals(call(cloudSync, "isRunning", "9004")),
+                eResult);
+        call(cloudSync, "enqueue", neu(jobClass, "9006", "backup", "Busy", autoOptions, false), null, result.apply("G"));
+        waitFor(() -> ran.contains("9006"), 5000);
+        call(cloudSync, "enqueue", neu(jobClass, "9007", "backup", null, autoOptions, false), null, result.apply("H"));
+        call(cloudSync, "enqueue", neu(jobClass, "9008", "backup", null, autoOptions, false), null, result.apply("I"));
+        call(cloudSync, "enqueue", neu(jobClass, "9008", "backup", "Tapped", libsOnly, true), null, result.apply("J"));
+        release2.countDown();
+        waitFor(() -> ran.contains("9007") && ran.contains("9008"), 10000);
+        check("v2.0.3: a tap on a project whose automatic backup waits moves it forward", ran.indexOf("9008") < ran.indexOf("9007"),
+                ran);
+
+        // --- v2.0.3: a save in the editor: a background backup only when signed in, the switch on, and the project changed
+        ran.clear();
+        call(cloudSync, "projectSaved", scId, true);
+        boolean firstSave = waitFor(() -> ran.contains(scId), 5000);
+        Object fingerprint = call(syncClass, "fingerprint", scId);
+        call(links, "saved", scId, url, privatePath, "octo", autoOptions, fingerprint);
+        ran.clear();
+        call(cloudSync, "projectSaved", scId, true);
+        boolean unchangedSkipped = !waitFor(() -> ran.contains(scId), 1500);
+        File touched = new File(sketchware, "data/" + scId + "/v203_test_change.txt");
+        writeText(touched, "a change");
+        call(cloudSync, "projectSaved", scId, false);
+        boolean saveWithinFive = !waitFor(() -> ran.contains(scId), 1500);
+        call(cloudSync, "projectSaved", scId, true);
+        boolean leaving = waitFor(() -> ran.contains(scId), 5000);
+        ran.clear();
+        Object p12 = call(CTX, "getSharedPreferences", "P12", 0);
+        Object p12e = call(p12, "edit");
+        call(p12e, "putBoolean", "P12I_github_backup", false);
+        call(p12e, "commit");
+        call(cloudSync, "projectSaved", scId, true);
+        boolean switchedOff = !waitFor(() -> ran.contains(scId), 1500);
+        Object p12f = call(p12, "edit");
+        call(p12f, "remove", "P12I_github_backup");
+        call(p12f, "commit");
+        check("v2.0.3: Save & exit backs the project up in the background; an unchanged project isn't sent again; a plain "
+                        + "Save waits five minutes after the last backup; System Settings' switch turns it off",
+                firstSave && unchangedSkipped && saveWithinFive && leaving && switchedOff,
+                firstSave + " " + unchangedSkipped + " " + saveWithinFive + " " + leaving + " " + switchedOff);
+        touched.delete();
+        set(syncClass, "runnerForTests", null);
+        set(syncClass, "mainForTests", null);
+        Object cleanup = call(githubPrefs, "edit");
+        call(cleanup, "remove", "token");
+        call(cleanup, "remove", "login");
+        call(cleanup, "remove", "user_id");
+        call(cleanup, "commit");
         linkFile.delete();
 
         // --- a .swb with an entry outside its folder is refused

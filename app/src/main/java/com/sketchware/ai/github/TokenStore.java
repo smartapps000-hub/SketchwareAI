@@ -23,6 +23,12 @@ import javax.crypto.spec.GCMParameterSpec;
  * ({@code "v2:" + base64(iv) + ":" + base64(ciphertext+tag)}). App data copied to another phone, or a session of
  * another user id, doesn't decrypt: that is "signed out". (The Keystore key alone already can't leave the phone.)
  * v1 tokens of v1.9.8 read as signed out.
+ * <p>
+ * v2.0.3 (owner's 15 Nov phone test: signed out by itself twice): nothing here removes a sign-in any more except
+ * {@link #clear()} (the account card's "Sign out" and a sign-in cancelled while it was being saved). A token that can't
+ * be read is kept; the binding is also tried with a part of it unreadable ("?": a run that couldn't read ANDROID_ID or
+ * the certificate) and re-sealed with the full binding when that opens it; {@link #problem()} says why it can't be read
+ * (the account card then offers "Sign in again", which replaces it).
  */
 public final class TokenStore {
 
@@ -100,7 +106,10 @@ public final class TokenStore {
 
     /** The associated data of a session: SHA-256 of device | user id. */
     private byte[] associatedData(String userId) throws GeneralSecurityException {
-        String device = binding == null ? "" : binding.device();
+        return associatedData(binding == null ? "" : binding.device(), userId);
+    }
+
+    private static byte[] associatedData(String device, String userId) throws GeneralSecurityException {
         return java.security.MessageDigest.getInstance("SHA-256")
                 .digest((device + "|" + (userId == null ? "" : userId)).getBytes(StandardCharsets.UTF_8));
     }
@@ -123,27 +132,113 @@ public final class TokenStore {
         }
     }
 
-    /** The token, or null when signed out or when it can't be decrypted (the key is gone: then it is removed). */
+    /** v2.0.3: why the last {@link #token()} couldn't read a stored sign-in (null when it could, or none is stored). */
+    private String problem;
+
+    /**
+     * The token, or null when signed out or when it can't be read now. v2.0.3: a token that can't be read is never
+     * removed (only {@link #clear()} signs out); {@link #problem()} says why.
+     */
     public synchronized String token() {
         String value = prefs.getString(KEY_TOKEN, null);
-        if (value == null) return null;
-        try {
-            String[] parts = value.split(":");
-            if (parts.length != 3 || !parts[0].equals("v2")) throw new NoKey("unknown format");
-            SecretKey key = keys.key(false);
-            if (key == null) throw new NoKey("no key");
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, unb64(parts[1])));
-            cipher.updateAAD(associatedData(prefs.getString(KEY_USER_ID, null)));
-            return new String(cipher.doFinal(unb64(parts[2])), StandardCharsets.UTF_8);
-        } catch (javax.crypto.AEADBadTagException | NoKey | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-            // another phone, another user id, key deleted, or damaged: signed out
-            prefs.edit().remove(KEY_TOKEN).remove(KEY_LOGIN).remove(KEY_USER_ID).apply();
-            return null;
-        } catch (GeneralSecurityException | RuntimeException e) {
-            // a passing Keystore problem: not signed out, the next call tries again
+        if (value == null) {
+            problem = null;
             return null;
         }
+        String[] parts = value.split(":");
+        if (parts.length != 3 || !parts[0].equals("v2")) {
+            problem = "it was saved by an older version of the app";
+            return null;
+        }
+        byte[] iv;
+        byte[] sealed;
+        try {
+            iv = unb64(parts[1]);
+            sealed = unb64(parts[2]);
+        } catch (IllegalArgumentException e) {
+            problem = "it is damaged";
+            return null;
+        }
+        SecretKey key;
+        try {
+            key = keys.key(false);
+        } catch (GeneralSecurityException | RuntimeException e) {
+            // a passing Keystore problem: the next call tries again
+            problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
+            return null;
+        }
+        if (key == null) {
+            problem = "its key is no longer in the Android Keystore";
+            return null;
+        }
+        String userId = prefs.getString(KEY_USER_ID, null);
+        String device = binding == null ? "" : binding.device();
+        for (String candidate : bindings(device)) {
+            String token;
+            try {
+                token = open(key, iv, sealed, candidate, userId);
+            } catch (javax.crypto.AEADBadTagException e) {
+                continue; // not this binding
+            } catch (GeneralSecurityException | RuntimeException e) {
+                problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
+                return null;
+            }
+            problem = null;
+            if (!candidate.equals(device) && !device.contains("?")) {
+                // sealed in a run that couldn't read a part of the binding: sealed again with all of it
+                try {
+                    seal(key, token, userId, device);
+                } catch (GeneralSecurityException | RuntimeException ignored) {
+                    // the old seal still opens: tried again next time
+                }
+            }
+            return token;
+        }
+        problem = "it is bound to another phone, app signature or GitHub account";
+        return null;
+    }
+
+    /** v2.0.3: why a stored sign-in can't be read (after {@link #token()} returned null), else null. */
+    public synchronized String problem() {
+        return prefs.getString(KEY_TOKEN, null) == null ? null : problem;
+    }
+
+    /** The binding as read now, then the same with a part a run may not have been able to read ("?"). */
+    static java.util.List<String> bindings(String device) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        out.add(device);
+        int bar = device.indexOf('|');
+        if (bar >= 0) {
+            String id = device.substring(0, bar);
+            String cert = device.substring(bar + 1);
+            out.add("?|" + cert);
+            out.add(id + "|?");
+            out.add("?|?");
+        }
+        return new java.util.ArrayList<>(out);
+    }
+
+    private String open(SecretKey key, byte[] iv, byte[] sealed, String device, String userId)
+            throws GeneralSecurityException {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+        cipher.updateAAD(associatedData(device, userId));
+        return new String(cipher.doFinal(sealed), StandardCharsets.UTF_8);
+    }
+
+    private void seal(SecretKey key, String token, String userId, String device) throws GeneralSecurityException {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        cipher.updateAAD(associatedData(device, userId));
+        byte[] iv = cipher.getIV();
+        byte[] sealed = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
+        prefs.edit().putString(KEY_TOKEN, "v2:" + b64(iv) + ":" + b64(sealed)).commit();
+    }
+
+    /** v2.0.3: a short fingerprint of the stored (sealed) sign-in: marks that belong to this one sign-in use it. */
+    public synchronized String sealedKey() {
+        String value = prefs.getString(KEY_TOKEN, null);
+        return value == null ? null : Integer.toHexString(value.hashCode());
     }
 
     public synchronized String login() {
@@ -164,13 +259,6 @@ public final class TokenStore {
         StringBuilder out = new StringBuilder(bytes.length * 2);
         for (byte b : bytes) out.append(Character.forDigit((b >> 4) & 15, 16)).append(Character.forDigit(b & 15, 16));
         return out.toString();
-    }
-
-    /** The stored token can never be read again (no key, unknown format): signed out. */
-    static final class NoKey extends GeneralSecurityException {
-        NoKey(String message) {
-            super(message);
-        }
     }
 
     private static String b64(byte[] bytes) {

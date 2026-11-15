@@ -290,10 +290,61 @@ public class GC extends DA implements View.OnClickListener {
         return com.sketchware.ai.github.ProjectLinks.get(scId, login);
     }
 
-    /** v2.0.2 review: a backup to GitHub just wrote a link: the cards show the share button at once. */
+    /** v2.0.3: "public" / "private" for the card's pill, or null when the project has no GitHub backup link. */
+    private String visibilityOf(String scId) {
+        String login = getContext() == null ? null : com.sketchware.ai.github.TokenStore.get(getContext()).login();
+        return com.sketchware.ai.github.ProjectLinks.visibility(scId, login);
+    }
+
+    /**
+     * v2.0.3: the Public / Private pill: making a project public asks first (its code, and any key written in it,
+     * become downloadable by anyone with the link); making it private again needs no question.
+     */
+    private void toggleVisibility(HashMap<String, Object> project) {
+        if (getActivity() == null) return;
+        String scId = yB.c(project, "sc_id");
+        String name = yB.c(project, "my_ws_name");
+        boolean makePublic = !"public".equals(visibilityOf(scId));
+        if (!makePublic) {
+            com.sketchware.ai.github.CloudSync.changeVisibility(getActivity(), scId, name, false);
+            return;
+        }
+        new com.sketchware.ai.ui.ObAlertBuilder(getActivity(), R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Make " + name + " public?")
+                .setMessage("Its newest backup goes to its own public repository on your GitHub account: anyone with the "
+                        + "link can download the project, including any keys or passwords written in it. Your other "
+                        + "projects stay private. Tap Private later to hide it again.")
+                .setPositiveButton("Make public", (d, w) -> {
+                    if (getActivity() != null) {
+                        com.sketchware.ai.github.CloudSync.changeVisibility(getActivity(), scId, name, true);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * v2.0.2 review: a backup to GitHub just wrote a link: the cards show the share button at once. v2.0.3: the list is
+     * read again (a visibility change, or a project the app added: the GitHub sample).
+     */
     private final Runnable linksChanged = () -> {
-        if (myProjects != null && myProjects.getAdapter() != null && getActivity() != null) myProjects.getAdapter().c();
+        if (myProjects != null && myProjects.getAdapter() != null && getActivity() != null) refreshProjectsList();
     };
+
+    /** v2.0.3: the GitHub sample project, once (made in the background when no project of its name exists). */
+    private void seedGitHubSample() {
+        if (getActivity() == null || !c()) return;
+        android.content.Context app = getActivity().getApplicationContext();
+        new Thread(() -> {
+            try {
+                if (com.sketchware.ai.project.GitHubSample.seedOnce(app) != null) {
+                    com.sketchware.ai.github.ProjectLinks.listChanged();
+                }
+            } catch (Throwable t) {
+                mod.jbk.util.LogUtil.e("GC", "GitHub sample not made", t);
+            }
+        }, "GitHubSample").start();
+    }
 
     public void showCreateNewProjectLayout() {
         if (allProjects.size() > 0) {
@@ -390,6 +441,7 @@ public class GC extends DA implements View.OnClickListener {
         ViewGroup viewGroup = (ViewGroup) inflater.inflate(R.layout.myprojects, parent, false);
         initialize(viewGroup);
         com.sketchware.ai.github.ProjectLinks.onChanged(linksChanged);
+        seedGitHubSample();
         return viewGroup;
     }
 
@@ -543,8 +595,17 @@ public class GC extends DA implements View.OnClickListener {
             viewHolder.badgeMin.setText("Min " + settings.getMinSdkVersion());
 
             viewHolder.tvPublished.setText("#" + scId);
-            // v2.0.2: the GitHub backup link's share button (stored with the project, works offline)
-            viewHolder.shareLink.setVisibility(shareLinkOf(scId) != null ? View.VISIBLE : View.GONE);
+            // v2.0.2: the GitHub backup link's share button (stored with the project, works offline); v2.0.3: with the
+            // project's Public / Private pill, under the #id
+            String shared = visibilityOf(scId);
+            viewHolder.githubPills.setVisibility(shared != null ? View.VISIBLE : View.GONE);
+            if (shared != null) {
+                boolean isPublic = "public".equals(shared);
+                viewHolder.visibilityText.setText(isPublic ? "Public" : "Private");
+                viewHolder.visibilityIcon.setImageResource(isPublic ? R.drawable.ob_ic_public : R.drawable.ob_ic_lock);
+                viewHolder.visibility.setContentDescription(isPublic ? "Public: tap to make it private"
+                        : "Private: tap to make it public");
+            }
             if (target < com.sketchware.ai.project.ModernProjectDefaults.NEW_PROJECT_TARGET_SDK) {
                 viewHolder.targetPill.setText("Target " + target);
                 viewHolder.targetPill.setVisibility(View.VISIBLE);
@@ -565,6 +626,10 @@ public class GC extends DA implements View.OnClickListener {
         public class ViewHolder extends RecyclerView.v {
             public final TextView tvPublished;
             public final ImageView shareLink;
+            public final View githubPills;
+            public final View visibility;
+            public final ImageView visibilityIcon;
+            public final TextView visibilityText;
             public final View expand;
             public final MyProjectButtonLayout projectButtonLayout;
             public final LinearLayout projectOptionLayout;
@@ -606,6 +671,15 @@ public class GC extends DA implements View.OnClickListener {
                     HashMap<String, Object> project = projectsList.get(position);
                     String link = shareLinkOf(yB.c(project, "sc_id"));
                     if (link != null) com.sketchware.ai.github.ProjectLinks.share(getActivity(), yB.c(project, "my_ws_name"), link);
+                });
+                githubPills = itemView.findViewById(R.id.ob_github_pills);
+                visibility = itemView.findViewById(R.id.ob_visibility);
+                visibilityIcon = itemView.findViewById(R.id.ob_visibility_icon);
+                visibilityText = itemView.findViewById(R.id.ob_visibility_text);
+                visibility.setOnClickListener(v -> {
+                    int position = j();
+                    if (getActivity() == null || position < 0 || position >= projectsList.size()) return;
+                    toggleVisibility(projectsList.get(position));
                 });
                 expand = itemView.findViewById(R.id.expand);
                 projectOptionLayout = itemView.findViewById(R.id.project_option_layout);

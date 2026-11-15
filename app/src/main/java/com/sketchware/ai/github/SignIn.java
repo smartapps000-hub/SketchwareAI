@@ -48,6 +48,8 @@ public final class SignIn {
     private String errorCode;
     private String errorDetail;
     private String lastNetwork;
+    /** v2.0.3: "try 2 of 3 …" while the code request is being tried again, else null. */
+    private String startNote;
     private String signedInNow;
     private int generation;
     private Thread worker;
@@ -100,6 +102,11 @@ public final class SignIn {
         return rest <= 0 ? 0 : (int) ((rest + 999) / 1000);
     }
 
+    /** v2.0.3: while the code request is tried again: which try and why, else null. */
+    public synchronized String startNote() {
+        return starting ? startNote : null;
+    }
+
     /** The technical cause of the last failure (copied by a long press on the error line), or null. */
     public synchronized String errorDetail() {
         return errorDetail;
@@ -141,6 +148,7 @@ public final class SignIn {
         errorCode = null;
         errorDetail = null;
         lastNetwork = null;
+        startNote = null;
         starting = true;
         lastStartAt = now;
         int gen = ++generation;
@@ -242,7 +250,15 @@ public final class SignIn {
         try {
             DeviceFlow.Code code = resumed;
             if (code == null) {
-                code = DeviceFlow.start(clientId, DeviceFlow.SCOPE);
+                code = DeviceFlow.start(clientId, DeviceFlow.SCOPE, (attempt, of, last) -> {
+                    synchronized (SignIn.this) {
+                        if (gen != generation) return;
+                        startNote = "try " + attempt + " of " + of + ": " + (last instanceof java.net.SocketTimeoutException
+                                ? "GitHub didn't answer in time" : last instanceof java.net.UnknownHostException
+                                ? "github.com couldn't be found (DNS)" : "the network dropped the request");
+                    }
+                    changed();
+                });
                 synchronized (this) {
                     if (gen != generation) {
                         // the window was closed while the code was on its way: kept for the next window, unless a
