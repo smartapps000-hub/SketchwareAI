@@ -78,6 +78,11 @@ public final class SwbParts {
 
         /** The manifest in {@code json}; a {@link GitHubException} when it isn't one this app wrote. */
         public static Manifest parse(String json) throws GitHubException {
+            return parse(json, CloudBackup.MAX_BYTES);
+        }
+
+        /** v2.0.4: the same for a release's parts list (a larger backup allowed). */
+        public static Manifest parse(String json, long maxTotal) throws GitHubException {
             try {
                 JsonElement e = com.google.gson.JsonParser.parseString(json);
                 if (!e.isJsonObject()) throw new IllegalStateException("not an object");
@@ -102,7 +107,7 @@ public final class SwbParts {
                     m.parts.add(new Part(DeviceFlow.string(po, "path"), size, sha));
                     total += size;
                 }
-                if (m.parts.isEmpty() || total != m.size || m.size > CloudBackup.MAX_BYTES
+                if (m.parts.isEmpty() || total != m.size || m.size > maxTotal
                         || m.sha256 == null || !m.sha256.matches("[0-9a-f]{64}")) {
                     throw new IllegalStateException("sizes don't add up");
                 }

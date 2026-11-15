@@ -26,13 +26,22 @@ import java.util.Map;
  * background backup never hammers GitHub. The pause is kept per credential (signed out: GitHub's per-network limit;
  * each token: the account's own), measured on the uptime clock from the server's own times (a wrong phone clock can't
  * stretch it), at most one hour. Writes (POST, PATCH, PUT, DELETE) are never sent twice.
+ * <p>
+ * v2.0.4 (owner's 16 Nov directive "per-project repositories, release assets, 30-100 MB, Cancel"): release assets go up
+ * as raw bytes to {@code uploads.github.com} ({@link #uploadAsset}: no base64, no JSON around them) and come down from
+ * the API's asset address, whose answer is a redirect to GitHub's file host: the redirect is followed by hand and the
+ * token is never sent there ({@link #downloadAsset}). The token goes to the API and upload hosts only, as
+ * {@code Authorization: Bearer} on every request. A job can be cancelled from another thread ({@link #cancel}): its
+ * connection is closed and its loops stop at the next 32 KB.
  */
 public final class GitHubHttp {
 
     static final String DEFAULT_WEB = "https://github.com";
     static final String DEFAULT_API = "https://api.github.com";
+    static final String DEFAULT_UPLOADS = "https://uploads.github.com";
     private static String web = DEFAULT_WEB;
     private static String api = DEFAULT_API;
+    private static String uploads = DEFAULT_UPLOADS;
     static String userAgent = "SketchwareAI";
 
     private GitHubHttp() {
@@ -40,8 +49,18 @@ public final class GitHubHttp {
 
     /** Tests point both hosts at a local server. */
     static synchronized void useEndpoints(String webBase, String apiBase) {
+        useEndpoints(webBase, apiBase, apiBase + "/uploads");
+    }
+
+    /** v2.0.4: tests point the upload host at the local server too. */
+    static synchronized void useEndpoints(String webBase, String apiBase, String uploadsBase) {
         web = webBase;
         api = apiBase;
+        uploads = uploadsBase;
+    }
+
+    static synchronized String uploads() {
+        return uploads;
     }
 
     static synchronized String web() {
@@ -69,6 +88,10 @@ public final class GitHubHttp {
         public boolean anonymous;
         /** v2.0.3: GitHub's {@code X-GitHub-Request-Id} (for an error report), or null. */
         public String requestId;
+        /** v2.0.4: GitHub's {@code X-OAuth-Scopes} (what the token may do), or null. */
+        public String scopes;
+        /** v2.0.4: a redirect's {@code Location}, or null. */
+        public String location;
 
         Response(int code, String body) {
             this.code = code;
@@ -357,6 +380,12 @@ public final class GitHubHttp {
             note(r, token);
             return r;
         }
+        return save(c, code, target, maxBytes, progress);
+    }
+
+    /** The answer's body into {@code target} (through a ".part" file, renamed at the end). */
+    private static Response save(HttpURLConnection c, int code, File target, long maxBytes, Progress progress)
+            throws IOException {
         File temp = new File(target.getAbsolutePath() + ".part");
         long total = 0;
         OutputStream file;
@@ -367,12 +396,13 @@ public final class GitHubHttp {
             throw new NoRetry("Can't write " + temp, e);
         }
         // the file first: it is closed even when the answer's stream can't be opened (review)
-        long length = c.getContentLength(); // int on every API level (files here stay under 100 MB)
+        long length = c.getContentLength(); // int on every API level (parts stay under 2 GB)
         try (OutputStream out = file; InputStream in = c.getInputStream()) {
             byte[] buffer = new byte[64 * 1024];
             int n;
             while ((n = in.read(buffer)) > 0) {
                 total += n;
+                stopIfCancelled();
                 if (progress != null) progress.bytes(total, length);
                 if (total > maxBytes) throw new TooLarge("The file is larger than " + (maxBytes >> 20) + " MB");
                 try {
@@ -395,6 +425,105 @@ public final class GitHubHttp {
         return new Response(code, "");
     }
 
+    // ------------------------------------------------------------------ v2.0.4: release assets
+
+    /**
+     * v2.0.4: {@code length} bytes of {@code file} from {@code offset} as a release asset: POST to the upload host with
+     * the raw bytes ({@code path} = "/repos/o/r/releases/{id}/assets?name=..."). Never sent twice by itself (the caller
+     * looks at the release first).
+     */
+    static Response uploadAsset(String path, String token, File file, long offset, long length, String contentType,
+                                Progress progress) throws IOException {
+        Response limited = limitedNow(token);
+        if (limited != null) return limited;
+        HttpURLConnection c = open(uploads() + path, "POST", token);
+        try {
+            c.setRequestProperty("Accept", "application/vnd.github+json");
+            c.setRequestProperty("Content-Type", contentType);
+            c.setDoOutput(true);
+            c.setFixedLengthStreamingMode(length);
+            try (OutputStream raw = c.getOutputStream(); InputStream source = new FileInputStream(file)) {
+                skipFully(source, offset);
+                InputStream in = new Limited(source, length);
+                OutputStream out = new CountingStream(raw, length, progress);
+                byte[] buffer = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+            }
+            Response r = read(c);
+            note(r, token);
+            return r;
+        } finally {
+            release();
+        }
+    }
+
+    /**
+     * v2.0.4: a release asset ({@code path} = "/repos/o/r/releases/assets/{id}") into {@code target}. GitHub answers
+     * with a redirect to its file host; it is followed here (at most three times) and the token goes only to GitHub's
+     * API and upload hosts, never to the file host. Tried again like {@link #download}.
+     */
+    static Response downloadAsset(String path, String token, File target, long maxBytes, Progress progress)
+            throws IOException {
+        try {
+            for (int attempt = 0; ; attempt++) {
+                Response limited = limitedNow(token);
+                if (limited != null) return limited;
+                try {
+                    Response r = downloadAssetOnce(path, token, target, maxBytes, progress);
+                    if (attempt < backoff.length && (r.code == 502 || r.code == 503 || r.code == 504)) {
+                        pause(backoff[attempt]);
+                        continue;
+                    }
+                    return r;
+                } catch (IOException e) {
+                    if (attempt >= backoff.length || !worthRetry(e)) throw e;
+                    pause(backoff[attempt]);
+                }
+            }
+        } finally {
+            release();
+        }
+    }
+
+    private static Response downloadAssetOnce(String path, String token, File target, long maxBytes, Progress progress)
+            throws IOException {
+        String url = api() + path;
+        for (int hop = 0; hop < 4; hop++) {
+            HttpURLConnection c = open(url, "GET", token);
+            c.setRequestProperty("Accept", "application/octet-stream");
+            int code = c.getResponseCode();
+            if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+                String next = c.getHeaderField("Location");
+                c.disconnect();
+                if (next == null) return new Response(code, "{\"message\":\"A redirect without an address\"}");
+                url = new URL(new URL(url), next).toString();
+                // only secure addresses (the local test server is the API's own host)
+                if (!url.startsWith("https://") && !url.startsWith(hostOf(api()))) {
+                    return new Response(code, "{\"message\":\"GitHub sent the file to an insecure address\"}");
+                }
+                continue;
+            }
+            if (code < 200 || code >= 300) {
+                Response r = read(c);
+                note(r, token);
+                return r;
+            }
+            return save(c, code, target, maxBytes, progress);
+        }
+        return new Response(310, "{\"message\":\"Too many redirects\"}");
+    }
+
+    /** "scheme://host:port" of a base address. */
+    private static String hostOf(String base) {
+        try {
+            URL u = new URL(base);
+            return u.getProtocol() + "://" + u.getAuthority() + "/";
+        } catch (java.net.MalformedURLException e) {
+            return base;
+        }
+    }
+
     // ------------------------------------------------------------------ v2.0.1: retries and limits
 
     /** A dropped or timed-out connection is worth another try; a missing host (offline, no DNS) or TLS problem not. */
@@ -411,7 +540,7 @@ public final class GitHubHttp {
             Thread.sleep(millis + jitter);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new java.io.InterruptedIOException("Stopped while waiting to try again");
+            throw new Cancelled();
         }
     }
 
@@ -468,9 +597,49 @@ public final class GitHubHttp {
         }
         c.setRequestProperty("User-Agent", userAgent);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        // the token goes only to the API host
-        if (token != null && url.startsWith(api())) c.setRequestProperty("Authorization", "Bearer " + token);
+        // the token goes only to the API and upload hosts (v2.0.4: never to the file host a download is sent on to)
+        if (token != null && (url.startsWith(api() + "/") || url.startsWith(uploads() + "/"))) {
+            c.setRequestProperty("Authorization", "Bearer " + token.trim());
+        }
+        ACTIVE.put(Thread.currentThread(), c);
         return c;
+    }
+
+    // ------------------------------------------------------------------ v2.0.4: cancel
+
+    /** The connection each thread has open (the last one opened), for {@link #cancel}. */
+    private static final java.util.concurrent.ConcurrentHashMap<Thread, HttpURLConnection> ACTIVE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** A job was cancelled: never tried again. */
+    public static final class Cancelled extends NoRetry {
+        Cancelled() {
+            super("Cancelled", null);
+        }
+    }
+
+    /** v2.0.4: stops {@code worker}'s transfer: interrupted, and its open connection closed. */
+    static void cancel(Thread worker) {
+        if (worker == null) return;
+        worker.interrupt();
+        HttpURLConnection c = ACTIVE.get(worker);
+        if (c != null) {
+            try {
+                c.disconnect();
+            } catch (RuntimeException ignored) {
+                // already closed
+            }
+        }
+    }
+
+    /** Throws {@link Cancelled} when the current thread was cancelled. */
+    static void stopIfCancelled() throws Cancelled {
+        if (Thread.currentThread().isInterrupted()) throw new Cancelled();
+    }
+
+    /** The current thread's work is done with its connection. */
+    static void release() {
+        ACTIVE.remove(Thread.currentThread());
     }
 
     private static Response read(HttpURLConnection c) throws IOException {
@@ -492,6 +661,8 @@ public final class GitHubHttp {
             }
             Response r = new Response(code, body);
             r.requestId = c.getHeaderField("X-GitHub-Request-Id");
+            r.scopes = c.getHeaderField("X-OAuth-Scopes");
+            r.location = c.getHeaderField("Location");
             r.serverDate = c.getHeaderFieldDate("Date", 0);
             r.retryAfter = intHeader(c, "Retry-After");
             r.rateRemaining = intHeader(c, "X-RateLimit-Remaining");
@@ -504,6 +675,7 @@ public final class GitHubHttp {
             return r;
         } finally {
             c.disconnect();
+            release();
         }
     }
 
@@ -542,11 +714,12 @@ public final class GitHubHttp {
             count(len);
         }
 
-        private void count(long n) {
+        private void count(long n) throws IOException {
             done += n;
             if (done - told >= 32 * 1024 || done >= total) {
                 told = done;
-                progress.bytes(done, total);
+                stopIfCancelled();
+                if (progress != null) progress.bytes(done, total);
             }
         }
     }

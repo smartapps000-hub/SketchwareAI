@@ -23,7 +23,7 @@ import java.util.Locale;
  * again on its own after a dropped connection, a server error or a one-off 401 while GET /user still works), with a
  * manifest ({@link SwbParts}); files a backup no longer uses (a single .swb replaced by parts, or the other way round,
  * or parts left over) are removed in the same commit. The same class writes a project's public copy
- * ({@link PublicCopy}) to its own repository.
+ * (v2.0.3 public copies; since v2.0.4 each project has its own repository, {@link ProjectRepo}).
  */
 public final class CloudBackup {
 

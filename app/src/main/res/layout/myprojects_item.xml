@@ -49,31 +49,134 @@
                     android:visibility="gone" />
             </FrameLayout>
 
+            <!-- v2.0.4 (owner's 16 Nov directive "single-line card alignment"): the name on one line (it scrolls when
+                 long) up to the #id (or the Target pill) on the right; under it the package and version on the left
+                 and the Public / Private pill + Share on the right, on the same row. -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="12dp"
-                android:layout_marginRight="12dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/project_name"
-                    style="@style/Ob.Text.Title"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:lineSpacingExtra="2dp"
-                    android:maxLines="2" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/package_name"
-                    style="@style/Ob.Text.Caption"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:id="@+id/project_name"
+                        style="@style/Ob.Text.Title"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="marquee"
+                        android:marqueeRepeatLimit="marquee_forever"
+                        android:singleLine="true" />
+
+                    <TextView
+                        android:id="@+id/tv_published"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginRight="-4dp"
+                        android:paddingLeft="10dp"
+                        android:paddingTop="6dp"
+                        android:paddingRight="4dp"
+                        android:paddingBottom="6dp"
+                        android:fontFamily="@font/manrope_bold"
+                        android:includeFontPadding="false"
+                        android:singleLine="true"
+                        android:textColor="@color/ob_accent"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/ob_target_pill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="8dp"
+                        android:background="@drawable/ob_badge"
+                        android:fontFamily="@font/manrope_bold"
+                        android:includeFontPadding="false"
+                        android:paddingLeft="10dp"
+                        android:paddingTop="5dp"
+                        android:paddingRight="10dp"
+                        android:paddingBottom="5dp"
+                        android:singleLine="true"
+                        android:textColor="#FFFDBA74"
+                        android:textSize="11sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:ellipsize="middle"
-                    android:singleLine="true" />
+                    android:layout_marginTop="6dp"
+                    android:gravity="center_vertical"
+                    android:minHeight="30dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/package_name"
+                        style="@style/Ob.Text.Caption"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="middle"
+                        android:singleLine="true" />
+
+                    <!-- v2.0.2: the share button of the project's GitHub link; v2.0.3: with the Public / Private pill;
+                         v2.0.4: on the package's row, right-aligned (com.sketchware.ai.github.ProjectLinks) -->
+                    <LinearLayout
+                        android:id="@+id/ob_github_pills"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/ob_visibility"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:background="@drawable/ob_pill16_state"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingLeft="9dp"
+                            android:paddingRight="10dp">
+
+                            <ImageView
+                                android:id="@+id/ob_visibility_icon"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ob_ic_lock" />
+
+                            <TextView
+                                android:id="@+id/ob_visibility_text"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginLeft="5dp"
+                                android:fontFamily="@font/manrope_bold"
+                                android:includeFontPadding="false"
+                                android:maxLines="1"
+                                android:text="Private"
+                                android:textColor="@color/ob_text"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:id="@+id/ob_share_link"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_marginLeft="6dp"
+                            android:background="@drawable/ob_pill16_state"
+                            android:contentDescription="Share the project's GitHub link"
+                            android:padding="7dp"
+                            android:src="@drawable/ob_ic_share" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <!-- Bound by the adapter; their text is shown in package_name's line. -->
                 <TextView
@@ -87,98 +190,9 @@
                     android:layout_width="0dp"
                     android:layout_height="0dp"
                     android:visibility="gone" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="right|center_vertical"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tv_published"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginRight="-4dp"
-                    android:paddingLeft="12dp"
-                    android:paddingTop="10dp"
-                    android:paddingRight="4dp"
-                    android:paddingBottom="10dp"
-                    android:fontFamily="@font/manrope_bold"
-                    android:includeFontPadding="false"
-                    android:textColor="@color/ob_accent"
-                    android:textSize="12sp" />
-
-                <!-- v2.0.2: the share button of the project's GitHub backup link; v2.0.3 (owner's 15 Nov directive):
-                     with the project's Public / Private pill, right under the #id (shown when a backup link is
-                     stored: com.sketchware.ai.github.ProjectLinks) -->
-                <LinearLayout
-                    android:id="@+id/ob_github_pills"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="4dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone">
-
-                    <LinearLayout
-                        android:id="@+id/ob_visibility"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:background="@drawable/ob_pill16_state"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingLeft="9dp"
-                        android:paddingRight="10dp">
-
-                        <ImageView
-                            android:id="@+id/ob_visibility_icon"
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ob_ic_lock" />
-
-                        <TextView
-                            android:id="@+id/ob_visibility_text"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginLeft="5dp"
-                            android:fontFamily="@font/manrope_bold"
-                            android:includeFontPadding="false"
-                            android:maxLines="1"
-                            android:text="Private"
-                            android:textColor="@color/ob_text"
-                            android:textSize="12sp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:id="@+id/ob_share_link"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:layout_marginLeft="6dp"
-                        android:background="@drawable/ob_pill16_state"
-                        android:contentDescription="Share the GitHub backup link"
-                        android:padding="7dp"
-                        android:src="@drawable/ob_ic_share" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/ob_target_pill"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/ob_badge"
-                    android:fontFamily="@font/manrope_bold"
-                    android:includeFontPadding="false"
-                    android:paddingLeft="10dp"
-                    android:paddingTop="5dp"
-                    android:paddingRight="10dp"
-                    android:paddingBottom="5dp"
-                    android:textColor="#FFFDBA74"
-                    android:textSize="11sp"
-                    android:visibility="gone" />
 
                 <!-- The adapter rotates and taps this; the design shows no chevron, so it is
-                     invisible and the #id / Target column (and a long press) opens the actions. -->
+                     invisible and the card (and a long press) opens the actions. -->
                 <View
                     android:id="@+id/expand"
                     android:layout_width="0dp"

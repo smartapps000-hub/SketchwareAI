@@ -15,20 +15,18 @@ import java.io.File;
 import mod.agus.jcoderz.lib.FileUtil;
 
 /**
- * v2.0.2 (owner's 14 Nov directive "permanent offline-stored share button on every project card"): the link of a
- * project's GitHub backup, kept with the project ({@code data/<sc_id>/github_backup.json}: url, path, time; written
- * atomically after every backup to GitHub, the same link each time since the backup path stays). The projects list
- * shows a share button next to the "#id" when a link is there; sharing works offline. The backup repository is private:
- * the link opens for the account that made it (and imports on another phone signed in to it).
+ * v2.0.2: the project's GitHub record ({@code data/<sc_id>/github_backup.json}), kept with the project and read offline:
+ * the share pill's link and the account that made it. It counts only for the project id it was written for and only
+ * while that account is signed in; a restored or imported .swb drops it (v2.0.3 review).
  * <p>
- * v2.0.2 review: the file travels inside .swb backups (the whole data folder is packed), so a link counts only for the
- * project id it was written for (a restored or duplicated project gets a new id) and never while another GitHub account
- * is signed in; the projects list is told when a link is written so the button shows at once.
- * <p>
- * v2.0.3 (owner's 15 Nov directive "per-project Public / Private and Share pills next to #number"): the file also keeps
- * the project's visibility and, when it was made public, its public copy's repository and link ({@link PublicCopy});
- * the share pill then shares the public link. It also keeps the backup's boxes and a fingerprint of the saved project
- * at that backup ({@link CloudSync#fingerprint}): a save without changes makes no new automatic backup.
+ * v2.0.4 (owner's 16 Nov directive "one dedicated repository per project"): the record names the project's own
+ * repository ({@code repo}, and GitHub's number for it, {@code repo_number}: renames are followed by number), its
+ * visibility (the Public / Private pill), the last version's tag, the Standard version's tag, the backup's boxes and the
+ * fingerprint of the saved project at that backup. A v2.0.3 public copy ({@code public_repo} / {@code public_number}) is
+ * taken as the project's repository. A record of v2.0.2 / v2.0.3 that only links a file in {@link CloudBackup#REPO}
+ * still shows its pills; the next backup moves the project into its own repository. Restoring a version of the
+ * project's repository on another phone links the restored project to it ({@link #linkRestored}), so its next backups
+ * go to the same repository instead of a new one.
  */
 public final class ProjectLinks {
 
@@ -45,7 +43,7 @@ public final class ProjectLinks {
     private static JsonObject read(String scId) {
         if (scId == null || !scId.matches("\\d+")) return null;
         File f = file(scId);
-        if (!f.isFile() || f.length() > 8192) return null;
+        if (!f.isFile() || f.length() > 16384) return null;
         try {
             JsonObject json = DeviceFlow.parse(FileUtil.readFile(f.getAbsolutePath()));
             if (!scId.equals(DeviceFlow.string(json, "sc_id"))) return null;
@@ -61,10 +59,10 @@ public final class ProjectLinks {
     }
 
     /**
-     * v2.0.3 review: the public copy's fields count only for the account signed in now that made them (a record carried
-     * by a restored or imported .swb, or one without an account, never steers a visibility change).
+     * v2.0.3 review: the repository fields count only for the account signed in now that made them (a record carried
+     * in some other way, or one without an account, never steers a visibility change).
      */
-    private static boolean publicFieldsOf(JsonObject json, String signedInLogin) {
+    private static boolean mine(JsonObject json, String signedInLogin) {
         String owner = DeviceFlow.string(json, "login");
         return signedInLogin != null && owner != null && owner.equalsIgnoreCase(signedInLogin);
     }
@@ -73,78 +71,105 @@ public final class ProjectLinks {
         return url != null && url.startsWith("https://github.com/") ? url : null;
     }
 
-    /** The project's backup link, or null (none yet, not a github.com link, or written for another project). */
-    public static String get(String scId) {
-        return get(scId, null);
-    }
-
-    /**
-     * The link the share pill shares: the public copy's while the project is public, else the private backup's; null
-     * when {@code signedInLogin} (the account signed in now, or null) differs from the account that made the backup.
-     */
-    public static String get(String scId, String signedInLogin) {
-        JsonObject json = read(scId);
-        if (json == null || !ownedBy(json, signedInLogin)) return null;
-        if (publicFieldsOf(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"))) {
-            String shared = github(DeviceFlow.string(json, "public_url"));
-            if (shared != null) return shared;
-        }
-        return github(DeviceFlow.string(json, "url"));
-    }
-
-    /** v2.0.3: "public", "private", or null when there is no backup link (the card then shows no pills). */
-    public static String visibility(String scId, String signedInLogin) {
-        JsonObject json = read(scId);
-        if (json == null || !ownedBy(json, signedInLogin) || github(DeviceFlow.string(json, "url")) == null) return null;
-        return publicFieldsOf(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"))
-                ? "public" : "private";
-    }
-
-    static boolean isPublic(String scId, String signedInLogin) {
-        JsonObject json = read(scId);
-        return json != null && publicFieldsOf(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"));
-    }
-
-    /**
-     * v2.0.3: the public copy's repository kept for the project (also while it is private again), or null; never the
-     * backup repository.
-     */
-    static String publicRepository(String scId, String signedInLogin) {
-        JsonObject json = read(scId);
-        if (json == null || !publicFieldsOf(json, signedInLogin)) return null;
-        String repo = DeviceFlow.string(json, "public_repo");
-        return repo != null && repo.matches("[A-Za-z0-9_.-]{1,100}") && !repo.equalsIgnoreCase(CloudBackup.REPO) ? repo : null;
-    }
-
-    /** v2.0.3 review: the id of the project's public copy (in its repository's description), or null. */
-    static String publicId(String scId, String signedInLogin) {
-        JsonObject json = read(scId);
-        if (json == null || !publicFieldsOf(json, signedInLogin)) return null;
-        String id = DeviceFlow.string(json, "public_id");
-        return id != null && id.matches("[0-9a-f]{12}") ? id : null;
-    }
-
-    /** Second review: the public copy's repository number (GitHub's id: kept through renames, never reused), or 0. */
-    static long publicNumber(String scId, String signedInLogin) {
-        JsonObject json = read(scId);
-        if (json == null || !publicFieldsOf(json, signedInLogin)) return 0;
+    private static long longOf(JsonObject json, String key) {
         try {
-            return json.has("public_number") ? json.get("public_number").getAsLong() : 0;
+            return json.has(key) && json.get(key).isJsonPrimitive() ? json.get(key).getAsLong() : 0;
         } catch (RuntimeException e) {
             return 0;
         }
     }
 
-    /**
-     * v2.0.3: the fingerprint of the saved project at its last backup, or null; second review: only a backup by the
-     * account signed in now (another account's repository doesn't have it).
-     */
-    static String lastFingerprint(String scId, String signedInLogin) {
+    // ------------------------------------------------------------------ the project's repository
+
+    /** v2.0.4: the project's repository number (or the v2.0.3 public copy's), for this account; 0 when none. */
+    static long repoNumber(String scId, String signedInLogin) {
         JsonObject json = read(scId);
-        return json == null || !publicFieldsOf(json, signedInLogin) ? null : DeviceFlow.string(json, "fingerprint");
+        if (json == null || !mine(json, signedInLogin)) return 0;
+        long n = longOf(json, "repo_number");
+        return n > 0 ? n : longOf(json, "public_number");
     }
 
-    /** v2.0.3: the boxes of the project's last backup (an automatic backup after a save uses them), or null. */
+    /** v2.0.4: the project's repository name as recorded, or null. */
+    static String repoName(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        if (json == null || !mine(json, signedInLogin)) return null;
+        String repo = DeviceFlow.string(json, "repo");
+        if (repo == null) repo = DeviceFlow.string(json, "public_repo");
+        return repo != null && repo.matches("[A-Za-z0-9_.-]{1,100}") && !repo.equalsIgnoreCase(CloudBackup.REPO) ? repo : null;
+    }
+
+    /** v2.0.4: the repository was found or made: its name, number and visibility (a new record when there is none). */
+    static synchronized void repoFound(String scId, String login, String repo, long number, boolean isPrivate) {
+        if (scId == null || !scId.matches("\\d+") || login == null) return;
+        File dir = file(scId).getParentFile();
+        if (dir == null || !dir.isDirectory()) return;
+        JsonObject json = read(scId);
+        if (json == null || !mine(json, login)) {
+            json = new JsonObject();
+            json.addProperty("sc_id", scId);
+            json.addProperty("login", login);
+        }
+        json.addProperty("repo", repo);
+        json.addProperty("repo_number", number);
+        json.addProperty("visibility", isPrivate ? "private" : "public");
+        json.addProperty("url", ProjectRepo.link(login, repo));
+        json.addProperty("path", "");
+        write(scId, json);
+    }
+
+    /**
+     * The link the share pill shares: the project's repository page; for a record of v2.0.2 / v2.0.3 without one, the
+     * backup file's link. Null when another account made it.
+     */
+    public static String get(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        if (json == null || !ownedBy(json, signedInLogin)) return null;
+        if (mine(json, signedInLogin)) {
+            String repo = DeviceFlow.string(json, "repo");
+            if (repo != null) return ProjectRepo.link(signedInLogin, repo);
+            if ("public".equals(DeviceFlow.string(json, "visibility"))) {
+                String shared = github(DeviceFlow.string(json, "public_url"));
+                if (shared != null) return shared;
+            }
+        }
+        return github(DeviceFlow.string(json, "url"));
+    }
+
+    public static String get(String scId) {
+        return get(scId, null);
+    }
+
+    /** "public", "private", or null when the project has no GitHub record (the card then shows no pills). */
+    public static String visibility(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        if (json == null || !ownedBy(json, signedInLogin) || github(DeviceFlow.string(json, "url")) == null) return null;
+        return mine(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility")) ? "public" : "private";
+    }
+
+    static boolean isPublic(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        return json != null && mine(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"));
+    }
+
+    /** v2.0.4: the Standard version's tag as last seen, or null. */
+    static String standardTag(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        return json == null || !mine(json, signedInLogin) ? null : DeviceFlow.string(json, "standard_tag");
+    }
+
+    /** v2.0.3: the fingerprint of the saved project at its last backup by this account, or null. */
+    static String lastFingerprint(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        return json == null || !mine(json, signedInLogin) ? null : DeviceFlow.string(json, "fingerprint");
+    }
+
+    /** v2.0.4: when the APK that went up with a backup was built (its file time), or 0. */
+    static long lastApkTime(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        return json == null || !mine(json, signedInLogin) ? 0 : longOf(json, "apk_time");
+    }
+
+    /** v2.0.3: the boxes of the project's last backup, or null. */
     static CloudSync.Options lastOptions(String scId) {
         JsonObject json = read(scId);
         String flags = json == null ? null : DeviceFlow.string(json, "options");
@@ -154,12 +179,63 @@ public final class ProjectLinks {
     /** v2.0.3: when the project was last backed up to GitHub (ms since 1970), or 0. */
     static long lastBackup(String scId) {
         JsonObject json = read(scId);
-        try {
-            return json != null && json.has("time") ? json.get("time").getAsLong() : 0;
-        } catch (RuntimeException e) {
-            return 0;
-        }
+        return json == null ? 0 : longOf(json, "time");
     }
+
+    /** v2.0.4: after a backup: the version's tag, the boxes, the fingerprint and the APK's time. */
+    static synchronized void saved(String scId, String login, String tag, CloudSync.Options options, String fingerprint,
+                                   long apkTime) {
+        JsonObject json = read(scId);
+        if (json == null || !mine(json, login)) return;
+        json.addProperty("time", System.currentTimeMillis());
+        if (tag != null) json.addProperty("tag", tag);
+        if (options != null) {
+            json.addProperty("options", (options.localLibraries ? "L" : "") + (options.customBlocks ? "C" : ""));
+        }
+        if (fingerprint != null) json.addProperty("fingerprint", fingerprint);
+        if (apkTime > 0) json.addProperty("apk_time", apkTime);
+        write(scId, json);
+    }
+
+    /** v2.0.4: the repository's visibility as GitHub has it now. */
+    static synchronized void visibilityNow(String scId, String login, boolean isPrivate) {
+        JsonObject json = read(scId);
+        if (json == null || !mine(json, login)) return;
+        json.addProperty("visibility", isPrivate ? "private" : "public");
+        write(scId, json);
+    }
+
+    /** v2.0.4: the Standard version's tag (null: none pinned). */
+    static synchronized void standardNow(String scId, String login, String tag) {
+        JsonObject json = read(scId);
+        if (json == null || !mine(json, login)) return;
+        if (tag == null) json.remove("standard_tag");
+        else json.addProperty("standard_tag", tag);
+        write(scId, json);
+    }
+
+    /**
+     * v2.0.4 (owner: "re-hydrate the project's metadata on restore so later backups update the exact same repository"):
+     * a project restored from a version of the account's own project repository is linked to it, unless another
+     * project on this phone already is (two projects never back up into one repository).
+     */
+    static synchronized boolean linkRestored(String scId, String login, String repo, long number, boolean isPrivate,
+                                             String standardTag) {
+        if (number <= 0 || login == null) return false;
+        File data = new File(Environment.getExternalStorageDirectory(), ".sketchware/data");
+        File[] projects = data.listFiles();
+        if (projects != null) {
+            for (File p : projects) {
+                if (!p.getName().matches("\\d+") || p.getName().equals(scId)) continue;
+                if (repoNumber(p.getName(), login) == number) return false;
+            }
+        }
+        repoFound(scId, login, repo, number, isPrivate);
+        if (standardTag != null) standardNow(scId, login, standardTag);
+        return true;
+    }
+
+    // ------------------------------------------------------------------ the projects list
 
     /** The projects screen's card refresh (held weakly: a closed screen is never kept). */
     private static volatile java.lang.ref.WeakReference<Runnable> changed;
@@ -179,89 +255,36 @@ public final class ProjectLinks {
         if (refresh != null) new android.os.Handler(android.os.Looper.getMainLooper()).post(refresh);
     }
 
-    /** After a backup to GitHub: the link of the project's .swb in the repository, and the account that made it. */
-    static void save(String scId, String url, String path, String login) {
-        saved(scId, url, path, login, null, null);
+    private static void write(String scId, JsonObject json) {
+        FileUtil.writeFile(file(scId).getAbsolutePath(), json.toString());
+        notifyChanged();
     }
 
-    /**
-     * v2.0.3: after a backup to GitHub: its link and path, the account, the boxes and the project's fingerprint; the
-     * visibility and the public copy's fields are kept.
-     */
-    static synchronized void saved(String scId, String url, String path, String login, CloudSync.Options options,
-                                   String fingerprint) {
+    /** Tests and older callers: a record naming a link only (v2.0.2's shape). */
+    static void save(String scId, String url, String path, String login) {
         if (scId == null || !scId.matches("\\d+") || url == null) return;
         File dir = file(scId).getParentFile();
-        if (dir == null || !dir.isDirectory()) return; // the project is gone
-        JsonObject old = read(scId);
-        // another account's record, or (second review) one that names no account: its public copy isn't carried over
-        if (old != null && !publicFieldsOf(old, login)) old = null;
+        if (dir == null || !dir.isDirectory()) return;
         JsonObject json = new JsonObject();
         json.addProperty("url", url);
         json.addProperty("path", path);
         json.addProperty("sc_id", scId);
         if (login != null) json.addProperty("login", login);
         json.addProperty("time", System.currentTimeMillis());
-        if (options != null) {
-            json.addProperty("options", (options.localLibraries ? "L" : "") + (options.customBlocks ? "C" : ""));
-        }
-        if (fingerprint != null) json.addProperty("fingerprint", fingerprint);
-        if (old != null) {
-            for (String key : new String[]{"visibility", "public_repo", "public_url", "public_path", "public_id"}) {
-                String value = DeviceFlow.string(old, key);
-                if (value != null) json.addProperty(key, value);
-            }
-            if (old.has("public_number")) json.add("public_number", old.get("public_number"));
-        }
         write(scId, json);
-    }
-
-    /** v2.0.3 review: a new public copy (still private) was made for the project: its repository, id and number. */
-    static synchronized void copyMade(String scId, String repo, String id, long number) {
-        JsonObject json = read(scId);
-        if (json == null) return;
-        json.addProperty("public_repo", repo);
-        json.addProperty("public_id", id);
-        if (number > 0) json.addProperty("public_number", number);
-        else json.remove("public_number");
-        write(scId, json);
-    }
-
-    /** v2.0.3: the project is public now: its public copy's repository and the link the share pill shares. */
-    static synchronized void publicNow(String scId, String repo, String url, String path) {
-        JsonObject json = read(scId);
-        if (json == null) return;
-        json.addProperty("visibility", "public");
-        json.addProperty("public_repo", repo);
-        json.addProperty("public_url", url);
-        json.addProperty("public_path", path);
-        write(scId, json);
-    }
-
-    /** v2.0.3: the project is private again (its public copy's repository is kept, private, for a later "Public"). */
-    static synchronized void privateNow(String scId) {
-        JsonObject json = read(scId);
-        if (json == null) return;
-        json.addProperty("visibility", "private");
-        write(scId, json);
-    }
-
-    private static void write(String scId, JsonObject json) {
-        FileUtil.writeFile(file(scId).getAbsolutePath(), json.toString());
-        notifyChanged();
     }
 
     /** The project card's share button: the link copied, then Android's share sheet. */
     public static void share(Activity activity, String projectName, String url) {
         ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("GitHub backup link", url));
+        if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("GitHub link", url));
         Toast.makeText(activity, "Link copied", Toast.LENGTH_SHORT).show();
         Intent send = new Intent(Intent.ACTION_SEND);
         send.setType("text/plain");
-        send.putExtra(Intent.EXTRA_SUBJECT, projectName + " (Sketchware AI backup)");
+        send.putExtra(Intent.EXTRA_SUBJECT, projectName + " (Sketchware AI project)");
         send.putExtra(Intent.EXTRA_TEXT, url);
         try {
-            activity.startActivity(Intent.createChooser(send, "Share the backup link"));
+            activity.startActivity(Intent.createChooser(send, "Share the project's link"));
         } catch (RuntimeException ignored) {
             // no app to share with: the link is on the clipboard
         }

@@ -47,11 +47,21 @@ public final class DrawerAccountCard {
         TextView name = card.findViewById(R.id.drawer_account_name);
         TextView login = card.findViewById(R.id.drawer_account_login);
         TextView email = card.findViewById(R.id.drawer_account_email);
+        View emailRow = card.findViewById(R.id.drawer_account_email_row);
+        View copyLogin = card.findViewById(R.id.drawer_account_copy_login);
+        View copyEmail = card.findViewById(R.id.drawer_account_copy_email);
         TextView status = card.findViewById(R.id.drawer_account_status);
         TextView renew = card.findViewById(R.id.drawer_account_renew);
         GitHubViews v = new GitHubViews(card.getContext());
         if (profile == null) {
             v.showPicture(picture, null);
+            // signed out: the title may take two lines (never cut)
+            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+            title.setSingleLine(false);
+            title.setMaxLines(2);
+            subtitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13);
+            subtitle.setSingleLine(false);
+            subtitle.setMaxLines(2);
             title.setText("Sign in with GitHub");
             subtitle.setText("Sync & back up projects");
             subtitle.setTextColor(v.color(R.color.ob_text_2));
@@ -64,6 +74,13 @@ public final class DrawerAccountCard {
         }
         v.showPicture(picture, picture(card, profile));
         // the top row: the picture, "GitHub" and its state, Sign out
+        // v2.0.4 (owner's 16 Nov phone test: "GitHu-b", "Connect-ed" beside Sign out): smaller, one line each
+        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        subtitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11);
+        subtitle.setSingleLine(true);
+        subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         title.setText("GitHub");
         boolean trouble = profile.problem != null;
         subtitle.setText(trouble ? "Sign-in not accepted" : "Connected");
@@ -74,12 +91,14 @@ public final class DrawerAccountCard {
         details.setVisibility(View.VISIBLE);
         boolean named = profile.name != null && !profile.name.trim().isEmpty();
         wrap(name, named ? profile.name.trim() : "@" + profile.login);
-        wrap(login, named ? "@" + profile.login : "GitHub account");
+        wrap(login, "@" + profile.login);
+        copyLogin.setOnClickListener(x -> copy(card, "GitHub user name", profile.login));
         if (profile.email != null && !profile.email.isEmpty()) {
             wrap(email, profile.email);
-            email.setVisibility(View.VISIBLE);
+            emailRow.setVisibility(View.VISIBLE);
+            copyEmail.setOnClickListener(x -> copy(card, "E-mail", profile.email));
         } else {
-            email.setVisibility(View.GONE);
+            emailRow.setVisibility(View.GONE);
         }
         if (trouble) {
             wrap(status, profile.problem);
@@ -103,6 +122,14 @@ public final class DrawerAccountCard {
         card.setOnClickListener(null);
         card.setClickable(false);
         card.setContentDescription("GitHub account @" + profile.login);
+    }
+
+    /** v2.0.4: one tap copies (a toast says what). */
+    private static void copy(View card, String what, String text) {
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) card.getContext()
+                .getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) clipboard.setPrimaryClip(android.content.ClipData.newPlainText(what, text));
+        android.widget.Toast.makeText(card.getContext(), what + " copied", android.widget.Toast.LENGTH_SHORT).show();
     }
 
     /** All of the text on as many lines as it needs: long words (an e-mail) break inside instead of being cut. */

@@ -141,22 +141,60 @@
                 android:fontFamily="@font/sora_bold"
                 android:textSize="15sp" />
 
-            <TextView
-                android:id="@+id/drawer_account_login"
-                style="@style/Ob.Text.Caption"
+            <!-- v2.0.4 (owner's 16 Nov directive): @username and the e-mail each with a one-tap Copy button -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
-                android:textSize="13sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/drawer_account_email"
-                style="@style/Ob.Text.Caption"
+                <TextView
+                    android:id="@+id/drawer_account_login"
+                    style="@style/Ob.Text.Caption"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="13sp" />
+
+                <ImageView
+                    android:id="@+id/drawer_account_copy_login"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginLeft="6dp"
+                    android:background="@drawable/ob_pill16_state"
+                    android:contentDescription="Copy the user name"
+                    android:padding="7dp"
+                    android:src="@drawable/ob_ic_copy" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/drawer_account_email_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textSize="13sp"
-                android:visibility="gone" />
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/drawer_account_email"
+                    style="@style/Ob.Text.Caption"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="13sp" />
+
+                <ImageView
+                    android:id="@+id/drawer_account_copy_email"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginLeft="6dp"
+                    android:background="@drawable/ob_pill16_state"
+                    android:contentDescription="Copy the e-mail address"
+                    android:padding="7dp"
+                    android:src="@drawable/ob_ic_copy" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/drawer_account_status"

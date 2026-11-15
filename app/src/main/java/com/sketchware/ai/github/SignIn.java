@@ -361,6 +361,9 @@ public final class SignIn {
             GitHubSession.changed();
             // projects made while signed out of GitHub or offline go up now
             CloudSync.get(app).syncPending();
+            // v2.0.4: the account's project repositories into the phone's list, in the background (a fresh phone lists
+            // what another one backed up without waiting when Restore projects opens)
+            RepoCache.discover(app);
             try {
                 String email = CloudBackup.primaryEmail(token);
                 if (email != null && token.equals(TokenStore.get(app).token())) {

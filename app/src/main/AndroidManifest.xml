@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Android 13+: progress notification while projects import in the background. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- v2.0.4 (owner's 16 Nov directive "foreground dataSync service"): GitHub backups, publishing and imports keep
+         the process and its network in the foreground while they run (com.sketchware.ai.github.CloudSyncService). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Android 11+ package visibility: "Run" opens the user's installed app by its launcher intent. -->
     <queries>
@@ -149,6 +153,50 @@
             android:name="com.sketchware.ai.github.KeepAliveService"
             android:exported="true"
             tools:ignore="ExportedService" />
+        <!-- v2.0.4: GitHub backups, publishing and imports in the foreground (dataSync), with Cancel / Retry -->
+        <service
+            android:name="com.sketchware.ai.github.CloudSyncService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <receiver
+            android:name="com.sketchware.ai.github.CloudSyncService$Actions"
+            android:exported="false" />
+        <!-- v2.0.4: Restore projects (GitHub and on this phone, full screen) and the Publish to GitHub screen -->
+        <activity
+            android:name="com.sketchware.ai.github.GitHubBackupsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="com.sketchware.ai.github.PublishActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"
+            android:windowSoftInputMode="adjustResize" />
+        <!-- v2.0.4: links to Sketchware AI project repositories (github.com/<owner>/SketchwareAI-<name>) and
+             sketchwareai://import?url=... open the import. github.com isn't this app's domain, so Android 12+ opens such
+             links here only after the user adds them under the app's "Open by default" settings (the import screen
+             has a shortcut); the custom scheme works from any app that makes it a link. -->
+        <activity
+            android:name="com.sketchware.ai.github.GitHubLinkActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/AppTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="github.com" />
+                <data android:host="www.github.com" />
+                <data android:pathPattern="/.*/SketchwareAI-.*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="import"
+                    android:scheme="sketchwareai" />
+            </intent-filter>
+        </activity>
         <activity
             android:name="com.sketchware.ai.github.GitHubActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"

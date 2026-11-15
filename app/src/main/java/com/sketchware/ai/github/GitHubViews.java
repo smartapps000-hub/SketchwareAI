@@ -491,6 +491,9 @@ public final class GitHubViews {
         public TextView percent;
         public android.widget.ProgressBar bar;
         public TextView status;
+        /** v2.0.4: the pills under the step (Hide, Cancel, Open on GitHub / Retry, Close) and the note under them. */
+        public LinearLayout buttons;
+        public TextView note;
     }
 
     /**
@@ -502,7 +505,7 @@ public final class GitHubViews {
         LinearLayout content = new LinearLayout(c);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(20), dp(8), dp(20), dp(4));
-        LinearLayout head = header(icon, title, "Keep the app open; you can hide this");
+        LinearLayout head = header(icon, title, "Hide moves it to the notification; it goes on");
         content.addView(head);
         p.title = (TextView) ((LinearLayout) head.getChildAt(1)).getChildAt(0);
         TextView percent = new TextView(c, null, 0, R.style.Ob_Text);
@@ -518,8 +521,18 @@ public final class GitHubViews {
         content.addView(bar, full(6, 10));
         TextView status = new TextView(c, null, 0, R.style.Ob_Text_Caption);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        status.setMaxLines(3);
+        status.setMaxLines(4);
         content.addView(status, full(-1, 12));
+        // v2.0.4: side-by-side glass pills under the bar (owner: "Hide and Open on GitHub", Cancel, Retry)
+        LinearLayout buttons = new LinearLayout(c);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        content.addView(buttons, full(-1, 16));
+        TextView note = new TextView(c, null, 0, R.style.Ob_Text_Caption);
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        note.setVisibility(View.GONE);
+        content.addView(note, full(-1, 6));
+        p.buttons = buttons;
+        p.note = note;
         p.root = content;
         p.percent = percent;
         p.bar = bar;

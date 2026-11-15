@@ -7,6 +7,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import com.google.gson.JsonObject;
+import com.sketchware.ai.project.ProjectDiffAnalyzer;
+import com.sketchware.remod.R;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -15,36 +19,40 @@ import java.util.Set;
 
 import a.a.a.lC;
 import a.a.a.yB;
-import com.sketchware.remod.R;
-
 import mod.hey.studios.project.backup.BackupFactory;
 import mod.jbk.util.LogUtil;
 
 /**
- * v2.0.0 (owner's 13 Nov directive "individual project backup"): one project at a time to the user's private
- * {@code SketchwareAI-Projects} repository ({@link CloudBackup}), on one background thread for the whole app.
+ * v2.0.0: project backups to GitHub on a background thread for the whole app; v2.0.3: a queue of jobs (a tap goes
+ * before the app's own backups, a second tap joins, everything ends in {@code finally}); backups after a save.
+ * <p>
+ * v2.0.4 (owner's 16 Nov directive "one repository per project, versioned releases, Publish to Public, foreground
+ * dataSync service with Cancel / Retry, imports that never collide with open projects"):
  * <ul>
- * <li>{@link #backUpFromMenu}: the project card's Back up > "To GitHub", with a toast when it starts and when it ends;</li>
- * <li>{@link #projectCreated}: a new project is backed up by itself when signed in; without a network (or when GitHub
- * doesn't answer) it is marked as waiting ({@link #pending}) and {@link #syncPending} uploads it later (the main
- * screen with a network, and after a sign-in).</li>
+ * <li>a backup goes to the project's own repository as the release of its app version ({@link ProjectRepo}), with the
+ * release notes the on-device analyzer writes from the change since the previous version
+ * ({@link ProjectDiffAnalyzer}); the last built APK goes with it when it is newer than the one already up; a public
+ * project's README, CHANGELOG and description are kept up to date at the same time;</li>
+ * <li>"Publish Public" ({@link #publish}) and "Switch to Private" ({@link #makePrivate}): one PATCH of the
+ * repository (the first backup is made first when the project has none);</li>
+ * <li>imports run on a lane of their own (a download never waits behind a 100 MB backup): the file is downloaded into
+ * a staging folder, checked, then restored as a new project (never over an open one) and linked to its repository
+ * when it is one of the account's own;</li>
+ * <li>every job can be cancelled ({@link #cancel}) and a failed one tried again ({@link #retry}); while jobs run, the
+ * foreground service {@link CloudSyncService} shows the progress in a notification with Cancel, and a failure with
+ * Retry.</li>
  * </ul>
- * The .swb is made by the app's own {@link BackupFactory}, uploaded and deleted again. v2.0.1 (owner's 13 Nov
- * directive): the project card's Back up sheet has the classic "Include used Local libraries" / "Include used Custom
- * Blocks" boxes, and "Back up to GitHub" uploads exactly the .swb "Save on phone" would make with the same boxes
- * ({@link Options}). Backups made by themselves (new and waiting projects) use {@link Options#AUTOMATIC}: custom blocks,
- * no local libraries (they can be large; the Library Resolver installs them again).
  */
 public final class CloudSync {
 
     static final String PREFS = "sketchware_ai_cloud_sync";
 
-    /** Called on the main thread when one backup ended. */
+    /** Called on the main thread when one job ended. */
     public interface Result {
         void done(boolean ok, String message);
     }
 
-    /** v2.0.2: a step of a backup (0-100 and what is happening), on the main thread. */
+    /** v2.0.2: a step of a job (0-100 and what is happening), on the main thread. */
     public interface Progress {
         void step(int percent, String text);
     }
@@ -63,6 +71,31 @@ public final class CloudSync {
         }
     }
 
+    /** v2.0.4: what an import restores. */
+    public static final class Import {
+        /** The repository it comes from (owner / name), and its number when it is the account's own. */
+        public String owner;
+        public String repo;
+        public long number;
+        public boolean repoPrivate;
+        /** A release of a project repository, or (old backups) a commit of a file in a repository. */
+        public ProjectRepo.Version version;
+        public String legacyPath;
+        public String legacySha;
+        public GitHubImport.Source link;
+        public String linkPath;
+        public long size;
+        public boolean withLibraries;
+        /** "owner/repo" of someone else's backup (its copied libraries are marked), or null for an own one. */
+        public String librariesFrom;
+        public String title;
+
+        String key() {
+            return "import:" + owner + "/" + repo + ":" + (version != null ? "r" + version.id
+                    : legacySha != null ? legacyPath + "@" + legacySha : String.valueOf(linkPath));
+        }
+    }
+
     private static CloudSync instance;
 
     public static synchronized CloudSync get(Context context) {
@@ -75,12 +108,7 @@ public final class CloudSync {
     private final Handler main = new Handler(Looper.getMainLooper());
 
     /**
-     * v2.0.3 (owner's 15 Nov phone test: a backup stuck at 1%, a second tap answered "is being backed up"): the work is
-     * a queue of jobs on one thread. A tap's backup goes before the ones the app makes by itself (new, waiting and
-     * saved projects); a second tap on a project that is queued or running follows that job (its sheet shows the same
-     * steps) instead of being refused; a job waiting behind another says so. Whatever happens in a job (also an
-     * {@link Error} such as running out of memory), it ends in {@code finally}: the project is free again and every
-     * screen following it hears the end.
+     * v2.0.3: one job of the queue. v2.0.4: also a publish or an import, cancellable, with the thread running it.
      */
     static final class Job {
         final String scId;
@@ -99,6 +127,13 @@ public final class CloudSync {
         String text = "Starting…";
         final java.util.List<Progress> watchers = new java.util.ArrayList<>();
         final java.util.List<Result> results = new java.util.ArrayList<>();
+        /** v2.0.4 */
+        volatile boolean cancelled;
+        volatile Thread thread;
+        PublishDetails details;
+        Import source;
+        /** v2.0.4: the repository page "Open on GitHub" opens, when known. */
+        volatile String link;
 
         Job(String scId, String kind, String name, Options options, boolean user) {
             this.scId = scId;
@@ -107,15 +142,44 @@ public final class CloudSync {
             this.options = options;
             this.user = user;
         }
+
+        /** What the job is (the notification's id and Retry's key). */
+        String key() {
+            return IMPORT.equals(kind) && source != null ? source.key() : kind + ":" + scId;
+        }
+
+        String title() {
+            String n = name == null ? "project #" + scId : name;
+            if (IMPORT.equals(kind)) return "Importing " + n;
+            if (PUBLISH.equals(kind)) return "Publishing " + n;
+            return "Backing up " + n;
+        }
     }
 
     static final String BACKUP = "backup";
-    static final String MAKE_PUBLIC = "public";
-    static final String MAKE_PRIVATE = "private";
+    static final String PUBLISH = "publish";
+    static final String IMPORT = "import";
 
-    private final java.util.ArrayDeque<Job> queue = new java.util.ArrayDeque<>();
-    private Job current;
-    private Thread worker;
+    /** One queue and its worker thread. */
+    private static final class Lane {
+        final String name;
+        final java.util.ArrayDeque<Job> queue = new java.util.ArrayDeque<>();
+        Job current;
+        Thread worker;
+
+        Lane(String name) {
+            this.name = name;
+        }
+    }
+
+    /** Backups and publishing, one at a time (one project's jobs never overlap). */
+    private final Lane work = new Lane("CloudSync");
+    /** Imports, one at a time, beside the backups. */
+    private final Lane imports = new Lane("CloudSyncImport");
+
+    private Lane laneOf(String kind) {
+        return IMPORT.equals(kind) ? imports : work;
+    }
 
     /** Tests: a job's work instead of the real one ({@link #run}), and where results go instead of the main thread. */
     interface Runner {
@@ -167,26 +231,29 @@ public final class CloudSync {
         if (set.remove(scId)) prefs.edit().putStringSet("pending", set).remove("pending_options_" + scId).apply();
     }
 
+
     /** v2.0.3: a job of this project is queued or running. */
     public synchronized boolean isRunning(String scId) {
-        return find(scId, BACKUP) != null || find(scId, MAKE_PUBLIC) != null || find(scId, MAKE_PRIVATE) != null;
+        return find(scId, BACKUP) != null || find(scId, PUBLISH) != null;
     }
 
     private Job find(String scId, String kind) {
-        if (current != null && current.scId.equals(scId) && current.kind.equals(kind)) return current;
+        Lane lane = laneOf(kind);
+        if (lane.current != null && lane.current.scId.equals(scId) && lane.current.kind.equals(kind)) return lane.current;
         return findQueued(scId, kind);
     }
 
     private Job findQueued(String scId, String kind) {
-        for (Job job : queue) {
+        for (Job job : laneOf(kind).queue) {
             if (job.scId.equals(scId) && job.kind.equals(kind)) return job;
         }
         return null;
     }
 
-    /** v2.0.3 review: a Public / Private change of this project is queued or running (the pill waits for it). */
-    public synchronized boolean isChangingVisibility(String scId) {
-        return find(scId, MAKE_PUBLIC) != null || find(scId, MAKE_PRIVATE) != null;
+    private Job findImport(String key) {
+        if (imports.current != null && key.equals(imports.current.key())) return imports.current;
+        for (Job job : imports.queue) if (key.equals(job.key())) return job;
+        return null;
     }
 
     // ------------------------------------------------------------------ entry points
@@ -198,7 +265,7 @@ public final class CloudSync {
 
     /**
      * v2.0.1: the same with the Back up sheet's boxes. v2.0.3: a backup of this project already queued or running is
-     * followed (its sheet shows where it is); one waiting behind another project says so.
+     * followed. v2.0.4: the sheet has Hide (the notification goes on), Cancel and, after a failure, Retry.
      */
     public static void backUpFromMenu(Activity activity, String scId, String name, Options options) {
         CloudSync sync = get(activity);
@@ -206,19 +273,38 @@ public final class CloudSync {
             GitHubInAppAuthDialog.show(activity, login -> backUpFromMenu(activity, scId, name, options));
             return;
         }
-        // v2.0.2 (owner's 14 Nov phone test: "Back up to GitHub did not visibly run"): the live progress sheet
-        GitHubProgress progress = GitHubProgress.show(activity, R.drawable.ob_ic_github, "Back up " + name);
+        Job job = new Job(scId, BACKUP, name, options == null ? Options.AUTOMATIC : options, true);
+        follow(activity, sync, job, R.drawable.ob_ic_github, "Back up " + name);
+    }
+
+    /** A progress sheet following {@code job} (queued here, or the same job already queued or running). */
+    static GitHubProgress follow(Activity activity, CloudSync sync, Job job, int icon, String title) {
+        GitHubProgress progress = GitHubProgress.show(activity, icon, title);
         progress.update(1, "Starting…");
-        sync.enqueue(new Job(scId, BACKUP, name, options == null ? Options.AUTOMATIC : options, true), progress::update,
-                (ok, message) -> {
-                    if (progress.hidden()) {
-                        Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show();
-                    } else if (ok) {
-                        progress.done(message);
-                    } else {
-                        progress.failed(message);
-                    }
-                });
+        String key = job.key();
+        progress.actions(() -> sync.cancel(key), () -> {
+            Job again = sync.retryJob(key);
+            if (again != null) {
+                progress.restart();
+                sync.enqueue(again, progress::update, ending(sync, progress));
+            }
+        }, job.link);
+        sync.enqueue(job, progress::update, ending(sync, progress));
+        Job running = sync.findByKey(key);
+        if (running != null && running.link != null) progress.link(running.link);
+        return progress;
+    }
+
+    private static Result ending(CloudSync sync, GitHubProgress progress) {
+        return (ok, message) -> {
+            if (progress.hidden()) {
+                Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show();
+            } else if (ok) {
+                progress.done(message);
+            } else {
+                progress.failed(message, sync.lastFailedRetryable(message));
+            }
+        };
     }
 
     /** A project was just created: back it up when signed in, else nothing; offline it waits. */
@@ -267,51 +353,104 @@ public final class CloudSync {
     }
 
     /**
+     * v2.0.4: "Publish Public" of the publish screen: the project's repository gets {@code details} (description,
+     * topics, README, CHANGELOG, the newest version's notes) and is made public; a project without a version on GitHub
+     * is backed up first.
+     */
+    public static GitHubProgress publish(Activity activity, String scId, String name, PublishDetails details) {
+        CloudSync sync = get(activity);
+        Job job = new Job(scId, PUBLISH, name, ProjectLinks.lastOptions(scId) == null ? Options.AUTOMATIC
+                : ProjectLinks.lastOptions(scId), true);
+        job.details = details;
+        return follow(activity, sync, job, R.drawable.ob_ic_public, "Publish " + name);
+    }
+
+    /** v2.0.4: an import into a new project, with its sheet. */
+    public static GitHubProgress importProject(Activity activity, Import source) {
+        CloudSync sync = get(activity);
+        Job job = new Job("import", IMPORT, source.title, Options.AUTOMATIC, true);
+        job.source = source;
+        job.link = source.owner != null && source.repo != null ? ProjectRepo.link(source.owner, source.repo) : null;
+        return follow(activity, sync, job, R.drawable.ob_ic_github, "Import " + (source.title == null ? source.repo
+                : source.title));
+    }
+
+    /**
+     * v2.0.4: the Public pill's "Switch to Private": one PATCH, at once (never behind a running backup). {@code done}
+     * hears the end on the main thread.
+     */
+    public static void makePrivate(Activity activity, String scId, Result done) {
+        CloudSync sync = get(activity);
+        Thread t = new Thread(() -> {
+            boolean ok = false;
+            String message;
+            try {
+                String[] session = sync.session();
+                ProjectRepo repo = ProjectRepo.open(session[1], session[0], scId);
+                if (repo != null) repo.setPrivate(true);
+                ProjectLinks.visibilityNow(scId, session[0], true);
+                ok = true;
+                message = "Private: the project's repository opens only for you now.";
+            } catch (Exception e) {
+                message = GitHubImportDialog.text(e);
+            }
+            boolean success = ok;
+            String text = message;
+            sync.post(() -> done.done(success, text));
+        }, "CloudSyncPrivate");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /**
      * v2.0.3: queues {@code job}, or joins the same job already queued or running: {@code progress} hears its steps
      * (the current one at once) and {@code result} its end, both on the main thread. A tap's job goes before the jobs
      * the app made by itself; a tap joining an automatic job that hasn't started moves it forward and gives it the
-     * tap's boxes.
+     * tap's boxes. v2.0.4: imports on their own lane.
      */
     void enqueue(Job job, Progress progress, Result result) {
         Job target;
         int ahead;
+        Lane lane = laneOf(job.kind);
         synchronized (this) {
-            target = job.afterRunning ? findQueued(job.scId, job.kind) : find(job.scId, job.kind);
+            if (IMPORT.equals(job.kind)) target = findImport(job.key());
+            else target = job.afterRunning ? findQueued(job.scId, job.kind) : find(job.scId, job.kind);
             if (target == null) {
                 target = job;
                 if (job.user) {
                     // after the other taps' jobs, before the automatic ones
                     java.util.ArrayDeque<Job> users = new java.util.ArrayDeque<>();
-                    while (!queue.isEmpty() && queue.peekFirst().user) users.addLast(queue.pollFirst());
-                    queue.addFirst(job);
-                    while (!users.isEmpty()) queue.addFirst(users.pollLast());
+                    while (!lane.queue.isEmpty() && lane.queue.peekFirst().user) users.addLast(lane.queue.pollFirst());
+                    lane.queue.addFirst(job);
+                    while (!users.isEmpty()) lane.queue.addFirst(users.pollLast());
                 } else {
-                    queue.addLast(job);
+                    lane.queue.addLast(job);
                 }
             } else if (job.user && !target.started) {
                 target.options = job.options;
+                if (job.details != null) target.details = job.details;
                 if (!target.user) {
                     target.user = true;
-                    queue.remove(target);
+                    lane.queue.remove(target);
                     java.util.ArrayDeque<Job> users = new java.util.ArrayDeque<>();
-                    while (!queue.isEmpty() && queue.peekFirst().user) users.addLast(queue.pollFirst());
-                    queue.addFirst(target);
-                    while (!users.isEmpty()) queue.addFirst(users.pollLast());
+                    while (!lane.queue.isEmpty() && lane.queue.peekFirst().user) users.addLast(lane.queue.pollFirst());
+                    lane.queue.addFirst(target);
+                    while (!users.isEmpty()) lane.queue.addFirst(users.pollLast());
                 }
             }
             if (progress != null) target.watchers.add(progress);
             if (result != null) target.results.add(result);
-            ahead = target.started ? 0 : positionOf(target);
-            if (worker == null || !worker.isAlive()) {
-                worker = new Thread(this::loop, "CloudSync");
-                worker.setDaemon(true);
-                worker.start();
+            ahead = target.started ? 0 : positionOf(lane, target);
+            if (lane.worker == null || !lane.worker.isAlive()) {
+                lane.worker = new Thread(() -> loop(lane), lane.name);
+                lane.worker.setDaemon(true);
+                lane.worker.start();
             }
         }
         if (progress != null) {
             Job j = target;
             if (ahead > 0) {
-                waiting(j, ahead);
+                waiting(lane, j, ahead);
             } else {
                 post(() -> progress.step(j.percent, j.text));
             }
@@ -319,38 +458,109 @@ public final class CloudSync {
     }
 
     /** How many jobs run or wait before {@code job} (0 = it is next or running). */
-    private int positionOf(Job job) {
-        int n = current != null && current != job ? 1 : 0;
-        for (Job j : queue) {
+    private int positionOf(Lane lane, Job job) {
+        int n = lane.current != null && lane.current != job ? 1 : 0;
+        for (Job j : lane.queue) {
             if (j == job) return n;
             n++;
         }
         return n;
     }
 
-    private void waiting(Job job, int ahead) {
+    private void waiting(Lane lane, Job job, int ahead) {
         Job running;
         synchronized (this) {
-            running = current;
+            running = lane.current;
         }
-        String other = running == null || running.name == null ? "another backup" : running.name;
+        String other = running == null || running.name == null ? "another job" : running.name;
         step(job, 1, "Waiting: " + other + (ahead > 1 ? " and " + (ahead - 1) + " more go first" : " goes first") + "…");
     }
 
-    private void loop() {
+    synchronized Job findByKey(String key) {
+        for (Lane lane : new Lane[]{work, imports}) {
+            if (lane.current != null && key.equals(lane.current.key())) return lane.current;
+            for (Job j : lane.queue) if (key.equals(j.key())) return j;
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------------ v2.0.4: cancel and retry
+
+    /**
+     * Cancels the job with {@code key}: a waiting one leaves the queue, a running one stops at its next 32 KB (its
+     * connection is closed). Nothing half-made is kept: a release that wasn't published is a draft, removed by the
+     * next backup; a download's file is deleted.
+     */
+    public void cancel(String key) {
+        Job waiting = null;
+        synchronized (this) {
+            for (Lane lane : new Lane[]{work, imports}) {
+                if (lane.current != null && key.equals(lane.current.key())) {
+                    lane.current.cancelled = true;
+                    GitHubHttp.cancel(lane.current.thread);
+                    return;
+                }
+                for (java.util.Iterator<Job> it = lane.queue.iterator(); it.hasNext(); ) {
+                    Job j = it.next();
+                    if (key.equals(j.key())) {
+                        it.remove();
+                        waiting = j;
+                        break;
+                    }
+                }
+                if (waiting != null) break;
+            }
+        }
+        if (waiting != null) finish(waiting, false, "Cancelled.", false);
+    }
+
+    /** Jobs that failed and can be tried again, by key (the notification's Retry and the sheet's). */
+    private final java.util.Map<String, Job> failed = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** A copy of the failed job {@code key} to queue again (a tap's), or null. */
+    Job retryJob(String key) {
+        Job old = failed.remove(key);
+        if (old == null) return null;
+        Job again = new Job(old.scId, old.kind, old.name, old.options, true);
+        again.details = old.details;
+        again.source = old.source;
+        again.link = old.link;
+        return again;
+    }
+
+    /** The notification's Retry: the failed job again, followed by a toast at its end. */
+    public void retry(String key) {
+        Job again = retryJob(key);
+        if (again == null) return;
+        enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
+    }
+
+    /** Whether the last failure can be tried again (always, except a cancel or a missing project). */
+    boolean lastFailedRetryable(String message) {
+        return message == null || !message.startsWith("Cancelled");
+    }
+
+    // ------------------------------------------------------------------ the worker
+
+    private void loop(Lane lane) {
         while (true) {
             Job job;
             synchronized (this) {
-                job = queue.pollFirst();
-                current = job;
+                job = lane.queue.pollFirst();
+                lane.current = job;
                 if (job == null) {
-                    worker = null;
-                    return;
+                    lane.worker = null;
+                    break;
                 }
                 job.started = true;
+                job.thread = Thread.currentThread();
             }
+            // a cancel of an earlier job must not stop this one
+            Thread.interrupted();
             boolean ok = false;
+            boolean retryable = false;
             String message;
+            service(job, true);
             try {
                 message = run(job);
                 ok = true;
@@ -358,58 +568,81 @@ public final class CloudSync {
                 // deleted meanwhile: nothing to wait for
                 removePending(job.scId);
                 message = e.getMessage();
+            } catch (GitHubHttp.Cancelled e) {
+                message = "Cancelled.";
             } catch (IOException e) {
-                // no network (or GitHub didn't answer): it waits for the next chance, with the same boxes
-                if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
-                message = "No connection to GitHub (" + e.getClass().getSimpleName()
-                        + (e.getMessage() == null ? "" : ": " + e.getMessage()) + "). "
-                        + (BACKUP.equals(job.kind) ? "You stay signed in; the backup waits for the next chance."
-                        : "You stay signed in; try again.");
-                LogUtil.d("CloudSync", "Job " + job.kind + " " + job.scId + " waits: " + e);
+                if (job.cancelled) {
+                    message = "Cancelled.";
+                } else {
+                    // no network (or GitHub didn't answer): a backup waits for the next chance, with the same boxes
+                    if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
+                    retryable = true;
+                    message = "No connection to GitHub (" + e.getClass().getSimpleName()
+                            + (e.getMessage() == null ? "" : ": " + e.getMessage()) + "). "
+                            + (BACKUP.equals(job.kind) ? "You stay signed in; the backup waits for the next chance."
+                            : "You stay signed in; try again.");
+                    LogUtil.d("CloudSync", "Job " + job.kind + " " + job.scId + " waits: " + e);
+                }
             } catch (GitHubException e) {
                 if (BACKUP.equals(job.kind) && ("keystore".equals(e.code) || "unauthorized".equals(e.code)
                         || "refused".equals(e.code) || "unreadable".equals(e.code) || SignIn.isPassing(e.code))) {
                     // worth another try: a Keystore hiccup, a server error / rate limit, or a sign-in to come
                     addPending(job.scId, job.options);
                 }
+                retryable = true;
                 message = e.getMessage();
             } catch (Throwable t) {
                 // also an Error (out of memory with a large project): the job ends, the queue goes on
                 LogUtil.e("CloudSync", "Job " + job.kind + " " + job.scId + " failed", t);
+                retryable = true;
                 message = (BACKUP.equals(job.kind) ? "The backup didn't work: " : "That didn't work: ") + t;
             } finally {
                 synchronized (this) {
-                    current = null;
+                    lane.current = null;
+                    job.thread = null;
                 }
+                GitHubHttp.release();
             }
-            boolean success = ok;
-            String text = message;
-            java.util.List<Result> results;
-            synchronized (this) {
-                results = new java.util.ArrayList<>(job.results);
-            }
-            post(() -> {
-                for (Result r : results) {
-                    try {
-                        r.done(success, text);
-                    } catch (RuntimeException e) {
-                        LogUtil.e("CloudSync", "A result listener failed", e);
-                    }
-                }
-            });
+            if (!ok && retryable && job.user) failed.put(job.key(), job);
+            finish(job, ok, message, retryable && job.user);
             // the ones still waiting: their place moved up
-            java.util.List<Job> waiting;
+            java.util.List<Job> waitingJobs;
             synchronized (this) {
-                waiting = new java.util.ArrayList<>(queue);
+                waitingJobs = new java.util.ArrayList<>(lane.queue);
             }
-            for (Job w : waiting) {
+            for (Job w : waitingJobs) {
                 if (!w.watchers.isEmpty()) {
                     int ahead;
                     synchronized (this) {
-                        ahead = positionOf(w);
+                        ahead = positionOf(lane, w);
                     }
-                    if (ahead > 0) waiting(w, ahead);
+                    if (ahead > 0) waiting(lane, w, ahead);
                 }
+            }
+        }
+        serviceIdle();
+    }
+
+    private void finish(Job job, boolean ok, String message, boolean retryable) {
+        java.util.List<Result> results;
+        synchronized (this) {
+            results = new java.util.ArrayList<>(job.results);
+        }
+        String text = message;
+        post(() -> {
+            for (Result r : results) {
+                try {
+                    r.done(ok, text);
+                } catch (RuntimeException e) {
+                    LogUtil.e("CloudSync", "A result listener failed", e);
+                }
+            }
+        });
+        if (runnerForTests == null && (job.user || !ok && job.started)) {
+            try {
+                CloudSyncService.finished(app, job.key(), job.title(), ok, text, retryable, job.link);
+            } catch (Throwable t) {
+                LogUtil.d("CloudSync", "No notification: " + t);
             }
         }
     }
@@ -422,9 +655,7 @@ public final class CloudSync {
         lastNote = "";
         Runner test = runnerForTests;
         if (test != null) return test.run(job);
-        if (MAKE_PUBLIC.equals(job.kind) || MAKE_PRIVATE.equals(job.kind)) {
-            return changeVisibility(job, MAKE_PUBLIC.equals(job.kind));
-        }
+        if (IMPORT.equals(job.kind)) return runImport(job);
         if (job.afterRunning && !job.user) {
             // second review: a backup after a save that waited behind a running one: skipped when that one (or an
             // earlier one) already holds these saved files
@@ -435,13 +666,14 @@ public final class CloudSync {
                 return "No changes since the last backup to GitHub";
             }
         }
-        String name = upload(job.scId, job.options, (percent, text) -> step(job, percent, text));
+        if (PUBLISH.equals(job.kind)) return runPublish(job);
+        String name = upload(job, job.options, (percent, text) -> step(job, percent, text));
         removePending(job.scId);
-        return name + " backed up to GitHub · the share link is on its card" + lastNote;
+        return name + " backed up to its GitHub repository · the share link is on its card" + lastNote;
     }
 
     /** v2.0.3: the signed-in login and its token; the session is never removed here. */
-    private String[] session() throws GitHubException {
+    String[] session() throws GitHubException {
         TokenStore store = TokenStore.get(app);
         String login = store.login();
         if (login == null) throw new GitHubException("unauthorized", "Sign in with GitHub first.");
@@ -455,84 +687,6 @@ public final class CloudSync {
                     + "again on the account card; the backup waits.");
         }
         return new String[]{login, token, store.sealedKey()};
-    }
-
-    // ------------------------------------------------------------------ v2.0.3: public / private
-
-    /**
-     * The card's Public / Private pill: {@code makePublic} puts the project's newest backup (the boxes of its last
-     * backup) into its own public repository, else that repository is made private again. A progress sheet follows.
-     */
-    public static void changeVisibility(Activity activity, String scId, String name, boolean makePublic) {
-        CloudSync sync = get(activity);
-        if (TokenStore.get(activity).login() == null) {
-            GitHubInAppAuthDialog.show(activity, login -> changeVisibility(activity, scId, name, makePublic));
-            return;
-        }
-        GitHubProgress progress = GitHubProgress.show(activity, makePublic ? R.drawable.ob_ic_public : R.drawable.ob_ic_lock,
-                (makePublic ? "Make public: " : "Make private: ") + name);
-        progress.update(1, "Starting…");
-        sync.enqueue(new Job(scId, makePublic ? MAKE_PUBLIC : MAKE_PRIVATE, name, Options.AUTOMATIC, true), progress::update,
-                (ok, message) -> {
-                    if (progress.hidden()) {
-                        Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show();
-                    } else if (ok) {
-                        progress.done(message);
-                    } else {
-                        progress.failed(message);
-                    }
-                });
-    }
-
-    private String changeVisibility(Job job, boolean makePublic) throws Exception {
-        HashMap<String, Object> project = lC.b(job.scId);
-        if (project == null) throw new MissingProject("Project #" + job.scId + " isn't on this phone any more.");
-        String name = yB.c(project, "my_ws_name");
-        String[] session = session();
-        if (!makePublic) {
-            step(job, 40, "Making its public copy private…");
-            PublicCopy.makePrivate(session[1], session[0], job.scId);
-            return name + " is private: its link opens only for you (and your repository's collaborators).";
-        }
-        Options options = ProjectLinks.lastOptions(job.scId);
-        if (options == null) options = Options.AUTOMATIC;
-        step(job, 10, "Packing the project for its public copy…");
-        BackupFactory factory = new BackupFactory(job.scId);
-        factory.setBackupLocalLibs(options.localLibraries);
-        factory.setBackupCustomBlocks(options.customBlocks);
-        factory.setReadSavedDataOnly(true);
-        factory.backup(name);
-        File swb = factory.getOutFile();
-        if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
-        try {
-            long size = swb.length();
-            step(job, 25, "Creating or opening its public repository…");
-            int[] last = {25};
-            PublicCopy.makePublic(session[1], session[0], job.scId, name, yB.c(project, "my_sc_pkg_name"),
-                    yB.c(project, "sc_ver_name"), swb, new CloudBackup.UploadProgress() {
-                        @Override
-                        public void uploading(long sent, long total) {
-                            int percent = 30 + (int) (60 * Math.min(1.0, sent / (double) Math.max(1, total)));
-                            if (percent > last[0]) {
-                                last[0] = percent;
-                                step(job, percent, "Uploading the public copy… " + megabytes(sent) + " of " + megabytes(size));
-                            }
-                        }
-
-                        @Override
-                        public void retrying(String text) {
-                            step(job, last[0], text);
-                        }
-
-                        @Override
-                        public void saving() {
-                            step(job, 92, "Saving the public copy…");
-                        }
-                    });
-        } finally {
-            BackupFactory.deleteUploadedBackup(swb);
-        }
-        return name + " is public: anyone with its link can download the project. The share pill shares that link.";
     }
 
     // ------------------------------------------------------------------ v2.0.3: after a save in the editor
@@ -570,7 +724,7 @@ public final class CloudSync {
         t.start();
     }
 
-    /** A step of {@code job} for every screen following it (main thread). */
+    /** A step of {@code job} for every screen following it (main thread) and the notification. */
     private void step(Job job, int percent, String text) {
         java.util.List<Progress> watchers;
         synchronized (this) {
@@ -578,10 +732,40 @@ public final class CloudSync {
             job.text = text;
             watchers = new java.util.ArrayList<>(job.watchers);
         }
+        service(job, false);
         if (watchers.isEmpty()) return;
         post(() -> {
             for (Progress p : watchers) p.step(percent, text);
         });
+    }
+
+    private long lastServiceUpdate;
+    private int lastServicePercent = -1;
+
+    /** The notification of a running job (at most every 700 ms, or when the percentage moves). */
+    private void service(Job job, boolean start) {
+        if (runnerForTests != null || (!job.user && !start && job.percent < 100 && !job.started)) return;
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (!start && job.percent == lastServicePercent && now - lastServiceUpdate < 700) return;
+        lastServiceUpdate = now;
+        lastServicePercent = job.percent;
+        try {
+            CloudSyncService.running(app, job.key(), job.title(), job.percent, job.text, job.link);
+        } catch (Throwable t) {
+            LogUtil.d("CloudSync", "No progress notification: " + t);
+        }
+    }
+
+    private void serviceIdle() {
+        if (runnerForTests != null) return;
+        synchronized (this) {
+            if (work.current != null || imports.current != null || !work.queue.isEmpty() || !imports.queue.isEmpty()) return;
+        }
+        try {
+            CloudSyncService.idle(app);
+        } catch (Throwable t) {
+            LogUtil.d("CloudSync", "No service: " + t);
+        }
     }
 
     // ------------------------------------------------------------------ the work
@@ -603,41 +787,70 @@ public final class CloudSync {
 
     /** Makes the .swb of one project, uploads it and deletes it again; returns the project's name. */
     String upload(String scId) throws Exception {
-        return upload(scId, Options.AUTOMATIC);
+        return upload(new Job(scId, BACKUP, null, Options.AUTOMATIC, false), Options.AUTOMATIC, null);
     }
 
-    String upload(String scId, Options options) throws Exception {
-        return upload(scId, options, null);
+    /** The last built APK of the project (the Run build's), or null. */
+    static File lastBuiltApk(String scId) {
+        File bin = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/mysc/" + scId + "/bin");
+        File[] files = bin.listFiles();
+        File best = null;
+        if (files != null) {
+            for (File f : files) {
+                if (f.isFile() && f.getName().endsWith(".apk") && f.length() > 0
+                        && (best == null || f.lastModified() > best.lastModified())) {
+                    best = f;
+                }
+            }
+        }
+        return best;
     }
 
     /**
-     * v2.0.1: the same with the given contents (the .swb "Save on phone" makes with the same boxes). v2.0.2: the steps
-     * go to {@code progress} (any thread), and the link of the uploaded file is kept with the project
-     * ({@link ProjectLinks}).
+     * v2.0.4: one backup into the project's repository: the analyzer's snapshot and notes, the .swb (made from the
+     * saved project with its own instances), the APK when a newer one was built, the release of the app version, at
+     * most five versions; then the record, and a public project's README / CHANGELOG / description.
      */
-    String upload(String scId, Options options, Progress progress) throws Exception {
+    String upload(Job job, Options options, Progress progress) throws Exception {
+        String scId = job.scId;
         HashMap<String, Object> project = lC.b(scId);
         if (project == null) throw new MissingProject("Project #" + scId + " isn't on this phone any more.");
         String name = yB.c(project, "my_ws_name");
         String pkg = yB.c(project, "my_sc_pkg_name");
-        String version = yB.c(project, "sc_ver_name");
+        String versionName = yB.c(project, "sc_ver_name");
+        String versionCode = yB.c(project, "sc_ver_code");
         String[] session = session();
         String login = session[0];
         String token = session[1];
-        CloudBackup cloud = new CloudBackup(token, login);
-        String fingerprint = fingerprint(scId);
-        String stamp = stamp(scId);
+        CloudBackup account = new CloudBackup(token, login);
         try {
-            // the network and the token first: offline nothing is zipped
-            step(progress, 5, "Checking your private repository " + CloudBackup.REPO + "…");
-            cloud.ensureRepository();
-            step(progress, 15, options.localLibraries || options.customBlocks
+            // what changed since the previous version, offline (snapshots are outside the fingerprint)
+            step(progress, 3, "Reading what changed since the previous version…");
+            JsonObject snapshot = ProjectDiffAnalyzer.snapshot(scId);
+            JsonObject previous = ProjectDiffAnalyzer.previous(scId, snapshot);
+            ProjectDiffAnalyzer.Changes changes = ProjectDiffAnalyzer.compare(previous, snapshot);
+            String notes = ProjectDiffAnalyzer.releaseNotes(snapshot, changes);
+            String tag = ProjectRepo.tagFor(versionName, versionCode);
+            ProjectDiffAnalyzer.save(scId, snapshot);
+            String fingerprint = fingerprint(scId);
+            String stamp = stamp(scId);
+
+            step(progress, 6, "Opening the project's repository on GitHub…");
+            ProjectRepo repo = ProjectRepo.ensure(token, login, scId, name, pkg);
+            job.link = repo.link();
+            PublishDetails details = PublishDetails.load(scId);
+            details.refresh(snapshot, tag, notes, ProjectDiffAnalyzer.changelogEntry(snapshot, changes,
+                    System.currentTimeMillis()), repo.link());
+            details.save(scId);
+
+            step(progress, 12, options.localLibraries || options.customBlocks
                     ? "Packing the project" + (options.localLibraries ? ", local libraries" : "")
                     + (options.customBlocks ? " & custom blocks" : "") + "…" : "Packing the project…");
             File swb = null;
             // review (M6): a save while the project is packed could give a torn copy: packed again when its files
             // changed meanwhile (at most three times)
             for (int pack = 0; ; pack++) {
+                GitHubHttp.stopIfCancelled();
                 BackupFactory factory = new BackupFactory(scId);
                 factory.setBackupLocalLibs(options.localLibraries);
                 factory.setBackupCustomBlocks(options.customBlocks);
@@ -659,48 +872,56 @@ public final class CloudSync {
                 stamp = stampAfter;
             }
             try {
-                long size = swb.length();
-                int parts = SwbParts.count(size);
-                step(progress, 30, "Packed " + megabytes(size) + (size > SwbParts.PART_BYTES ? " · uploading in " + parts
-                        + " parts…" : " · uploading to GitHub…"));
-                int[] last = {30};
-                cloud.upload(swb, name, pkg, version, com.sketchware.remod.BuildConfig.VERSION_NAME,
-                        new CloudBackup.UploadProgress() {
-                            @Override
-                            public void uploading(long sent, long total) {
-                                int percent = 30 + (int) (60 * Math.min(1.0, sent / (double) Math.max(1, total)));
-                                if (percent > last[0]) {
-                                    last[0] = percent;
-                                    int part = (int) Math.min(parts, sent / SwbParts.PART_BYTES + 1);
-                                    step(progress, percent, "Uploading to GitHub… " + megabytes(sent) + " of "
-                                            + megabytes(total) + (parts > 1 ? " · part " + part + " of " + parts : ""));
-                                }
-                            }
+                File apk = lastBuiltApk(scId);
+                long apkTime = apk == null ? 0 : apk.lastModified();
+                if (apk != null && apkTime <= ProjectLinks.lastApkTime(scId, login)) apk = null; // already up
+                long size = swb.length() + (apk == null ? 0 : apk.length());
+                int parts = (int) Math.max(1, (swb.length() + ProjectRepo.PART_BYTES - 1) / ProjectRepo.PART_BYTES);
+                step(progress, 15, "Packed " + megabytes(size) + (apk != null ? " (with the APK)" : "")
+                        + (parts > 1 ? " · uploading in " + parts + " parts…" : " · uploading to " + repo.name() + "…"));
+                ProjectRepo.Backup backup = new ProjectRepo.Backup();
+                backup.swb = swb;
+                backup.apk = apk;
+                backup.projectName = name;
+                backup.versionName = versionName;
+                backup.versionCode = versionCode;
+                backup.notes = notes;
+                backup.title = ProjectDiffAnalyzer.title(snapshot) + " v" + ProjectDiffAnalyzer.version(snapshot);
+                int[] last = {15};
+                long started = android.os.SystemClock.elapsedRealtime();
+                ProjectRepo.Version stored = repo.upload(backup, new CloudBackup.UploadProgress() {
+                    @Override
+                    public void uploading(long sent, long total) {
+                        int percent = 15 + (int) (75 * Math.min(1.0, sent / (double) Math.max(1, total)));
+                        if (percent > last[0]) {
+                            last[0] = percent;
+                            long seconds = Math.max(1, (android.os.SystemClock.elapsedRealtime() - started) / 1000);
+                            step(progress, percent, "Uploading… " + megabytes(sent) + " of " + megabytes(total)
+                                    + " · " + megabytes(sent / seconds) + "/s");
+                        }
+                    }
 
-                            @Override
-                            public void retrying(String text) {
-                                step(progress, last[0], text);
-                            }
+                    @Override
+                    public void retrying(String text) {
+                        step(progress, last[0], text);
+                    }
 
-                            @Override
-                            public void saving() {
-                                step(progress, 92, "Saving the backup in " + CloudBackup.REPO + "…");
-                            }
-                        });
+                    @Override
+                    public void saving() {
+                        step(progress, 92, "Publishing version " + tag + " and keeping the newest " + ProjectRepo.MAX_VERSIONS
+                                + "…");
+                    }
+                });
                 GitHubSession.clearRefused(app);
-                String path = cloud.lastPath;
-                if (path != null) {
-                    ProjectLinks.saved(scId, cloud.link(path), path, login, options, fingerprint);
-                    rememberInList(login, name, pkg, version, size, path);
-                }
-                // v2.0.3: a project made public keeps its public copy up to date (the private backup is safe either way)
-                if (ProjectLinks.isPublic(scId, login)) {
-                    step(progress, 95, "Updating the public copy…");
+                ProjectLinks.saved(scId, login, stored.tag, options, fingerprint, apk == null ? 0 : apkTime);
+                ProjectLinks.visibilityNow(scId, login, repo.isPrivate());
+                // a public project keeps its page up to date (README unless edited, CHANGELOG, description)
+                if (!repo.isPrivate()) {
+                    step(progress, 96, "Updating README and CHANGELOG…");
                     try {
-                        String remark = PublicCopy.update(token, login, scId, name, pkg, version, swb, null);
-                        if (remark != null) lastNote = " (" + remark + ")";
+                        publishDocs(repo, details, ProjectDiffAnalyzer.commitMessage(snapshot, changes));
                     } catch (IOException | GitHubException e) {
-                        lastNote = " (its public copy wasn't updated: " + e.getMessage() + ")";
+                        lastNote = " (its README / CHANGELOG weren't updated: " + e.getMessage() + ")";
                     }
                 }
             } finally {
@@ -711,7 +932,7 @@ public final class CloudSync {
             if ("http_401".equals(e.code) || "unauthorized".equals(e.code)) {
                 // v2.0.3 (owner: "never auto-logout"): the session stays. GET /user says whether GitHub refuses this
                 // sign-in or only refused one request
-                if (cloud.signInWorks()) {
+                if (account.signInWorks()) {
                     throw new GitHubException("http_401_once", e.getMessage() + " GitHub accepts the sign-in itself: "
                             + "you're still signed in; try again.");
                 }
@@ -723,6 +944,118 @@ public final class CloudSync {
             throw e;
         }
         return name;
+    }
+
+    /** The public page: description, topics, README (when on), CHANGELOG. */
+    static void publishDocs(ProjectRepo repo, PublishDetails details, String message) throws IOException, GitHubException {
+        repo.setDetails(details.description, details.topics);
+        if (details.readmeOn && details.readme != null) repo.putFile("README.md", details.readme, message);
+        repo.putFile("CHANGELOG.md", details.changelogText(), message);
+    }
+
+    /**
+     * v2.0.4: Publish Public: the first version is backed up when there is none, then the page (description, topics,
+     * README, CHANGELOG), the newest version's notes, and the repository made public.
+     */
+    private String runPublish(Job job) throws Exception {
+        String[] session = session();
+        String login = session[0];
+        String token = session[1];
+        HashMap<String, Object> project = lC.b(job.scId);
+        if (project == null) throw new MissingProject("Project #" + job.scId + " isn't on this phone any more.");
+        String name = yB.c(project, "my_ws_name");
+        step(job, 3, "Opening the project's repository on GitHub…");
+        ProjectRepo repo = ProjectRepo.ensure(token, login, job.scId, name, yB.c(project, "my_sc_pkg_name"));
+        job.link = repo.link();
+        java.util.List<ProjectRepo.Version> versions = repo.versions(false);
+        if (versions.isEmpty()) {
+            upload(job, job.options, (percent, text) -> step(job, Math.min(85, percent), text));
+            versions = repo.versions(false);
+        }
+        PublishDetails details = job.details != null ? job.details : PublishDetails.load(job.scId);
+        details.save(job.scId);
+        step(job, 88, "Writing the description, topics, README and CHANGELOG…");
+        publishDocs(repo, details, "Publish " + name);
+        if (!versions.isEmpty() && details.notes != null) {
+            ProjectRepo.Version newest = versions.get(0);
+            if (!details.notes.trim().equals(newest.notes == null ? "" : newest.notes.trim())) {
+                step(job, 94, "Saving the release notes of " + newest.label() + "…");
+                repo.setNotes(newest, details.notes);
+            }
+        }
+        step(job, 97, "Making " + repo.name() + " public…");
+        repo.setPrivate(false);
+        ProjectLinks.visibilityNow(job.scId, login, false);
+        return name + " is public: " + repo.link();
+    }
+
+    // ------------------------------------------------------------------ v2.0.4: imports
+
+    /**
+     * An import: the backup is downloaded into a staging folder of its own, checked, restored as a new project (never
+     * over an existing one, never into an open one's folders), linked to its repository when it is the account's own,
+     * and the staged file removed.
+     */
+    private String runImport(Job job) throws Exception {
+        Import src = job.source;
+        String login = TokenStore.get(app).login();
+        String token = login == null ? null : TokenStore.get(app).token();
+        File staging = new File(BackupFactory.getBackupDir(), "staging/" + Long.toHexString(System.nanoTime()));
+        if (!staging.isDirectory() && !staging.mkdirs()) throw new IOException("Can't create " + staging);
+        File swb = new File(staging, ProjectRepo.safeFileName(src.title == null ? src.repo : src.title) + ".swb");
+        try {
+            step(job, 3, "Connecting to GitHub…");
+            GitHubHttp.Progress bytes = downloadSteps(job, src.size);
+            if (src.version != null) {
+                ProjectRepo.download(token, src.owner, src.repo, src.version, swb, bytes);
+            } else if (src.legacySha != null) {
+                new CloudBackup(token, login).download(src.legacyPath, src.legacySha, swb, bytes);
+            } else {
+                File got = GitHubImport.download(token, src.link, src.linkPath, staging, bytes);
+                if (!got.renameTo(swb)) swb = got;
+            }
+            GitHubHttp.stopIfCancelled();
+            step(job, 85, "Restoring as a new project" + (src.withLibraries ? " with its local libraries" : "") + "…");
+            String newId = com.sketchware.ai.project.ProjectIds.free(lC.b());
+            BackupFactory factory = new BackupFactory(newId);
+            factory.setBackupLocalLibs(src.withLibraries);
+            factory.setLibrariesFrom(src.librariesFrom);
+            factory.restore(swb);
+            if (!factory.isRestoreSuccess()) {
+                throw new GitHubException("restore", "Couldn't restore: " + factory.getError());
+            }
+            boolean linked = false;
+            if (src.number > 0 && login != null && src.owner != null && src.owner.equalsIgnoreCase(login)) {
+                linked = ProjectLinks.linkRestored(newId, login, src.repo, src.number, src.repoPrivate,
+                        src.version != null && src.version.standard ? src.version.tag : null);
+            }
+            ProjectLinks.listChanged();
+            return "Imported as project #" + newId + (linked ? " · its backups go on into " + src.repo : "")
+                    + " (custom blocks included)";
+        } finally {
+            BackupFactory.deleteUploadedBackup(swb);
+            File[] left = staging.listFiles();
+            if (left != null) for (File f : left) //noinspection ResultOfMethodCallIgnored
+                f.delete();
+            //noinspection ResultOfMethodCallIgnored
+            staging.delete();
+        }
+    }
+
+    /** Download bytes → 5-80%. */
+    private GitHubHttp.Progress downloadSteps(Job job, long knownSize) {
+        int[] last = {4};
+        long started = android.os.SystemClock.elapsedRealtime();
+        return (done, total) -> {
+            long all = total > 0 ? total : knownSize;
+            int percent = all > 0 ? 5 + (int) (75 * Math.min(1.0, done / (double) all))
+                    : Math.min(75, 5 + (int) (done / (512 * 1024)));
+            if (percent <= last[0]) return;
+            last[0] = percent;
+            long seconds = Math.max(1, (android.os.SystemClock.elapsedRealtime() - started) / 1000);
+            step(job, percent, "Downloading… " + megabytes(done) + (all > 0 ? " of " + megabytes(all) : "") + " · "
+                    + megabytes(done / seconds) + "/s");
+        };
     }
 
     /**
@@ -773,8 +1106,11 @@ public final class CloudSync {
         if (files == null || depth > 6) return;
         for (File f : files) {
             String name = prefix + f.getName();
-            // the backup link's own file changes with every backup
-            if (name.equals(ProjectLinks.FILE)) continue;
+            // the GitHub record and the publish details change with every backup; v2.0.4: the version snapshots too
+            if (name.equals(ProjectLinks.FILE) || name.equals(PublishDetails.FILE)
+                    || name.equals(com.sketchware.ai.project.ProjectDiffAnalyzer.FOLDER)) {
+                continue;
+            }
             if (f.isDirectory()) {
                 collect(f, name + "/", out, depth + 1);
             } else {
@@ -783,36 +1119,4 @@ public final class CloudSync {
         }
     }
 
-    /**
-     * v2.0.3: the import sheet's list of own backups is kept on this phone; a backup from here updates it at once, so
-     * the list shows it even before the next time GitHub can be asked.
-     */
-    private void rememberInList(String login, String name, String pkg, String version, long size, String path) {
-        synchronized (GitHubImportDialog.LIST_LOCK) {
-            rememberLocked(login, name, pkg, version, size, path);
-        }
-    }
-
-    private void rememberLocked(String login, String name, String pkg, String version, long size, String path) {
-        try {
-            String swbPath = SwbParts.isManifest(path) ? path.substring(0, path.length() - SwbParts.MANIFEST_SUFFIX.length()) : path;
-            java.util.List<CloudBackup.Entry> list = GitHubImportDialog.cachedList(app, login, new long[1]);
-            if (list == null) list = new java.util.ArrayList<>();
-            for (java.util.Iterator<CloudBackup.Entry> it = list.iterator(); it.hasNext(); ) {
-                if (swbPath.equals(it.next().path)) it.remove();
-            }
-            CloudBackup.Entry e = new CloudBackup.Entry();
-            e.path = swbPath;
-            e.name = name;
-            e.packageName = pkg;
-            e.versionName = version;
-            e.time = System.currentTimeMillis();
-            e.size = size;
-            e.parts = SwbParts.isManifest(path) ? path : null;
-            list.add(e);
-            GitHubImportDialog.saveCachedList(app, login, list, false);
-        } catch (RuntimeException e) {
-            LogUtil.d("CloudSync", "Backup list not updated: " + e);
-        }
-    }
 }

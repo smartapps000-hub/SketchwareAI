@@ -297,34 +297,48 @@ public class GC extends DA implements View.OnClickListener {
     }
 
     /**
-     * v2.0.3: the Public / Private pill: making a project public asks first (its code, and any key written in it,
-     * become downloadable by anyone with the link); making it private again needs no question.
+     * v2.0.4 (owner's 16 Nov directive "Private pill opens the full-screen Publish to GitHub sheet; the Public pill offers
+     * Edit public details or Switch to Private"): the Public / Private pill of a project with a GitHub repository.
      */
     private void toggleVisibility(HashMap<String, Object> project) {
         if (getActivity() == null) return;
         String scId = yB.c(project, "sc_id");
         String name = yB.c(project, "my_ws_name");
-        if (com.sketchware.ai.github.CloudSync.get(getActivity()).isChangingVisibility(scId)) {
-            android.widget.Toast.makeText(getActivity(), name + " is being changed: wait for it to finish",
-                    android.widget.Toast.LENGTH_SHORT).show();
+        if (com.sketchware.ai.github.TokenStore.get(getActivity()).login() == null) {
+            com.sketchware.ai.github.GitHubInAppAuthDialog.show(getActivity(), login -> {
+                if (getActivity() != null) refreshProjectsList();
+            });
             return;
         }
-        boolean makePublic = !"public".equals(visibilityOf(scId));
-        if (!makePublic) {
-            com.sketchware.ai.github.CloudSync.changeVisibility(getActivity(), scId, name, false);
+        if (!"public".equals(visibilityOf(scId))) {
+            com.sketchware.ai.github.PublishActivity.open(getActivity(), scId, false);
             return;
         }
-        new com.sketchware.ai.ui.ObAlertBuilder(getActivity(), R.style.SketchwareAI_GlassAlertDialog)
-                .setTitle("Make " + name + " public?")
-                .setMessage("Its newest backup goes to its own public repository on your GitHub account: anyone with the "
-                        + "link can download the project, including any keys or passwords written in it. While it is "
-                        + "public, every later backup of it (also the automatic one after saving) updates that copy. "
-                        + "Your other projects stay private. Tap Private later to hide it again.")
-                .setPositiveButton("Make public", (d, w) -> {
-                    if (getActivity() != null) {
-                        com.sketchware.ai.github.CloudSync.changeVisibility(getActivity(), scId, name, true);
-                    }
-                })
+        com.sketchware.ai.github.GitHubViews v = new com.sketchware.ai.github.GitHubViews(getActivity());
+        LinearLayout content = new LinearLayout(getActivity());
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(v.dp(20), v.dp(8), v.dp(20), v.dp(4));
+        content.addView(v.header(R.drawable.ob_ic_public, name + " is public", "Its repository and versions are open to everyone"));
+        android.app.AlertDialog[] sheet = new android.app.AlertDialog[1];
+        content.addView(v.actionCard(R.drawable.ob_ic_github, "Edit public details", "Description, topics, README, "
+                + "release notes", x -> {
+            sheet[0].dismiss();
+            if (getActivity() != null) com.sketchware.ai.github.PublishActivity.open(getActivity(), scId, true);
+        }), v.full(-1, 16));
+        content.addView(v.actionCard(R.drawable.ob_ic_lock, "Switch to Private", "Only you can open it again, at once",
+                x -> {
+                    sheet[0].dismiss();
+                    if (getActivity() == null) return;
+                    android.content.Context app = getActivity().getApplicationContext();
+                    android.widget.Toast.makeText(app, "Making " + name + " private…", android.widget.Toast.LENGTH_SHORT).show();
+                    com.sketchware.ai.github.CloudSync.makePrivate(getActivity(), scId, (ok, message) -> {
+                        android.widget.Toast.makeText(app, ok ? name + " is private" : message,
+                                android.widget.Toast.LENGTH_LONG).show();
+                        if (getActivity() != null) refreshProjectsList();
+                    });
+                }), v.full(-1, 10));
+        sheet[0] = new com.sketchware.ai.ui.ObAlertBuilder(getActivity(), R.style.SketchwareAI_GlassAlertDialog)
+                .setView(content)
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
@@ -390,23 +404,13 @@ public class GC extends DA implements View.OnClickListener {
         });
     }
 
-    /** v2.0.1: the Restore card's glass sheet: a .swb on this phone, or the import from GitHub. */
+    /**
+     * v2.0.1: the Restore card's glass sheet. v2.0.4 (owner's 16 Nov directive "full-screen Import & Restore page"):
+     * Restore projects, full screen (GitHub projects and their versions, older backups, a link; backups on this phone).
+     */
     private void chooseRestore() {
         if (getActivity() == null) return;
-        com.sketchware.ai.github.ProjectBackupSheets.restore(getActivity(), () -> {
-            if (getActivity() != null) restoreProject();
-        }, () -> {
-            if (getActivity() != null && com.sketchware.ai.github.AuthGuard.check(getActivity())) {
-                com.sketchware.ai.github.GitHubImportDialog.show(getActivity(), (swb, withLibraries, librariesFrom, done) -> {
-                    if (getActivity() != null) {
-                        new BackupRestoreManager(getActivity(), this).doRestore(swb.getAbsolutePath(), withLibraries,
-                                librariesFrom, done::done);
-                    } else {
-                        done.done(false, "The projects screen was closed: open Restore again.");
-                    }
-                });
-            }
-        });
+        startActivity(new Intent(getActivity(), com.sketchware.ai.github.GitHubBackupsActivity.class));
     }
 
     @Override
@@ -572,6 +576,8 @@ public class GC extends DA implements View.OnClickListener {
             String appLabel = yB.c(projectMap, "my_app_name");
             viewHolder.appName.setText(yB.c(projectMap, "my_ws_name"));
             viewHolder.projectName.setText(appLabel);
+            // v2.0.4: one line; a long name scrolls (marquee runs only while selected)
+            viewHolder.projectName.setSelected(true);
             String version = yB.c(projectMap, "sc_ver_name") + " (" + yB.c(projectMap, "sc_ver_code") + ")";
             viewHolder.projectVersion.setText(version);
             viewHolder.packageName.setText(yB.c(projectMap, "my_sc_pkg_name") + " · " + version);
