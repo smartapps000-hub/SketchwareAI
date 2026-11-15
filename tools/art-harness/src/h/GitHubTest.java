@@ -649,12 +649,12 @@ public final class GitHubTest {
         call(cloudSync, "projectSaved", scId, true);
         boolean unchangedSkipped = !waitFor(() -> ran.contains(scId), 1500);
         // review M4: every save rewrites every file: the same content written again is no change
-        File project = new File(sketchware, "data/" + scId + "/logic");
+        File logicFile = new File(sketchware, "data/" + scId + "/logic");
         boolean sameContent = true;
-        if (project.isFile()) {
-            byte[] bytes = java.nio.file.Files.readAllBytes(project.toPath());
+        if (logicFile.isFile()) {
+            byte[] bytes = java.nio.file.Files.readAllBytes(logicFile.toPath());
             Thread.sleep(1100);
-            java.nio.file.Files.write(project.toPath(), bytes);
+            java.nio.file.Files.write(logicFile.toPath(), bytes);
             sameContent = fingerprint.equals(call(syncClass, "fingerprint", scId));
         }
         check("v2.0.3 review: the change check reads contents (a save that writes the same bytes is no change)", sameContent, null);
