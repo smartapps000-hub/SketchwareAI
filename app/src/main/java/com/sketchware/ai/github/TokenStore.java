@@ -154,7 +154,13 @@ public final class TokenStore {
      * removed (only {@link #clear()} signs out); {@link #problem()} says why.
      */
     public String token() {
-        String value = prefs.getString(KEY_TOKEN, null);
+        String value;
+        String userId;
+        synchronized (LOCK) {
+            // third review: the token and its user id read together (a sign-in saved between two reads can't mix them)
+            value = prefs.getString(KEY_TOKEN, null);
+            userId = prefs.getString(KEY_USER_ID, null);
+        }
         if (value == null) {
             problem = null;
             return null;
@@ -185,7 +191,6 @@ public final class TokenStore {
             problem = "its key is no longer in the Android Keystore";
             return null;
         }
-        String userId = prefs.getString(KEY_USER_ID, null);
         String device = binding == null ? "" : binding.device();
         for (String candidate : bindings(device)) {
             String token;

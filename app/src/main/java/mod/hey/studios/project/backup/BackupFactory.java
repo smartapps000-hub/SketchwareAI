@@ -547,6 +547,10 @@ public class BackupFactory {
 
         // Copy data
         copy(data, getDataDir());
+        // v2.0.3 third review: a backup's GitHub record (share link, public copy) belongs to the project it was made
+        // for; a restored or imported copy starts without one (a record from a file can't steer a visibility change)
+        //noinspection ResultOfMethodCallIgnored
+        new File(getDataDir(), "github_backup.json").delete();
 
         // Copy res
         for (String subfolder : resSubfolders) {

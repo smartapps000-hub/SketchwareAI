@@ -558,8 +558,30 @@ public class GitHubClientTest {
         makePrivate.invoke(null, token, "octo", "9301");
         check("second review: Private: PATCH private:true on that copy", demo.isPrivate && fake.patches.size() == patchesBefore + 1
                 && "private".equals(linkCall("visibility", two, "9301", "octo")), fake.patches.size() - patchesBefore);
+        // third review: a copy renamed on github.com (its old name answers 301) is still found by its number
+        makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.1", small, null);
+        fake.rename("SketchwareAI-Public-Demo_App", "MyDemo");
+        commitsBefore = demo.log.size();
+        Object remark = update.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.2", small, null);
+        check("third review: a copy renamed on github.com is updated under its new name; the share link follows",
+                remark == null && demo.log.size() == commitsBefore + 1 && "MyDemo".equals(linkCall("publicRepository", two, "9301", "octo"))
+                        && "https://github.com/octo/MyDemo".equals(linkCall("get", two, "9301", "octo")), remark);
+        patchesBefore = fake.patches.size();
+        makePrivate.invoke(null, token, "octo", "9301");
+        check("third review: Private after a rename: PATCH on the renamed copy", demo.isPrivate
+                && fake.patches.size() == patchesBefore + 1 && "private".equals(linkCall("visibility", two, "9301", "octo")),
+                fake.patches.size() - patchesBefore);
+        makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.3", small, null);
+        demo.isPrivate = true; // made private on github.com
+        commitsBefore = demo.log.size();
+        remark = update.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.4", small, null);
+        check("third review: a copy made private on github.com: the card says Private, nothing uploaded, a remark",
+                "private".equals(linkCall("visibility", two, "9301", "octo")) && demo.log.size() == commitsBefore
+                        && String.valueOf(remark).contains("private on GitHub"), remark);
         // the copy deleted on github.com and its name taken by another repository: Private never touches that one
         demo.exists = false;
+        fake.repos.remove("MyDemo");
+        fake.moved.clear();
         java.lang.reflect.Method choose2 = choose;
         Object other = choose2.invoke(null, token, "octo", "Demo App", "com.someone", "fedcba987654");
         Fake.Repo otherRepo = fake.repos.get((String) field(other, "name"));
@@ -842,8 +864,25 @@ public class GitHubClientTest {
                 return new Object[]{201, "{\"id\":" + made.number + ",\"name\":\"" + name + "\",\"private\":"
                         + o.get("private").getAsBoolean() + ",\"default_branch\":\"main\"}"};
             }
+            java.util.regex.Matcher nm = java.util.regex.Pattern.compile("^/repositories/(\\d+)$").matcher(api);
+            if (nm.matches() && method.equals("GET")) {
+                // third review: a repository by its number (follows renames)
+                for (Map.Entry<String, Repo> e : repos.entrySet()) {
+                    Repo r = e.getValue();
+                    if (r.exists && r.number == Long.parseLong(nm.group(1))) {
+                        return new Object[]{200, "{\"id\":" + r.number + ",\"name\":\"" + e.getKey()
+                                + "\",\"owner\":{\"login\":\"octo\"},\"private\":" + r.isPrivate + "}"};
+                    }
+                }
+                return new Object[]{404, "{\"message\":\"Not Found\"}"};
+            }
             java.util.regex.Matcher rm = java.util.regex.Pattern.compile("^/repos/octo/([A-Za-z0-9_.-]+)(.*)$").matcher(api);
             if (rm.matches()) {
+                if (moved.containsKey(rm.group(1))) {
+                    // a renamed repository's old name: GitHub redirects (the app doesn't follow redirects)
+                    return new Object[]{301, "{\"message\":\"Moved Permanently\",\"url\":\"/repositories/"
+                            + moved.get(rm.group(1)) + "\"}"};
+                }
                 Repo r = repos.get(rm.group(1));
                 String rest = rm.group(2);
                 if (r == null || !r.exists) return new Object[]{404, "{\"message\":\"Not Found\"}"};
@@ -880,6 +919,14 @@ public class GitHubClientTest {
 
         static long numbers = 1000;
         final Map<String, Repo> repos = new HashMap<>();
+        /** Old names of renamed repositories → their number. */
+        final Map<String, Long> moved = new HashMap<>();
+
+        void rename(String from, String to) {
+            Repo r = repos.remove(from);
+            repos.put(to, r);
+            moved.put(from, r.number);
+        }
         final List<String> createdRepos = new ArrayList<>();
         final List<String> patches = new ArrayList<>();
         final List<String> blobPosts = new ArrayList<>();

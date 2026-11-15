@@ -697,7 +697,8 @@ public final class CloudSync {
                 if (ProjectLinks.isPublic(scId, login)) {
                     step(progress, 95, "Updating the public copy…");
                     try {
-                        PublicCopy.update(token, login, scId, name, pkg, version, swb, null);
+                        String remark = PublicCopy.update(token, login, scId, name, pkg, version, swb, null);
+                        if (remark != null) lastNote = " (" + remark + ")";
                     } catch (IOException | GitHubException e) {
                         lastNote = " (its public copy wasn't updated: " + e.getMessage() + ")";
                     }

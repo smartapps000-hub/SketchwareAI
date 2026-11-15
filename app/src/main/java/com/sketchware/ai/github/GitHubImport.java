@@ -198,6 +198,8 @@ public final class GitHubImport {
                 SwbParts.download(token, repoPath(s), SwbParts.Manifest.parse(m.body), target, progress);
                 return target;
             }
+            // third review: a rate limit or a server error isn't "not found"
+            if (m.code != 404) throw CloudBackup.http("Reading the backup's parts list", m);
         }
         if (code == 404) throw notFound(token, s);
         if (r.rateLimited()) throw CloudBackup.http("Downloading " + name, r);

@@ -297,6 +297,10 @@ public final class GitHubTest {
 
         // --- the project's .swb (the app's own backup), then restored as a new project with a free id
         Class<?> lC = c("a.a.a.lC"), yB = c("a.a.a.yB"), ids = c("com.sketchware.ai.project.ProjectIds");
+        // third review: the project's GitHub record goes into the .swb with its data folder, but not into a restored copy
+        File record = new File("/storage/emulated/0/.sketchware/data/" + scId + "/github_backup.json");
+        writeText(record, "{\"url\":\"https://github.com/octo/SketchwareAI-Projects/blob/main/p.swb\",\"path\":\"p.swb\","
+                + "\"sc_id\":\"" + scId + "\",\"login\":\"octo\",\"visibility\":\"public\",\"public_repo\":\"SketchwareAI-Public-X\"}");
         Object factory = neu("mod.hey.studios.project.backup.BackupFactory", scId);
         call(factory, "setBackupCustomBlocks", true);
         Map<String, Object> project = (Map<String, Object>) call(lC, "b", scId);
@@ -320,6 +324,10 @@ public final class GitHubTest {
                 && name.equals(call(yB, "c", restored, "my_ws_name")), call(restorer, "getError"));
         check("leftover folder untouched, restore went elsewhere", new File(leftover, "stale").isFile()
                 && !new File(sketchware, "data/" + freeId + "/stale").exists(), null);
+        check("third review: a restored copy has no GitHub record (share link, public copy) of the project it came from",
+                !new File(sketchware, "data/" + freeId + "/github_backup.json").exists()
+                        && new File(sketchware, "data/" + freeId + "/logic").exists(), null);
+        record.delete();
         String fromList = (String) call(c("mod.hey.studios.project.backup.BackupFactory"), "getNewScId");
         check("getNewScId: numeric maximum + 1, free", Integer.parseInt(fromList) > Integer.parseInt(freeId)
                 && !(Boolean) call(ids, "inUse", sketchware, Integer.parseInt(fromList)), fromList);
