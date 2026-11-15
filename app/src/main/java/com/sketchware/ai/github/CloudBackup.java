@@ -268,14 +268,16 @@ public final class CloudBackup {
         int count = SwbParts.count(size);
         boolean inParts = size > SwbParts.PART_BYTES;
         String blobSha = null;
-        SwbParts.Manifest manifest = null;
+        // review (v2.0.3, M7): every backup has its parts list, a single .swb too (one part, the file itself), and the
+        // share link names the list: the link stays the same when a project grows past 4 MiB or shrinks again
+        SwbParts.Manifest manifest = new SwbParts.Manifest();
+        manifest.name = new File(path).getName();
+        manifest.size = size;
+        manifest.sha256 = SwbParts.sha256(swb);
         if (!inParts) {
             blobSha = uploadBlob(swb, 0, size, 0, size, progress, "the backup");
+            manifest.parts.add(new SwbParts.Part(path, size, blobSha));
         } else {
-            manifest = new SwbParts.Manifest();
-            manifest.name = new File(path).getName();
-            manifest.size = size;
-            manifest.sha256 = SwbParts.sha256(swb);
             long done = 0;
             for (int i = 0; i < count; i++) {
                 long offset = i * SwbParts.PART_BYTES;
@@ -297,22 +299,17 @@ public final class CloudBackup {
             entry.versionName = versionName;
             entry.time = System.currentTimeMillis();
             entry.size = size;
-            entry.parts = inParts ? manifestPath : null;
+            entry.parts = manifestPath;
             String indexJson = withEntry(index, entry);
 
             JsonArray tree = new JsonArray();
             java.util.Set<String> keep = new java.util.HashSet<>();
-            if (!inParts) {
-                tree.add(treeItem(path, blobSha, null));
-                keep.add(path);
-            } else {
-                for (SwbParts.Part part : manifest.parts) {
-                    tree.add(treeItem(part.path, part.sha, null));
-                    keep.add(part.path);
-                }
-                tree.add(treeItem(manifestPath, null, manifest.toJson()));
-                keep.add(manifestPath);
+            for (SwbParts.Part part : manifest.parts) {
+                tree.add(treeItem(part.path, part.sha, null));
+                keep.add(part.path);
             }
+            tree.add(treeItem(manifestPath, null, manifest.toJson()));
+            keep.add(manifestPath);
             // what this backup no longer uses: the single file, the manifest, parts past the new count
             for (String old : backupFiles(baseTree, path)) {
                 if (!keep.contains(old)) tree.add(deletion(old));
@@ -342,7 +339,7 @@ public final class CloudBackup {
             refBody.addProperty("force", false);
             GitHubHttp.Response ref = GitHubHttp.api("PATCH", repoPath("/git/refs/heads/" + branch), token, refBody.toString());
             if (ref.ok()) {
-                lastPath = inParts ? manifestPath : path;
+                lastPath = manifestPath;
                 return commit;
             }
             if (ref.code == 422 && attempt < 2) continue; // the branch moved (another phone): again on top of it

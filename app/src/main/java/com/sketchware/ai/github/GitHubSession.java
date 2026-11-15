@@ -78,7 +78,10 @@ public final class GitHubSession {
         return new File(context.getApplicationContext().getFilesDir(), "github_avatar.png");
     }
 
-    /** The signed-in account, or null when signed out (only reads preferences: fine on the main thread). */
+    /**
+     * The signed-in account, or null when signed out. Reads preferences and (v2.0.3) decrypts the saved token once to say
+     * why it can't be used: a short Keystore operation, also on the main thread (the drawer card).
+     */
     public static Profile profile(Context context) {
         String login = TokenStore.get(context).login();
         if (login == null) return null;
@@ -123,11 +126,12 @@ public final class GitHubSession {
      * v2.0.3: GitHub answered 401 for the saved token: the session stays, marked "not accepted" with {@code note}
      * (shown on the account card and in messages) until a new sign-in or a call GitHub accepts.
      */
-    static void markRefused(Context context, String note) {
+    static void markRefused(Context context, String note, String sealedKey) {
         TokenStore store = TokenStore.get(context);
-        if (store.login() == null) return;
+        // review (L1): only the sign-in GitHub refused (a new sign-in meanwhile stays unmarked)
+        if (store.login() == null || sealedKey == null || !sealedKey.equals(store.sealedKey())) return;
         context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString("refused", store.sealedKey())
+                .putString("refused", sealedKey)
                 .putString("refused_note", note)
                 .apply();
         changed();
@@ -191,7 +195,9 @@ public final class GitHubSession {
         checking = true;
         Thread thread = new Thread(() -> {
             try {
-                String token = TokenStore.get(app).token();
+                TokenStore store = TokenStore.get(app);
+                String token = store.token();
+                String sealed = store.sealedKey();
                 if (token == null) return;
                 CloudBackup.Account account;
                 try {
@@ -200,7 +206,7 @@ public final class GitHubSession {
                     // only when it is still this token (a new sign-in meanwhile keeps the new session)
                     if ("unauthorized".equals(e.code) && token.equals(TokenStore.get(app).token())) {
                         LogUtil.d("GitHubSession", "GitHub didn't accept the saved token: marked, not signed out");
-                        markRefused(app, refusedNote(e.getMessage()));
+                        markRefused(app, refusedNote(e.getMessage()), sealed);
                     }
                     return;
                 }

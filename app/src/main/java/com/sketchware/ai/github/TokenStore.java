@@ -51,6 +51,12 @@ public final class TokenStore {
         String device();
     }
 
+    /**
+     * v2.0.3 review: every instance ({@link #get} makes a new one per call) shares this lock, so a read that seals the
+     * token again can't overwrite a sign-in saved at the same moment.
+     */
+    private static final Object LOCK = new Object();
+
     private final SharedPreferences prefs;
     private final KeySource keys;
     private final DeviceBinding binding;
@@ -119,16 +125,18 @@ public final class TokenStore {
         return Build.VERSION.SDK_INT >= 23;
     }
 
-    public synchronized void save(String token, String login, String userId) throws GeneralSecurityException {
-        SecretKey key = keys.key(true);
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, key);
-        cipher.updateAAD(associatedData(userId));
-        byte[] iv = cipher.getIV();
-        byte[] sealed = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
-        String value = "v2:" + b64(iv) + ":" + b64(sealed);
-        if (!prefs.edit().putString(KEY_TOKEN, value).putString(KEY_LOGIN, login).putString(KEY_USER_ID, userId).commit()) {
-            throw new GeneralSecurityException("Couldn't save the sign-in");
+    public void save(String token, String login, String userId) throws GeneralSecurityException {
+        synchronized (LOCK) {
+            SecretKey key = keys.key(true);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            cipher.updateAAD(associatedData(userId));
+            byte[] iv = cipher.getIV();
+            byte[] sealed = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
+            String value = "v2:" + b64(iv) + ":" + b64(sealed);
+            if (!prefs.edit().putString(KEY_TOKEN, value).putString(KEY_LOGIN, login).putString(KEY_USER_ID, userId).commit()) {
+                throw new GeneralSecurityException("Couldn't save the sign-in");
+            }
         }
     }
 
@@ -139,68 +147,72 @@ public final class TokenStore {
      * The token, or null when signed out or when it can't be read now. v2.0.3: a token that can't be read is never
      * removed (only {@link #clear()} signs out); {@link #problem()} says why.
      */
-    public synchronized String token() {
-        String value = prefs.getString(KEY_TOKEN, null);
-        if (value == null) {
-            problem = null;
-            return null;
-        }
-        String[] parts = value.split(":");
-        if (parts.length != 3 || !parts[0].equals("v2")) {
-            problem = "it was saved by an older version of the app";
-            return null;
-        }
-        byte[] iv;
-        byte[] sealed;
-        try {
-            iv = unb64(parts[1]);
-            sealed = unb64(parts[2]);
-        } catch (IllegalArgumentException e) {
-            problem = "it is damaged";
-            return null;
-        }
-        SecretKey key;
-        try {
-            key = keys.key(false);
-        } catch (GeneralSecurityException | RuntimeException e) {
-            // a passing Keystore problem: the next call tries again
-            problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
-            return null;
-        }
-        if (key == null) {
-            problem = "its key is no longer in the Android Keystore";
-            return null;
-        }
-        String userId = prefs.getString(KEY_USER_ID, null);
-        String device = binding == null ? "" : binding.device();
-        for (String candidate : bindings(device)) {
-            String token;
+    public String token() {
+        synchronized (LOCK) {
+            String value = prefs.getString(KEY_TOKEN, null);
+            if (value == null) {
+                problem = null;
+                return null;
+            }
+            String[] parts = value.split(":");
+            if (parts.length != 3 || !parts[0].equals("v2")) {
+                problem = "it was saved by an older version of the app";
+                return null;
+            }
+            byte[] iv;
+            byte[] sealed;
             try {
-                token = open(key, iv, sealed, candidate, userId);
-            } catch (javax.crypto.AEADBadTagException e) {
-                continue; // not this binding
+                iv = unb64(parts[1]);
+                sealed = unb64(parts[2]);
+            } catch (IllegalArgumentException e) {
+                problem = "it is damaged";
+                return null;
+            }
+            SecretKey key;
+            try {
+                key = keys.key(false);
             } catch (GeneralSecurityException | RuntimeException e) {
+                // a passing Keystore problem: the next call tries again
                 problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
                 return null;
             }
-            problem = null;
-            if (!candidate.equals(device) && !device.contains("?")) {
-                // sealed in a run that couldn't read a part of the binding: sealed again with all of it
-                try {
-                    seal(key, token, userId, device);
-                } catch (GeneralSecurityException | RuntimeException ignored) {
-                    // the old seal still opens: tried again next time
-                }
+            if (key == null) {
+                problem = "its key is no longer in the Android Keystore";
+                return null;
             }
-            return token;
+            String userId = prefs.getString(KEY_USER_ID, null);
+            String device = binding == null ? "" : binding.device();
+            for (String candidate : bindings(device)) {
+                String token;
+                try {
+                    token = open(key, iv, sealed, candidate, userId);
+                } catch (javax.crypto.AEADBadTagException e) {
+                    continue; // not this binding
+                } catch (GeneralSecurityException | RuntimeException e) {
+                    problem = "the Android Keystore didn't answer (" + e.getClass().getSimpleName() + ")";
+                    return null;
+                }
+                problem = null;
+                if (!candidate.equals(device) && !device.contains("?")) {
+                    // sealed in a run that couldn't read a part of the binding: sealed again with all of it
+                    try {
+                        seal(key, token, userId, device);
+                    } catch (GeneralSecurityException | RuntimeException ignored) {
+                        // the old seal still opens: tried again next time
+                    }
+                }
+                return token;
+            }
+            problem = "it is bound to another phone, app signature or GitHub account";
+            return null;
         }
-        problem = "it is bound to another phone, app signature or GitHub account";
-        return null;
     }
 
     /** v2.0.3: why a stored sign-in can't be read (after {@link #token()} returned null), else null. */
-    public synchronized String problem() {
-        return prefs.getString(KEY_TOKEN, null) == null ? null : problem;
+    public String problem() {
+        synchronized (LOCK) {
+            return prefs.getString(KEY_TOKEN, null) == null ? null : problem;
+        }
     }
 
     /** The binding as read now, then the same with a part a run may not have been able to read ("?"). */
@@ -236,23 +248,31 @@ public final class TokenStore {
     }
 
     /** v2.0.3: a short fingerprint of the stored (sealed) sign-in: marks that belong to this one sign-in use it. */
-    public synchronized String sealedKey() {
-        String value = prefs.getString(KEY_TOKEN, null);
-        return value == null ? null : Integer.toHexString(value.hashCode());
+    public String sealedKey() {
+        synchronized (LOCK) {
+            String value = prefs.getString(KEY_TOKEN, null);
+            return value == null ? null : Integer.toHexString(value.hashCode());
+        }
     }
 
-    public synchronized String login() {
-        return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_LOGIN, null);
+    public String login() {
+        synchronized (LOCK) {
+            return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_LOGIN, null);
+        }
     }
 
-    public synchronized String userId() {
-        return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_USER_ID, null);
+    public String userId() {
+        synchronized (LOCK) {
+            return prefs.getString(KEY_TOKEN, null) == null ? null : prefs.getString(KEY_USER_ID, null);
+        }
     }
 
     /** Signs out: the token, the login, the id and the key are deleted. */
-    public synchronized void clear() {
-        prefs.edit().remove(KEY_TOKEN).remove(KEY_LOGIN).remove(KEY_USER_ID).commit();
-        keys.delete();
+    public void clear() {
+        synchronized (LOCK) {
+            prefs.edit().remove(KEY_TOKEN).remove(KEY_LOGIN).remove(KEY_USER_ID).commit();
+            keys.delete();
+        }
     }
 
     static String hex(byte[] bytes) {

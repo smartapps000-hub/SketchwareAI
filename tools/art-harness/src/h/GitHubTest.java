@@ -472,18 +472,35 @@ public final class GitHubTest {
                 "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
                         && Boolean.TRUE.equals(get(lastOpts, "localLibraries")) && Boolean.FALSE.equals(get(lastOpts, "customBlocks"))
                         && "fp-1".equals(call(links, "lastFingerprint", scId)) && (Long) call(links, "lastBackup", scId) > 0, null);
-        call(links, "publicNow", scId, "SketchwareAI-My_App", publicUrl, privatePath);
+        call(links, "copyMade", scId, "SketchwareAI-Public-My_App", "a1b2c3d4e5f6");
+        check("v2.0.3 review: a new copy (still private) keeps its repository and id; the project stays private",
+                "private".equals(call(links, "visibility", scId, "octo")) && "a1b2c3d4e5f6".equals(call(links, "publicId", scId, "octo"))
+                        && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo")), null);
+        call(links, "publicNow", scId, "SketchwareAI-Public-My_App", publicUrl, privatePath);
         check("v2.0.3: Public: the share pill shares the public copy's link", "public".equals(call(links, "visibility", scId, "octo"))
-                && publicUrl.equals(call(links, "get", scId, "octo")) && Boolean.TRUE.equals(call(links, "isPublic", scId))
-                && "SketchwareAI-My_App".equals(call(links, "publicRepository", scId)), call(links, "get", scId, "octo"));
+                && publicUrl.equals(call(links, "get", scId, "octo")) && Boolean.TRUE.equals(call(links, "isPublic", scId, "octo"))
+                && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo")), call(links, "get", scId, "octo"));
         call(links, "saved", scId, url, privatePath, "octo", autoOptions, "fp-2");
         check("v2.0.3: a later backup keeps it public (and its public link)", "public".equals(call(links, "visibility", scId, "octo"))
                 && publicUrl.equals(call(links, "get", scId, "octo")) && "fp-2".equals(call(links, "lastFingerprint", scId)), null);
         call(links, "privateNow", scId);
-        check("v2.0.3: Private again: the private link; the public repository's name kept for a later Public",
+        check("v2.0.3: Private again: the private link; the public repository and its id kept for a later Public",
                 "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
-                        && "SketchwareAI-My_App".equals(call(links, "publicRepository", scId)), null);
+                        && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo"))
+                        && "a1b2c3d4e5f6".equals(call(links, "publicId", scId, "octo")), null);
         check("v2.0.3: no pills under another account", call(links, "visibility", scId, "someone") == null, null);
+        // review L6/H1: a record without its account (carried in by a .swb) never steers a visibility change, and the
+        // backup repository is never a "public copy"
+        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"" + scId + "\",\"visibility\":\"public\","
+                + "\"public_repo\":\"SketchwareAI-Projects\",\"public_id\":\"a1b2c3d4e5f6\",\"public_url\":\"https://github.com/x/y\"}");
+        boolean noAccount = !Boolean.TRUE.equals(call(links, "isPublic", scId, "octo")) && call(links, "publicRepository", scId, "octo") == null
+                && "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"));
+        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"" + scId + "\",\"login\":\"octo\","
+                + "\"visibility\":\"public\",\"public_repo\":\"sketchwareai-projects\",\"public_id\":\"a1b2c3d4e5f6\"}");
+        check("v2.0.3 review: a record without its account, or naming the backup repository, never makes anything public",
+                noAccount && call(links, "publicRepository", scId, "octo") == null, null);
+        linkFile.delete();
+        call(links, "saved", scId, url, privatePath, "octo", libsOnly, "fp-1");
 
         // --- v2.0.3: "never auto-logout": GitHub's refusal is a mark with a note; the session stays
         Class<?> session = c("com.sketchware.ai.github.GitHubSession");
@@ -493,7 +510,12 @@ public final class GitHubTest {
         call(pe, "putString", "login", "octo");
         call(pe, "putString", "user_id", "583231");
         call(pe, "commit");
-        call(session, "markRefused", CTX, "GitHub didn't accept the saved sign-in at 22:17. You're still signed in here.");
+        Object sealedNow = call(call(c("com.sketchware.ai.github.TokenStore"), "get", CTX), "sealedKey");
+        call(session, "markRefused", CTX, "GitHub didn't accept the other sign-in.", "0000");
+        Object notMarked = call(session, "profile", CTX);
+        check("v2.0.3 review: a refusal of another sign-in (one replaced meanwhile) doesn't mark this one",
+                !String.valueOf(get(notMarked, "problem")).contains("other sign-in"), get(notMarked, "problem"));
+        call(session, "markRefused", CTX, "GitHub didn't accept the saved sign-in at 22:17. You're still signed in here.", sealedNow);
         Object refusedProfile = call(session, "profile", CTX);
         check("v2.0.3: a 401 marks the sign-in (the card says so), the login stays", refusedProfile != null
                 && "octo".equals(get(refusedProfile, "login")) && String.valueOf(get(refusedProfile, "problem")).contains("didn't accept"),
@@ -581,6 +603,41 @@ public final class GitHubTest {
         waitFor(() -> ran.contains("9007") && ran.contains("9008"), 10000);
         check("v2.0.3: a tap on a project whose automatic backup waits moves it forward", ran.indexOf("9008") < ran.indexOf("9007"),
                 ran);
+        // review M3: a backup after a save while that project's backup is already uploading waits as a job of its own
+        java.util.concurrent.CountDownLatch release3 = new java.util.concurrent.CountDownLatch(1);
+        Object runner3 = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {
+            if (!m.equals("run")) return null;
+            String id;
+            try {
+                id = (String) get(a[0], "scId");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            ran.add(id);
+            if (ran.size() == 1) {
+                try {
+                    release3.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                }
+            }
+            return "done " + id;
+        });
+        set(syncClass, "runnerForTests", runner3);
+        ran.clear();
+        call(cloudSync, "enqueue", neu(jobClass, "9010", "backup", "Saved", autoOptions, false), null, result.apply("K"));
+        waitFor(() -> ran.contains("9010"), 5000);
+        Object followUp = neu(jobClass, "9010", "backup", null, autoOptions, false);
+        set(followUp, "afterRunning", true);
+        call(cloudSync, "enqueue", followUp, null, result.apply("L"));
+        Object followUp2 = neu(jobClass, "9010", "backup", null, autoOptions, false);
+        set(followUp2, "afterRunning", true);
+        call(cloudSync, "enqueue", followUp2, null, result.apply("M"));
+        release3.countDown();
+        waitFor(() -> java.util.Collections.frequency(ran, "9010") >= 2 && results.contains("M:true:done 9010"), 10000);
+        check("v2.0.3 review: a save during a running backup of that project: one more backup after it (two saves "
+                + "meanwhile: still one)", java.util.Collections.frequency(ran, "9010") == 2
+                && results.contains("L:true:done 9010") && results.contains("M:true:done 9010"), ran);
+        set(syncClass, "runnerForTests", runner);
 
         // --- v2.0.3: a save in the editor: a background backup only when signed in, the switch on, and the project changed
         ran.clear();
@@ -591,6 +648,16 @@ public final class GitHubTest {
         ran.clear();
         call(cloudSync, "projectSaved", scId, true);
         boolean unchangedSkipped = !waitFor(() -> ran.contains(scId), 1500);
+        // review M4: every save rewrites every file: the same content written again is no change
+        File project = new File(sketchware, "data/" + scId + "/logic");
+        boolean sameContent = true;
+        if (project.isFile()) {
+            byte[] bytes = java.nio.file.Files.readAllBytes(project.toPath());
+            Thread.sleep(1100);
+            java.nio.file.Files.write(project.toPath(), bytes);
+            sameContent = fingerprint.equals(call(syncClass, "fingerprint", scId));
+        }
+        check("v2.0.3 review: the change check reads contents (a save that writes the same bytes is no change)", sameContent, null);
         File touched = new File(sketchware, "data/" + scId + "/v203_test_change.txt");
         writeText(touched, "a change");
         call(cloudSync, "projectSaved", scId, false);

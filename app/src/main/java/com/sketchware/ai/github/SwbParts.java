@@ -88,11 +88,17 @@ public final class SwbParts {
                 m.size = o.get("size").getAsLong();
                 m.sha256 = DeviceFlow.string(o, "sha256");
                 long total = 0;
+                // review: a list from a link can't make the phone fetch thousands of empty parts
+                long most = m.size / (1024 * 1024) + 1;
                 for (JsonElement pe : o.getAsJsonArray("parts")) {
                     JsonObject po = pe.getAsJsonObject();
                     String sha = DeviceFlow.string(po, "sha");
                     long size = po.get("size").getAsLong();
-                    if (sha == null || !sha.matches("[0-9a-f]{40}") || size < 0) throw new IllegalStateException("bad part");
+                    if (sha == null || !sha.matches("[0-9a-f]{40}") || size < 0 || size > 16L * 1024 * 1024
+                            || (size == 0 && m.size > 0)) {
+                        throw new IllegalStateException("bad part");
+                    }
+                    if (m.parts.size() >= most) throw new IllegalStateException("too many parts");
                     m.parts.add(new Part(DeviceFlow.string(po, "path"), size, sha));
                     total += size;
                 }
@@ -179,6 +185,7 @@ public final class SwbParts {
                         throw new GitHubException("http_" + r.code, "Downloading part " + index + " of " + m.parts.size()
                                 + " failed (HTTP " + r.code + ").");
                     }
+                    if (piece.length() != p.size) unwrapJson(piece);
                     if (piece.length() != p.size) {
                         throw new GitHubException("bad_part", "Part " + index + " of " + m.parts.size() + " has "
                                 + piece.length() + " bytes instead of " + p.size + ".");
@@ -201,6 +208,26 @@ public final class SwbParts {
             piece.delete();
             //noinspection ResultOfMethodCallIgnored
             joined.delete();
+        }
+    }
+
+    /**
+     * Review (L10): GitHub answers a blob with its JSON (base64 content) when it doesn't take the raw media type: the
+     * content is decoded in place; anything else is left for the size check.
+     */
+    private static void unwrapJson(File piece) throws IOException {
+        if (piece.length() > 24L * 1024 * 1024) return;
+        byte[] bytes = java.nio.file.Files.readAllBytes(piece.toPath());
+        if (bytes.length == 0 || bytes[0] != '{') return;
+        try {
+            JsonObject o = com.google.gson.JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
+            if (!"base64".equals(DeviceFlow.string(o, "encoding"))) return;
+            String content = DeviceFlow.string(o, "content");
+            if (content == null) return;
+            byte[] data = android.util.Base64.decode(content, android.util.Base64.DEFAULT);
+            java.nio.file.Files.write(piece.toPath(), data);
+        } catch (RuntimeException ignored) {
+            // not GitHub's JSON: the size check says so
         }
     }
 

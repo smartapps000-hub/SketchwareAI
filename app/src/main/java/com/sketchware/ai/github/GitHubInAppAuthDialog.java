@@ -103,6 +103,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private String loadedFor;
     /** v2.0.3: the main page is (being) GitHub's device page: a code that arrives is filled in without a reload. */
     private boolean onDevicePage;
+    /** v2.0.3 review: the device page was asked for before the code and no page has started loading yet. */
+    private boolean earlyLoad;
     private boolean filled;
     private int fillTries;
     private boolean signedIn;
@@ -231,9 +233,27 @@ public final class GitHubInAppAuthDialog extends Dialog {
             signIn.start(clientId);
             // v2.0.3 (owner's 15 Nov phone test: a blank window under "Getting a sign-in code…"): GitHub's device page
             // opens at once (sign in there meanwhile); the code goes into it when GitHub sends it
-            if (web != null && limitedUntil == 0) web.loadUrl(DEVICE_PAGE);
+            if (web != null && limitedUntil == 0) {
+                earlyLoad = true;
+                web.loadUrl(DEVICE_PAGE);
+            }
         }
         onSignInChanged();
+    }
+
+    /**
+     * v2.0.3 review: GitHub's sign-in pages (password, two-factor, sign-up): a code that arrives meanwhile must not reload
+     * the window under the user; GitHub returns to the device page after signing in, and that page gets the code.
+     */
+    private boolean onSignInPage() {
+        String url = web == null ? null : web.getUrl();
+        if (url == null) return false;
+        Uri uri = Uri.parse(url);
+        if (!"github.com".equals(uri.getHost())) return false;
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        if (path.startsWith("/login/device")) return false;
+        return path.startsWith("/login") || path.startsWith("/session") || path.startsWith("/signup")
+                || path.startsWith("/join") || path.startsWith("/password_reset");
     }
 
     private void onSignInChanged() {
@@ -274,6 +294,10 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 if (onDevicePage) {
                     // v2.0.3: the page opened before the code came: filled now (or when it has finished loading)
                     if (!loading) fill();
+                } else if (earlyLoad || onSignInPage()) {
+                    // review: the early page is still on its way, or the user is signing in: GitHub's way back to
+                    // the device page fills the code (no reload under a half-typed password)
+                    status("Sign in on GitHub's page: the code " + code.userCode + " goes in after it.", false);
                 } else if (limitedUntil == 0) {
                     status("Opening GitHub…", false);
                     web.loadUrl(DEVICE_PAGE);
@@ -320,7 +344,10 @@ public final class GitHubInAppAuthDialog extends Dialog {
         for (WebView popup : new java.util.ArrayList<>(popups)) destroyQuietly(popup);
         popups.clear();
         // v2.0.1: closed before GitHub's approval: the sign-in pauses and keeps its code for the next window
-        if (!signedIn && !keepSignIn && TokenStore.get(getContext()).login() == null) signIn.pause();
+        // v2.0.3 review: also when a sign-in was kept from before ("Sign in again"): only a sign-in that finished
+        // meanwhile in another window is left alone
+        boolean finishedElsewhere = noLoginAtBegin && TokenStore.get(getContext()).login() != null;
+        if (!signedIn && !keepSignIn && !finishedElsewhere) signIn.pause();
         destroyWeb();
         if (done != null) done.closed();
     }
@@ -521,6 +548,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     return;
                 }
                 loading = true;
+                earlyLoad = false;
                 String startedPath = uri.getPath() == null ? "" : uri.getPath();
                 onDevicePage = "github.com".equals(uri.getHost())
                         && (startedPath.equals("/login/device") || startedPath.equals("/login/device/"));

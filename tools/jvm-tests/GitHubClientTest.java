@@ -156,7 +156,7 @@ public class GitHubClientTest {
         fake.moveBranchOnce = true;
         String commit = cloud.upload(swb, "My App", "com.my.newproject", "1.0", "v1.9.8-test");
         check("upload: blob = the file's bytes (streamed base64)", java.util.Arrays.equals(fake.blob, bytes), fake.blob == null ? null : fake.blob.length);
-        check("upload: one tree with the .swb and index.json on the head's tree", fake.treeOk, fake.treeBody);
+        check("upload: one tree with the .swb, its parts list (v2.0.3) and index.json on the head's tree", fake.treeOk, fake.treeBody);
         check("upload: retried once after the branch moved", fake.refPatches == 2 && "c-2".equals(commit), "patches " + fake.refPatches);
         List<CloudBackup.Entry> entries = cloud.list();
         check("list reads index.json", entries.size() == 1 && "projects/com.my.newproject/My_App.swb".equals(entries.get(0).path)
@@ -422,9 +422,11 @@ public class GitHubClientTest {
         java.nio.file.Files.write(small.toPath(), smallBytes);
         fake.deleted.clear();
         String smallCommit = partsCloud.upload(small, "Large App", "com.large.app", "3.0", "v2.0.3-test", collect);
-        check("v2.0.3: back to one .swb: its parts list and its 3 parts are removed in that commit",
-                fake.deleted.contains(largePath + ".parts.json") && fake.deleted.contains(largePath + ".parts/000")
-                        && fake.deleted.contains(largePath + ".parts/002") && fake.deleted.size() == 4, fake.deleted);
+        check("v2.0.3: back to one .swb: its 3 parts are removed in that commit, the parts list stays (now naming the "
+                        + "single file: the share link doesn't change)",
+                !fake.deleted.contains(largePath + ".parts.json") && fake.deleted.contains(largePath + ".parts/000")
+                        && fake.deleted.contains(largePath + ".parts/002") && fake.deleted.size() == 3
+                        && partsCloud.list().stream().anyMatch(e -> (largePath + ".parts.json").equals(e.parts)), fake.deleted);
         java.util.List<CloudBackup.Version> largeHistory = partsCloud.history(largePath);
         // (the backups of 2.1 and 2.2 sent the same bytes: their parts and parts list didn't change, only index.json)
         check("v2.0.3: history lists the backup in parts and the single one after it, newest first",
@@ -442,41 +444,56 @@ public class GitHubClientTest {
         // the account card's repository count
         check("v2.0.3: account: public + private repositories", CloudBackup.account(token).repositories == 12,
                 CloudBackup.account(token).repositories);
-        // a project's public copy: its own repository, created public; Private / Public = PATCH private
+        // a project's public copy: its own repository with its own id, made private, public only after its upload;
+        // the backup repository is never touched (review H1/H2)
         Class<?> publicCopy = Class.forName("com.sketchware.ai.github.PublicCopy");
-        java.lang.reflect.Method choose = publicCopy.getDeclaredMethod("choose", String.class, String.class, String.class, String.class);
+        java.lang.reflect.Method choose = publicCopy.getDeclaredMethod("choose", String.class, String.class, String.class,
+                String.class, String.class);
         choose.setAccessible(true);
         java.lang.reflect.Method setPrivate = publicCopy.getDeclaredMethod("setPrivate", String.class, String.class, String.class, boolean.class);
         setPrivate.setAccessible(true);
-        String publicRepo = (String) choose.invoke(null, token, "octo", "My App", "com.my.app");
-        check("v2.0.3: Public: the project's own repository SketchwareAI-My_App, created public with auto_init",
-                "SketchwareAI-My_App".equals(publicRepo) && fake.createdRepos.contains("SketchwareAI-My_App public auto_init"),
+        java.lang.reflect.Method ours = publicCopy.getDeclaredMethod("ours", String.class, String.class, String.class, String.class);
+        ours.setAccessible(true);
+        String publicRepo = (String) choose.invoke(null, token, "octo", "My App", "com.my.app", "a1b2c3d4e5f6");
+        check("v2.0.3: Public: the project's own repository SketchwareAI-Public-My_App, made private (public only after "
+                        + "its upload), its id in the description",
+                "SketchwareAI-Public-My_App".equals(publicRepo) && fake.createdRepos.contains("SketchwareAI-Public-My_App private auto_init")
+                        && fake.repos.get("SketchwareAI-Public-My_App").description.startsWith("Sketchware AI public copy a1b2c3d4e5f6:"),
                 fake.createdRepos);
-        Fake.Repo taken = new Fake.Repo();
-        taken.description = "Someone's own repository";
-        fake.repos.put("SketchwareAI-Taken", taken);
-        String second = (String) choose.invoke(null, token, "octo", "Taken", "com.taken");
-        check("v2.0.3: a repository of that name not made by Sketchware AI is never used (-2)",
-                "SketchwareAI-Taken-2".equals(second) && fake.repos.get("SketchwareAI-Taken").log.isEmpty(), second);
-        String again3 = (String) choose.invoke(null, token, "octo", "My App", "com.my.app");
-        check("v2.0.3: the project's public repository is found again (no second one)", "SketchwareAI-My_App".equals(again3)
-                && fake.createdRepos.size() == 2, fake.createdRepos);
+        check("v2.0.3: the copy is recognised by its id only (another project of the same name isn't)",
+                (Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Public-My_App", "a1b2c3d4e5f6")
+                        && !(Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Public-My_App", "ffffffffffff")
+                        && !(Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Projects", "a1b2c3d4e5f6"), null);
+        String second = (String) choose.invoke(null, token, "octo", "My_App", "com.other", "0123456789ab");
+        check("v2.0.3: a second project of that name gets its own repository (-2), the first copy isn't reused",
+                "SketchwareAI-Public-My_App-2".equals(second), second);
+        for (String backupRepo : new String[]{"SketchwareAI-Projects", "sketchwareai-projects"}) {
+            try {
+                setPrivate.invoke(null, token, "octo", backupRepo, false);
+                check("v2.0.3: the backup repository is never made public (" + backupRepo + ")", false, null);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                check("v2.0.3: the backup repository is never made public (" + backupRepo + ")",
+                        "not_a_copy".equals(((GitHubException) e.getCause()).code) && fake.repos.get("SketchwareAI-Projects").isPrivate
+                                && fake.patches.isEmpty(), e.getCause().getMessage());
+            }
+        }
         java.lang.reflect.Constructor<CloudBackup> forRepo = CloudBackup.class.getDeclaredConstructor(String.class, String.class,
                 String.class, boolean.class);
         forRepo.setAccessible(true);
-        CloudBackup copy = forRepo.newInstance(token, "octo", "SketchwareAI-My_App", true);
+        CloudBackup copy = forRepo.newInstance(token, "octo", "SketchwareAI-Public-My_App", true);
         copy.ensureRepository();
         copy.upload(small, "My App", "com.my.app", "1.0", "v2.0.3-test");
-        check("v2.0.3: the public copy holds the backup; its link is the public repository's",
-                fake.repos.get("SketchwareAI-My_App").filesAt("main").containsKey("projects/com.my.app/My_App.swb"), null);
-        setPrivate.invoke(null, token, "octo", "SketchwareAI-My_App", true);
-        boolean hidden = fake.repos.get("SketchwareAI-My_App").isPrivate;
-        setPrivate.invoke(null, token, "octo", "SketchwareAI-My_App", false);
-        check("v2.0.3: Private / Public = PATCH /repos/octo/SketchwareAI-My_App {private: true / false}",
-                hidden && !fake.repos.get("SketchwareAI-My_App").isPrivate && fake.patches.size() == 2
-                        && fake.patches.get(0).contains("\"private\":true") && fake.patches.get(1).contains("\"private\":false"),
+        boolean privateWhileUploading = fake.repos.get("SketchwareAI-Public-My_App").isPrivate;
+        setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-My_App", false);
+        check("v2.0.3: the copy holds the backup while still private, then PATCH private:false",
+                privateWhileUploading && fake.repos.get("SketchwareAI-Public-My_App").filesAt("main").containsKey("projects/com.my.app/My_App.swb")
+                        && !fake.repos.get("SketchwareAI-Public-My_App").isPrivate, null);
+        setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-My_App", true);
+        check("v2.0.3: Private / Public = PATCH /repos/octo/SketchwareAI-Public-My_App {private: false / true}",
+                fake.repos.get("SketchwareAI-Public-My_App").isPrivate && fake.patches.size() == 2
+                        && fake.patches.get(0).contains("\"private\":false") && fake.patches.get(1).contains("\"private\":true"),
                 fake.patches);
-        setPrivate.invoke(null, token, "octo", "SketchwareAI-Gone", true);
+        setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-Gone", true);
         check("v2.0.3: Private for a public copy deleted on github.com is fine (nothing to hide)", true, null);
         // the sign-in code request: short timeouts, tried again when the network drops it
         java.lang.reflect.Field startPauses = DeviceFlow.class.getDeclaredField("startPauses");
@@ -876,8 +893,10 @@ public class GitHubClientTest {
                     }
                 }
                 String swbPath = paths.isEmpty() ? "" : paths.get(0);
-                treeOk = r.commitTree.get(r.head).equals(o.get("base_tree").getAsString()) && paths.size() == 2
-                        && swbPath.startsWith("projects/") && swbPath.endsWith(".swb") && "index.json".equals(paths.get(1));
+                // v2.0.3: the .swb, its parts list (always written: the share link names it) and index.json
+                treeOk = r.commitTree.get(r.head).equals(o.get("base_tree").getAsString()) && paths.size() == 3
+                        && swbPath.startsWith("projects/") && swbPath.endsWith(".swb")
+                        && (swbPath + ".parts.json").equals(paths.get(1)) && "index.json".equals(paths.get(2));
                 String id = "t-n" + (++r.treeCount);
                 r.trees.put(id, files);
                 return new Object[]{201, "{\"sha\":\"" + id + "\"}"};

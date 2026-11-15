@@ -158,7 +158,9 @@ public final class GitHubImportDialog {
                 CloudBackup cloud = new CloudBackup(token(), login);
                 // looking must not create the repository: none yet = no backups yet
                 List<CloudBackup.Entry> entries = cloud.openIfExists() ? cloud.list() : new java.util.ArrayList<>();
-                saveCachedList(activity, login, entries, true);
+                synchronized (LIST_LOCK) {
+                    saveCachedList(activity, login, entries, true);
+                }
                 ui(() -> showOwn(entries, login, null, false));
             } catch (Exception e) {
                 String why = text(e);
@@ -175,6 +177,9 @@ public final class GitHubImportDialog {
             }
         });
     }
+
+    /** v2.0.3 review: the kept list is read and written by this sheet and by backups as they end: one at a time. */
+    static final Object LIST_LOCK = new Object();
 
     /** v2.0.1: the last list of own backups, for showing it offline (names and times only, no token). */
     static void saveCachedList(android.content.Context context, String login, List<CloudBackup.Entry> entries,
@@ -205,8 +210,11 @@ public final class GitHubImportDialog {
         }
     }
 
-    private void showOwn(List<CloudBackup.Entry> entries, String login, String note, boolean failed) {
+    private void showOwn(List<CloudBackup.Entry> list, String login, String note, boolean failed) {
         backups.removeAllViews();
+        // newest first, from GitHub as from the phone
+        List<CloudBackup.Entry> entries = new java.util.ArrayList<>(list);
+        java.util.Collections.sort(entries, (x, y) -> Long.compare(y.time, x.time));
         if (note != null) {
             backups.addView(v.line(note, failed), v.full(-1, 4));
             if (failed) backups.addView(v.smallPill("Try again", true, true, x -> loadOwnBackups()), pillAt(6));

@@ -51,7 +51,7 @@ public final class GitHubSample {
      * Once per install: the sample is made when no project of its name exists (worker thread; storage access granted).
      * Returns the new project's id, or null.
      */
-    public static String seedOnce(Context context) {
+    public static synchronized String seedOnce(Context context) {
         android.content.SharedPreferences prefs = context.getSharedPreferences("sketchware_ai_cloud_sync",
                 Context.MODE_PRIVATE);
         if (prefs.getBoolean(SEEDED, false)) return null;
@@ -61,7 +61,7 @@ public final class GitHubSample {
     }
 
     /** Makes the sample project (worker thread) and returns its id. */
-    public static String create(Context context) {
+    public static synchronized String create(Context context) {
         return create(context, ProjectIds.free(lC.b()));
     }
 

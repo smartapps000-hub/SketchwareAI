@@ -336,18 +336,16 @@ public final class SignIn {
                     waitOrWake(5000);
                 }
             }
-            if (!current(g[0])) return;
-            // review: the token is saved first; the e-mail (optional, retried on a slow network) is read afterwards
-            TokenStore.get(app).save(token, account.login, account.id);
+            // review: the token is saved first; the e-mail (optional, retried on a slow network) is read afterwards.
+            // v2.0.3 review: checked and saved under the same lock as cancel(): a sign-in cancelled at this moment is
+            // simply not saved (it used to be saved and cleared, which also removed the sign-in from before)
+            synchronized (this) {
+                if (g[0] != generation) return;
+                TokenStore.get(app).save(token, account.login, account.id);
+            }
             GitHubSession.saveProfile(app, account, null);
             AuthGuard.reset();
             synchronized (this) {
-                if (g[0] != generation) {
-                    // cancelled during the save: the screen shows "signed out", so the phone must be too
-                    TokenStore.get(app).clear();
-                    AuthGuard.reset();
-                    return;
-                }
                 pending = null;
                 finishing = false;
                 starting = false;

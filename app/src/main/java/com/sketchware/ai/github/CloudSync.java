@@ -90,6 +90,11 @@ public final class CloudSync {
         Options options;
         boolean user;
         boolean started;
+        /**
+         * Review (M3): a backup after a save joins only a job that hasn't started (a running one packed the project
+         * before this save): otherwise it waits behind it as a job of its own.
+         */
+        boolean afterRunning;
         int percent = 1;
         String text = "Starting…";
         final java.util.List<Progress> watchers = new java.util.ArrayList<>();
@@ -169,10 +174,19 @@ public final class CloudSync {
 
     private Job find(String scId, String kind) {
         if (current != null && current.scId.equals(scId) && current.kind.equals(kind)) return current;
+        return findQueued(scId, kind);
+    }
+
+    private Job findQueued(String scId, String kind) {
         for (Job job : queue) {
             if (job.scId.equals(scId) && job.kind.equals(kind)) return job;
         }
         return null;
+    }
+
+    /** v2.0.3 review: a Public / Private change of this project is queued or running (the pill waits for it). */
+    public synchronized boolean isChangingVisibility(String scId) {
+        return find(scId, MAKE_PUBLIC) != null || find(scId, MAKE_PRIVATE) != null;
     }
 
     // ------------------------------------------------------------------ entry points
@@ -262,7 +276,7 @@ public final class CloudSync {
         Job target;
         int ahead;
         synchronized (this) {
-            target = find(job.scId, job.kind);
+            target = job.afterRunning ? findQueued(job.scId, job.kind) : find(job.scId, job.kind);
             if (target == null) {
                 target = job;
                 if (job.user) {
@@ -430,7 +444,7 @@ public final class CloudSync {
                     : "This phone can't read the saved sign-in (" + problem + "). You're still signed in: tap Sign in "
                     + "again on the account card; the backup waits.");
         }
-        return new String[]{login, token};
+        return new String[]{login, token, store.sealedKey()};
     }
 
     // ------------------------------------------------------------------ v2.0.3: public / private
@@ -535,8 +549,9 @@ public final class CloudSync {
                 if (now.equals(ProjectLinks.lastFingerprint(scId))) return;
                 if (!leaving && System.currentTimeMillis() - ProjectLinks.lastBackup(scId) < 5 * 60_000L) return;
                 Options options = ProjectLinks.lastOptions(scId);
-                enqueue(new Job(scId, BACKUP, null, options == null ? Options.AUTOMATIC : options, false), null,
-                        (ok, message) -> LogUtil.d("CloudSync", "Backup after save of " + scId + ": " + message));
+                Job job = new Job(scId, BACKUP, null, options == null ? Options.AUTOMATIC : options, false);
+                job.afterRunning = true;
+                enqueue(job, null, (ok, message) -> LogUtil.d("CloudSync", "Backup after save of " + scId + ": " + message));
             } catch (RuntimeException e) {
                 LogUtil.e("CloudSync", "Backup after save not started", e);
             }
@@ -608,14 +623,26 @@ public final class CloudSync {
             step(progress, 15, options.localLibraries || options.customBlocks
                     ? "Packing the project" + (options.localLibraries ? ", local libraries" : "")
                     + (options.customBlocks ? " & custom blocks" : "") + "…" : "Packing the project…");
-            BackupFactory factory = new BackupFactory(scId);
-            factory.setBackupLocalLibs(options.localLibraries);
-            factory.setBackupCustomBlocks(options.customBlocks);
-            // the saved project, read with its own instances: never the editor's shared copy (it may be open)
-            factory.setReadSavedDataOnly(true);
-            factory.backup(name);
-            File swb = factory.getOutFile();
-            if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
+            File swb = null;
+            // review (M6): a save while the project is packed could give a torn copy: packed again when its files
+            // changed meanwhile (at most three times)
+            for (int pack = 0; ; pack++) {
+                BackupFactory factory = new BackupFactory(scId);
+                factory.setBackupLocalLibs(options.localLibraries);
+                factory.setBackupCustomBlocks(options.customBlocks);
+                // the saved project, read with its own instances: never the editor's shared copy (it may be open)
+                factory.setReadSavedDataOnly(true);
+                factory.backup(name);
+                swb = factory.getOutFile();
+                if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
+                String after = fingerprint(scId);
+                if (after.equals(fingerprint) || pack >= 2) {
+                    fingerprint = after;
+                    break;
+                }
+                BackupFactory.deleteUploadedBackup(swb);
+                fingerprint = after;
+            }
             try {
                 long size = swb.length();
                 int parts = SwbParts.count(size);
@@ -652,7 +679,7 @@ public final class CloudSync {
                     rememberInList(login, name, pkg, version, size, path);
                 }
                 // v2.0.3: a project made public keeps its public copy up to date (the private backup is safe either way)
-                if (ProjectLinks.isPublic(scId)) {
+                if (ProjectLinks.isPublic(scId, login)) {
                     step(progress, 95, "Updating the public copy…");
                     try {
                         PublicCopy.update(token, login, scId, name, pkg, version, swb, null);
@@ -673,7 +700,8 @@ public final class CloudSync {
                             + "you're still signed in; try again.");
                 }
                 String note = GitHubSession.refusedNote(null);
-                GitHubSession.markRefused(app, note);
+                // review (L1): only the sign-in this backup used (a new sign-in meanwhile isn't marked)
+                GitHubSession.markRefused(app, note, session[2]);
                 throw new GitHubException("refused", e.getMessage() + " " + note + " The backup waits.");
             }
             throw e;
@@ -682,17 +710,36 @@ public final class CloudSync {
     }
 
     /**
-     * v2.0.3: a fingerprint of the project's saved files (names, sizes, times of the data folder and its files): an
-     * automatic backup after a save is skipped when nothing changed since the last backup.
+     * v2.0.3: a fingerprint of the project's saved files (names and contents of the data folder): an automatic backup
+     * after a save is skipped when nothing changed since the last backup. Review (M4): by content, since every save
+     * rewrites every file (sizes and times alone would always differ); files over 4 MiB by size only.
      */
     static String fingerprint(String scId) {
         File data = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/data/" + scId);
-        java.util.TreeMap<String, String> seen = new java.util.TreeMap<>();
-        collect(data, "", seen, 0);
-        return Integer.toHexString(seen.toString().hashCode()) + ":" + seen.size();
+        java.util.TreeMap<String, File> files = new java.util.TreeMap<>();
+        collect(data, "", files, 0);
+        java.security.MessageDigest all;
+        try {
+            all = java.security.MessageDigest.getInstance("SHA-256");
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+        byte[] buffer = new byte[64 * 1024];
+        for (java.util.Map.Entry<String, File> e : files.entrySet()) {
+            File f = e.getValue();
+            all.update((e.getKey() + "\0" + f.length() + "\0").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            if (f.length() > 4L * 1024 * 1024) continue;
+            try (java.io.InputStream in = new java.io.FileInputStream(f)) {
+                int n;
+                while ((n = in.read(buffer)) > 0) all.update(buffer, 0, n);
+            } catch (IOException ex) {
+                all.update(("unreadable@" + f.lastModified()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+        return SwbParts.hex(all.digest()) + ":" + files.size();
     }
 
-    private static void collect(File dir, String prefix, java.util.Map<String, String> out, int depth) {
+    private static void collect(File dir, String prefix, java.util.Map<String, File> out, int depth) {
         File[] files = dir.listFiles();
         if (files == null || depth > 6) return;
         for (File f : files) {
@@ -702,7 +749,7 @@ public final class CloudSync {
             if (f.isDirectory()) {
                 collect(f, name + "/", out, depth + 1);
             } else {
-                out.put(name, f.length() + "@" + f.lastModified());
+                out.put(name, f);
             }
         }
     }
@@ -712,6 +759,12 @@ public final class CloudSync {
      * the list shows it even before the next time GitHub can be asked.
      */
     private void rememberInList(String login, String name, String pkg, String version, long size, String path) {
+        synchronized (GitHubImportDialog.LIST_LOCK) {
+            rememberLocked(login, name, pkg, version, size, path);
+        }
+    }
+
+    private void rememberLocked(String login, String name, String pkg, String version, long size, String path) {
         try {
             String swbPath = SwbParts.isManifest(path) ? path.substring(0, path.length() - SwbParts.MANIFEST_SUFFIX.length()) : path;
             java.util.List<CloudBackup.Entry> list = GitHubImportDialog.cachedList(app, login, new long[1]);

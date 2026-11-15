@@ -60,6 +60,15 @@ public final class ProjectLinks {
         return signedInLogin == null || owner == null || owner.equalsIgnoreCase(signedInLogin);
     }
 
+    /**
+     * v2.0.3 review: the public copy's fields count only for the account signed in now that made them (a record carried
+     * by a restored or imported .swb, or one without an account, never steers a visibility change).
+     */
+    private static boolean publicFieldsOf(JsonObject json, String signedInLogin) {
+        String owner = DeviceFlow.string(json, "login");
+        return signedInLogin != null && owner != null && owner.equalsIgnoreCase(signedInLogin);
+    }
+
     private static String github(String url) {
         return url != null && url.startsWith("https://github.com/") ? url : null;
     }
@@ -76,7 +85,7 @@ public final class ProjectLinks {
     public static String get(String scId, String signedInLogin) {
         JsonObject json = read(scId);
         if (json == null || !ownedBy(json, signedInLogin)) return null;
-        if ("public".equals(DeviceFlow.string(json, "visibility"))) {
+        if (publicFieldsOf(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"))) {
             String shared = github(DeviceFlow.string(json, "public_url"));
             if (shared != null) return shared;
         }
@@ -87,19 +96,32 @@ public final class ProjectLinks {
     public static String visibility(String scId, String signedInLogin) {
         JsonObject json = read(scId);
         if (json == null || !ownedBy(json, signedInLogin) || github(DeviceFlow.string(json, "url")) == null) return null;
-        return "public".equals(DeviceFlow.string(json, "visibility")) ? "public" : "private";
+        return publicFieldsOf(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"))
+                ? "public" : "private";
     }
 
-    static boolean isPublic(String scId) {
+    static boolean isPublic(String scId, String signedInLogin) {
         JsonObject json = read(scId);
-        return json != null && "public".equals(DeviceFlow.string(json, "visibility"));
+        return json != null && publicFieldsOf(json, signedInLogin) && "public".equals(DeviceFlow.string(json, "visibility"));
     }
 
-    /** v2.0.3: the public copy's repository name kept for the project (also while it is private again), or null. */
-    static String publicRepository(String scId) {
+    /**
+     * v2.0.3: the public copy's repository kept for the project (also while it is private again), or null; never the
+     * backup repository.
+     */
+    static String publicRepository(String scId, String signedInLogin) {
         JsonObject json = read(scId);
-        String repo = json == null ? null : DeviceFlow.string(json, "public_repo");
-        return repo != null && repo.matches("[A-Za-z0-9_.-]{1,100}") ? repo : null;
+        if (json == null || !publicFieldsOf(json, signedInLogin)) return null;
+        String repo = DeviceFlow.string(json, "public_repo");
+        return repo != null && repo.matches("[A-Za-z0-9_.-]{1,100}") && !repo.equalsIgnoreCase(CloudBackup.REPO) ? repo : null;
+    }
+
+    /** v2.0.3 review: the id of the project's public copy (in its repository's description), or null. */
+    static String publicId(String scId, String signedInLogin) {
+        JsonObject json = read(scId);
+        if (json == null || !publicFieldsOf(json, signedInLogin)) return null;
+        String id = DeviceFlow.string(json, "public_id");
+        return id != null && id.matches("[0-9a-f]{12}") ? id : null;
     }
 
     /** v2.0.3: the fingerprint of the saved project at its last backup, or null. */
@@ -170,11 +192,20 @@ public final class ProjectLinks {
         }
         if (fingerprint != null) json.addProperty("fingerprint", fingerprint);
         if (old != null) {
-            for (String key : new String[]{"visibility", "public_repo", "public_url", "public_path"}) {
+            for (String key : new String[]{"visibility", "public_repo", "public_url", "public_path", "public_id"}) {
                 String value = DeviceFlow.string(old, key);
                 if (value != null) json.addProperty(key, value);
             }
         }
+        write(scId, json);
+    }
+
+    /** v2.0.3 review: a new public copy (still private) was made for the project: its repository and id. */
+    static synchronized void copyMade(String scId, String repo, String id) {
+        JsonObject json = read(scId);
+        if (json == null) return;
+        json.addProperty("public_repo", repo);
+        json.addProperty("public_id", id);
         write(scId, json);
     }
 

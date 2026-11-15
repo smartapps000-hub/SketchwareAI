@@ -304,6 +304,11 @@ public class GC extends DA implements View.OnClickListener {
         if (getActivity() == null) return;
         String scId = yB.c(project, "sc_id");
         String name = yB.c(project, "my_ws_name");
+        if (com.sketchware.ai.github.CloudSync.get(getActivity()).isChangingVisibility(scId)) {
+            android.widget.Toast.makeText(getActivity(), name + " is being changed: wait for it to finish",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         boolean makePublic = !"public".equals(visibilityOf(scId));
         if (!makePublic) {
             com.sketchware.ai.github.CloudSync.changeVisibility(getActivity(), scId, name, false);
@@ -312,8 +317,9 @@ public class GC extends DA implements View.OnClickListener {
         new com.sketchware.ai.ui.ObAlertBuilder(getActivity(), R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("Make " + name + " public?")
                 .setMessage("Its newest backup goes to its own public repository on your GitHub account: anyone with the "
-                        + "link can download the project, including any keys or passwords written in it. Your other "
-                        + "projects stay private. Tap Private later to hide it again.")
+                        + "link can download the project, including any keys or passwords written in it. While it is "
+                        + "public, every later backup of it (also the automatic one after saving) updates that copy. "
+                        + "Your other projects stay private. Tap Private later to hide it again.")
                 .setPositiveButton("Make public", (d, w) -> {
                     if (getActivity() != null) {
                         com.sketchware.ai.github.CloudSync.changeVisibility(getActivity(), scId, name, true);
