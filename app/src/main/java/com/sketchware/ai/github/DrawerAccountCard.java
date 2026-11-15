@@ -66,7 +66,7 @@ public final class DrawerAccountCard {
         // the top row: the picture, "GitHub" and its state, Sign out
         title.setText("GitHub");
         boolean trouble = profile.problem != null;
-        subtitle.setText(trouble ? "Signed in · needs renewing" : "Signed in · connected");
+        subtitle.setText(trouble ? "Sign-in not accepted" : "Connected");
         subtitle.setTextColor(v.color(trouble ? R.color.ob_error : R.color.ob_text_2));
         action.setVisibility(View.VISIBLE);
         action.setOnClickListener(x -> actions.signOut());
