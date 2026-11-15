@@ -255,6 +255,18 @@
       "file": "config/app-control.json (this repository, main branch; read by the app from raw.githubusercontent.com)",
       "purpose": "v1.9.8: AppControl notices (app_enabled, min_version_code, require_login, status_message, message_url, update_url)",
       "available": true
+    },
+    {
+      "id": "github-rest-git-data",
+      "file": "docs.github.com/en/rest/git (blobs, trees, commits, refs; 'Get a blob' with application/vnd.github.raw checked against api.github.com via gh api, 15 Nov 2026)",
+      "purpose": "v2.0.3: SwbParts / CloudBackup backups in parts, deletions with sha null, raw blob download",
+      "available": true
+    },
+    {
+      "id": "github-rest-repos",
+      "file": "docs.github.com/en/rest/repos/repos (Create for the authenticated user, Get a repository with 301 for renamed repositories, Update a repository: private true/false; GET /repositories/{id})",
+      "purpose": "v2.0.3: PublicCopy (copies created private, found by repository number, PATCH visibility)",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

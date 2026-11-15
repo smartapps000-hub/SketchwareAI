@@ -288,7 +288,39 @@ GITHUBCALL 17/17; export built with Gradle), GITHUBTEST 51/51, GITHUBCLIENT 51/5
 share button late and carried by restored copies, silent import errors after Hide, device-page move during a 429 /
 twice per landing / on Back, a second browser tab, a started keep-alive service, token warning Run-only, helper in
 fragments; all fixed). Known limit: a user's own custom component named "GitHub" or with id 2026 is shadowed by the
-built-in. APK v2.0.2-4d98560, versionCode 203 (next 204), sha256 `018a34b7...2e4ed537e7`, 142,463,769 bytes. Local branch
+built-in. APK v2.0.2-4d98560, versionCode 203 (next 204), sha256 `018a34b7...2e4ed537e7`, 142,463,769 bytes.
+v2.0.3 (owner's 15 Nov directive "CRITICAL STABILITY & UX OVERHAUL" after the v2.0.2 phone test, 12 screenshots: signed
+out by itself, blank "Getting a sign-in code…", backup stuck at 1% / failing at 90% with a 401, import list on
+"Loading…", drawer text overlapping, black recents card; record `engineering/v2.0.3-verification.md`): **never
+auto-logout**: only Sign out calls `TokenStore.clear()`; `token()` never deletes (bindings with "?" parts tried and
+re-sealed by compare-and-set; writes under the shared `LOCK`, reads without), `problem()`; a 401 =
+`GitHubSession.markRefused(context, note, sealedKey)` (card in `ob_error` + "Sign in again"; backups wait), also from
+`recheckOnline`; `DeviceFlow.start(…, Tries)` 10 s / 15 s timeouts, three tries; the device page loads at once
+(`devicePageAskedAt`, 15 s wait, `pageFailed` → reload, never fill an error page). FLAG_SECURE never set (the black
+recents card = the browser / WebView task snapshot). Drawer card: top row picture · GitHub + state · Sign out, details
+wrap (no marquee). `CloudSync` job queue (taps first, a second tap joins, `afterRunning` follow-ups, `finally` + Throwable,
+pending on IOException / sign-in problems); backup after save (`projectSaved(scId, leaving)` from DesignActivity's
+ProjectSaver / SaveChangesProjectCloser, System Settings key 2 `P12I_github_backup` default on, content `fingerprint` per
+account, plain Save ≤ every 5 min, repack ≤ 3 when the fingerprint or `stamp` changes while packing). `SwbParts`: > 4 MiB =
+4 MiB blobs `<swb>.parts/NNN` (git id checked, three tries incl. a 401 while GET /user works) + manifest
+`<swb>.parts.json` (always written; share link = the .swb while one file); stale paths deleted with `sha: null` in the
+same tree; download prefers the .swb at that commit, else parts by blob id (`application/vnd.github.raw`, checked
+once against the real API with `gh api`), size + SHA-256 checked. Import list from the phone first (`LIST_LOCK`).
+Public / Private + Share pills (`ob_github_pills` beside #id; icons `ob_ic_public`, `ob_ic_lock`): `PublicCopy` =
+own repository `SketchwareAI-Public-<name>[-n]` created private (description "Sketchware AI public copy <id>:"),
+uploaded, recorded public, then PATCH private:false (refused → record back to private); found by
+`GET /repositories/{public_number}` (owner = login; renames followed; a copy private / gone on GitHub → record private
+with a remark); `SketchwareAI-Projects` refused by name in any case by every PATCH; public link = repository page;
+`github_backup.json` fields only for its own sc_id and account, dropped by every .swb restore. GitHub blocks #1F6FEB
+(*has token* #2EA043), guide buttons "Open GitHub token page" / "Create GitHub sample project", `GitHubSample` "GitHub
+API Demo" (seeded once from `GC.onCreateView`; fixture spec `ghsample` 935). Fixtures 909 (fonts: `pip install fonttools
+brotli`, npm) and 910 (`sdkmanager "ndk;28.2.13676358"`) ran again for the first time since v1.9.0. Four review passes
+(HIGH: a project named "Projects" could publish the backup repository, same-name projects shared a copy, New Project
+re-picking its id lost the icon; MEDIUM: published before the upload, Private could falsely succeed, renamed copies,
+early-page failure; all fixed). Known limits: a public copy is forgotten when the project is backed up under another
+account (stays public), a copy moved to an organisation counts as gone, v2.0.2 can't import backups in parts, the 401's
+root cause unknown. APK v2.0.3-0d1ab27, versionCode 204 (next 205), sha256 `b70a700d...7d3c6406`, 142,497,857 bytes.
+Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
 7z parts each; since v1.8.9 one full APK `apk/Sketchware_AI_v<version>.apk` and `v<version>/SketchwareAI-v<version>-patches.zip`

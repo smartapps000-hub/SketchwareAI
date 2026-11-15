@@ -1,7 +1,7 @@
 # Sketchware AI v2.0.3
 
-versionCode 204, `@@VERSIONNAME@@`, @@SIZE@@ bytes, sha256
-`@@SHA256@@`. Installs over v2.0.2 (same test key).
+versionCode 204, `v2.0.3-0d1ab27-minApi26`, 142497857 bytes, sha256
+`b70a700d7928f64bb5dd7136b5173f0a892480b4520070743475cb7c7d3c6406`. Installs over v2.0.2 (same test key).
 
 ## Download
 

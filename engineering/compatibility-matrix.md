@@ -246,3 +246,23 @@ Whether a generated APK runs on a given Android version depends on that project'
   compiles as Java 7 against android-26 and with ECJ 3.26 `-1.7`; the helper's pure functions ran on ART API 31 from the
   built app (CallGitHub). Network calls of a generated app were **not run** (ART here can't open sockets). GitHub needs
   TLS 1.2: Android 5.0+ only, unless an app switches TLS 1.2 on itself on Android 4.4 (min SDK 19 projects).
+
+## v2.0.3 (15 Nov 2026)
+
+- Session: TokenStore (bindings tried with "?" parts, compare-and-set re-seal, nothing deleted) ran on ART API 31 with a
+  software AES key standing in for the Android Keystore; the Keystore itself (Android 6.0+, StrongBox / TEE behaviour,
+  key loss after a lock-screen change) is **not run** here. GitHub's 401 handling ran on JVM 17 against a fake GitHub.
+- Sign-in window: the early device-page load, the wait for it, the reload after a failed load and "never fill an error
+  page" are WebView behaviour: **not run** here (review only). FLAG_SECURE is not set anywhere in the app (source
+  search); the black recents card is Android's snapshot of the browser / WebView task.
+- Backups in parts, the parts list, deletions in the same commit, history, link imports, Public / Private (by repository
+  number, renames, a copy made private on github.com), the share link: JVM 17 against a fake GitHub that follows GitHub's
+  documented answers (including 301 at a renamed repository's old name). The raw blob media type
+  (`Accept: application/vnd.github.raw` on `/git/blobs/{sha}`) was checked once against the real API (a text and a PNG
+  blob, byte-exact). A large project uploaded over a phone's mobile network is **not run**.
+- Job queue, backup after save, the change check, the restore that drops `github_backup.json`: ART API 31 (GitHubTest);
+  DesignActivity's save paths calling `projectSaved` are Activities: **not run** here.
+- Drawer card, project-card pills, the GitHub blocks guide buttons: rendered with layoutlib (Android 14 view code,
+  `V203Test`); the screens themselves are **not run**.
+- "GitHub API Demo": created by `GitHubSample.create` and built on ART API 31 (fixture 935, min SDK 21); its GitHub calls
+  in a generated app are **not run** (ART here can't open sockets).

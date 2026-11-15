@@ -843,6 +843,57 @@
       "checks": [
         "v202_github.png: drawer signed out ('Sign in with GitHub' whole) and signed in (marquee name / @login / e-mail, Sign out under them); progress sheet at 65%, 100% and failed; the three-step import guide; a project card with the share button next to #663"
       ]
+    },
+    {
+      "id": "935 ghsample (v2.0.3)",
+      "kind": "ART `run.sh <apk> <root> create ghsample 935` (GitHubSample.create with a fixed id, the New Project screen's creation path) + build; lane items `ghsample:935`, `ghgen:935`",
+      "content": "\"GitHub API Demo\": text field, Load profile / List repositories buttons, output text, GitHub component github1, String variable userName, events button1/button2 onClick, github1 user loaded / repositories listed / error",
+      "checks": [
+        "16 steps, 0 warnings",
+        "MainActivity: private SketchGitHub github1; github1.getUser(userName); github1.listRepos(userName); userName = edittext1.getText().toString(); (2); onUserLoaded / onReposListed / onError listener methods",
+        "manifest INTERNET; SketchGitHub.java written"
+      ]
+    },
+    {
+      "id": "940 (githubtest, v2.0.3)",
+      "kind": "ART `run.sh <apk> <root> githubtest 940` (after `cache:940`)",
+      "content": "h.GitHubTest with the v2.0.3 checks",
+      "checks": [
+        "GITHUBTEST 74/74: an unreadable token is kept (no sign-out); GitHub's refusal marks only the sealed sign-in that was used; job queue (tap before automatic, join, Error ends one job, follow-up after a running job); projectSaved with the switch and the content fingerprint; project record (visibility, public repository / id / number, boxes, fingerprint per account; no account or the backup repository = nothing public; a backup over a record without its account keeps no public copy); a restored .swb has no github_backup.json"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v2.0.3)",
+      "kind": "JVM 17 against a fake GitHub with an in-memory git store, compiled against the app's compiled classes (stubs-cls + android.jar on the classpath for class loading)",
+      "content": "tools/jvm-tests/GitHubClientTest.java",
+      "checks": [
+        "GITHUBCLIENT 87/87: parts upload / retries (401 once, 503 once) / refused sign-in with request id / deletions / history / downloads at each commit; link imports of a parts list and of an old .swb link; a .swb and its parts list listed once; share link .swb vs parts list; public copies end to end by repository number (edited description, rename answered 301, made private on GitHub, name reused, refused PATCH); the backup repository never PATCHed; the code request asked again after a drop"
+      ]
+    },
+    {
+      "id": "render-v203",
+      "kind": "layoutlib (tools/layoutlib-renders V203Test.kt after setup_v203.sh)",
+      "content": "drawer account card (top row, wrapped details, refused state), project card with Public/Private and Share pills, GitHub block colours",
+      "checks": [
+        "image out/v203_github.png"
+      ]
+    },
+    {
+      "id": "909 / 910 (v2.0.3 rerun)",
+      "kind": "ART suite fixtures, inputs recreated: `pip install fonttools brotli` + `make-test-fonts.py out/fonts`; `sdkmanager \"ndk;28.2.13676358\"` + `make-native-fixture.sh out/native-fixture` (keeps out/native-fixture/escpos)",
+      "content": "first run since v1.9.0",
+      "checks": [
+        "909: 16 steps, 0 warnings, assets/fonts ramabhadra.ttf + tenali.ttf (OTTO data), SketchFonts in the dex, source map exact",
+        "910: 16 steps, exactly 2 warnings, four .so files in the APK and in the AAB (AAB jar verified)"
+      ]
+    },
+    {
+      "id": "jeopen (v2.0.3)",
+      "kind": "ART `javaedit-open` lane after the suite",
+      "content": "projects 901, 902, 903, 904, 905, 907, 908, 909, 910, 912, 913, 931, 932, 934, 935",
+      "checks": [
+        "JAVAEDIT-OPEN 15/15: every activity opens convertible and saves unchanged"
+      ]
     }
   ]
 }

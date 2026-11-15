@@ -813,6 +813,72 @@
       "verifiedOn": [
         "ART DOCTORTEST (Build Doctor rules)"
       ]
+    },
+    {
+      "fingerprint": "Signed out of GitHub by itself (v2.0.0-v2.0.2): after a backup error, a 401, or the 6-hourly check",
+      "rootCause": "CloudSync and GitHubSession.recheckOnline signed out on HTTP 401; TokenStore.token() deleted a token it couldn't decrypt (a run that couldn't read ANDROID_ID or the certificate, a Keystore hiccup)",
+      "repair": "v2.0.3: only the card's Sign out clears the session; a 401 marks the sign-in that was used (GitHubSession.markRefused with its sealed key) and the card offers Sign in again; unreadable tokens are kept, fallback bindings tried and re-sealed (TokenStore.bindings)",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "ART GITHUBTEST 74/74 (refusal mark, unreadable token kept)",
+        "JVM GITHUBCLIENT 87/87"
+      ]
+    },
+    {
+      "fingerprint": "\"Getting a sign-in code...\" with a blank window (v2.0.2)",
+      "rootCause": "one code request with 30 s / 120 s timeouts and no retry; GitHub's page loaded only after the code",
+      "repair": "v2.0.3: DeviceFlow.start with 10 s / 15 s timeouts, three tries (IOException, 5xx), a status line per try; GitHub's device page loads at once and the code goes in when it arrives; a failed early load is loaded again",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "JVM GITHUBCLIENT (code request dropped once, asked again)",
+        "WebView not run here"
+      ]
+    },
+    {
+      "fingerprint": "Back up to GitHub stuck at 1% / \"is being backed up\" forever (v2.0.2)",
+      "rootCause": "one single-thread executor shared by every backup and syncPending after sign-in; a Throwable (OutOfMemoryError on a large project) escaped the job and left the project's lock set",
+      "repair": "v2.0.3: CloudSync job queue (taps before automatic jobs, a second tap joins, the lock freed in finally, Throwable caught)",
+      "scope": "IDE, cloud backup",
+      "verifiedOn": [
+        "ART GITHUBTEST (queue order, join, Error, follow-up)"
+      ]
+    },
+    {
+      "fingerprint": "Large project's Back up to GitHub fails at about 90% (v2.0.2), HTTP 401 on the blob upload",
+      "rootCause": "not confirmed: a whole .swb (tens of MB, base64 in one JSON request) sent as one blob; the phone showed a 401 near the end of the upload while the sign-in still worked",
+      "repair": "v2.0.3: parts of 4 MiB, each blob checked against its git id and sent again on its own (IOException, 5xx/408, a 401 while GET /user accepts the sign-in); errors name the part and GitHub's request id; a parts list with the backup's SHA-256",
+      "scope": "IDE, cloud backup",
+      "verifiedOn": [
+        "JVM GITHUBCLIENT (3 parts, 401 once, 503 once, refused sign-in, download joins and checks)",
+        "not run against GitHub with a large project"
+      ]
+    },
+    {
+      "fingerprint": "Import from GitHub list stays on \"Loading...\" / \"No connection\" (v2.0.2)",
+      "rootCause": "the list waited for GitHub before showing anything",
+      "repair": "v2.0.3: the list saved on the phone shows at once, GitHub's answer replaces it in the background; Try again",
+      "scope": "IDE, GitHub import",
+      "verifiedOn": [
+        "review; screen not run here"
+      ]
+    },
+    {
+      "fingerprint": "Drawer account card text drawn over itself (v2.0.2 marquee)",
+      "rootCause": "single-line marquee texts in a narrow column ghosted while scrolling",
+      "repair": "v2.0.3: top row (picture, GitHub + state, Sign out), the details wrap (BREAK_STRATEGY_SIMPLE)",
+      "scope": "IDE, drawer",
+      "verifiedOn": [
+        "layoutlib V203Test"
+      ]
+    },
+    {
+      "fingerprint": "Black app card in Android's recent-apps screen during GitHub sign-in",
+      "rootCause": "not FLAG_SECURE (the app never sets it): the snapshot of a browser tab / WebView surface Android shows for the task",
+      "repair": "none needed in the app; explained",
+      "scope": "IDE, sign-in",
+      "verifiedOn": [
+        "source search: no FLAG_SECURE / setSecure in the app"
+      ]
     }
   ]
 }

@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.0.2)
+## Shipped (v1.0 – v2.0.3)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -72,6 +72,12 @@ Everything in this section is in the released APK and was exercised as described
 | Sign-in window, steadier | Two-row header (✕ · GitHub Sign-In · ⟳ Reload, thin orange loading line, the code and a status that is never cut); "Sign in via browser" for Google, Apple or passkey accounts (code copied, GitHub's device page in the browser, checked when you come back); no blank page after a refused redirect; GitHub's "Too many requests" waited out with a countdown; closing the window keeps the code; new-window links stay in the window; a crashed page renderer is replaced (Android 8+) | v2.0.1 |
 | Backup and restore sheets | Back up: "Include used Local libraries" / "Include used Custom Blocks", then "Save on phone" or "Back up to GitHub" (the same .swb); Restore: "Restore local .swb file" or "GitHub import project"; a linked backup's local libraries only after asking, marked so builds never switch them on elsewhere by themselves | v2.0.1 |
 | GitHub on slow networks | Longer timeouts for 2G/3G, reads tried again after a dropped connection or a passing server error, GitHub's Retry-After and rate limits respected (no requests while a limit lasts; signed-out limits never block the account); your list of GitHub backups shown offline | v2.0.1 |
+| GitHub session that stays | Only *Sign out* ends it: backup errors, time-outs, rate limits, GitHub refusing a request and the background check never sign you out; a refused or unreadable sign-in is shown on the drawer card in red with *Sign in again*, and backups wait for it. The sign-in code request uses short time-outs and three tries; GitHub's page opens at once | v2.0.3 |
+| Drawer account card, top row | Picture · GitHub + state · Sign out on one row; name, @username, e-mail and "N repositories · checked HH:MM" under it, wrapping instead of being cut or drawn over | v2.0.3 |
+| Backups that finish | A queue (a tap goes first, a second tap joins, never stuck at 1%); projects over 4 MiB go up in 4 MiB parts, each checked and sent again on its own; a parts list with the backup's SHA-256; restores join and check the parts. The import list shows the backups saved on the phone at once and refreshes from GitHub | v2.0.3 |
+| Back up after saving | Signed in, a project saved in the editor (Save, Save & exit, auto-save on leaving) is backed up silently with its last boxes when its saved files changed (a plain Save at most every 5 minutes); Settings → *Back up to GitHub after saving* | v2.0.3 |
+| Public / Private and Share pills | Next to the project's #number after its first GitHub backup: *Public* puts the newest backup in the project's own public repository `SketchwareAI-Public-<name>` (asked first; the backup repository stays private), later backups update it, *Private* makes it private again; *Share* shares that repository's page while public, else the private backup's link. A copy renamed or made private on github.com is followed | v2.0.3 |
+| GitHub blocks and sample project | GitHub blocks in #1F6FEB (*has token* #2EA043); the blocks guide opens GitHub's token page and makes the *GitHub API Demo* project (also made once by itself): profile and repository list of a user name through the GitHub component, no token needed | v2.0.3 |
 | Sign-in lands on the code page | After you sign in on GitHub's page, the window goes from GitHub's home feed or dashboard back to the code page by itself (never during GitHub's "Too many requests" pause, never on a page you went Back to); "Continue with Google / Apple" starts the browser sign-in before a blank page can load (code copied); the browser tab closes when GitHub says yes (browsers that open it in the app's task), the drawer closes and you are on the projects list | v2.0.2 |
 | Drawer account card without cuts | "Sign in with GitHub" in full; signed in, name, @username and e-mail scroll sideways when long; Sign out under them | v2.0.2 |
 | Live 0-100% progress | Back up to GitHub and GitHub import show a sheet with the percentage, an orange bar and the step ("65% • Uploading to GitHub… 1.3 MB of 2.0 MB"); "Hide" keeps it running (a toast says when it ends); after Home the sheet waits at 100% | v2.0.2 |
@@ -101,7 +107,7 @@ Everything in this section is in the released APK and was exercised as described
 ## How it is tested, and what is not
 
 - **Android runtime harness** (`tools/art-harness`): the APK's own classes run on an Android 12 (API 31) ART runtime
-  **without the Android framework**: whole Run builds of fixture projects 901–934 (914–918 created by the New Project
+  **without the Android framework**: whole Run builds of fixture projects 901–935 (914–918 created by the New Project
   screen's own code; 919 edited through the Java editor's save; 920 with libraries installed by the Library Resolver) and
   AAB exports (aapt2,
   ECJ, Kotlin, D8/L8, DEX merge, packaging, signing); the generated permission helper's group table for API 23-37 and the
@@ -112,7 +118,7 @@ Everything in this section is in the released APK and was exercised as described
   dialog layouts. No Android emulator: the build machine has no hardware virtualisation.
 - **Host checks**: resource-ID pinning, API-level and linkage scans of the APK, signatures, 16 KB alignment.
 - **Not run here**: the IDE's screens (logic editor, design editor, compile log, Java editor, Library Resolver, GitHub
-  sign-in window, drawer account card, sign-in gate, backup and restore sheets, progress sheets, share button, import guide), GitHub itself and its pages inside the app's WebView (the
+  sign-in window, drawer account card, sign-in gate, backup and restore sheets, progress sheets, share and Public / Private pills, import guide), GitHub itself and its pages inside the app's WebView (the
   sign-in, backup and import code runs against a fake GitHub on a desktop JVM; the code fill and the Google / Apple interception against stand-in pages), a generated app's GitHub calls, Maven downloads on a phone's network, aapt2 on a real phone, installing or
   starting generated apps. Device testing is done by the maintainer on his phone (Android 15) after each build; its
   results go to `engineering/compatibility-matrix.md`.
@@ -168,6 +174,11 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 - Library Resolver: a library that needs a different major version of a built-in library (Retrofit 3 needs OkHttp 4;
   OkHttp 3.14.9 is built in) may not work; the install plan says so. Libraries compiled for Java 8+ can't be dexed on
   Android 7.1 and older (Dx).
+- GitHub backups (v2.0.3): a public copy belongs to the account that made it; backing the project up under another
+  GitHub account on the same phone forgets that copy (it stays public until made private on github.com). A copy moved
+  to an organisation counts as gone. Backups in parts can't be imported by v2.0.2 (it reads single .swb files only).
+  The cause of the HTTP 401 a large upload got on the phone is not known; v2.0.3 sends 4 MiB parts, tries a refused part
+  again while the sign-in works and names GitHub's request id.
 - A drawer's panel keeps the AppCompat Manager's light grey (#EEEEEE) in dark mode; its default black text stays readable there.
 - Not on the phone: a Gradle build (it needs a JDK and Gradle runtime of about 1.5 GB on the device), Kotlin as the
   language of the blocks (blocks generate Java; Kotlin files can be added in the Java Manager), Jetpack Compose.
