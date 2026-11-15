@@ -22,10 +22,11 @@ import java.util.Map;
  * endpoints do and checks every request. On the JVM because ART in this workspace can't open sockets (no IPv6); the
  * Android parts (token store, .swb backup and restore) run on the ART harness (h.GitHubTest).
  * Run (from the repository root, after the app's Java compile; the android.util / android.content stand-ins of the
- * harness at run time; v2.0.3: against the app's compiled classes, PublicCopy reaches into the app):
+ * harness at run time; v2.0.3: against the app's compiled classes; v2.0.4: ProjectRepo and ProjectLinks reach into
+ * the app, so the app's jars go on the run classpath too):
  *   APPC=app/build/intermediates/javac/minApi26Debug/compileMinApi26DebugJavaWithJavac/classes
  *   javac -d out -cp $ANDROID_JAR:$APPC:$GSON tools/jvm-tests/GitHubClientTest.java
- *   java -cp tools/art-harness/out/stubs-cls:out:$APPC:$GSON GitHubClientTest
+ *   java -cp tools/art-harness/out/stubs-cls:out:$APPC:$GSON:app/libs/* GitHubClientTest
  * Prints CLIENT CHECK lines and "GITHUBCLIENT n/n ok".
  */
 public class GitHubClientTest {
@@ -47,6 +48,36 @@ public class GitHubClientTest {
         java.lang.reflect.Method m = Class.forName("com.sketchware.ai.github.ProjectLinks").getDeclaredMethod(name, types);
         m.setAccessible(true);
         return m.invoke(null, args);
+    }
+
+    /** v2.0.4: a method of the app by name and argument count (package-private ones too); its exception unwrapped. */
+    static Object call(Object target, String name, Object... args) throws Exception {
+        Class<?> c = target instanceof Class ? (Class<?>) target : target.getClass();
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+            if (!m.getName().equals(name) || m.getParameterCount() != args.length) continue;
+            if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) != (target instanceof Class)) continue;
+            m.setAccessible(true);
+            try {
+                return m.invoke(target instanceof Class ? null : target, args);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                if (e.getCause() instanceof Exception) throw (Exception) e.getCause();
+                throw e;
+            }
+        }
+        throw new NoSuchMethodException(c.getName() + "." + name + "/" + args.length);
+    }
+
+    /** v2.0.4: a ProjectRepo.Backup. */
+    static Object backup(File swb, File apk, String project, String versionName, String versionCode, String notes) throws Exception {
+        Object b = Class.forName("com.sketchware.ai.github.ProjectRepo$Backup").getDeclaredConstructor().newInstance();
+        java.lang.reflect.Field f;
+        for (Object[] pair : new Object[][]{{"swb", swb}, {"apk", apk}, {"projectName", project}, {"versionName", versionName},
+                {"versionCode", versionCode}, {"notes", notes}}) {
+            f = b.getClass().getDeclaredField((String) pair[0]);
+            f.setAccessible(true);
+            f.set(b, pair[1]);
+        }
+        return b;
     }
 
     public static void main(String[] args) throws Exception {
@@ -474,139 +505,300 @@ public class GitHubClientTest {
         // the account card's repository count
         check("v2.0.3: account: public + private repositories", CloudBackup.account(token).repositories == 12,
                 CloudBackup.account(token).repositories);
-        // a project's public copy: its own repository with its own id, made private, public only after its upload;
-        // the backup repository is never touched (review H1/H2)
-        Class<?> publicCopy = Class.forName("com.sketchware.ai.github.PublicCopy");
-        java.lang.reflect.Method choose = publicCopy.getDeclaredMethod("choose", String.class, String.class, String.class,
-                String.class, String.class);
-        choose.setAccessible(true);
-        java.lang.reflect.Method setPrivate = publicCopy.getDeclaredMethod("setPrivate", String.class, String.class, String.class, boolean.class);
-        setPrivate.setAccessible(true);
-        java.lang.reflect.Method ours = publicCopy.getDeclaredMethod("ours", String.class, String.class, String.class, String.class);
-        ours.setAccessible(true);
-        String publicRepo = (String) field(choose.invoke(null, token, "octo", "My App", "com.my.app", "a1b2c3d4e5f6"), "name");
-        check("v2.0.3: Public: the project's own repository SketchwareAI-Public-My_App, made private (public only after "
-                        + "its upload), its id in the description",
-                "SketchwareAI-Public-My_App".equals(publicRepo) && fake.createdRepos.contains("SketchwareAI-Public-My_App private auto_init")
-                        && fake.repos.get("SketchwareAI-Public-My_App").description.startsWith("Sketchware AI public copy a1b2c3d4e5f6:"),
-                fake.createdRepos);
-        check("v2.0.3: the copy is recognised by its id only (another project of the same name isn't)",
-                (Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Public-My_App", "a1b2c3d4e5f6")
-                        && !(Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Public-My_App", "ffffffffffff")
-                        && !(Boolean) ours.invoke(null, token, "octo", "SketchwareAI-Projects", "a1b2c3d4e5f6"), null);
-        String second = (String) field(choose.invoke(null, token, "octo", "My_App", "com.other", "0123456789ab"), "name");
-        check("v2.0.3: a second project of that name gets its own repository (-2), the first copy isn't reused",
-                "SketchwareAI-Public-My_App-2".equals(second), second);
-        for (String backupRepo : new String[]{"SketchwareAI-Projects", "sketchwareai-projects"}) {
-            try {
-                setPrivate.invoke(null, token, "octo", backupRepo, false);
-                check("v2.0.3: the backup repository is never made public (" + backupRepo + ")", false, null);
-            } catch (java.lang.reflect.InvocationTargetException e) {
-                check("v2.0.3: the backup repository is never made public (" + backupRepo + ")",
-                        "not_a_copy".equals(((GitHubException) e.getCause()).code) && fake.repos.get("SketchwareAI-Projects").isPrivate
-                                && fake.patches.isEmpty(), e.getCause().getMessage());
-            }
-        }
-        java.lang.reflect.Constructor<CloudBackup> forRepo = CloudBackup.class.getDeclaredConstructor(String.class, String.class,
-                String.class, boolean.class);
-        forRepo.setAccessible(true);
-        CloudBackup copy = forRepo.newInstance(token, "octo", "SketchwareAI-Public-My_App", true);
-        copy.ensureRepository();
-        copy.upload(small, "My App", "com.my.app", "1.0", "v2.0.3-test");
-        boolean privateWhileUploading = fake.repos.get("SketchwareAI-Public-My_App").isPrivate;
-        setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-My_App", false);
-        check("v2.0.3: the copy holds the backup while still private, then PATCH private:false",
-                privateWhileUploading && fake.repos.get("SketchwareAI-Public-My_App").filesAt("main").containsKey("projects/com.my.app/My_App.swb")
-                        && !fake.repos.get("SketchwareAI-Public-My_App").isPrivate, null);
-        setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-My_App", true);
-        check("v2.0.3: Private / Public = PATCH /repos/octo/SketchwareAI-Public-My_App {private: false / true}",
-                fake.repos.get("SketchwareAI-Public-My_App").isPrivate && fake.patches.size() == 2
-                        && fake.patches.get(0).contains("\"private\":false") && fake.patches.get(1).contains("\"private\":true"),
-                fake.patches);
-        setPrivate.invoke(null, token, "octo", "SketchwareAI-Public-Gone", true);
-        check("v2.0.3: Private for a public copy deleted on github.com is fine (nothing to hide)", true, null);
-        // second review: a project made public and private end to end, its copy known by its repository number
-        File projectData = new File("/storage/emulated/0/.sketchware/data/9301");
-        projectData.mkdirs();
-        new File(projectData, "github_backup.json").delete();
-        Class<?>[] saveTypes = {String.class, String.class, String.class, String.class};
-        linkCall("save", saveTypes, "9301", "https://github.com/octo/SketchwareAI-Projects/blob/main/p.swb", "p.swb", "octo");
-        java.lang.reflect.Method makePublic = publicCopy.getDeclaredMethod("makePublic", String.class, String.class, String.class,
-                String.class, String.class, String.class, File.class, CloudBackup.UploadProgress.class);
-        makePublic.setAccessible(true);
-        java.lang.reflect.Method makePrivate = publicCopy.getDeclaredMethod("makePrivate", String.class, String.class, String.class);
-        makePrivate.setAccessible(true);
-        java.lang.reflect.Method update = publicCopy.getDeclaredMethod("update", String.class, String.class, String.class,
-                String.class, String.class, String.class, File.class, CloudBackup.UploadProgress.class);
-        update.setAccessible(true);
+        // --- v2.0.4: one repository per project (SketchwareAI-<name>), versions as releases, 5 kept + a Standard pin
+        Class<?> pr = Class.forName("com.sketchware.ai.github.ProjectRepo");
+        java.lang.reflect.Field prPauses = pr.getDeclaredField("assetPauses");
+        prPauses.setAccessible(true);
+        prPauses.set(null, new long[]{10, 20});
         Class<?>[] two = {String.class, String.class};
-        String demoLink = (String) makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.0", small, null);
-        Fake.Repo demo = fake.repos.get("SketchwareAI-Public-Demo_App");
-        check("second review: Public: the copy made, uploaded, public; the share link is its repository's page; its number "
-                        + "recorded", "https://github.com/octo/SketchwareAI-Public-Demo_App".equals(demoLink) && demo != null
-                        && !demo.isPrivate && demo.filesAt("main").containsKey("projects/com.demo/Demo_App.swb")
-                        && Long.valueOf(demo.number).equals(linkCall("publicNumber", two, "9301", "octo"))
-                        && "public".equals(linkCall("visibility", two, "9301", "octo"))
-                        && demoLink.equals(linkCall("get", two, "9301", "octo")), demoLink);
-        demo.description = "My own words now";
-        int commitsBefore = demo.log.size();
-        update.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.1", small, null);
-        check("second review: a copy whose description was edited on github.com is still updated (known by its number) and "
-                        + "the project stays public", demo.log.size() == commitsBefore + 1
-                        && "public".equals(linkCall("visibility", two, "9301", "octo")), demo.log.size() - commitsBefore);
-        int patchesBefore = fake.patches.size();
-        makePrivate.invoke(null, token, "octo", "9301");
-        check("second review: Private: PATCH private:true on that copy", demo.isPrivate && fake.patches.size() == patchesBefore + 1
-                && "private".equals(linkCall("visibility", two, "9301", "octo")), fake.patches.size() - patchesBefore);
-        // third review: a copy renamed on github.com (its old name answers 301) is still found by its number
-        makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.1", small, null);
-        fake.rename("SketchwareAI-Public-Demo_App", "MyDemo");
-        commitsBefore = demo.log.size();
-        Object remark = update.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.2", small, null);
-        check("third review: a copy renamed on github.com is updated under its new name; the share link follows",
-                remark == null && demo.log.size() == commitsBefore + 1 && "MyDemo".equals(linkCall("publicRepository", two, "9301", "octo"))
-                        && "https://github.com/octo/MyDemo".equals(linkCall("get", two, "9301", "octo")), remark);
-        patchesBefore = fake.patches.size();
-        makePrivate.invoke(null, token, "octo", "9301");
-        check("third review: Private after a rename: PATCH on the renamed copy", demo.isPrivate
-                && fake.patches.size() == patchesBefore + 1 && "private".equals(linkCall("visibility", two, "9301", "octo")),
-                fake.patches.size() - patchesBefore);
-        makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.3", small, null);
-        demo.isPrivate = true; // made private on github.com
-        commitsBefore = demo.log.size();
-        remark = update.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.4", small, null);
-        check("third review: a copy made private on github.com: the card says Private, nothing uploaded, a remark",
-                "private".equals(linkCall("visibility", two, "9301", "octo")) && demo.log.size() == commitsBefore
-                        && String.valueOf(remark).contains("private on GitHub"), remark);
-        // the copy deleted on github.com and its name taken by another repository: Private never touches that one
-        demo.exists = false;
-        fake.repos.remove("MyDemo");
-        fake.moved.clear();
-        java.lang.reflect.Method choose2 = choose;
-        Object other = choose2.invoke(null, token, "octo", "Demo App", "com.someone", "fedcba987654");
-        Fake.Repo otherRepo = fake.repos.get((String) field(other, "name"));
-        setPrivate.invoke(null, token, "octo", (String) field(other, "name"), false);
-        patchesBefore = fake.patches.size();
-        makePrivate.invoke(null, token, "octo", "9301");
-        check("second review: Private when the copy's name now belongs to another repository: that one isn't changed",
-                "SketchwareAI-Public-Demo_App".equals(field(other, "name")) && !otherRepo.isPrivate
-                        && fake.patches.size() == patchesBefore && "private".equals(linkCall("visibility", two, "9301", "octo")),
-                fake.patches.size() - patchesBefore);
-        // Public again: a new copy (-2), not the other repository; a refused PATCH leaves the card on Private
-        fake.mode = "patch500";
-        try {
-            makePublic.invoke(null, token, "octo", "9301", "Demo App", "com.demo", "1.2", small, null);
-            check("second review: a refused PATCH: an error, the card stays Private", false, null);
-        } catch (java.lang.reflect.InvocationTargetException e) {
-            check("second review: a refused PATCH: an error, the card stays Private; the new copy is -2, still private",
-                    e.getCause() instanceof GitHubException && "private".equals(linkCall("visibility", two, "9301", "octo"))
-                            && "SketchwareAI-Public-Demo_App-2".equals(linkCall("publicRepository", two, "9301", "octo"))
-                            && fake.repos.get("SketchwareAI-Public-Demo_App-2").isPrivate && !otherRepo.isPrivate,
-                    e.getCause().getMessage());
+        File dataRoot = new File("/storage/emulated/0/.sketchware/data");
+        for (String id : new String[]{"9401", "9402", "9403"}) {
+            File d = new File(dataRoot, id);
+            d.mkdirs();
+            new File(d, "github_backup.json").delete();
         }
+        Object repo = call(pr, "ensure", token, "octo", "9401", "My App", "com.my.app");
+        Fake.Repo myRepo = fake.repos.get("SketchwareAI-My_App");
+        check("v2.0.4: a project's own repository SketchwareAI-My_App, made private, this app's description and topic, "
+                        + "its number recorded for the project", "SketchwareAI-My_App".equals(call(repo, "name")) && myRepo != null
+                        && myRepo.topics.equals(java.util.Collections.singletonList("sketchware-ai"))
+                        && myRepo.isPrivate && fake.createdRepos.contains("SketchwareAI-My_App private auto_init")
+                        && myRepo.description.startsWith("Sketchware AI project: My App (com.my.app)")
+                        && Long.valueOf(myRepo.number).equals(linkCall("repoNumber", two, "9401", "octo"))
+                        && "private".equals(linkCall("visibility", two, "9401", "octo")), fake.createdRepos);
+        int made = fake.createdRepos.size();
+        Object prAgain = call(pr, "ensure", token, "octo", "9401", "My App renamed", "com.my.app");
+        check("v2.0.4: the next backup finds the same repository by its number (no new one, even after a rename)",
+                fake.createdRepos.size() == made && "SketchwareAI-My_App".equals(call(prAgain, "name")), fake.createdRepos);
+        Object second2 = call(pr, "ensure", token, "octo", "9402", "My App", "com.other.app");
+        check("v2.0.4: another project of the same name gets its own repository (-2)",
+                "SketchwareAI-My_App-2".equals(call(second2, "name")), call(second2, "name"));
+        Object projectsRepo = call(pr, "ensure", token, "octo", "9403", "Projects", "com.p");
+        check("v2.0.4: a project named Projects never lands in the backup repository",
+                "SketchwareAI-Projects-App".equals(call(projectsRepo, "name")), call(projectsRepo, "name"));
+
+        // version 1.0 (1): the .swb and the built APK as raw assets on the upload host
+        File swb1 = File.createTempFile("ver1", ".swb");
+        byte[] swb1Bytes = new byte[120_001];
+        new java.util.Random(11).nextBytes(swb1Bytes);
+        java.nio.file.Files.write(swb1.toPath(), swb1Bytes);
+        File apk = File.createTempFile("app", ".apk");
+        byte[] apkBytes = new byte[64_007];
+        new java.util.Random(12).nextBytes(apkBytes);
+        java.nio.file.Files.write(apk.toPath(), apkBytes);
+        fake.uploadRequests.clear();
+        List<String> progressLines = new ArrayList<>();
+        CloudBackup.UploadProgress uploadProgress = new CloudBackup.UploadProgress() {
+            public void uploading(long sent, long all) { progressLines.add(sent + "/" + all); }
+            public void retrying(String text) { progressLines.add("retry " + text); }
+            public void saving() { progressLines.add("saving"); }
+        };
+        Object v1 = call(repo, "upload", backup(swb1, apk, "My App", "1.0", "1", "First version"), uploadProgress);
+        Fake.FakeRelease r1 = myRepo.releases.get(0);
+        check("v2.0.4: version 1.0 (1) = release v1.0-1, published (not a draft), its tag made",
+                myRepo.releases.size() == 1 && "v1.0-1".equals(r1.tag) && !r1.draft && myRepo.tagRefs.contains("v1.0-1")
+                        && "v1.0-1".equals(field(v1, "tag")), r1.tag);
+        check("v2.0.4: two raw assets uploaded to the upload host: the .swb and the APK (names with project and time)",
+                fake.uploadRequests.size() == 2 && r1.assets.size() == 2 && r1.assets.get(0).name.matches("My_App_\\d{8}-\\d{6}\\.swb")
+                        && r1.assets.get(1).name.matches("My_App_v1\\.0-1_\\d{8}-\\d{6}\\.apk")
+                        && java.util.Arrays.equals(r1.assets.get(0).bytes, swb1Bytes)
+                        && java.util.Arrays.equals(r1.assets.get(1).bytes, apkBytes)
+                        && "application/vnd.android.package-archive".equals(r1.assets.get(1).type), fake.uploadRequests);
+        check("v2.0.4: the release notes keep the text and a hidden facts line (version, size, SHA-256, files)",
+                r1.body.startsWith("First version") && r1.body.contains("<!-- sketchware-ai ")
+                        && r1.body.contains("\"versionCode\":\"1\"") && r1.body.contains("\"size\":120001")
+                        && r1.body.contains("\"apk\":\"" + r1.assets.get(1).name + "\""), r1.body);
+        check("v2.0.4: the upload's progress counts both files to 100%, then saving",
+                progressLines.contains((120_001 + 64_007) + "/" + (120_001 + 64_007)) && "saving".equals(progressLines.get(progressLines.size() - 1)),
+                progressLines.size() > 3 ? progressLines.subList(progressLines.size() - 3, progressLines.size()) : progressLines);
+        check("v2.0.4: every upload carried the token (Authorization: Bearer, the 90% 401 of v2.0.3)", fake.apiAuthorizedAll,
+                fake.apiUnauthorized);
+
+        // the same version again: the release is updated, its old files go
+        long r1Id = r1.id;
+        List<Long> oldIds = new ArrayList<>();
+        for (Fake.FakeAsset a : r1.assets) oldIds.add(a.id);
+        Thread.sleep(1100); // another second: other file names
+        byte[] swb1b = new byte[130_003];
+        new java.util.Random(13).nextBytes(swb1b);
+        java.nio.file.Files.write(swb1.toPath(), swb1b);
+        call(repo, "upload", backup(swb1, null, "My App", "1.0", "1", "First version, fixed"), null);
+        boolean oldGone = true;
+        for (Long id : oldIds) if (fake.assetsById.containsKey(id)) oldGone = false;
+        check("v2.0.4: the same version backed up again updates its release: one release, the new .swb, the old files "
+                        + "deleted", myRepo.releases.size() == 1 && myRepo.releases.get(0).id == r1Id && oldGone
+                        && myRepo.releases.get(0).assets.size() == 1
+                        && java.util.Arrays.equals(myRepo.releases.get(0).assets.get(0).bytes, swb1b)
+                        && myRepo.releases.get(0).body.startsWith("First version, fixed"), fake.deletedAssets);
+
+        // a backup over 16 MiB: parts and a parts list, downloaded and joined through GitHub's file host
+        File bigSwb = File.createTempFile("big", ".swb");
+        byte[] bigBytes = new byte[17 * 1024 * 1024 + 321];
+        new java.util.Random(14).nextBytes(bigBytes);
+        java.nio.file.Files.write(bigSwb.toPath(), bigBytes);
+        call(repo, "upload", backup(bigSwb, null, "My App", "2.0", "2", "Big"), null);
+        Fake.FakeRelease r2 = myRepo.releases.get(1);
+        List<String> r2Names = new ArrayList<>();
+        for (Fake.FakeAsset a : r2.assets) r2Names.add(a.name);
+        check("v2.0.4: a 17 MiB backup goes as two parts (16 MiB + the rest) and a parts list",
+                r2.assets.size() == 3 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
+                        && r2Names.get(2).endsWith(".swb.parts.json") && r2.assets.get(0).bytes.length == 16 * 1024 * 1024
+                        && r2.assets.get(1).bytes.length == 1024 * 1024 + 321, r2Names);
+        @SuppressWarnings("unchecked")
+        List<Object> prVersions = (List<Object>) call(repo, "versions", false);
+        check("v2.0.4: versions newest first, read back from the releases (facts line)",
+                prVersions.size() == 2 && "v2.0-2".equals(field(prVersions.get(0), "tag")) && "v1.0-1".equals(field(prVersions.get(1), "tag"))
+                        && Long.valueOf(bigBytes.length).equals(field(prVersions.get(0), "size")), prVersions.size());
+        File bigBack = File.createTempFile("bigback", ".swb");
+        fake.objectGets = 0;
+        call(pr, "download", token, "octo", "SketchwareAI-My_App", prVersions.get(0), bigBack, null);
+        check("v2.0.4: download: the parts joined, size and SHA-256 checked, byte for byte", java.util.Arrays.equals(
+                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 3, fake.objectGets);
+        check("v2.0.4: the token never went to GitHub's file host (only to the API and upload hosts)",
+                !fake.objectsSawAuthorization, null);
+        Fake.FakeAsset part1 = r2.assets.get(1);
+        byte[] goodPart = part1.bytes;
+        part1.bytes = java.util.Arrays.copyOf(goodPart, goodPart.length);
+        part1.bytes[5] ^= 1;
+        try {
+            call(pr, "download", token, "octo", "SketchwareAI-My_App", prVersions.get(0), bigBack, null);
+            check("v2.0.4: a changed part is refused before anything is restored", false, null);
+        } catch (GitHubException e) {
+            check("v2.0.4: a changed part is refused before anything is restored", "bad_part".equals(e.code), e.getMessage());
+        }
+        part1.bytes = goodPart;
+
+        // the Standard pin and the 5-version cap
+        call(repo, "setStandard", field(prVersions.get(1), "id"), true);
+        check("v2.0.4: Set as Standard writes standard:true into that version's facts only",
+                myRepo.releases.get(0).body.contains("\"standard\":true") && myRepo.releases.get(1).body.contains("\"standard\":false"),
+                null);
+        File small2 = File.createTempFile("small2", ".swb");
+        for (int i = 3; i <= 7; i++) {
+            byte[] b = new byte[1000 + i];
+            new java.util.Random(i).nextBytes(b);
+            java.nio.file.Files.write(small2.toPath(), b);
+            Thread.sleep(5);
+            call(repo, "upload", backup(small2, null, "My App", i + ".0", String.valueOf(i), "Version " + i), null);
+        }
+        List<String> left = new ArrayList<>();
+        for (Fake.FakeRelease rel : myRepo.releases) left.add(rel.tag);
+        java.util.Collections.sort(left);
+        check("v2.0.4: 7 versions → 5 kept: the oldest unpinned go (2.0, 3.0), the Standard one (1.0) stays",
+                left.equals(java.util.Arrays.asList("v1.0-1", "v4.0-4", "v5.0-5", "v6.0-6", "v7.0-7")), left);
+        check("v2.0.4: a removed version's tag goes with it", fake.deletedTags.contains("v2.0-2") && fake.deletedTags.contains("v3.0-3")
+                && !myRepo.tagRefs.contains("v2.0-2") && myRepo.tagRefs.contains("v1.0-1"), fake.deletedTags);
+        @SuppressWarnings("unchecked")
+        List<Object> now = (List<Object>) call(repo, "versions", false);
+        call(repo, "setStandard", field(now.get(2), "id"), true);
+        int standards = 0;
+        for (Fake.FakeRelease rel : myRepo.releases) if (rel.body.contains("\"standard\":true")) standards++;
+        check("v2.0.4: pinning another version unpins the first (one Standard per project)", standards == 1
+                && fake.releaseFor(myRepo, "v5.0-5").body.contains("\"standard\":true"), standards);
+
+        // a backup cut off before it was published leaves a draft: the next backup removes it
+        fake.mode = "slowUpload";
+        fake.uploadHeld = false;
+        fake.releaseUpload = false;
+        Throwable[] cut = new Throwable[1];
+        Thread worker = new Thread(() -> {
+            try {
+                call(repo, "upload", backup(bigSwb, null, "My App", "8.0", "8", "Cut"), null);
+            } catch (Throwable t) {
+                cut[0] = t;
+            }
+        });
+        worker.start();
+        for (int i = 0; i < 500 && !fake.uploadHeld; i++) Thread.sleep(10);
+        Thread.sleep(200);
+        Class.forName("com.sketchware.ai.github.GitHubHttp").getDeclaredMethod("cancel", Thread.class);
+        java.lang.reflect.Method cancel = Class.forName("com.sketchware.ai.github.GitHubHttp").getDeclaredMethod("cancel", Thread.class);
+        cancel.setAccessible(true);
+        cancel.invoke(null, worker);
+        fake.releaseUpload = true;
+        worker.join(20_000);
         fake.mode = "";
-        new File(projectData, "github_backup.json").delete();
-        projectData.delete();
+        boolean draftLeft = false;
+        for (Fake.FakeRelease rel : myRepo.releases) if (rel.draft) draftLeft = true;
+        check("v2.0.4: Cancel stops an upload at once (GitHubHttp.cancel: interrupted, connection closed), nothing tried again",
+                cut[0] != null && cut[0].getClass().getSimpleName().equals("Cancelled") && !worker.isAlive() && draftLeft,
+                cut[0]);
+        call(repo, "upload", backup(small2, null, "My App", "8.0", "8", "Again"), null);
+        boolean draftNow = false;
+        for (Fake.FakeRelease rel : myRepo.releases) if (rel.draft) draftNow = true;
+        check("v2.0.4: the cancelled backup's draft is removed by the next backup; still 5 versions", !draftNow
+                && myRepo.releases.size() == 5, myRepo.releases.size());
+
+        // a 401 on an upload while GET /user accepts the token: tried again (never signed out); a dropped upload too
+        fake.mode = "upload401once";
+        fake.uploadRequests.clear();
+        progressLines.clear();
+        call(repo, "upload", backup(small2, null, "My App", "9.0", "9", "401 once"), uploadProgress);
+        check("v2.0.4: an upload refused once with 401 while the sign-in works is sent again and lands",
+                fake.uploadRequests.size() == 2 && fake.releaseFor(myRepo, "v9.0-9") != null
+                        && fake.releaseFor(myRepo, "v9.0-9").assets.size() == 1
+                        && progressLines.stream().anyMatch(l -> l.contains("HTTP 401")), progressLines);
+        fake.mode = "uploadDropOnce";
+        fake.uploadRequests.clear();
+        call(repo, "upload", backup(small2, null, "My App", "10.0", "10", "dropped once"), null);
+        check("v2.0.4: an upload the network dropped is sent again", fake.uploadRequests.size() == 2
+                && fake.releaseFor(myRepo, "v10.0-10").assets.size() == 1, fake.uploadRequests);
+        fake.mode = "";
+
+        // Public / Private: one PATCH, nothing uploaded; the backup repository refused
+        int patchesBefore = fake.patches.size();
+        int uploadsBefore = fake.uploadRequests.size();
+        call(repo, "setPrivate", false);
+        boolean publicNow = !myRepo.isPrivate;
+        call(repo, "setPrivate", true);
+        check("v2.0.4: Public / Private = PATCH {private:false} / {private:true} on the project's repository, nothing "
+                        + "uploaded", publicNow && myRepo.isPrivate && fake.patches.size() == patchesBefore + 2
+                        && fake.patches.get(patchesBefore).equals("{\"private\":false}") && fake.uploadRequests.size() == uploadsBefore,
+                fake.patches.subList(patchesBefore, fake.patches.size()));
+        java.lang.reflect.Constructor<?> prMake = pr.getDeclaredConstructor(String.class, String.class, String.class, long.class);
+        prMake.setAccessible(true);
+        Object backupRepo = prMake.newInstance(token, "octo", "SketchwareAI-Projects", 1L);
+        try {
+            call(backupRepo, "setPrivate", false);
+            check("v2.0.4: the backup repository is never made public", false, null);
+        } catch (GitHubException e) {
+            check("v2.0.4: the backup repository is never made public", "not_a_project".equals(e.code)
+                    && fake.repos.get("SketchwareAI-Projects").isPrivate && fake.patches.size() == patchesBefore + 2, e.code);
+        }
+
+        // details and docs of a public project
+        call(repo, "setDetails", "A tiny app.\nWith two lines.", java.util.Arrays.asList("Sketchware", "Android App", "#my_tool", "  "));
+        check("v2.0.4: description (one line) and topics (GitHub's form) saved", "A tiny app. With two lines.".equals(myRepo.description)
+                && myRepo.topics.equals(java.util.Arrays.asList("sketchware-ai", "sketchware", "android-app", "my-tool")), myRepo.topics);
+        call(repo, "putFile", "README.md", "# My App\n", "Add README");
+        call(repo, "putFile", "README.md", "# My App\n", "Add README");
+        int putsSame = myRepo.textPuts;
+        call(repo, "putFile", "README.md", "# My App\n\nv2\n", "Update README");
+        check("v2.0.4: README.md written once, unchanged text = no commit, changed text replaces it (with its sha)",
+                putsSame == 1 && myRepo.textPuts == 2 && "# My App\n\nv2\n".equals(myRepo.texts.get("README.md")), myRepo.textPuts);
+
+        // a public project reads and downloads without any token
+        call(repo, "setPrivate", false);
+        fake.anonymousReads = 0;
+        @SuppressWarnings("unchecked")
+        List<Object> anon = (List<Object>) call(pr, "versions", null, "octo", "SketchwareAI-My_App", false);
+        File anonBack = File.createTempFile("anon", ".swb");
+        Object v10 = null;
+        for (Object v : anon) if ("v10.0-10".equals(field(v, "tag"))) v10 = v;
+        call(pr, "download", null, "octo", "SketchwareAI-My_App", v10, anonBack, null);
+        check("v2.0.4: a public project's versions list and download work signed out (no token sent)",
+                anon.size() == 5 && fake.anonymousReads >= 2 && java.util.Arrays.equals(java.nio.file.Files.readAllBytes(anonBack.toPath()),
+                        fake.releaseFor(myRepo, "v10.0-10").assets.get(0).bytes) && !fake.objectsSawAuthorization, fake.anonymousReads);
+        call(repo, "setPrivate", true);
+        try {
+            call(pr, "versions", null, "octo", "SketchwareAI-My_App", false);
+            check("v2.0.4: a private project's versions need the owner's sign-in", false, null);
+        } catch (GitHubException e) {
+            check("v2.0.4: a private project's versions need the owner's sign-in (GitHub answers 404 signed out)",
+                    "http_404".equals(e.code), e.code + " " + e.getMessage());
+        }
+
+        // the account's project repositories (multi-device discovery)
+        Fake.Repo prOwn = new Fake.Repo();
+        prOwn.description = "My own experiments";
+        fake.repos.put("SketchwareAI-Notes", prOwn);
+        Fake.Repo legacyCopy = new Fake.Repo();
+        legacyCopy.description = "Sketchware AI public copy 0123456789ab: Old";
+        legacyCopy.isPrivate = false;
+        fake.repos.put("SketchwareAI-Public-Old", legacyCopy);
+        @SuppressWarnings("unchecked")
+        List<Object> prFound = (List<Object>) call(pr, "listOwn", token);
+        List<String> foundNames = new ArrayList<>();
+        for (Object i : prFound) foundNames.add((String) field(i, "name"));
+        java.util.Collections.sort(foundNames);
+        check("v2.0.4: discovery lists the account's project repositories (this app's topic, also after the description "
+                        + "was rewritten; its description; v2.0.3 public copies), never the backup repository or other repositories", foundNames.equals(java.util.Arrays.asList(
+                        "SketchwareAI-My_App", "SketchwareAI-My_App-2", "SketchwareAI-Projects-App", "SketchwareAI-Public-Old")),
+                foundNames);
+
+        // restore on another phone: the project is linked to the same repository (one project per repository)
+        File d9404 = new File(dataRoot, "9404");
+        d9404.mkdirs();
+        new File(d9404, "github_backup.json").delete();
+        Class<?>[] linkTypes = {String.class, String.class, String.class, long.class, boolean.class, String.class};
+        boolean refused = (Boolean) linkCall("linkRestored", linkTypes, "9404", "octo", "SketchwareAI-My_App", myRepo.number, true, "v5.0-5");
+        new File(dataRoot, "9401/github_backup.json").delete();
+        boolean prLinked = (Boolean) linkCall("linkRestored", linkTypes, "9404", "octo", "SketchwareAI-My_App", myRepo.number, true, "v5.0-5");
+        Object reopened = call(pr, "open", token, "octo", "9404");
+        check("v2.0.4: a restored project is linked to its repository (number, visibility, Standard tag), never while "
+                        + "another project on the phone is", !refused && prLinked && reopened != null
+                        && "SketchwareAI-My_App".equals(call(reopened, "name"))
+                        && "v5.0-5".equals(linkCall("standardTag", two, "9404", "octo")), refused + " " + prLinked);
+        fake.rename("SketchwareAI-My_App", "MyRenamedApp");
+        Object renamed = call(pr, "ensure", token, "octo", "9404", "My App", "com.my.app");
+        check("v2.0.4: a repository renamed on github.com is still the project's (found by number; the record follows)",
+                "MyRenamedApp".equals(call(renamed, "name")) && "MyRenamedApp".equals(linkCall("repoName", two, "9404", "octo"))
+                        && fake.createdRepos.size() == made + 2, call(renamed, "name"));
+        for (String id : new String[]{"9401", "9402", "9403", "9404"}) {
+            new File(dataRoot, id + "/github_backup.json").delete();
+            new File(dataRoot, id).delete();
+        }
+        for (File f : new File[]{swb1, apk, bigSwb, bigBack, small2, anonBack}) f.delete();
         // the sign-in code request: short timeouts, tried again when the network drops it
         java.lang.reflect.Field startPauses = DeviceFlow.class.getDeclaredField("startPauses");
         startPauses.setAccessible(true);
@@ -703,12 +895,25 @@ public class GitHubClientTest {
                 if (colon > 0) headers.put(h.substring(0, colon).trim().toLowerCase(), h.substring(colon + 1).trim());
             }
             int length = headers.containsKey("content-length") ? Integer.parseInt(headers.get("content-length")) : 0;
-            byte[] body = new byte[length];
-            for (int read = 0; read < length; ) {
-                int n = in.read(body, read, length - read);
-                if (n < 0) break;
-                read += n;
+            if ("slowUpload".equals(mode) && requestLine.contains("/uploads/")) {
+                // v2.0.4: the body isn't read until the test cancelled the upload (the phone's sender blocks)
+                uploadHeld = true;
+                for (int i = 0; i < 500 && !releaseUpload; i++) Thread.sleep(10);
             }
+            byte[] body = new byte[length];
+            int got = 0;
+            while (got < length) {
+                int n;
+                try {
+                    n = in.read(body, got, length - got);
+                } catch (java.io.IOException e) {
+                    n = -1;
+                }
+                if (n < 0) break;
+                got += n;
+            }
+            if (got < length) return; // the sender went away: nothing stored
+            lastBytes = body;
             String[] parts = requestLine.split(" ");
             String method = parts[0], target = parts[1];
             if (headers.containsKey("x-http-method-override")) method = headers.get("x-http-method-override");
@@ -765,9 +970,28 @@ public class GitHubClientTest {
                 }
                 return new Object[]{404, "{}"};
             }
+            if (target.startsWith("/objects/")) {
+                // v2.0.4: GitHub's file host for release assets (the redirect's target): no token may arrive here
+                objectGets++;
+                if (headers.containsKey("authorization")) objectsSawAuthorization = true;
+                FakeAsset a = assetsById.get(Long.parseLong(target.substring("/objects/".length())));
+                if (a == null) return new Object[]{404, "Not Found"};
+                return new Object[]{200, a.bytes};
+            }
             String auth = headers.get("authorization");
             boolean authorized = "Bearer gho_fake_token_123".equals(auth);
             String api = target.substring("/api".length());
+            java.util.regex.Matcher publicRead = java.util.regex.Pattern.compile("^/repos/octo/([A-Za-z0-9_.-]+)(.*)$").matcher(api);
+            if (auth == null && method.equals("GET") && publicRead.matches()) {
+                // v2.0.4: a public repository reads without a token, as on GitHub
+                Repo r = repos.get(publicRead.group(1));
+                if (r != null && r.exists && r.isPrivate) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                if (r != null && r.exists && !r.isPrivate) {
+                    anonymousReads++;
+                    r.name = publicRead.group(1);
+                    return repoRoute(r, method, publicRead.group(2), headers, body);
+                }
+            }
             if (api.equals("/user")) {
                 userGets++;
                 if ("user503".equals(mode) && userGets == 1) return new Object[]{503, "{\"message\":\"Unavailable\"}"};
@@ -841,6 +1065,50 @@ public class GitHubClientTest {
             Repo main = repos.get("SketchwareAI-Projects");
             main.exists = repoExists;
             main.isPrivate = !publicRepo;
+            if (api.startsWith("/user/repos?") && method.equals("GET")) {
+                // v2.0.4: the account's repositories (one page)
+                if (!api.contains("page=1")) return new Object[]{200, "[]"};
+                StringBuilder out = new StringBuilder("[");
+                for (Map.Entry<String, Repo> e : new java.util.TreeMap<>(repos).entrySet()) {
+                    Repo r = e.getValue();
+                    if (!r.exists) continue;
+                    if (out.length() > 1) out.append(',');
+                    out.append("{\"id\":").append(r.number).append(",\"name\":\"").append(e.getKey())
+                            .append("\",\"private\":").append(r.isPrivate).append(",\"description\":")
+                            .append(new com.google.gson.Gson().toJson(r.description))
+                            .append(",\"topics\":").append(new com.google.gson.Gson().toJson(r.topics))
+                            .append(",\"owner\":{\"login\":\"octo\"},\"pushed_at\":\"2026-11-")
+                            .append(String.format("%02d", 1 + (int) (r.number % 28))).append("T10:00:00Z\"}");
+                }
+                return new Object[]{200, out.append("]").toString()};
+            }
+            java.util.regex.Matcher um = java.util.regex.Pattern
+                    .compile("^/uploads/repos/octo/([A-Za-z0-9_.-]+)/releases/(\\d+)/assets\\?name=(.+)$").matcher(api);
+            if (um.matches() && method.equals("POST")) {
+                // v2.0.4: uploads.github.com: the raw bytes of one release asset
+                uploadRequests.add(java.net.URLDecoder.decode(um.group(3), "UTF-8"));
+                if ("upload401once".equals(mode) && uploadRequests.size() == 1) {
+                    return new Object[]{401, "{\"message\":\"Bad credentials\"}"};
+                }
+                if ("uploadDropOnce".equals(mode) && uploadRequests.size() == 1) return new Object[]{-1, ""};
+                Repo r = repos.get(um.group(1));
+                FakeRelease rel = r == null ? null : r.release(Long.parseLong(um.group(2)));
+                if (rel == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                String name = java.net.URLDecoder.decode(um.group(3), "UTF-8");
+                for (FakeAsset a : rel.assets) {
+                    if (a.name.equals(name)) {
+                        return new Object[]{422, "{\"message\":\"Validation Failed\",\"errors\":[{\"code\":\"already_exists\"}]}"};
+                    }
+                }
+                FakeAsset a = new FakeAsset();
+                a.id = ++assetNumbers;
+                a.name = name;
+                a.bytes = lastBytes;
+                a.type = headers.get("content-type");
+                rel.assets.add(a);
+                assetsById.put(a.id, a);
+                return new Object[]{201, a.json()};
+            }
             if (api.equals("/user/repos") && method.equals("POST")) {
                 com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
                 String name = o.get("name").getAsString();
@@ -871,7 +1139,8 @@ public class GitHubClientTest {
                     Repo r = e.getValue();
                     if (r.exists && r.number == Long.parseLong(nm.group(1))) {
                         return new Object[]{200, "{\"id\":" + r.number + ",\"name\":\"" + e.getKey()
-                                + "\",\"owner\":{\"login\":\"octo\"},\"private\":" + r.isPrivate + "}"};
+                                + "\",\"owner\":{\"login\":\"octo\"},\"private\":" + r.isPrivate
+                                + ",\"default_branch\":\"main\"}"};
                     }
                 }
                 return new Object[]{404, "{\"message\":\"Not Found\"}"};
@@ -886,6 +1155,7 @@ public class GitHubClientTest {
                 Repo r = repos.get(rm.group(1));
                 String rest = rm.group(2);
                 if (r == null || !r.exists) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                r.name = rm.group(1);
                 return repoRoute(r, method, rest, headers, body);
             }
             return new Object[]{404, "{\"message\":\"no route " + method + " " + api + "\"}"};
@@ -895,6 +1165,27 @@ public class GitHubClientTest {
         static final class Repo {
             boolean exists = true, isPrivate = true;
             String description = "";
+            /** v2.0.4: its name (set by the route), releases, tags, topics and text files (contents API). */
+            String name;
+            final List<FakeRelease> releases = new ArrayList<>();
+            final java.util.Set<String> tagRefs = new java.util.HashSet<>();
+            final List<String> topics = new ArrayList<>();
+            final Map<String, String> texts = new HashMap<>();
+            int textPuts;
+
+            FakeRelease release(long id) {
+                for (FakeRelease r : releases) if (r.id == id) return r;
+                return null;
+            }
+
+            String releasesJson() {
+                StringBuilder out = new StringBuilder("[");
+                for (FakeRelease r : releases) {
+                    if (out.length() > 1) out.append(',');
+                    out.append(r.json(name));
+                }
+                return out.append("]").toString();
+            }
             /** GitHub's repository id (never reused). */
             long number = ++numbers;
             final Map<String, byte[]> blobs = new HashMap<>();
@@ -917,6 +1208,49 @@ public class GitHubClientTest {
             }
         }
 
+        /** v2.0.4: a release and its assets. */
+        static final class FakeRelease {
+            long id;
+            String tag, name, body;
+            boolean draft;
+            final List<FakeAsset> assets = new ArrayList<>();
+
+            String json(String repo) {
+                com.google.gson.Gson g = new com.google.gson.Gson();
+                StringBuilder out = new StringBuilder("{\"id\":" + id + ",\"tag_name\":" + g.toJson(tag) + ",\"name\":"
+                        + g.toJson(name) + ",\"body\":" + g.toJson(body) + ",\"draft\":" + draft
+                        + ",\"html_url\":\"https://github.com/octo/" + repo + "/releases/tag/" + tag + "\",\"assets\":[");
+                for (int i = 0; i < assets.size(); i++) {
+                    if (i > 0) out.append(',');
+                    out.append(assets.get(i).json());
+                }
+                return out.append("]}").toString();
+            }
+        }
+
+        static final class FakeAsset {
+            long id;
+            String name, type;
+            byte[] bytes;
+
+            String json() {
+                return "{\"id\":" + id + ",\"name\":" + new com.google.gson.Gson().toJson(name) + ",\"size\":" + bytes.length
+                        + ",\"state\":\"uploaded\",\"content_type\":\"" + type + "\"}";
+            }
+        }
+
+        FakeRelease releaseFor(Repo r, String tag) {
+            for (FakeRelease rel : r.releases) if (tag.equals(rel.tag)) return rel;
+            return null;
+        }
+
+        static long releaseNumbers = 5000, assetNumbers = 9000;
+        final Map<Long, FakeAsset> assetsById = new HashMap<>();
+        final List<String> uploadRequests = new ArrayList<>();
+        volatile byte[] lastBytes;
+        volatile boolean uploadHeld, releaseUpload, objectsSawAuthorization;
+        volatile int objectGets, anonymousReads;
+
         static long numbers = 1000;
         final Map<String, Repo> repos = new HashMap<>();
         /** Old names of renamed repositories → their number. */
@@ -929,6 +1263,9 @@ public class GitHubClientTest {
         }
         final List<String> createdRepos = new ArrayList<>();
         final List<String> patches = new ArrayList<>();
+        final List<String> releasePatches = new ArrayList<>();
+        final List<String> deletedAssets = new ArrayList<>();
+        final List<String> deletedTags = new ArrayList<>();
         final List<String> blobPosts = new ArrayList<>();
         volatile int blobFailures;
 
@@ -963,8 +1300,128 @@ public class GitHubClientTest {
             if (rest.isEmpty() && method.equals("PATCH")) {
                 if ("patch500".equals(mode)) return new Object[]{500, "{\"message\":\"Server Error\"}"};
                 patches.add(body);
-                r.isPrivate = body.contains("\"private\":true");
-                return new Object[]{200, "{\"private\":" + r.isPrivate + "}"};
+                com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+                if (o.has("private")) r.isPrivate = o.get("private").getAsBoolean();
+                if (o.has("description")) r.description = o.get("description").getAsString();
+                return new Object[]{200, "{\"id\":" + r.number + ",\"name\":\"" + r.name + "\",\"private\":" + r.isPrivate
+                        + ",\"default_branch\":\"main\",\"description\":" + new com.google.gson.Gson().toJson(r.description) + "}"};
+            }
+            // v2.0.4: releases (versions), their assets, tags, topics
+            if (rest.equals("/releases?per_page=100") && method.equals("GET")) {
+                return new Object[]{200, r.releasesJson()};
+            }
+            if (rest.equals("/releases") && method.equals("POST")) {
+                com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+                String tag = o.get("tag_name").getAsString();
+                for (FakeRelease x : r.releases) {
+                    if (!x.draft && tag.equals(x.tag)) {
+                        return new Object[]{422, "{\"message\":\"Validation Failed\",\"errors\":[{\"field\":\"tag_name\",\"code\":\"already_exists\"}]}"};
+                    }
+                }
+                FakeRelease rel = new FakeRelease();
+                rel.id = ++releaseNumbers;
+                rel.tag = tag;
+                rel.name = o.has("name") ? o.get("name").getAsString() : tag;
+                rel.body = o.has("body") ? o.get("body").getAsString() : "";
+                rel.draft = o.has("draft") && o.get("draft").getAsBoolean();
+                if (!rel.draft) r.tagRefs.add(tag);
+                r.releases.add(rel);
+                return new Object[]{201, rel.json(r.name)};
+            }
+            java.util.regex.Matcher relm = java.util.regex.Pattern.compile("^/releases/(\\d+)$").matcher(rest);
+            if (relm.matches()) {
+                FakeRelease rel = r.release(Long.parseLong(relm.group(1)));
+                if (rel == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                if (method.equals("PATCH")) {
+                    releasePatches.add(body);
+                    com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+                    if (o.has("body")) rel.body = o.get("body").getAsString();
+                    if (o.has("name")) rel.name = o.get("name").getAsString();
+                    if (o.has("draft")) rel.draft = o.get("draft").getAsBoolean();
+                    if (!rel.draft) r.tagRefs.add(rel.tag);
+                    return new Object[]{200, rel.json(r.name)};
+                }
+                if (method.equals("DELETE")) {
+                    r.releases.remove(rel);
+                    for (FakeAsset a : rel.assets) assetsById.remove(a.id);
+                    return new Object[]{204, ""};
+                }
+            }
+            java.util.regex.Matcher lam = java.util.regex.Pattern.compile("^/releases/(\\d+)/assets\\?per_page=100$").matcher(rest);
+            if (lam.matches() && method.equals("GET")) {
+                FakeRelease rel = r.release(Long.parseLong(lam.group(1)));
+                if (rel == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                StringBuilder out = new StringBuilder("[");
+                for (FakeAsset a : rel.assets) {
+                    if (out.length() > 1) out.append(',');
+                    out.append(a.json());
+                }
+                return new Object[]{200, out.append("]").toString()};
+            }
+            java.util.regex.Matcher am = java.util.regex.Pattern.compile("^/releases/assets/(\\d+)$").matcher(rest);
+            if (am.matches()) {
+                long id = Long.parseLong(am.group(1));
+                FakeRelease owner = null;
+                FakeAsset asset = null;
+                for (FakeRelease rel : r.releases) {
+                    for (FakeAsset a : rel.assets) {
+                        if (a.id == id) {
+                            owner = rel;
+                            asset = a;
+                        }
+                    }
+                }
+                if (asset == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                if (method.equals("DELETE")) {
+                    owner.assets.remove(asset);
+                    assetsById.remove(id);
+                    deletedAssets.add(asset.name);
+                    return new Object[]{204, ""};
+                }
+                if ("application/octet-stream".equals(headers.get("accept"))) {
+                    // as GitHub: a redirect to the file host (a signed address there, no token needed)
+                    return new Object[]{302, "", "Location: /objects/" + id + "\r\n"};
+                }
+                return new Object[]{200, asset.json()};
+            }
+            if (rest.startsWith("/git/refs/tags/") && method.equals("DELETE")) {
+                String tag = java.net.URLDecoder.decode(rest.substring("/git/refs/tags/".length()), "UTF-8");
+                if (!r.tagRefs.remove(tag)) return new Object[]{422, "{\"message\":\"Reference does not exist\"}"};
+                deletedTags.add(tag);
+                return new Object[]{204, ""};
+            }
+            if (rest.equals("/topics") && method.equals("PUT")) {
+                r.topics.clear();
+                for (com.google.gson.JsonElement e : com.google.gson.JsonParser.parseString(body).getAsJsonObject()
+                        .getAsJsonArray("names")) {
+                    r.topics.add(e.getAsString());
+                }
+                return new Object[]{200, body};
+            }
+            if (rest.startsWith("/contents/") && !raw) {
+                // v2.0.4: text files (README.md, CHANGELOG.md) through the contents API
+                String path = rest.substring("/contents/".length());
+                int q = path.indexOf('?');
+                if (q >= 0) path = path.substring(0, q);
+                path = decodePath(path);
+                String text = r.texts.get(path);
+                if (method.equals("GET")) {
+                    if (text == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};
+                    String b64 = java.util.Base64.getMimeEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
+                    return new Object[]{200, "{\"sha\":\"" + gitSha(text.getBytes(StandardCharsets.UTF_8)) + "\",\"encoding\":\"base64\","
+                            + "\"content\":" + new com.google.gson.Gson().toJson(b64 + "\n") + "}"};
+                }
+                if (method.equals("PUT")) {
+                    com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+                    String sha = o.has("sha") ? o.get("sha").getAsString() : null;
+                    if (text != null && !gitSha(text.getBytes(StandardCharsets.UTF_8)).equals(sha)) {
+                        return new Object[]{409, "{\"message\":\"sha does not match\"}"};
+                    }
+                    r.texts.put(path, new String(java.util.Base64.getDecoder().decode(o.get("content").getAsString()),
+                            StandardCharsets.UTF_8));
+                    r.textPuts++;
+                    return new Object[]{text == null ? 201 : 200, "{\"content\":{\"path\":\"" + path + "\"}}"};
+                }
             }
             if (rest.equals("/git/ref/heads/main")) return new Object[]{200, "{\"object\":{\"sha\":\"" + r.head + "\"}}"};
             if (rest.startsWith("/git/commits/") && method.equals("GET")) {

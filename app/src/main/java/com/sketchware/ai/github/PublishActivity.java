@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
 import com.google.gson.JsonObject;
@@ -201,14 +202,21 @@ public class PublishActivity extends BaseAppCompatActivity {
 
     private void renderChips() {
         chips.removeAllViews();
+        if (!topics.contains(ProjectRepo.TOPIC)) topics.add(0, ProjectRepo.TOPIC);
         for (String t : new ArrayList<>(topics)) {
-            TextView chip = v.smallPill("#" + t + "  ✕", false, true, x -> {
+            boolean kept = ProjectRepo.TOPIC.equals(t);
+            TextView chip = v.smallPill(kept ? "#" + t : "#" + t + "  ✕", false, true, x -> {
+                if (kept) {
+                    Toast.makeText(this, "#" + ProjectRepo.TOPIC + " stays: your other phones find this project's "
+                            + "repository by it", Toast.LENGTH_LONG).show();
+                    return;
+                }
                 topics.remove(t);
                 renderChips();
             });
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             chip.setSingleLine(true);
-            chip.setContentDescription("Remove topic " + t);
+            chip.setContentDescription(kept ? "Topic " + t + ", kept" : "Remove topic " + t);
             chips.addView(chip, new ViewGroup.LayoutParams(-2, v.dp(34)));
         }
     }

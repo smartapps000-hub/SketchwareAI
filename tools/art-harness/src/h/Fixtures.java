@@ -187,8 +187,8 @@ public class Fixtures {
             // v1.9.4: Button, TextView (the permission blocks' test project)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("github")) {
-            // v2.0.2: Button, TextView (the GitHub component's test project)
-            for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
+            // v2.0.2: Button, TextView (the GitHub component's test project); v2.0.4: a ListView for showList
+            for (int t : new int[]{3, 4, 9}) widgets.add(new int[]{t});
         } else if (spec.equals("javaedit")) {
             // v1.8.8: Button x2, TextView, EditText (the Java editor's test project, JavaEdit); v1.8.9 a CheckBox
             for (int[] t : new int[][]{{3}, {3, 2}, {4}, {5}, {11}}) widgets.add(t);
@@ -608,7 +608,8 @@ public class Fixtures {
     /**
      * v2.0.2 github: onCreate sets an empty token and calls every GitHub block (get user, list repositories, get file,
      * upload file, run workflow; has token in an "if"); github1's six events show their values with setText / Toast
-     * blocks, so every event parameter is used in the generated code.
+     * blocks, so every event parameter is used in the generated code. v2.0.4: list files, list releases, download,
+     * show in listview1, readable text; the four new events.
      */
     @SuppressWarnings("unchecked")
     static void gitHubBlocks(Object proj, String javaName) throws Throwable {
@@ -620,7 +621,19 @@ public class Fixtures {
                 {"onGitHubFileDownloaded", "path", "content", "sha"},
                 {"onGitHubFileUploaded", "path", "sha", "htmlUrl"},
                 {"onGitHubWorkflowTriggered", "workflow", "ref"},
-                {"onGitHubError", "action", "message"}};
+                {"onGitHubError", "action", "message"},
+                // v2.0.4: files, releases, download progress, file saved
+                {"onGitHubFilesListed", "owner", "repo", "path", "filesJson"},
+                {"onGitHubReleasesListed", "owner", "repo", "releasesJson"},
+                {"onGitHubDownloadProgress", "url"},
+                {"onGitHubFileSaved", "url", "path"}};
+        Map<String, String> numberParams = new HashMap<>();
+        numberParams.put("onGitHubReposListed", "count");
+        numberParams.put("onGitHubError", "code");
+        numberParams.put("onGitHubFilesListed", "count");
+        numberParams.put("onGitHubReleasesListed", "count");
+        numberParams.put("onGitHubDownloadProgress", "percent");
+        numberParams.put("onGitHubFileSaved", "bytes");
         for (String[] e : eventParams) {
             ev.add(neu("com.besome.sketch.beans.EventBean", 2, 2026, "github1", e[0]));
             ArrayList<Object> logic = new ArrayList<>();
@@ -633,13 +646,13 @@ public class Fixtures {
                 logic.add(show);
                 logic.add(block(String.valueOf(id + 40), e[i], "s", "getArg"));
             }
-            if (e[0].equals("onGitHubReposListed") || e[0].equals("onGitHubError")) {
+            if (numberParams.containsKey(e[0])) {
                 // the number parameter too
                 Object last = logic.get(logic.size() - 2);
                 set(last, "nextBlock", 30);
                 logic.add(block("30", "Toast %s", " ", "doToast", "@31"));
                 logic.add(block("31", "toString %d without decimal", "s", "toString", "@32"));
-                logic.add(block("32", e[0].equals("onGitHubError") ? "code" : "count", "d", "getArg"));
+                logic.add(block("32", numberParams.get(e[0]), "d", "getArg"));
             }
             call(proj, "a", javaName, "github1_" + e[0], logic);
         }
@@ -656,12 +669,26 @@ public class Fixtures {
                 " ", "gitHubTriggerWorkflow", "github1", "me", "app", "build.yml", "main");
         Object ifToken = block("16", "if %b then", "c", "if", "@20");
         Object yes = block("17", "%m.textview setText %s", " ", "setText", "textview1", "token set");
+        // v2.0.4: "@" and profile links as user names, files, releases, a download, the list and readable text
+        Object files = block("18", "%m.GitHub list files owner %s.owner repo %s.repo folder %s.pathOrEmpty", " ",
+                "gitHubListFiles", "github1", "@octocat", "Hello-World", "");
+        Object releases = block("19", "%m.GitHub list releases owner %s.owner repo %s.repo", " ", "gitHubListReleases",
+                "github1", "https://github.com/octocat", "Hello-World");
+        Object download = block("21", "%m.GitHub download %s.url save as %s.nameOrPath", " ", "gitHubDownloadFile",
+                "github1", "https://raw.githubusercontent.com/octocat/Hello-World/master/README", "readme \"one\".txt");
+        Object showList = block("22", "%m.GitHub show %s.json in %m.listview", " ", "gitHubShowList", "github1", "[]", "listview1");
+        Object readable = block("23", "%m.textview setText %s", " ", "setText", "textview1", "@24");
         set(token, "nextBlock", 11);
         set(user, "nextBlock", 12);
         set(repos, "nextBlock", 13);
         set(file, "nextBlock", 14);
         set(upload, "nextBlock", 15);
-        set(workflow, "nextBlock", 16);
+        set(workflow, "nextBlock", 18);
+        set(files, "nextBlock", 19);
+        set(releases, "nextBlock", 21);
+        set(download, "nextBlock", 22);
+        set(showList, "nextBlock", 23);
+        set(readable, "nextBlock", 16);
         set(ifToken, "subStack1", 17);
         create.add(token);
         create.add(user);
@@ -669,6 +696,12 @@ public class Fixtures {
         create.add(file);
         create.add(upload);
         create.add(workflow);
+        create.add(files);
+        create.add(releases);
+        create.add(download);
+        create.add(showList);
+        create.add(readable);
+        create.add(block("24", "%m.GitHub readable text of %s.json", "s", "gitHubDescribe", "github1", "{\"login\":\"octo\"}"));
         create.add(ifToken);
         create.add(yes);
         create.add(block("20", "%m.GitHub has token", "b", "gitHubHasToken", "github1"));

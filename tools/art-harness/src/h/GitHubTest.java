@@ -469,57 +469,143 @@ public final class GitHubTest {
                         && otherProject == null && noFolder && call(links, "get", "../1") == null, saved);
         linkFile.delete();
 
-        // --- v2.0.3: the project's record: visibility, its public copy, the backup's boxes and fingerprint
+        // --- v2.0.4: the project's record: its own repository (number, visibility), Standard tag, boxes, fingerprint
         Object autoOptions = get(c("com.sketchware.ai.github.CloudSync$Options"), "AUTOMATIC");
         Object libsOnly = neu("com.sketchware.ai.github.CloudSync$Options", true, false);
-        String privatePath = "projects/com.my.app/My_App.swb";
-        String publicUrl = "https://github.com/octo/SketchwareAI-My_App/blob/main/projects/com.my.app/My_App.swb";
-        call(links, "saved", scId, url, privatePath, "octo", libsOnly, "fp-1");
+        String repoPage = "https://github.com/octo/SketchwareAI-My_App";
+        call(links, "saved", scId, "octo", "v1.0-1", libsOnly, "fp-0", 0L);
+        boolean noRepoNoRecord = !linkFile.exists();
+        call(links, "repoFound", scId, "octo", "SketchwareAI-My_App", 4242L, true);
+        call(links, "saved", scId, "octo", "v1.0-1", libsOnly, "fp-1", 1234L);
         Object lastOpts = call(links, "lastOptions", scId);
-        check("v2.0.3: after a backup: private, the private link, its boxes and fingerprint kept",
-                "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
+        check("v2.0.4: a backup's record starts when its repository is known: the repository page is the share link, "
+                        + "private, its number, the boxes, fingerprint and APK time",
+                noRepoNoRecord && "private".equals(call(links, "visibility", scId, "octo")) && repoPage.equals(call(links, "get", scId, "octo"))
+                        && Long.valueOf(4242L).equals(call(links, "repoNumber", scId, "octo"))
+                        && "SketchwareAI-My_App".equals(call(links, "repoName", scId, "octo"))
                         && Boolean.TRUE.equals(get(lastOpts, "localLibraries")) && Boolean.FALSE.equals(get(lastOpts, "customBlocks"))
-                        && "fp-1".equals(call(links, "lastFingerprint", scId, "octo")) && (Long) call(links, "lastBackup", scId) > 0, null);
-        call(links, "copyMade", scId, "SketchwareAI-Public-My_App", "a1b2c3d4e5f6", 4242L);
-        check("v2.0.3 review: a new copy (still private) keeps its repository, id and number; the project stays private",
-                "private".equals(call(links, "visibility", scId, "octo")) && "a1b2c3d4e5f6".equals(call(links, "publicId", scId, "octo"))
-                        && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo"))
-                        && Long.valueOf(4242L).equals(call(links, "publicNumber", scId, "octo"))
-                        && call(links, "lastFingerprint", scId, "someone") == null, null);
-        call(links, "publicNow", scId, "SketchwareAI-Public-My_App", publicUrl, privatePath);
-        check("v2.0.3: Public: the share pill shares the public copy's link", "public".equals(call(links, "visibility", scId, "octo"))
-                && publicUrl.equals(call(links, "get", scId, "octo")) && Boolean.TRUE.equals(call(links, "isPublic", scId, "octo"))
-                && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo")), call(links, "get", scId, "octo"));
-        call(links, "saved", scId, url, privatePath, "octo", autoOptions, "fp-2");
-        check("v2.0.3: a later backup keeps it public (and its public link and number)", "public".equals(call(links, "visibility", scId, "octo"))
-                && publicUrl.equals(call(links, "get", scId, "octo")) && "fp-2".equals(call(links, "lastFingerprint", scId, "octo"))
-                && Long.valueOf(4242L).equals(call(links, "publicNumber", scId, "octo")), null);
-        call(links, "privateNow", scId);
-        check("v2.0.3: Private again: the private link; the public repository and its id kept for a later Public",
-                "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"))
-                        && "SketchwareAI-Public-My_App".equals(call(links, "publicRepository", scId, "octo"))
-                        && "a1b2c3d4e5f6".equals(call(links, "publicId", scId, "octo")), null);
-        check("v2.0.3: no pills under another account", call(links, "visibility", scId, "someone") == null, null);
-        // review L6/H1: a record without its account (carried in by a .swb) never steers a visibility change, and the
-        // backup repository is never a "public copy"
-        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"" + scId + "\",\"visibility\":\"public\","
-                + "\"public_repo\":\"SketchwareAI-Projects\",\"public_id\":\"a1b2c3d4e5f6\",\"public_url\":\"https://github.com/x/y\"}");
-        boolean noAccount = !Boolean.TRUE.equals(call(links, "isPublic", scId, "octo")) && call(links, "publicRepository", scId, "octo") == null
-                && "private".equals(call(links, "visibility", scId, "octo")) && url.equals(call(links, "get", scId, "octo"));
-        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"" + scId + "\",\"login\":\"octo\","
-                + "\"visibility\":\"public\",\"public_repo\":\"sketchwareai-projects\",\"public_id\":\"a1b2c3d4e5f6\"}");
-        check("v2.0.3 review: a record without its account, or naming the backup repository, never makes anything public",
-                noAccount && call(links, "publicRepository", scId, "octo") == null, null);
-        // second review (N5): a backup over a record without its account doesn't adopt that record's public copy
-        writeText(linkFile, "{\"url\":\"" + url + "\",\"path\":\"p\",\"sc_id\":\"" + scId + "\",\"visibility\":\"public\","
-                + "\"public_repo\":\"SketchwareAI-Public-Victim\",\"public_id\":\"a1b2c3d4e5f6\",\"public_number\":77}");
-        call(links, "saved", scId, url, privatePath, "octo", autoOptions, "fp-3");
-        check("second review: a backup over a record without its account keeps none of its public copy",
-                "private".equals(call(links, "visibility", scId, "octo")) && call(links, "publicRepository", scId, "octo") == null
-                        && call(links, "publicId", scId, "octo") == null && Long.valueOf(0L).equals(call(links, "publicNumber", scId, "octo"))
-                        && "fp-3".equals(call(links, "lastFingerprint", scId, "octo")), readText(linkFile));
+                        && "fp-1".equals(call(links, "lastFingerprint", scId, "octo")) && Long.valueOf(1234L).equals(call(links, "lastApkTime", scId, "octo"))
+                        && (Long) call(links, "lastBackup", scId) > 0, readText(linkFile));
+        call(links, "visibilityNow", scId, "octo", false);
+        call(links, "standardNow", scId, "octo", "v1.0-1");
+        check("v2.0.4: Public (one PATCH) and the Standard pin as the card shows them; nothing under another account",
+                "public".equals(call(links, "visibility", scId, "octo")) && Boolean.TRUE.equals(call(links, "isPublic", scId, "octo"))
+                        && "v1.0-1".equals(call(links, "standardTag", scId, "octo")) && call(links, "visibility", scId, "someone") == null
+                        && call(links, "repoNumber", scId, "someone").equals(0L) && call(links, "lastFingerprint", scId, "someone") == null, null);
+        call(links, "saved", scId, "octo", "v1.1-2", autoOptions, "fp-2", 0L);
+        call(links, "standardNow", scId, "octo", null);
+        check("v2.0.4: a later backup keeps the repository and its visibility", "public".equals(call(links, "visibility", scId, "octo"))
+                && repoPage.equals(call(links, "get", scId, "octo")) && "fp-2".equals(call(links, "lastFingerprint", scId, "octo"))
+                && call(links, "standardTag", scId, "octo") == null, null);
+        // a record without its account (carried in by a .swb) never names a repository; the backup repository never is one
+        writeText(linkFile, "{\"url\":\"https://github.com/octo/SketchwareAI-Victim\",\"sc_id\":\"" + scId + "\",\"visibility\":\"public\","
+                + "\"repo\":\"SketchwareAI-Victim\",\"repo_number\":77}");
+        boolean noAccount = Long.valueOf(0L).equals(call(links, "repoNumber", scId, "octo")) && call(links, "repoName", scId, "octo") == null
+                && !Boolean.TRUE.equals(call(links, "isPublic", scId, "octo")) && "private".equals(call(links, "visibility", scId, "octo"));
+        call(links, "saved", scId, "octo", "v9-9", autoOptions, "fp-x", 0L);
+        boolean notAdopted = readText(linkFile).contains("SketchwareAI-Victim") && !readText(linkFile).contains("fp-x");
+        writeText(linkFile, "{\"url\":\"" + repoPage + "\",\"sc_id\":\"" + scId + "\",\"login\":\"octo\",\"repo\":\"sketchwareai-projects\","
+                + "\"repo_number\":5}");
+        check("v2.0.4 (v2.0.3 review L6/H1): a record without its account steers nothing; the backup repository is never "
+                + "a project's repository", noAccount && notAdopted && call(links, "repoName", scId, "octo") == null, null);
+        // a v2.0.3 public copy is adopted as the project's repository
+        writeText(linkFile, "{\"url\":\"https://github.com/octo/SketchwareAI-Projects/blob/main/p.swb\",\"sc_id\":\"" + scId
+                + "\",\"login\":\"octo\",\"visibility\":\"public\",\"public_repo\":\"SketchwareAI-Public-My_App\",\"public_number\":4343}");
+        check("v2.0.4: a v2.0.3 project's public copy becomes its repository (versions are added there)",
+                Long.valueOf(4343L).equals(call(links, "repoNumber", scId, "octo"))
+                        && "SketchwareAI-Public-My_App".equals(call(links, "repoName", scId, "octo")), null);
+        // restore: linked to the repository it came from, never while another project on this phone is
         linkFile.delete();
-        call(links, "saved", scId, url, privatePath, "octo", libsOnly, "fp-1");
+        String otherId = "999998";
+        File otherData = new File(sketchware, "data/" + otherId);
+        otherData.mkdirs();
+        writeText(new File(otherData, "github_backup.json"), "{\"sc_id\":\"" + otherId + "\",\"login\":\"octo\","
+                + "\"repo\":\"SketchwareAI-My_App\",\"repo_number\":4242,\"url\":\"" + repoPage + "\"}");
+        Object refused = call(links, "linkRestored", scId, "octo", "SketchwareAI-My_App", 4242L, false, "v1.0-1");
+        deleteTree(otherData);
+        Object linkedNow = call(links, "linkRestored", scId, "octo", "SketchwareAI-My_App", 4242L, false, "v1.0-1");
+        check("v2.0.4: a restored project is linked to its repository (public, Standard v1.0-1); refused while another "
+                        + "project here is linked to it", Boolean.FALSE.equals(refused) && Boolean.TRUE.equals(linkedNow)
+                        && "public".equals(call(links, "visibility", scId, "octo")) && "v1.0-1".equals(call(links, "standardTag", scId, "octo"))
+                        && Long.valueOf(4242L).equals(call(links, "repoNumber", scId, "octo")), refused + " " + linkedNow);
+        linkFile.delete();
+        call(links, "repoFound", scId, "octo", "SketchwareAI-My_App", 4242L, true);
+        call(links, "saved", scId, "octo", null, libsOnly, "fp-1", 0L);
+
+        // --- v2.0.4: the change analyzer on this project: snapshot, comparison, notes, CHANGELOG, README, topics
+        Class<?> an = c("com.sketchware.ai.project.ProjectDiffAnalyzer");
+        Class<?> jsonParser = c("com.google.gson.JsonParser");
+        Object snap = call(an, "snapshot", scId);
+        Object snapScreens = call(snap, "getAsJsonObject", "screens");
+        java.util.Set<?> screenNames = (java.util.Set<?>) call(snapScreens, "keySet");
+        String firstScreen = screenNames.isEmpty() ? null : (String) screenNames.iterator().next();
+        Object unchanged = call(an, "compare", call(an, "snapshot", scId), snap);
+        check("v2.0.4: the analyzer reads the saved project (name, screens, widgets, events) and finds no change in it twice",
+                firstScreen != null && !String.valueOf(call(snap, "toString")).contains("readError")
+                        && (Integer) call(call(call(snapScreens, "getAsJsonObject", firstScreen), "getAsJsonObject", "views"), "size") > 0
+                        && Boolean.TRUE.equals(call(unchanged, "isEmpty")), snap);
+        Object later = call(call(jsonParser, "parseString", String.valueOf(snap)), "getAsJsonObject");
+        call(later, "addProperty", "versionName", "9.1");
+        call(later, "addProperty", "versionCode", "91");
+        Object laterMain = call(call(later, "getAsJsonObject", "screens"), "getAsJsonObject", firstScreen);
+        call(call(laterMain, "getAsJsonObject", "views"), "addProperty", "button99", "Button");
+        call(call(laterMain, "getAsJsonObject", "events"), "add", "button99_onClick",
+                call(call(jsonParser, "parseString", "[12345, 678]"), "getAsJsonArray"));
+        call(call(later, "getAsJsonObject", "screens"), "add", "SecondActivity", call(call(jsonParser, "parseString",
+                "{\"xml\":\"second.xml\",\"views\":{\"text1\":\"TextView\"},\"components\":{},\"events\":{},\"blocks\":0}"), "getAsJsonObject"));
+        call(call(later, "getAsJsonArray", "permissions"), "add", "CAMERA");
+        Object changes = call(an, "compare", snap, later);
+        String notes = (String) call(an, "releaseNotes", later, changes);
+        String commitLine = (String) call(an, "commitMessage", later, changes);
+        String entry = (String) call(an, "changelogEntry", later, changes, 1763208000000L);
+        check("v2.0.4: release notes from the difference: ✨ New Features (screen, widget, logic, permission), ⬆️ Upgrades "
+                        + "(version); a commit line and a CHANGELOG entry", notes.startsWith("## What's New & Fixed in v9.1 (91)")
+                        && notes.contains("### ✨ New Features") && notes.contains("New screen **SecondActivity** (1 widgets, 0 blocks)")
+                        && notes.contains("Added to " + firstScreen + ": button99") && notes.contains("New logic in " + firstScreen)
+                        && notes.contains("Permission: CAMERA") && notes.contains("### ⬆️ Upgrades") && notes.contains("→ 9.1 (91)")
+                        && commitLine.startsWith("v9.1 (91): +1 screen, +1 widget, 2 blocks changed")
+                        && entry.startsWith("## v9.1 (91) (2025-11-15)") && !entry.contains("What's New"), notes + "\n" + commitLine);
+        Object changedLogic = call(call(jsonParser, "parseString", String.valueOf(later)), "getAsJsonObject");
+        call(call(call(call(changedLogic, "getAsJsonObject", "screens"), "getAsJsonObject", firstScreen), "getAsJsonObject", "events"),
+                "add", "button99_onClick", call(call(jsonParser, "parseString", "[12345, 999]"), "getAsJsonArray"));
+        String fixNotes = (String) call(an, "releaseNotes", changedLogic, call(an, "compare", later, changedLogic));
+        check("v2.0.4: a changed block in an event = 🛠 Logic & Bug Fixes with the count of blocks modified",
+                fixNotes.contains("### 🛠 Logic & Bug Fixes") && fixNotes.contains("(1 block modified)")
+                        && !fixNotes.contains("✨"), fixNotes);
+        String firstNotes = (String) call(an, "releaseNotes", snap, call(an, "compare", null, snap));
+        String readme = (String) call(an, "readme", later, null, null, "https://github.com/octo/SketchwareAI-My_App");
+        String description = (String) call(an, "description", later);
+        List<?> topics = (List<?>) call(an, "topics", later);
+        check("v2.0.4: the first version gets a summary; README, description (≤ 350) and topics come from the snapshot",
+                firstNotes.contains(": first release") && readme.startsWith("# ") && readme.contains("SecondActivity")
+                        && readme.contains("https://github.com/octo/SketchwareAI-My_App") && description.contains("made with Sketchware AI")
+                        && description.length() <= 350 && topics.contains("sketchware-ai") && topics.size() <= 20, readme);
+        File snapDir = new File(sketchware, "data/" + scId + "/snapshots");
+        deleteTree(snapDir);
+        File saved1 = (File) call(an, "save", scId, snap);
+        Object prevForLater = call(an, "previous", scId, later);
+        Object prevForSame = call(an, "previous", scId, snap);
+        check("v2.0.4: a version's snapshot is kept offline (snapshots/v<name>_<code>_snapshot.json) and is the previous "
+                        + "one for the next version only", saved1 != null && saved1.getName().matches("v.+_.+_snapshot\\.json")
+                        && prevForLater != null && String.valueOf(prevForLater).equals(String.valueOf(snap)) && prevForSame == null,
+                saved1);
+        deleteTree(snapDir);
+
+        // --- v2.0.4: deep links into the restore screen
+        Class<?> linkActivity = c("com.sketchware.ai.github.GitHubLinkActivity");
+        Class<?> uri = c("android.net.Uri");
+        String direct = (String) call(linkActivity, "linkOf", call(uri, "parse", "https://github.com/octo/SketchwareAI-My_App"));
+        String viaScheme = (String) call(linkActivity, "linkOf", call(uri, "parse",
+                "sketchwareai://import?url=https%3A%2F%2Fgithub.com%2Focto%2FSketchwareAI-My_App"));
+        String viaPath = (String) call(linkActivity, "linkOf", call(uri, "parse", "sketchwareai://import/octo/SketchwareAI-My_App"));
+        Object elsewhere = call(linkActivity, "linkOf", call(uri, "parse", "https://evil.example/octo/SketchwareAI-My_App"));
+        Object badScheme = call(linkActivity, "linkOf", call(uri, "parse", "sketchwareai://import?url=https%3A%2F%2Fevil.example%2Fx"));
+        Object plainHttp = call(linkActivity, "linkOf", call(uri, "parse", "http://github.com/octo/SketchwareAI-My_App"));
+        String repoLink = "https://github.com/octo/SketchwareAI-My_App";
+        check("v2.0.4: deep links: github.com project pages and sketchwareai://import (url= or /owner/repo) open the "
+                        + "restore screen; other hosts, plain http and non-GitHub addresses don't",
+                repoLink.equals(direct) && repoLink.equals(viaScheme) && repoLink.equals(viaPath) && elsewhere == null
+                        && badScheme == null && plainHttp == null, direct + " " + viaScheme + " " + viaPath);
 
         // --- v2.0.3: "never auto-logout": GitHub's refusal is a mark with a note; the session stays
         Class<?> session = c("com.sketchware.ai.github.GitHubSession");
@@ -663,7 +749,7 @@ public final class GitHubTest {
         call(cloudSync, "projectSaved", scId, true);
         boolean firstSave = waitFor(() -> ran.contains(scId), 5000);
         Object fingerprint = call(syncClass, "fingerprint", scId);
-        call(links, "saved", scId, url, privatePath, "octo", autoOptions, fingerprint);
+        call(links, "saved", scId, "octo", null, autoOptions, fingerprint, 0L);
         ran.clear();
         call(cloudSync, "projectSaved", scId, true);
         boolean unchangedSkipped = !waitFor(() -> ran.contains(scId), 1500);

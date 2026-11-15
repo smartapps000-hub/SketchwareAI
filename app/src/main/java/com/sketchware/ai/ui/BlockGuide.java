@@ -62,7 +62,8 @@ public final class BlockGuide {
             "hasAutoPermission", "getPermissionStatus"};
     /** v2.0.2: the GitHub component's blocks. */
     public static final String[] GITHUB_BLOCKS = {"gitHubSetToken", "gitHubGetUser", "gitHubListRepos", "gitHubGetFile",
-            "gitHubUploadFile", "gitHubTriggerWorkflow", "gitHubHasToken"};
+            "gitHubUploadFile", "gitHubTriggerWorkflow", "gitHubHasToken", "gitHubListFiles", "gitHubListReleases",
+            "gitHubDownloadFile", "gitHubShowList", "gitHubDescribe"};
 
     static {
         put("webAllowDownloads", "webview1 allow downloads to folder [MyApp] notify [true] only types [ ]", WEB,
@@ -172,6 +173,29 @@ public final class BlockGuide {
                 "Inside an \"if\" block.",
                 "The GitHub component.",
                 "true when a token is set.");
+        put("gitHubListFiles", "github1 list files owner [ ] repo [ ] folder [ ]", GITHUB,
+                "A button's onClick, or the event of a list.",
+                "Owner (\"@name\" works too), repository and a folder (empty = the top); public ones need no token.",
+                "Event \"files listed\": owner, repo, path, filesJson (name, path, type file/dir, size, downloadUrl) "
+                        + "and count.");
+        put("gitHubListReleases", "github1 list releases owner [ ] repo [ ]", GITHUB,
+                "A button's onClick.",
+                "Owner and repository; public ones need no token.",
+                "Event \"releases listed\": releasesJson (tag, name, published and the files with their size and url: "
+                        + "APKs, .swb backups…) and count.");
+        put("gitHubDownloadFile", "github1 download [url] save as [ ]", GITHUB,
+                "A list's item click, or a button.",
+                "A file's link (downloadUrl of a file, url of a release file) and a name (empty = the link's) or a "
+                        + "full path; it goes into the app's own Download folder, no storage permission needed.",
+                "Event \"download progress\" (percent) while it comes, then \"file saved\" with the path.");
+        put("gitHubShowList", "github1 show [json] in listview1", GITHUB,
+                "The \"repositories listed\", \"files listed\" or \"releases listed\" event.",
+                "The answer's json and a ListView.",
+                "Readable rows; a tap on a repository lists its files, on a folder opens it, on a file downloads it.");
+        put("gitHubDescribe", "github1 readable text of [json]", GITHUB_GREEN,
+                "A text slot, e.g. setText.",
+                "Any answer of the component (a user, repositories, files, releases).",
+                "The answer as readable text (\"Name (@login) · 12 public repositories · 3 followers\").");
         put("getPermissionStatus", "permission status [CAMERA]", PERMISSION,
                 "A text slot, e.g. setText or an \"if equals\".",
                 "A group or a permission.",
@@ -182,7 +206,7 @@ public final class BlockGuide {
     private static void put(String opCode, String block, int color, String where, String plug, String result) {
         // the two permission checks are a boolean and a value block; every other guided block is a command
         String kind = "hasAutoPermission".equals(opCode) || "gitHubHasToken".equals(opCode) ? "b"
-                : "getPermissionStatus".equals(opCode) ? "s" : " ";
+                : "getPermissionStatus".equals(opCode) || "gitHubDescribe".equals(opCode) ? "s" : " ";
         ENTRIES.put(opCode, new Entry(block, kind, color, where, plug, result));
     }
 

@@ -246,6 +246,14 @@ public class EventsHandler {
                 return R.drawable.event_on_response_48dp;
 
             case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILES:
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_RELEASES:
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_PROGRESS:
+
+            case com.sketchware.ai.project.GitHubCode.EVENT_SAVED:
                 return R.drawable.event_on_error_response_48dp;
 
             case "onDownloadComplete":
@@ -325,6 +333,10 @@ public class EventsHandler {
             case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
             case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
             case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_RELEASES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_PROGRESS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_SAVED:
                 return com.sketchware.ai.project.GitHubCode.description(name);
 
             case "onDownloadComplete":
@@ -501,6 +513,10 @@ public class EventsHandler {
             case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
             case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
             case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_RELEASES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_PROGRESS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_SAVED:
                 return com.sketchware.ai.project.GitHubCode.parameters(name);
 
             case "onDownloadComplete":
@@ -565,6 +581,10 @@ public class EventsHandler {
             case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
             case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
             case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_RELEASES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_PROGRESS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_SAVED:
                 return com.sketchware.ai.project.GitHubCode.spec(name, event);
 
             case "onDownloadComplete":

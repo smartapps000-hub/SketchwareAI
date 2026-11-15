@@ -41,5 +41,23 @@ public class Uri {
         return host.isEmpty() ? null : host;
     }
 
+    /** v2.0.4: the first value of {@code key} in the query, decoded ('+' = space, as Android since 4.1). */
+    public String getQueryParameter(String key) {
+        int q = s.indexOf('?');
+        if (q < 0) return null;
+        String query = s.substring(q + 1);
+        int h = query.indexOf('#'); if (h >= 0) query = query.substring(0, h);
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            String k = eq < 0 ? pair : pair.substring(0, eq);
+            if (decode(k).equals(key)) return eq < 0 ? "" : decode(pair.substring(eq + 1));
+        }
+        return null;
+    }
+
+    private static String decode(String x) {
+        try { return java.net.URLDecoder.decode(x, "UTF-8"); } catch (Exception e) { return x; }
+    }
+
     @Override public String toString() { return s; }
 }

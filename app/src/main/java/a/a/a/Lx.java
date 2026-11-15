@@ -354,6 +354,10 @@ public class Lx {
             case com.sketchware.ai.project.GitHubCode.EVENT_UPLOADED:
             case com.sketchware.ai.project.GitHubCode.EVENT_WORKFLOW:
             case com.sketchware.ai.project.GitHubCode.EVENT_ERROR:
+            case com.sketchware.ai.project.GitHubCode.EVENT_FILES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_RELEASES:
+            case com.sketchware.ai.project.GitHubCode.EVENT_PROGRESS:
+            case com.sketchware.ai.project.GitHubCode.EVENT_SAVED:
                 // v2.0.2: the GitHub component
                 return com.sketchware.ai.project.GitHubCode.eventCode(eventName, eventLogic);
 

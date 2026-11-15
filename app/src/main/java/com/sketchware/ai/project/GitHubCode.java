@@ -32,7 +32,13 @@ public final class GitHubCode {
     public static final String EVENT_UPLOADED = "onGitHubFileUploaded";
     public static final String EVENT_WORKFLOW = "onGitHubWorkflowTriggered";
     public static final String EVENT_ERROR = "onGitHubError";
-    public static final String[] EVENTS = {EVENT_USER, EVENT_REPOS, EVENT_FILE, EVENT_UPLOADED, EVENT_WORKFLOW, EVENT_ERROR};
+    /** v2.0.4: files of a folder, releases with their files, download progress, a downloaded file saved. */
+    public static final String EVENT_FILES = "onGitHubFilesListed";
+    public static final String EVENT_RELEASES = "onGitHubReleasesListed";
+    public static final String EVENT_PROGRESS = "onGitHubDownloadProgress";
+    public static final String EVENT_SAVED = "onGitHubFileSaved";
+    public static final String[] EVENTS = {EVENT_USER, EVENT_REPOS, EVENT_FILE, EVENT_UPLOADED, EVENT_WORKFLOW, EVENT_ERROR,
+            EVENT_FILES, EVENT_RELEASES, EVENT_PROGRESS, EVENT_SAVED};
 
     public static final int PALETTE_ID = 101;
     public static final int PALETTE_COLOR = 0xff1f6feb;
@@ -45,6 +51,12 @@ public final class GitHubCode {
     public static final String OP_UPLOAD_FILE = "gitHubUploadFile";
     public static final String OP_TRIGGER_WORKFLOW = "gitHubTriggerWorkflow";
     public static final String OP_HAS_TOKEN = "gitHubHasToken";
+    /** v2.0.4 */
+    public static final String OP_LIST_FILES = "gitHubListFiles";
+    public static final String OP_LIST_RELEASES = "gitHubListReleases";
+    public static final String OP_DOWNLOAD_FILE = "gitHubDownloadFile";
+    public static final String OP_SHOW_LIST = "gitHubShowList";
+    public static final String OP_DESCRIBE = "gitHubDescribe";
 
     private GitHubCode() {
     }
@@ -85,6 +97,20 @@ public final class GitHubCode {
             case EVENT_WORKFLOW:
                 signature = "onWorkflowTriggered(final String _workflow, final String _ref)";
                 break;
+            case EVENT_FILES:
+                signature = "onFilesListed(final String _owner, final String _repo, final String _path, "
+                        + "final String _filesJson, final double _count)";
+                break;
+            case EVENT_RELEASES:
+                signature = "onReleasesListed(final String _owner, final String _repo, final String _releasesJson, "
+                        + "final double _count)";
+                break;
+            case EVENT_PROGRESS:
+                signature = "onDownloadProgress(final String _url, final double _percent)";
+                break;
+            case EVENT_SAVED:
+                signature = "onFileSaved(final String _url, final String _path, final double _bytes)";
+                break;
             default:
                 signature = "onError(final String _action, final double _code, final String _message)";
                 break;
@@ -108,6 +134,14 @@ public final class GitHubCode {
                 return "%s.path %s.sha %s.htmlUrl";
             case EVENT_WORKFLOW:
                 return "%s.workflow %s.ref";
+            case EVENT_FILES:
+                return "%s.owner %s.repo %s.path %s.filesJson %d.count";
+            case EVENT_RELEASES:
+                return "%s.owner %s.repo %s.releasesJson %d.count";
+            case EVENT_PROGRESS:
+                return "%s.url %d.percent";
+            case EVENT_SAVED:
+                return "%s.url %s.path %d.bytes";
             default:
                 return "%s.action %d.code %s.message";
         }
@@ -127,6 +161,14 @@ public final class GitHubCode {
                 return when + "file uploaded %s.path %s.sha %s.htmlUrl";
             case EVENT_WORKFLOW:
                 return when + "workflow started %s.workflow %s.ref";
+            case EVENT_FILES:
+                return when + "files listed %s.owner %s.repo %s.path %s.filesJson %d.count";
+            case EVENT_RELEASES:
+                return when + "releases listed %s.owner %s.repo %s.releasesJson %d.count";
+            case EVENT_PROGRESS:
+                return when + "download progress %s.url %d.percent";
+            case EVENT_SAVED:
+                return when + "file saved %s.url %s.path %d.bytes";
             default:
                 return when + "error %s.action %d.code %s.message";
         }
@@ -145,6 +187,14 @@ public final class GitHubCode {
                 return "On GitHub file uploaded";
             case EVENT_WORKFLOW:
                 return "On GitHub workflow started";
+            case EVENT_FILES:
+                return "On GitHub files listed";
+            case EVENT_RELEASES:
+                return "On GitHub releases listed";
+            case EVENT_PROGRESS:
+                return "On GitHub download progress";
+            case EVENT_SAVED:
+                return "On GitHub file saved";
             default:
                 return "On GitHub error (explained)";
         }

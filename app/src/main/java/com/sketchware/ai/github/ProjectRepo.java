@@ -41,6 +41,11 @@ public final class ProjectRepo {
     public static final String PREFIX = "SketchwareAI-";
     /** The start of a project repository's description (how the import screen tells them from other repositories). */
     public static final String MARK = "Sketchware AI project";
+    /**
+     * The topic every project repository keeps: discovery on another phone finds the repository by it even after its
+     * description was rewritten for publishing (the description's {@link #MARK} is only there until then).
+     */
+    public static final String TOPIC = "sketchware-ai";
     public static final int MAX_VERSIONS = 5;
     /** Release assets up to this size go up in one request; larger backups in parts of this size. */
     public static final long PART_BYTES = 16L * 1024 * 1024;
@@ -172,6 +177,11 @@ public final class ProjectRepo {
         ProjectRepo made = new ProjectRepo(token, login, repo, number(a));
         made.read(a);
         made.isPrivate = true;
+        try {
+            made.setDetails(null, new ArrayList<>());
+        } catch (IOException | GitHubException ignored) {
+            // the description's mark finds it until the topic is written (the next publish writes it again)
+        }
         return made;
     }
 
@@ -217,7 +227,7 @@ public final class ProjectRepo {
         isPrivate = hidden;
     }
 
-    /** The repository's description (≤ 350 characters) and topics. */
+    /** The repository's description (≤ 350 characters) and topics ({@link #TOPIC} always first). */
     void setDetails(String description, List<String> topics) throws IOException, GitHubException {
         if (description != null) {
             JsonObject body = new JsonObject();
@@ -229,9 +239,10 @@ public final class ProjectRepo {
         if (topics != null) {
             JsonObject body = new JsonObject();
             JsonArray names = new JsonArray();
+            names.add(TOPIC);
             for (String t : topics) {
                 String clean = com.sketchware.ai.project.ProjectDiffAnalyzer.topic(t);
-                if (clean != null && names.size() < 20) names.add(clean);
+                if (clean != null && !clean.equals(TOPIC) && names.size() < 20) names.add(clean);
             }
             body.add("names", names);
             GitHubHttp.Response r = GitHubHttp.api("PUT", path("/topics"), token, body.toString());
@@ -817,8 +828,8 @@ public final class ProjectRepo {
     }
 
     /**
-     * The account's project repositories (names starting {@link #PREFIX}, with this app's description, and the
-     * v2.0.3 public copies), newest first; never the backup repository. Up to 1000 repositories are looked at.
+     * The account's project repositories (names starting {@link #PREFIX}, with this app's topic or description, and
+     * the v2.0.3 public copies), newest first; never the backup repository. Up to 1000 repositories are looked at.
      */
     static List<Info> listOwn(String token) throws IOException, GitHubException {
         List<Info> out = new ArrayList<>();
@@ -842,7 +853,14 @@ public final class ProjectRepo {
                     continue;
                 }
                 String description = DeviceFlow.string(o, "description");
-                boolean ours = (description != null && description.startsWith(MARK))
+                boolean tagged = false;
+                JsonElement topics = o.get("topics");
+                if (topics != null && topics.isJsonArray()) {
+                    for (JsonElement t : topics.getAsJsonArray()) {
+                        if (t.isJsonPrimitive() && TOPIC.equals(t.getAsString())) tagged = true;
+                    }
+                }
+                boolean ours = tagged || (description != null && description.startsWith(MARK))
                         || name.regionMatches(true, 0, "SketchwareAI-Public-", 0, 20);
                 if (!ours) continue;
                 Info info = new Info();

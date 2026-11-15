@@ -8,7 +8,7 @@ import java.lang.reflect.Modifier;
 /**
  * v2.0.2: the GitHub component's helper SketchGitHub from fixture 934's built APK on ART: path encoding, Base64 both
  * ways, the repositories summary, the error explanations (the "diagnostics"), the token switch and the Listener the
- * generated code extends. The network calls themselves can't run here (no sockets on this ART). GITHUBCALL n/n ok.
+ * generated code extends. v2.0.4: user names with "@" or as links, sizes, the files and releases lists, describe. The network calls themselves can't run here (no sockets on this ART). GITHUBCALL n/n ok.
  */
 public class CallGitHub {
     static int checks, fails;
@@ -70,8 +70,46 @@ public class CallGitHub {
         Class<?> listener = Class.forName(gh.getName() + "$Listener");
         int methods = 0;
         for (Method m : listener.getDeclaredMethods()) if (Modifier.isPublic(m.getModifiers())) methods++;
-        check("Listener: an abstract class with the six events (generated code overrides the ones it uses)",
-                Modifier.isAbstract(listener.getModifiers()) && methods == 6, methods);
+        check("Listener: an abstract class with the ten events (v2.0.4: + files, releases, download progress, file saved; "
+                + "generated code overrides the ones it uses)", Modifier.isAbstract(listener.getModifiers()) && methods == 10, methods);
+        // v2.0.4: names as people type them, readable answers, the new lists
+        Method name = method(gh, "name", String.class);
+        check("v2.0.4: a user typed as @octo, ' @@octo ', a profile link or a repository link is octo",
+                "octo".equals(name.invoke(null, "@octo")) && "octo".equals(name.invoke(null, " @@octo "))
+                        && "octo".equals(name.invoke(null, "https://github.com/octo")) && "octo".equals(name.invoke(null, "https://www.github.com/octo/app"))
+                        && "".equals(name.invoke(null, (Object) null)), name.invoke(null, "https://www.github.com/octo/app"));
+        Method size = method(gh, "size", long.class);
+        check("v2.0.4: sizes read as B / KB / MB", "512 B".equals(size.invoke(null, 512L)) && "1 KB".equals(size.invoke(null, 1536L))
+                && "3.0 MB".equals(size.invoke(null, 3L * 1024 * 1024)), size.invoke(null, 3L * 1024 * 1024));
+        String contents = "[{\"name\":\"src\",\"path\":\"src\",\"type\":\"dir\",\"size\":0,\"download_url\":null},"
+                + "{\"name\":\"README.md\",\"path\":\"README.md\",\"type\":\"file\",\"size\":1536,"
+                + "\"download_url\":\"https://raw.githubusercontent.com/me/app/main/README.md\",\"sha\":\"x\"}]";
+        String files = String.valueOf(method(gh, "fileSummary", String.class, String.class, String.class).invoke(null, "me", "app", contents));
+        check("v2.0.4: files list: name, path, type, size, downloadUrl, owner, repo (a folder has no download link)",
+                files.contains("\"type\":\"dir\"") && files.contains("\"downloadUrl\":\"\"") && files.contains("README.md")
+                        && files.contains("raw.githubusercontent.com") && files.contains("\"owner\":\"me\"") && !files.contains("sha"), files);
+        String releases = "[{\"tag_name\":\"v1.0-1\",\"name\":\"First\",\"published_at\":\"2026-11-15T10:00:00Z\",\"body\":\"x\","
+                + "\"assets\":[{\"name\":\"app.apk\",\"size\":2048,\"url\":\"https://api.github.com/repos/me/app/releases/assets/7\","
+                + "\"browser_download_url\":\"https://github.com/me/app/releases/download/v1.0-1/app.apk\"},"
+                + "{\"name\":\"app.swb\",\"size\":10,\"url\":\"u\",\"browser_download_url\":\"b\"}]}]";
+        String rel = String.valueOf(method(gh, "releaseSummary", String.class).invoke(null, releases));
+        check("v2.0.4: releases list: tag, name, published, files with their download link and API link",
+                rel.contains("\"tag\":\"v1.0-1\"") && (rel.contains("releases\\/download\\/v1.0-1\\/app.apk")
+                        || rel.contains("releases/download/v1.0-1/app.apk")) && rel.contains("\"apiUrl\"") && !rel.contains("body"), rel);
+        Method describe = gh.getMethod("describe", String.class);
+        String user = String.valueOf(describe.invoke(component(gh), "{\"login\":\"octo\",\"name\":\"The Octocat\",\"bio\":null,"
+                + "\"public_repos\":8,\"followers\":3,\"location\":\"San Francisco\"}"));
+        String repoLines = String.valueOf(describe.invoke(component(gh), s));
+        String fileLines = String.valueOf(describe.invoke(component(gh), files));
+        String releaseLines = String.valueOf(describe.invoke(component(gh), rel));
+        check("v2.0.4: describe: a user, repositories, files and releases as readable lines (a null bio left out)",
+                user.equals("The Octocat (@octo)\n8 public repositories \u00b7 3 followers \u00b7 San Francisco")
+                        && repoLines.equals("app (private)\ndocs: Notes") && fileLines.equals("src/\nREADME.md (1 KB)")
+                        && releaseLines.equals("v1.0-1: 2 files") && "not json".equals(describe.invoke(component(gh), "not json"))
+                        && "".equals(describe.invoke(component(gh), "  ")), user + " | " + repoLines + " | " + fileLines + " | " + releaseLines);
+        String missing = explain(explain, make, 404, "{\"message\":\"Not Found\"}", -1, 0, "downloadFile");
+        check("v2.0.4: 404 on a download: check the link; private files need a token", missing.contains("check the link")
+                && missing.contains("token"), missing);
         Object component = gh.getConstructor(Object.class).newInstance(new Object[]{null});
         Method setToken = gh.getMethod("setToken", String.class);
         Method hasToken = gh.getMethod("hasToken");
@@ -84,6 +122,10 @@ public class CallGitHub {
                 && "github_pat_x".equals(tokenField.get(component)), tokenField.get(component));
         System.out.println("GITHUBCALL " + (checks - fails) + "/" + checks + (fails == 0 ? " ok" : " FAILED"));
         System.exit(fails == 0 ? 0 : 1);
+    }
+
+    static Object component(Class<?> gh) throws Exception {
+        return gh.getConstructor(Object.class).newInstance(new Object[]{null});
     }
 
     static Method method(Class<?> c, String name, Class<?>... types) throws Exception {

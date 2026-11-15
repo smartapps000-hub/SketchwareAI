@@ -1225,6 +1225,12 @@ public class ExtraPaletteBlock {
                 logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_GET_FILE);
                 logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_UPLOAD_FILE);
                 logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_TRIGGER_WORKFLOW);
+                logicEditor.a("Files, releases and downloads (public: no token)", 0xff555555);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_LIST_FILES);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_LIST_RELEASES);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_DOWNLOAD_FILE);
+                logicEditor.a(" ", com.sketchware.ai.project.GitHubCode.OP_SHOW_LIST);
+                logicEditor.a("s", com.sketchware.ai.project.GitHubCode.OP_DESCRIBE);
                 logicEditor.b("\u24d8 GitHub blocks guide", "gitHubGuide", v -> com.sketchware.ai.ui.BlockGuide.show(
                         logicEditor, "GitHub blocks", com.sketchware.ai.ui.BlockGuide.GITHUB_BLOCKS));
                 return;

@@ -1,14 +1,22 @@
 package __PACKAGE__;
 
 import android.app.Activity;
+import android.content.Context;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -16,7 +24,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -31,6 +41,11 @@ import java.util.Locale;
  *
  * GitHub accepts TLS 1.2 or newer only: Android 5.0+ uses it by itself; on Android 4.4 (min SDK 19) every call ends in
  * "No connection to GitHub" unless the app switches TLS 1.2 on itself.
+ *
+ * Sketchware AI v2.0.4: user and owner names may start with "@" or be a profile link (both are cleaned); public
+ * repositories, their files and their release files (APKs) are listed and downloaded without a token (listFiles,
+ * listReleases, downloadFile with progress); showList fills a ListView with readable rows (tap a repository for its
+ * files, a folder to open it, a file to download it) and describe turns any answer into readable text.
  */
 public class SketchGitHub {
 
@@ -52,6 +67,18 @@ public class SketchGitHub {
         }
 
         public void onError(String action, double code, String message) {
+        }
+
+        public void onFilesListed(String owner, String repo, String path, String filesJson, double count) {
+        }
+
+        public void onReleasesListed(String owner, String repo, String releasesJson, double count) {
+        }
+
+        public void onDownloadProgress(String url, double percent) {
+        }
+
+        public void onFileSaved(String url, String path, double bytes) {
         }
     }
 
@@ -81,7 +108,8 @@ public class SketchGitHub {
 
     /** The token's own account (empty user), or a public profile. */
     public void getUser(String user) {
-        final String path = empty(user) ? "/user" : "/users/" + segment(user.trim());
+        user = name(user);
+        final String path = empty(user) ? "/user" : "/users/" + segment(user);
         if (empty(user) && token == null) {
             error("getUser", 0, "Set a token first, or give a user name.");
             return;
@@ -110,13 +138,14 @@ public class SketchGitHub {
     }
 
     /** The repositories of a user (empty = the token's own, private ones included), newest first, up to 100. */
-    public void listRepos(final String user) {
+    public void listRepos(String userName) {
+        final String user = name(userName);
         if (empty(user) && token == null) {
             error("listRepos", 0, "Set a token first, or give a user name.");
             return;
         }
         final String path = empty(user) ? "/user/repos?per_page=100&sort=updated"
-                : "/users/" + segment(user.trim()) + "/repos?per_page=100&sort=updated";
+                : "/users/" + segment(user) + "/repos?per_page=100&sort=updated";
         run(new Runnable() {
             public void run() {
                 Answer a = request("GET", path, null);
@@ -129,7 +158,7 @@ public class SketchGitHub {
                     final double count = new JSONArray(repos).length();
                     post(new Runnable() {
                         public void run() {
-                            if (listener != null) listener.onReposListed(empty(user) ? "" : user.trim(), repos, count);
+                            if (listener != null) listener.onReposListed(empty(user) ? "" : user, repos, count);
                         }
                     });
                 } catch (Exception e) {
@@ -141,6 +170,7 @@ public class SketchGitHub {
 
     /** A text file of a repository (UTF-8), from its default branch. */
     public void getFile(String owner, String repo, final String path) {
+        owner = name(owner);
         if (empty(owner) || empty(repo) || empty(path)) {
             error("getFile", 0, "Owner, repository and path are needed.");
             return;
@@ -188,6 +218,7 @@ public class SketchGitHub {
 
     /** Creates or replaces a text file in a repository (one commit with {@code message}); needs a token. */
     public void uploadFile(String owner, String repo, final String path, final String content, final String message) {
+        owner = name(owner);
         if (token == null) {
             error("uploadFile", 0, "Set a token with write access (Contents: read and write) first.");
             return;
@@ -236,6 +267,7 @@ public class SketchGitHub {
 
     /** Starts a GitHub Actions workflow that has a workflow_dispatch trigger; needs a token with Actions write. */
     public void triggerWorkflow(String owner, String repo, final String workflow, final String ref) {
+        owner = name(owner);
         if (token == null) {
             error("triggerWorkflow", 0, "Set a token with Actions: read and write first.");
             return;
@@ -267,6 +299,383 @@ public class SketchGitHub {
                 }
             }
         });
+    }
+
+    // ------------------------------------------------------------------ v2.0.4: files, releases, downloads, lists
+
+    /** The files and folders of a repository folder ("" = the top), public ones without a token. */
+    public void listFiles(String owner, String repo, String path) {
+        final String o = name(owner);
+        final String r = repo == null ? "" : repo.trim();
+        final String folder = path == null ? "" : path.trim().replaceAll("^/+|/+$", "");
+        if (empty(o) || empty(r)) {
+            error("listFiles", 0, "Owner and repository are needed.");
+            return;
+        }
+        final String address = "/repos/" + segment(o) + "/" + segment(r) + "/contents"
+                + (folder.length() == 0 ? "" : "/" + encodePath(folder));
+        run(new Runnable() {
+            public void run() {
+                Answer a = request("GET", address, null);
+                if (!a.ok()) {
+                    error("listFiles", a.code, explain(a, "listFiles"));
+                    return;
+                }
+                try {
+                    final String files = fileSummary(o, r, a.body);
+                    final double count = new JSONArray(files).length();
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onFilesListed(o, r, folder, files, count);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("listFiles", a.code, "GitHub's answer couldn't be read: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** The releases of a repository with their files (APKs and others), newest first; public ones without a token. */
+    public void listReleases(String owner, String repo) {
+        final String o = name(owner);
+        final String r = repo == null ? "" : repo.trim();
+        if (empty(o) || empty(r)) {
+            error("listReleases", 0, "Owner and repository are needed.");
+            return;
+        }
+        run(new Runnable() {
+            public void run() {
+                Answer a = request("GET", "/repos/" + segment(o) + "/" + segment(r) + "/releases?per_page=30", null);
+                if (!a.ok()) {
+                    error("listReleases", a.code, explain(a, "listReleases"));
+                    return;
+                }
+                try {
+                    final String releases = releaseSummary(a.body);
+                    final double count = new JSONArray(releases).length();
+                    post(new Runnable() {
+                        public void run() {
+                            if (listener != null) listener.onReleasesListed(o, r, releases, count);
+                        }
+                    });
+                } catch (Exception e) {
+                    error("listReleases", a.code, "GitHub's answer couldn't be read: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /**
+     * Downloads a file (a "downloadUrl" of listFiles, a release file's "url", any https link) to {@code savePath}: a
+     * full path, or a name in the app's own Download folder (no storage permission needed); empty = the link's name.
+     * The token goes only to api.github.com and raw.githubusercontent.com, never to the file host GitHub sends on to.
+     */
+    public void downloadFile(final String url, final String savePath) {
+        if (empty(url) || !(url.trim().startsWith("https://"))) {
+            error("downloadFile", 0, "An https link is needed.");
+            return;
+        }
+        final File target = target(url.trim(), savePath);
+        if (target == null) {
+            error("downloadFile", 0, "No folder to save into (the app's storage isn't available).");
+            return;
+        }
+        run(new Runnable() {
+            public void run() {
+                download(url.trim(), target);
+            }
+        });
+    }
+
+    private File target(String url, String savePath) {
+        String name = savePath == null ? "" : savePath.trim();
+        if (name.startsWith("/")) return new File(name);
+        if (name.length() == 0) {
+            String path = url;
+            int q = path.indexOf('?');
+            if (q >= 0) path = path.substring(0, q);
+            name = path.substring(path.lastIndexOf('/') + 1);
+            try {
+                name = java.net.URLDecoder.decode(name, "UTF-8");
+            } catch (Exception ignored) {
+                // kept as it is
+            }
+            if (name.length() == 0) name = "download";
+        }
+        name = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+        Context c = context();
+        if (c == null) return null;
+        File dir = c.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (dir == null) dir = new File(c.getFilesDir(), "Download");
+        dir.mkdirs();
+        return new File(dir, name);
+    }
+
+    private void download(final String url, final File target) {
+        String address = url;
+        HttpURLConnection c = null;
+        File part = new File(target.getAbsolutePath() + ".part");
+        try {
+            int code = 0;
+            for (int hop = 0; hop < 5; hop++) {
+                c = (HttpURLConnection) new URL(address).openConnection();
+                c.setInstanceFollowRedirects(false);
+                c.setConnectTimeout(30000);
+                c.setReadTimeout(60000);
+                c.setRequestProperty("User-Agent", "SketchwareAI-App");
+                String host = c.getURL().getHost();
+                boolean api = "api.github.com".equalsIgnoreCase(host);
+                if (api && address.contains("/releases/assets/")) c.setRequestProperty("Accept", "application/octet-stream");
+                if (token != null && (api || "raw.githubusercontent.com".equalsIgnoreCase(host))) {
+                    c.setRequestProperty("Authorization", "Bearer " + token);
+                }
+                code = c.getResponseCode();
+                if (code >= 300 && code < 400 && c.getHeaderField("Location") != null) {
+                    String next = new URL(new URL(address), c.getHeaderField("Location")).toString();
+                    c.disconnect();
+                    c = null;
+                    if (!next.startsWith("https://")) {
+                        error("downloadFile", code, "The file was sent to an insecure address.");
+                        return;
+                    }
+                    address = next;
+                    continue;
+                }
+                break;
+            }
+            if (c == null || code < 200 || code >= 300) {
+                Answer a = new Answer();
+                a.code = code;
+                error("downloadFile", code, explain(a, "downloadFile"));
+                return;
+            }
+            long total = c.getContentLength();
+            File dir = target.getParentFile();
+            if (dir != null) dir.mkdirs();
+            InputStream in = c.getInputStream();
+            OutputStream out = new FileOutputStream(part);
+            long done = 0;
+            int told = -1;
+            try {
+                byte[] buffer = new byte[65536];
+                int n;
+                while ((n = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, n);
+                    done += n;
+                    if (total > 0) {
+                        final int percent = (int) (done * 100 / total);
+                        if (percent / 5 != told / 5) {
+                            told = percent;
+                            post(new Runnable() {
+                                public void run() {
+                                    if (listener != null) listener.onDownloadProgress(url, percent);
+                                }
+                            });
+                        }
+                    }
+                }
+            } finally {
+                in.close();
+                out.close();
+            }
+            if (target.exists()) target.delete();
+            if (!part.renameTo(target)) {
+                error("downloadFile", 0, "The file couldn't be saved to " + target);
+                return;
+            }
+            final double bytes = done;
+            post(new Runnable() {
+                public void run() {
+                    if (listener != null) listener.onFileSaved(url, target.getAbsolutePath(), bytes);
+                }
+            });
+        } catch (IOException e) {
+            part.delete();
+            Answer a = new Answer();
+            a.code = 0;
+            a.body = String.valueOf(e.getMessage());
+            error("downloadFile", 0, explain(a, "downloadFile"));
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
+    private final List<String> keys = new ArrayList<String>();
+
+    /**
+     * Fills {@code list} with readable rows of an answer of this component (repositories, files, releases) and takes
+     * its taps: a repository lists its files, a folder opens, a file or a release file downloads (to the app's Download
+     * folder). It replaces the list's own item click while shown.
+     */
+    public void showList(ListView list, String json) {
+        if (list == null) return;
+        final List<String> lines = new ArrayList<String>();
+        keys.clear();
+        try {
+            JSONArray items = new JSONArray(json == null ? "[]" : json);
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject o = items.getJSONObject(i);
+                if (o.has("fullName")) {
+                    String description = text(o, "description");
+                    lines.add((o.optBoolean("isPrivate") ? "\uD83D\uDD12 " : "\uD83C\uDF10 ") + o.optString("name")
+                            + (o.optBoolean("isPrivate") ? "  \u00B7 Private" : "  \u00B7 Public")
+                            + (description.length() == 0 ? "" : "\n" + description));
+                    keys.add("repo:" + o.optString("fullName"));
+                } else if (o.has("type")) {
+                    boolean dir = "dir".equals(o.optString("type"));
+                    lines.add((dir ? "\uD83D\uDCC1 " : "\uD83D\uDCC4 ") + o.optString("name")
+                            + (dir ? "" : "  \u00B7 " + size(o.optLong("size"))));
+                    keys.add(dir ? "dir:" + o.optString("owner") + "/" + o.optString("repo") + "/" + o.optString("path")
+                            : "file:" + o.optString("downloadUrl"));
+                } else if (o.has("assets")) {
+                    JSONArray assets = o.optJSONArray("assets");
+                    for (int j = 0; assets != null && j < assets.length(); j++) {
+                        JSONObject f = assets.getJSONObject(j);
+                        lines.add("\u2B07 " + f.optString("name") + "  \u00B7 " + size(f.optLong("size")) + "\n"
+                                + o.optString("tag"));
+                        keys.add("file:" + (token != null && f.optString("apiUrl").length() > 0 ? f.optString("apiUrl")
+                                : f.optString("url")));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            error("showList", 0, "That isn't an answer of the GitHub component.");
+            return;
+        }
+        list.setAdapter(new ArrayAdapter<String>(list.getContext(), android.R.layout.simple_list_item_1, lines));
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position >= 0 && position < keys.size()) open(keys.get(position));
+            }
+        });
+    }
+
+    /** What a row of showList does: list a repository's or folder's files, or download a file. */
+    public void open(String key) {
+        if (key == null) return;
+        if (key.startsWith("repo:")) {
+            String[] parts = key.substring(5).split("/", 2);
+            if (parts.length == 2) listFiles(parts[0], parts[1], "");
+        } else if (key.startsWith("dir:")) {
+            String[] parts = key.substring(4).split("/", 3);
+            if (parts.length >= 2) listFiles(parts[0], parts[1], parts.length == 3 ? parts[2] : "");
+        } else if (key.startsWith("file:") && key.length() > 5) {
+            downloadFile(key.substring(5), "");
+        }
+    }
+
+    /** Readable text of an answer of this component: a user, repositories, files or releases. */
+    public String describe(String json) {
+        if (empty(json)) return "";
+        try {
+            String t = json.trim();
+            if (t.startsWith("{")) {
+                JSONObject u = new JSONObject(t);
+                String login = u.optString("login");
+                String name = text(u, "name");
+                StringBuilder sb = new StringBuilder(name.length() > 0 ? name + " (@" + login + ")" : "@" + login);
+                if (text(u, "bio").length() > 0) sb.append("\n").append(text(u, "bio"));
+                sb.append("\n").append(u.optInt("public_repos")).append(" public repositories \u00B7 ")
+                        .append(u.optInt("followers")).append(" followers");
+                if (text(u, "location").length() > 0) sb.append(" \u00B7 ").append(text(u, "location"));
+                return sb.toString();
+            }
+            JSONArray items = new JSONArray(t);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject o = items.getJSONObject(i);
+                if (sb.length() > 0) sb.append("\n");
+                if (o.has("fullName")) {
+                    sb.append(o.optString("name")).append(o.optBoolean("isPrivate") ? " (private)" : "")
+                            .append(text(o, "description").length() > 0 ? ": " + text(o, "description") : "");
+                } else if (o.has("type")) {
+                    sb.append("dir".equals(o.optString("type")) ? o.optString("name") + "/" : o.optString("name") + " ("
+                            + size(o.optLong("size")) + ")");
+                } else if (o.has("assets")) {
+                    sb.append(o.optString("tag")).append(": ").append(o.optJSONArray("assets") == null ? 0
+                            : o.optJSONArray("assets").length()).append(" files");
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return json;
+        }
+    }
+
+    static String size(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
+        return String.format(Locale.ENGLISH, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    /** "@user", " user ", "https://github.com/user" \u2192 "user". */
+    static String name(String user) {
+        if (user == null) return "";
+        String u = user.trim();
+        if (u.startsWith("https://") || u.startsWith("http://")) {
+            u = u.replaceFirst("^https?://(www\\.)?github\\.com/", "");
+            int slash = u.indexOf('/');
+            if (slash >= 0) u = u.substring(0, slash);
+        }
+        while (u.startsWith("@")) u = u.substring(1).trim();
+        return u;
+    }
+
+    static String fileSummary(String owner, String repo, String body) throws Exception {
+        JSONArray out = new JSONArray();
+        String t = body.trim();
+        JSONArray in = t.startsWith("[") ? new JSONArray(t) : new JSONArray().put(new JSONObject(t));
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject f = in.getJSONObject(i);
+            JSONObject o = new JSONObject();
+            o.put("name", f.optString("name"));
+            o.put("path", f.optString("path"));
+            o.put("type", f.optString("type"));
+            o.put("size", f.optLong("size"));
+            o.put("downloadUrl", text(f, "download_url"));
+            o.put("owner", owner);
+            o.put("repo", repo);
+            out.put(o);
+        }
+        return out.toString();
+    }
+
+    static String releaseSummary(String body) throws Exception {
+        JSONArray in = new JSONArray(body);
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject r = in.getJSONObject(i);
+            JSONObject o = new JSONObject();
+            o.put("tag", r.optString("tag_name"));
+            o.put("name", text(r, "name"));
+            o.put("published", text(r, "published_at"));
+            JSONArray assets = new JSONArray();
+            JSONArray files = r.optJSONArray("assets");
+            for (int j = 0; files != null && j < files.length(); j++) {
+                JSONObject f = files.getJSONObject(j);
+                JSONObject a = new JSONObject();
+                a.put("name", f.optString("name"));
+                a.put("size", f.optLong("size"));
+                a.put("url", f.optString("browser_download_url"));
+                a.put("apiUrl", f.optString("url"));
+                assets.put(a);
+            }
+            o.put("assets", assets);
+            out.put(o);
+        }
+        return out.toString();
+    }
+
+    private Context context() {
+        if (host instanceof Context) return (Context) host;
+        if (host == null) return null;
+        try {
+            Object c = host.getClass().getMethod("getContext").invoke(host);
+            return c instanceof Context ? (Context) c : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------ HTTP
@@ -378,6 +787,7 @@ public class SketchGitHub {
                         + ("triggerWorkflow".equals(action) ? " and Actions: read and write."
                         : "uploadFile".equals(action) ? " and Contents: read and write." : ".");
             case 404:
+                if ("downloadFile".equals(action)) return "Not found: check the link (a private file needs a token).";
                 return "Not found: check the owner, repository" + ("getUser".equals(action) || "listRepos".equals(action)
                         ? " or user name" : " and path") + ". A private repository needs a token with access to it.";
             case 409:

@@ -102,6 +102,12 @@ public class ExtraBlocks {
         arrayList.add(addBlock("gitHubGetFile", " ", "", "%1$s.getFile(%2$s, %3$s, %4$s);", "#1F6FEB", "%m.GitHub get file owner %s.owner repo %s.repo path %s.path"));
         arrayList.add(addBlock("gitHubUploadFile", " ", "", "%1$s.uploadFile(%2$s, %3$s, %4$s, %5$s, %6$s);", "#1F6FEB", "%m.GitHub upload file owner %s.owner repo %s.repo path %s.path text %s.content message %s.message"));
         arrayList.add(addBlock("gitHubTriggerWorkflow", " ", "", "%1$s.triggerWorkflow(%2$s, %3$s, %4$s, %5$s);", "#1F6FEB", "%m.GitHub run workflow owner %s.owner repo %s.repo file %s.workflow branch %s.branch"));
+        // v2.0.4: files, releases (APKs), downloads and readable lists; public data without a token
+        arrayList.add(addBlock("gitHubListFiles", " ", "", "%1$s.listFiles(%2$s, %3$s, %4$s);", "#1F6FEB", "%m.GitHub list files owner %s.owner repo %s.repo folder %s.pathOrEmpty"));
+        arrayList.add(addBlock("gitHubListReleases", " ", "", "%1$s.listReleases(%2$s, %3$s);", "#1F6FEB", "%m.GitHub list releases owner %s.owner repo %s.repo"));
+        arrayList.add(addBlock("gitHubDownloadFile", " ", "", "%1$s.downloadFile(%2$s, %3$s);", "#1F6FEB", "%m.GitHub download %s.url save as %s.nameOrPath"));
+        arrayList.add(addBlock("gitHubShowList", " ", "", "%1$s.showList(%3$s, %2$s);", "#1F6FEB", "%m.GitHub show %s.json in %m.listview"));
+        arrayList.add(addBlock("gitHubDescribe", "s", "", "%1$s.describe(%2$s)", "#2EA043", "%m.GitHub readable text of %s.json"));
     }
 
     /**
