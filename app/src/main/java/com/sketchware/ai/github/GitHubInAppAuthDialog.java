@@ -927,7 +927,14 @@ public final class GitHubInAppAuthDialog extends Dialog {
 
     /** Third review: the device page asked for at the start never started: asked for again (the code waits). */
     private void devicePageCheck() {
-        if (closed || web == null || devicePageAskedAt == 0 || limitedUntil > SystemClock.elapsedRealtime()) return;
+        long now = SystemClock.elapsedRealtime();
+        if (closed || web == null || devicePageAskedAt == 0 || limitedUntil > now) return;
+        // fourth review: a load still on its way (slow network) isn't restarted, up to the "stalled" time
+        int progress = web.getProgress();
+        if (progress > 0 && progress < 100 && now - devicePageAskedAt < STALLED_MILLIS) {
+            main.postDelayed(devicePageCheck, 5_000L);
+            return;
+        }
         devicePageAskedAt = 0;
         if (signIn.pending() != null) {
             status("Opening GitHub…", false);

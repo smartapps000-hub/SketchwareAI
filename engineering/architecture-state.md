@@ -1156,3 +1156,66 @@ after "Continue with Google", "Sign in with Gi…" / "@cr…" in the drawer, no 
   the token warning also scans `files/java` and is a two-line toast on every export (Run builds list the full advice);
   the helper drops events into a fragment that is no longer added (`isAdded` by reflection; R8 renaming it = delivered as
   before), `token` volatile, a TLS 1.2 note for Android 4.4.
+
+## v2.0.3 additions (15 Nov 2026): a session that stays, backups that finish, Public / Private, sample project
+
+Owner's 15 Nov directive "CRITICAL STABILITY & UX OVERHAUL (v2.0.3 / versionCode 204)" after the v2.0.2 phone test (12
+screenshots: signed out by itself, "Getting a sign-in code…" with a blank page, a backup stuck at 1%, a large one failing
+at 90%, the import list on "Loading…", drawer text drawn over itself, a black recents card). Record:
+`engineering/v2.0.3-verification.md`.
+
+- Session (never removed by itself): `TokenStore.token()` never deletes; it tries the binding as read now and the same
+  with ANDROID_ID or the certificate unreadable ("?"), re-seals with the full binding (compare-and-set under the shared
+  `LOCK`: a new sign-in or a sign-out wins), and `problem()` says why a token can't be read. Writes (`save`, re-seal,
+  `clear`) take `LOCK`; reads don't, except the token + user id pair. `clear()` only from the card's Sign out and a
+  cancelled sign-in. `GitHubSession.markRefused(context, note, sealedKey)`: GitHub's 401 marks the sign-in that was used
+  (`sealedKey` = hash of the stored value), never signs out; `recheckOnline` (6 h) marks too; `Profile.problem`,
+  `repositories` (public_repos + total_private_repos), `checkedAt`. `SignIn`: `DeviceFlow.start(clientId, scope, Tries)`
+  with 10 s / 15 s timeouts and pauses {1.5 s, 4 s} (three tries on IOException or 5xx), `startNote`; the generation
+  check and the token save under one lock; `TokenStore.prepareKey()` before it. FLAG_SECURE: never set in the app.
+- Sign-in window: GitHub's device page loads at once (`devicePageAskedAt`); a code arriving within 15 s of that request
+  waits for it (`devicePageCheck` asks again if no page started); fills only on the device page, not on GitHub's sign-in
+  pages (no reload under a password) and never on WebView's error page (`pageFailed`: set in `onReceivedError`, cleared
+  in `onPageStarted`; a code then loads the page again).
+- Drawer card (`main_drawer_header.xml`, `DrawerAccountCard`): top row picture · "GitHub" + state (Connected / the problem
+  in `ob_error`) · Sign out; details (name, @login, e-mail, "N repositories · checked HH:MM" or the problem, "Sign in
+  again") wrap (`BREAK_STRATEGY_SIMPLE`); the v2.0.2 marquee is gone.
+- `CloudSync` job queue: `Job` (scId, kind BACKUP / MAKE_PUBLIC / MAKE_PRIVATE, options, user, afterRunning, watchers,
+  results); taps before automatic jobs, a second tap joins (and promotes) a waiting job, `afterRunning` jobs never join a
+  running one; one worker thread, `finally` frees `current`, `Throwable` caught (an Error ends the job, not the queue);
+  IOException / passing errors / sign-in problems keep a backup pending. `projectSaved(scId, leaving)` (DesignActivity's
+  `ProjectSaver` and `SaveChangesProjectCloser`): signed in + System Settings key 2 "Back up to GitHub after saving"
+  (`P12I_github_backup`, default on) + the content `fingerprint` (SHA-256 of names and contents of `data/<sc_id>`, files
+  over 4 MiB by size, `github_backup.json` left out) differs from the account's last backup; a Save without leaving
+  waits 5 minutes after the last backup; a follow-up with nothing new is skipped in `run`. `upload` packs with its own
+  `hC`/`eC` (`setReadSavedDataOnly`) and packs again (≤ 3) when the fingerprint or `stamp` (sizes + times) changed while
+  packing. A 401: `signInWorks()` (GET /user) → "refused once, try again", else the mark and the backup waits.
+- Parts (`SwbParts`, `CloudBackup.upload`): over 4 MiB = 4 MiB parts `<swb>.parts/NNN`, each `POST /git/blobs` streamed
+  from the file (`GitHubHttp.postBlob(path, token, file, offset, length, progress)`), its returned sha compared with the
+  git blob id computed here, three tries (IOException, 5xx/408, a 401 while GET /user works; pauses 2 s / 6 s); one tree
+  (parts, `<swb>.parts.json` manifest {kind, format 1, name, size, sha256, partBytes, parts[path,size,sha]}, index.json,
+  `sha: null` deletions of paths the backup no longer uses), one commit, the ref PATCHed (two retries on 422). One .swb
+  ≤ 4 MiB: the file itself and a one-part manifest; the share link names the .swb (parts: the manifest). Download: the
+  .swb at that commit first (a backup in parts removes it, so a .swb beside a manifest is newer), else the manifest's
+  parts by blob id (`Accept: application/vnd.github.raw`, checked against the real API; a JSON answer up to 4/3 + 64 KiB
+  is decoded), joined, size + SHA-256 checked before the rename. Import: manifests listed, a .swb and its manifest once
+  (by the .swb), a .swb link falls back to its manifest, `history` merges both paths. Manifests from links are capped
+  (parts ≤ size / 1 MiB + 1, each ≤ 16 MiB, total = size ≤ 95 MB).
+- Import list (`GitHubImportDialog`): the list saved on the phone shows first (`cachedList`, `LIST_LOCK`), GitHub's answer
+  replaces it in the background (newest first); a backup from this phone is added at once (`rememberInList`).
+- Public / Private (`PublicCopy`, `ProjectLinks`, `GC` pills `ob_visibility` + `ob_share_link` in `ob_github_pills`):
+  a project's own repository `SketchwareAI-Public-<name>[-2…-9]` created private with `auto_init` and the description
+  "Sketchware AI public copy <12-hex id>: …", the newest backup uploaded, the record set public, then `PATCH private:false`
+  (a refused PATCH sets the record back). The record (`github_backup.json`: visibility, public_repo, public_url = the
+  repository page, public_path, public_id, public_number = GitHub's repository id) counts only for its own sc_id and the
+  account that wrote it; a restored / imported .swb drops it. The copy is found by `GET /repositories/{number}` (owner
+  must be the signed-in login; renames followed; the old name's 301 is "taken" for a new copy), records without a number
+  by name + description id. Later backups of a public project update the copy; a copy gone or private on GitHub sets the
+  record private with a remark. Private = `PATCH private:true` on the copy (nothing when it is gone or already private).
+  `SketchwareAI-Projects` is refused by name in every letter case by every PATCH.
+- GitHub blocks: `ExtraBlocks` / `GitHubCode.PALETTE_COLOR` #1F6FEB (`gitHubHasToken` #2EA043); `BlockGuide`
+  `gitHubActions`: "Open GitHub token page" (`TOKEN_PAGE` github.com/settings/tokens/new?description=…) and "Create
+  GitHub sample project". `project.GitHubSample`: "GitHub API Demo" (`GitHub_API_Demo`, com.my.githubdemo) through
+  `NewProjectSetup.create`, then views, `ComponentBean(2026, "github1")`, String variable `userName`, events and blocks
+  (own `hC`/`eC`, saved with `m()`/`j()`); `seedOnce` from `GC.onCreateView` (preference `github_sample_seeded`, only when
+  no project of that name exists); fixture spec `ghsample`.
