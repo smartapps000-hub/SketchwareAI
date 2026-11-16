@@ -320,6 +320,35 @@ re-picking its id lost the icon; MEDIUM: published before the upload, Private co
 early-page failure; all fixed). Known limits: a public copy is forgotten when the project is backed up under another
 account (stays public), a copy moved to an organisation counts as gone, v2.0.2 can't import backups in parts, the 401's
 root cause unknown. APK v2.0.3-0d1ab27, versionCode 204 (next 205), sha256 `b70a700d...7d3c6406`, 142,497,857 bytes.
+v2.0.4 (owner's 15 Nov directive "CRITICAL ARCHITECTURE, UI & PERFORMANCE (v2.0.4 / versionCode 205)" with 12 v2.0.3
+screenshots, re-sent after worker restarts; the last version governs: its "multi-device discovery" replaced a
+single-device lock / auto-logout, which was **not built**; record `engineering/v2.0.4-verification.md`):
+`github.ProjectRepo` = one private repository per project `SketchwareAI-<name>` (`-2`…, "Projects" → `-App`, topic
+`sketchware-ai` always kept, description mark), found by repository number; versions = releases `v<name>-<code>` with a
+hidden facts line in the body, assets uploaded raw to uploads.github.com (16 MiB parts + `.swb.parts.json`, the APK built
+since the last backup), draft → publish, same tag = update (APK kept without a newer one), ≤ 5 versions, ★ Standard never
+pruned, tags removed; downloads by the asset redirect without the token; `listOwn` discovery; `SketchwareAI-Projects`
+read only. `ProjectLinks` record: repo, repo_number, visibility, tag, fingerprint, apk_time, standard_tag (v2.0.3 public
+copies adopted); `linkRestored` (never two projects in one repository). `project.ProjectDiffAnalyzer` (offline snapshots
+`data/<id>/snapshots/v<name>_<code>_snapshot.json`, ✨ / 🛠 / ⬆️ notes, CHANGELOG, README, description, topics),
+`PublishDetails`, `PublishActivity` (Private pill; Public pill → Edit public details / Switch to Private), `CloudSync`
+rewritten (lanes work / imports, keys, Cancel = interrupt + disconnect, Retry only when retryable, per-job remark,
+staged imports under `ProjectIds.RESTORE_LOCK`), `CloudSyncService` (dataSync FGS, FOREGROUND_SERVICE +
+FOREGROUND_SERVICE_DATA_SYNC asked for by the owner; never stopped before startForeground: flags tied to the instance, a
+start count, stops inside the lock), `GitHubProgress` (Hide / Cancel / Open on GitHub, Retry / Close), full-screen
+`GitHubBackupsActivity` (GitHub tab with version chips Latest #1 / ★ Standard #2, older backups; On this phone .swb
+list), `GitHubLinkActivity` (github.com/*/SketchwareAI-*, sketchwareai://import; Android 12+ needs Open by default),
+`RepoCache` + `discover` after sign-in; cards: project name one line to #id, package left + pills right; drawer 14sp /
+11sp with copy buttons. GitHub component: `name()` strips @ and links (a block field starting with "@" is a block link
+upstream: typed "@user" → ""), listFiles / listReleases / downloadFile / showList / describe + four events; GitHub API
+Demo with a ListView. Never `setSingleLine` on a centred pill (`GitHubViews.oneLine`; the v2.0.4 renders showed empty
+labels again). Renders now run the real Restore / Publish screens (`tools/layoutlib-renders/setup_v204.sh`,
+`V204Test`: window-less stand-in base, Environment replaced by a folder, `drawable-v24` glass files not copied).
+`mk.sh` compiles UTF-8. GITHUBCLIENT 104/104, GITHUBTEST 78/78, GITHUBCALL 23/23; three review passes (HIGH: a service
+stopped before startForeground, a shared link crashing the restore screen before storage access; MEDIUM: APK deleted on a
+same-version backup, two restores picking one id, Switch to Private undone by a running Publish, a stopping service
+wiping the next start's flags; all fixed). APK v2.0.4-208a80a, versionCode 205 (next 206), sha256 `ab092877...e8868e004`,
+142,574,278 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two

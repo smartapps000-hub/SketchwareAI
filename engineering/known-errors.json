@@ -879,6 +879,45 @@
       "verifiedOn": [
         "source search: no FLAG_SECURE / setSecure in the app"
       ]
+    },
+    {
+      "fingerprint": "Block text field typed as \"@user\" (GitHub component owner / user) generates \"\"",
+      "rootCause": "upstream generator: a block parameter starting with '@' is a link to another block (a.a.a.Fx.a(String, int, String)); the typed text is read as a block id",
+      "repair": "type the name without '@' in a block's field; from an input field or a variable SketchGitHub.name() removes '@' (and profile / repository links) at run time",
+      "scope": "generated apps, GitHub component (and every block text field)",
+      "verifiedOn": [
+        "fixture 934 generation (v2.0.4 dev lane: listFiles(\"@octocat\", …) generated listFiles(\"\", …))",
+        "javap of a.a.a.Fx",
+        "ART h.CallGitHub name() checks"
+      ]
+    },
+    {
+      "fingerprint": "A shared https://github.com/<owner>/SketchwareAI-… link opens the browser, not Sketchware AI (Android 12+)",
+      "rootCause": "Android 12+ opens unverified web links in the browser; github.com can't carry this app's Digital Asset Links",
+      "repair": "Restore projects > \"Open shared GitHub links here\" opens Android's Open by default settings (Add links > github.com); sketchwareai://import links always open the app",
+      "scope": "IDE, deep links",
+      "verifiedOn": [
+        "GitHubLinkActivity.linkOf on ART API 31 (GitHubTest)",
+        "intent filters: review only"
+      ]
+    },
+    {
+      "fingerprint": "Restore projects / Publish screens: centred pill labels drawn empty (tabs, Private/Public badges, Restore / Set as Standard, topic chips, progress pills)",
+      "rootCause": "TextView.setSingleLine(true) on a centred pill turns on horizontal scrolling and centre gravity then draws the text outside the pill (the v2.0.1 rule)",
+      "repair": "GitHubViews.oneLine (maxLines 1 + end ellipsis); progress pills at their own width plus a share of the rest",
+      "scope": "IDE UI",
+      "verifiedOn": [
+        "layoutlib V204Test before / after (16 Nov 2026)"
+      ]
+    },
+    {
+      "fingerprint": "App crash \"Context.startForegroundService() did not then call Service.startForeground()\" after a backup that ends at once (offline)",
+      "rootCause": "v2.0.4 before review: idle() could stopService a service still waiting for onStartCommand",
+      "repair": "CloudSyncService: stop only when in the foreground, flags tied to the instance, a start count for stale idle() calls, stops inside the lock (three review passes)",
+      "scope": "IDE, GitHub backups",
+      "verifiedOn": [
+        "review (three passes); not run on a phone"
+      ]
     }
   ]
 }

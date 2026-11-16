@@ -1219,3 +1219,108 @@ at 90%, the import list on "Loading…", drawer text drawn over itself, a black 
   `NewProjectSetup.create`, then views, `ComponentBean(2026, "github1")`, String variable `userName`, events and blocks
   (own `hC`/`eC`, saved with `m()`/`j()`); `seedOnce` from `GC.onCreateView` (preference `github_sample_seeded`, only when
   no project of that name exists); fixture spec `ghsample`.
+
+## v2.0.4 additions (16 Nov 2026): one repository per project, versions as releases, publish, restore screen, service
+
+Owner's 15 Nov directive "CRITICAL ARCHITECTURE, UI & PERFORMANCE DIRECTIVE (v2.0.4 / versionCode 205)" with 12 phone
+screenshots of v2.0.3, re-sent with additions after worker restarts; the last version governs (it replaced a
+"single-device session lock / auto-logout of the old phone" with multi-device discovery, so no lock was built). Record:
+`engineering/v2.0.4-verification.md`.
+
+- `github.ProjectRepo`: each project backs up into its own private repository `SketchwareAI-<name>` (`repositoryName`:
+  GitHub's name characters; "Projects" and names starting "Public-" get "-App"; taken names → `-2` … `-20`), created
+  with `auto_init`, the description "Sketchware AI project: <name> (<package>). …" (`MARK`) and the topic
+  `sketchware-ai` (`TOPIC`, always first in `setDetails`, so discovery survives a rewritten description). Found again by
+  GitHub's repository number (`GET /repositories/{n}`, owner = signed-in login, never `SketchwareAI-Projects`; renames
+  followed and written back). A version = a release tagged `tagFor(versionName, versionCode)` = "v<name>-<code>"
+  (`[A-Za-z0-9._]`); its body = the notes + a hidden facts line `<!-- sketchware-ai {kind, format 1, time, versionName,
+  versionCode, size, sha256, standard, swb, apk} -->` (`facts`, `body`, `parse`; releases without it are ignored).
+  `upload(Backup, UploadProgress)`: drafts left by a cut-off backup deleted; the same tag again = that release updated
+  (new assets, then the old ones deleted; the Standard flag kept; review M1: without a newer APK the version keeps its
+  APK); else a draft release, the assets, then `PATCH draft:false`. Assets go raw to the upload host
+  (`GitHubHttp.uploadAsset`: `POST uploads.github.com/repos/o/r/releases/{id}/assets?name=`), ≤ 16 MiB as one
+  `<name>_<yyyyMMdd-HHmmss>.swb`, larger as `.swb.partNNN` (16 MiB, git blob id each) + `.swb.parts.json` (`SwbParts`
+  manifest), the last built APK (`mysc/<id>/bin/*.apk`, newer than the recorded `apk_time`) as
+  `<name>_<tag>_<stamp>.apk`; each asset checked by size, three tries (IOException, 5xx/408, 422 = a lost answer: the
+  half asset removed first, 401 while GET /user works). `prune()`/`keepAtMost`: at most 5 versions (`MAX_VERSIONS`), the
+  oldest non-Standard go with their tags (`DELETE /git/refs/tags/…`). `setStandard(id, on)`: one Standard per repository
+  (facts edited). `setPrivate` = one `PATCH {private}`; `setDetails` = PATCH description (≤ 350, one line) + `PUT /topics`;
+  `putFile` = contents API (unchanged text = no commit). `download(token, owner, repo, Version, target, progress)`:
+  `GET /releases/assets/{id}` with `Accept: application/octet-stream`, redirects followed by hand
+  (`GitHubHttp.downloadAsset`, the token only to api()/uploads() hosts, never to the file host), parts joined and checked
+  (blob id per part, size + SHA-256 of the whole) before the rename; a public repository works without a token.
+  `listOwn(token)`: `/user/repos?affiliation=owner` (≤ 10 pages), names with the prefix and the topic, the mark or a
+  v2.0.3 `SketchwareAI-Public-` name; never the backup repository. `gone(token, number)` (404 vs moved).
+- `github.ProjectLinks` (`data/<sc_id>/github_backup.json`): repo, repo_number, visibility, url (= the repository page),
+  login, sc_id, time, tag, options, fingerprint, apk_time, standard_tag; v2.0.3 public_repo / public_number adopted as
+  the project's repository. Fields count only for their own sc_id and the account that wrote them. `repoFound`,
+  `saved(scId, login, tag, options, fingerprint, apkTime)` (only on an existing record), `visibilityNow`, `standardNow`,
+  `linkRestored` (refused while another project on the phone links that number: two projects never share a repository).
+- `project.ProjectDiffAnalyzer` (offline, no network, no AI): `snapshot(scId)` from the saved files with own `hC`/`eC`/`iC`
+  instances (screens → widgets id→type, components id→type, events → block signatures (opCode|spec|parameters hash),
+  libraries, local libraries, permissions, resource counts, version, min/target SDK, Material 3) kept as
+  `data/<sc_id>/snapshots/v<name>_<code>_snapshot.json`; `previous` = the newest kept one of another version;
+  `compare` → ✨ New Features (screens, widgets, components, events, libraries, permissions, resources), 🛠 Logic & Bug
+  Fixes (blocks changed per event: the larger of gone / new signatures), ⬆️ Upgrades (version, min/target SDK, Material 3),
+  🧹 Removed; `releaseNotes` (first version: a summary), `commitMessage`, `changelogEntry`/`changelog`, `description`,
+  `topics`, `topic` (GitHub's form), `readme`, `title`.
+- `github.PublishDetails` (`data/<sc_id>/github_publish.json`): title, description, topics, README (on/off, text), notes,
+  CHANGELOG entries; generated values replaced on refresh unless edited (`*Custom`).
+- `github.PublishActivity` (the Private pill; "Edit public details" from the Public pill): analyzer-filled title,
+  description, topic chips (`sketchware-ai` kept, no ✕), Include README + editable preview, "What's New & Fixed"; Publish
+  Public = `CloudSync.publish` (first version backed up when there is none, description + topics, README.md +
+  CHANGELOG.md, the newest version's notes, then `PATCH private:false`). Public projects update README / CHANGELOG /
+  description on later backups. The Public pill's sheet: "Edit public details", "Switch to Private" (`makePrivate`: one
+  PATCH on its own thread; refused while a backup or Publish of that project runs; "Private" only when GitHub changed or
+  the repository is gone).
+- `github.CloudSync` rewritten: kinds BACKUP / PUBLISH / IMPORT; two lanes (work: backups and publish; imports), job key,
+  join / promote as in v2.0.3, `cancel(key)` (queued: removed; running: `GitHubHttp.cancel(thread)` = interrupt +
+  disconnect; `apiOnce` and uploads stop on the interrupt flag, cleared under the lock before a job's thread is
+  published), `retry(key)` / `canRetry(key)` (only jobs that failed in a retryable way, stored without their screens),
+  per-job remark, `visibilityChanged` / `visibilityChangedSince` (a backup never writes an older visibility over a
+  Switch to Private or Publish that happened while it ran). `upload` = analyzer snapshot + notes → `ProjectRepo.ensure`
+  → `PublishDetails.refresh` → pack (as v2.0.3) → APK when newer → `repo.upload` → record → docs when public.
+  `runImport`: staged download into `backups/staging/<hex>`, restore under `ProjectIds.RESTORE_LOCK` (one restore picks
+  its id and unpacks at a time; `BackupRestoreManager` takes it too, on `THREAD_POOL_EXECUTOR`), `linkRestored` for the
+  account's own repositories.
+- `github.CloudSyncService`: foreground service `foregroundServiceType="dataSync"` (manifest: FOREGROUND_SERVICE +
+  FOREGROUND_SERVICE_DATA_SYNC, asked for by the owner), notification channel `github_sync` (low importance): job,
+  percentage, bytes and speed, Cancel; at the end its own notification (Done / Didn't work + Retry, Open on GitHub) via
+  the non-exported receiver `CloudSyncService$Actions`. State under `LOCK`: `started`, `foreground`, `instance`,
+  `generation` (reviews: never stopped before `startForeground`, a stopping instance never clears the next start's
+  flags, a stale idle() does nothing); `onTimeout` (Android 15's dataSync limit) detaches and stops; a start refused in
+  the background = the notification alone.
+- `github.GitHubProgress`: Hide (asks POST_NOTIFICATIONS once on Android 13+), Cancel, Open on GitHub while running; Done,
+  or Retry + Close after a failure (Retry only when `canRetry`); pills one line with an ellipsis (`GitHubViews.oneLine`:
+  never `setSingleLine` on a centred pill), progress pills at their own width.
+- `github.GitHubBackupsActivity` ("Restore projects", full screen, `ob_github_screen.xml`): tabs GitHub / On this phone;
+  link import (a project repository: its versions; a folder or .swb: v2.0.3 import; another person's: libraries only on
+  request; a private one signed out: 404 → sign-in), the account's projects from `RepoCache` at once then GitHub, each
+  with Private/Public badge, Share, version chips (`ordered`: Latest #1, ★ Standard #2, then newest; ≤ 5), Restore and
+  ★ Set as Standard / Unpin; older backups of `SketchwareAI-Projects` (read only); "Open shared GitHub links here"
+  (Android 12+ Open-by-default settings). On this phone: Pick a .swb, every .swb in the backups folder (≤ 2 levels, no
+  staging), Restore; nothing deleted by the app. `github.RepoCache` (SharedPreferences: repositories and versions per
+  account) + `discover(context)` after sign-in (`SignIn`).
+- `github.GitHubLinkActivity` (exported, singleTask): `https://github.com/<owner>/SketchwareAI-*` (and www.) and
+  `sketchwareai://import?url=…` / `sketchwareai://import/<owner>/<repo>` → the restore screen with the link (reads only;
+  nothing restored without a tap). Android 12+ opens github.com links in the app only after the user adds them under
+  "Open by default".
+- Cards: `myprojects_item.xml` row A = name (one line, marquee) · #id · target pill; row B = package · version (weight 1,
+  middle ellipsis) · Public/Private + Share. Drawer card: signed in = "GitHub" 14sp / "Connected" 11sp single lines,
+  @login and e-mail rows with copy buttons (`ob_ic_copy`).
+- GitHub component (generated `SketchGitHub`, Java 7, ASCII, min SDK 19): `name()` strips "@" and profile / repository
+  links; `listFiles(owner, repo, folder)` (contents API → name, path, type, size, downloadUrl, owner, repo),
+  `listReleases(owner, repo)` (tag, name, published, files with url / apiUrl), `downloadFile(url, nameOrPath)` (redirects
+  by hand, token only to api.github.com / raw.githubusercontent.com, into the app's own Download folder, `.part` then
+  rename), `showList(ListView, json)` (rows per list; a repository lists its files, a folder opens, a file or release
+  file downloads under its own name), `describe(json)`; events `onGitHubFilesListed`, `onGitHubReleasesListed`,
+  `onGitHubDownloadProgress`, `onGitHubFileSaved`; blocks gitHubListFiles, gitHubListReleases, gitHubDownloadFile,
+  gitHubShowList, gitHubDescribe (#2EA043). "GitHub API Demo" (`GitHubSample`): ListView `listview1`, user text through
+  `describe`, repositories and files in the list, download progress and saved file shown. A block text field starting
+  with "@" is a link to another block in Sketchware (upstream generator, `Fx.a(String, int, String)`): typed "@user"
+  becomes ""; from an input field or a variable the "@" is removed at run time.
+- Tests: `tools/jvm-tests/GitHubClientTest` fake GitHub gained releases, uploads (`/api/uploads/…`), the file host
+  (`/objects/{id}`, records an Authorization header), topics, contents JSON, `/user/repos`, signed-out reads of public
+  repositories (404 for private ones); `h.GitHubTest` (records, analyzer, deep links), `h.CallGitHub` (helper),
+  fixture 934 (new blocks and events, a ListView); renders `tools/layoutlib-renders/setup_v204.sh` + `V204Test` run the
+  real Restore and Publish screens on a window-less stand-in base.

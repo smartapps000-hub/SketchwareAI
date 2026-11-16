@@ -266,3 +266,25 @@ Whether a generated APK runs on a given Android version depends on that project'
   `V203Test`); the screens themselves are **not run**.
 - "GitHub API Demo": created by `GitHubSample.create` and built on ART API 31 (fixture 935, min SDK 21); its GitHub calls
   in a generated app are **not run** (ART here can't open sockets).
+
+## v2.0.4 (16 Nov 2026)
+
+- Per-project repositories, releases, raw asset uploads, parts, 5 versions with a Standard pin, the APK kept on a same-tag
+  backup, Public / Private PATCH, topics and description, README / CHANGELOG through the contents API, discovery,
+  signed-out reads of public repositories, the asset redirect without the token, Cancel, 401-once and dropped uploads:
+  JVM 17 against a fake GitHub that follows GitHub's documented REST answers (`GitHubClientTest`, 104 checks). The real
+  GitHub API (uploads.github.com, the release asset redirect host) is **not run** from here; a phone's mobile network is
+  **not run**.
+- Foreground service (`dataSync`, Android 14+ type rules, Android 15's 6-hour dataSync limit and `onTimeout`, start
+  refused in the background on Android 12+, POST_NOTIFICATIONS on 13+): code and two review passes only; services and
+  notifications are **not run** here (no Android framework on the ART harness, no emulator).
+- Deep links: the link parser ran on ART API 31 (`GitHubLinkActivity.linkOf`); the intent filters and Android 12+
+  "Open by default" (unverified github.com links open in the browser until the user adds them) are **not run**.
+- Change analyzer: snapshot, comparison, notes, CHANGELOG, README, topics ran on ART API 31 on a fixture project
+  (GitHubTest).
+- Restore projects and Publish to GitHub screens: their own code rendered with layoutlib (Android 14 view code) on a
+  window-less stand-in base with sample data (`V204Test`); the Activities on a phone are **not run**.
+- Generated GitHub component (`SketchGitHub`): compiled for min SDK 21 in fixtures 934 / 935 on ART API 31 (16 steps);
+  its pure helpers (`name`, `size`, `fileSummary`, `releaseSummary`, `describe`, the 404 explanation) ran on ART
+  (CallGitHub 23/23); its network calls, `showList` and downloads in a generated app are **not run** (ART here can't
+  open sockets).

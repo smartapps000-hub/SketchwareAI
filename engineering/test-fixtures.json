@@ -894,6 +894,50 @@
       "checks": [
         "JAVAEDIT-OPEN 15/15: every activity opens convertible and saves unchanged"
       ]
+    },
+    {
+      "id": "934 github (v2.0.4)",
+      "kind": "ART Fixtures spec `github` (Button, TextView, ListView `listview1`, component github1)",
+      "content": "v2.0.2's blocks plus gitHubListFiles (\"octocat\", \"Hello-World\", \"\"), gitHubListReleases (\"https://github.com/octocat\", …), gitHubDownloadFile (raw link, \"readme \\\"one\\\".txt\"), gitHubShowList (\"[]\" in listview1), gitHubDescribe in setText; the ten events with every parameter used (number parameters through toString)",
+      "checks": [
+        "16 steps, 0 warnings",
+        "generated calls and the four new Listener signatures (lane205 ghcall greps)",
+        "h.CallGitHub on the built APK's SketchGitHub: GITHUBCALL 23/23 (name with @ / links, sizes, files and releases lists, describe, 404 on a download, ten Listener methods)"
+      ]
+    },
+    {
+      "id": "935 ghsample (v2.0.4)",
+      "kind": "ART `GitHubSample.create` with a fixed id, then the build",
+      "content": "GitHub API Demo with listview1, describe, showList for repositories and files, download progress and saved file",
+      "checks": [
+        "16 steps, 0 warnings",
+        "MainActivity: private ListView listview1; github1.showList(listview1, _reposJson); github1.showList(listview1, _filesJson); textview2.setText(github1.describe(_json)); onFilesListed / onDownloadProgress / onFileSaved signatures"
+      ]
+    },
+    {
+      "id": "940 githubtest (v2.0.4)",
+      "kind": "ART h.GitHubTest on a fresh m3 project",
+      "content": "v2.0.3's checks with the new ProjectLinks record (repoFound, saved, visibilityNow, standardNow, records without an account, the backup repository never a project's, v2.0.3 public copies adopted, linkRestored refused while another project links the number), ProjectDiffAnalyzer (snapshot of the saved project, no change twice, features / fixes / upgrades, first-version summary, README / description / topics, snapshot file and previous), GitHubLinkActivity.linkOf (github.com pages, sketchwareai://import url= and /owner/repo; other hosts, http and non-GitHub links refused)",
+      "checks": [
+        "GITHUBTEST 78/78"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v2.0.4)",
+      "kind": "JVM 17 against the fake GitHub (tools/jvm-tests), the app's compiled classes + app/libs + android.jar on the run classpath",
+      "content": "per-project repositories: ensure (name, -2, Projects-App, topic), releases with raw assets (.swb + APK), same-version update keeping the APK, 17 MiB in two parts + list, download joined via the file host without the token, a changed part refused, Standard pin, 7 → 5 versions with tags removed, Cancel mid-upload and the draft removed later, 401 once and a dropped upload sent again, Public / Private PATCH, backup repository refused, description + topics, README write rules, signed-out reads of a public project (404 for a private one), discovery by topic / description / v2.0.3 names, restore links and renames",
+      "checks": [
+        "GITHUBCLIENT 104/104"
+      ]
+    },
+    {
+      "id": "render-v204",
+      "kind": "layoutlib (tools/layoutlib-renders V204Test.kt after setup_v204.sh)",
+      "content": "Restore projects (GitHub tab with three repositories, versions, older backups; On this phone with three .swb files) and Publish to GitHub run from their own sources on a window-less stand-in base with sample data; drawer card with copy buttons; project cards at 393 / 360 dp; progress sheet running (393 / 360 dp) and failed",
+      "checks": [
+        "images out/v204_restore.png, out/v204_publish.png, out/v204_cards.png",
+        "found and fixed: empty centred pill labels (setSingleLine), \"Open on G…\" cut"
+      ]
     }
   ]
 }

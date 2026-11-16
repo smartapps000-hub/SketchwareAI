@@ -267,6 +267,36 @@
       "file": "docs.github.com/en/rest/repos/repos (Create for the authenticated user, Get a repository with 301 for renamed repositories, Update a repository: private true/false; GET /repositories/{id})",
       "purpose": "v2.0.3: PublicCopy (copies created private, found by repository number, PATCH visibility)",
       "available": true
+    },
+    {
+      "id": "github-rest-releases",
+      "file": "docs.github.com/en/rest/releases/releases (create as draft, update draft:false / body / name, list incl. drafts for the owner, delete) and /releases/assets (upload to uploads.github.com/repos/{o}/{r}/releases/{id}/assets?name= with the raw bytes and Content-Type; GET /releases/assets/{id} with Accept: application/octet-stream answers 302 to the file host; delete; 422 already_exists for a name in use)",
+      "purpose": "v2.0.4: ProjectRepo versions as releases, raw asset upload / download",
+      "available": true
+    },
+    {
+      "id": "github-rest-topics-contents",
+      "file": "docs.github.com/en/rest/repos/repos#replace-all-repository-topics (PUT /repos/{o}/{r}/topics {names}) and /rest/repos/contents (GET with sha + base64 content, PUT with message, content, branch, sha)",
+      "purpose": "v2.0.4: ProjectRepo.setDetails / putFile (README.md, CHANGELOG.md)",
+      "available": true
+    },
+    {
+      "id": "github-rest-user-repos",
+      "file": "docs.github.com/en/rest/repos/repos#list-repositories-for-the-authenticated-user (affiliation=owner, sort=updated, per_page ≤ 100, topics in each item); git refs DELETE /git/refs/tags/{tag}",
+      "purpose": "v2.0.4: ProjectRepo.listOwn (discovery on another phone), tag removal when pruning",
+      "available": true
+    },
+    {
+      "id": "android-fgs-datasync",
+      "file": "developer.android.com/develop/background-work/services/fgs (service types: dataSync needs FOREGROUND_SERVICE_DATA_SYNC from Android 14; startForeground within the time limit after startForegroundService; Android 12+ background start restrictions; Android 15 dataSync 6-hour limit with Service.onTimeout(int, int))",
+      "purpose": "v2.0.4: CloudSyncService",
+      "available": true
+    },
+    {
+      "id": "android-app-links",
+      "file": "developer.android.com/training/app-links (Android 12+: unverified web links open the browser unless the user approves the domain in Open by default; Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS)",
+      "purpose": "v2.0.4: GitHubLinkActivity deep links and the restore screen's shortcut card",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.0.3)
+## Shipped (v1.0 – v2.0.4)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -78,6 +78,11 @@ Everything in this section is in the released APK and was exercised as described
 | Back up after saving | Signed in, a project saved in the editor (Save, Save & exit, auto-save on leaving) is backed up silently with its last boxes when its saved files changed (a plain Save at most every 5 minutes); Settings → *Back up to GitHub after saving* | v2.0.3 |
 | Public / Private and Share pills | Next to the project's #number after its first GitHub backup: *Public* puts the newest backup in the project's own public repository `SketchwareAI-Public-<name>` (asked first; the backup repository stays private), later backups update it, *Private* makes it private again; *Share* shares that repository's page while public, else the private backup's link. A copy renamed or made private on github.com is followed | v2.0.3 |
 | GitHub blocks and sample project | GitHub blocks in #1F6FEB (*has token* #2EA043); the blocks guide opens GitHub's token page and makes the *GitHub API Demo* project (also made once by itself): profile and repository list of a user name through the GitHub component, no token needed | v2.0.3 |
+| One GitHub repository per project | Back up to GitHub (and the backup after saving) goes into the project's own private repository `SketchwareAI-<name>`; each app version is a release `v<versionName>-<versionCode>` with the .swb (16 MB parts above that) and the APK built since the last backup; at most 5 versions, the one pinned **★ Standard** never removed; Public / Private is one change on GitHub | v2.0.4 |
+| Publish to GitHub | The Private pill opens a screen filled from the project (title, description, topics, README, "What's New & Fixed" from an on-phone comparison with the previous version); Publish Public writes README.md and CHANGELOG.md and makes the repository public; later backups keep those up to date | v2.0.4 |
+| Restore projects screen | Full screen: a GitHub link, your project repositories with their versions (Latest, ★ Standard), Restore and Set as Standard, the older backups; the .swb files on the phone. Restored projects are linked to their repository again. Shared github.com project links and `sketchwareai://import` open it | v2.0.4 |
+| Progress in a notification | Backups, publishing and imports in a foreground service (dataSync) with a progress notification, Cancel, and Retry / Open on GitHub at the end; the sheet has Hide, Cancel, Open on GitHub | v2.0.4 |
+| GitHub component: files, releases, downloads | Blocks list files, list releases, download (app's own Download folder, progress), show in a ListView, readable text; user names with "@" or as links (from inputs and variables); the GitHub API Demo shows a formatted list | v2.0.4 |
 | Sign-in lands on the code page | After you sign in on GitHub's page, the window goes from GitHub's home feed or dashboard back to the code page by itself (never during GitHub's "Too many requests" pause, never on a page you went Back to); "Continue with Google / Apple" starts the browser sign-in before a blank page can load (code copied); the browser tab closes when GitHub says yes (browsers that open it in the app's task), the drawer closes and you are on the projects list | v2.0.2 |
 | Drawer account card without cuts | "Sign in with GitHub" in full; signed in, name, @username and e-mail scroll sideways when long; Sign out under them | v2.0.2 |
 | Live 0-100% progress | Back up to GitHub and GitHub import show a sheet with the percentage, an orange bar and the step ("65% • Uploading to GitHub… 1.3 MB of 2.0 MB"); "Hide" keeps it running (a toast says when it ends); after Home the sheet waits at 100% | v2.0.2 |
@@ -174,11 +179,15 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 - Library Resolver: a library that needs a different major version of a built-in library (Retrofit 3 needs OkHttp 4;
   OkHttp 3.14.9 is built in) may not work; the install plan says so. Libraries compiled for Java 8+ can't be dexed on
   Android 7.1 and older (Dx).
-- GitHub backups (v2.0.3): a public copy belongs to the account that made it; backing the project up under another
-  GitHub account on the same phone forgets that copy (it stays public until made private on github.com). A copy moved
-  to an organisation counts as gone. Backups in parts can't be imported by v2.0.2 (it reads single .swb files only).
-  The cause of the HTTP 401 a large upload got on the phone is not known; v2.0.3 sends 4 MiB parts, tries a refused part
-  again while the sign-in works and names GitHub's request id.
+- GitHub backups (v2.0.4): each project has its own repository; a repository moved to another owner or an organisation
+  is not the project's any more (Switch to Private says so and changes nothing). v2.0.3 and older can't restore the
+  v2.0.4 release backups (they read the shared `SketchwareAI-Projects` repository). The cause of the HTTP 401 a large
+  upload got on the phone in v2.0.3 is not known; v2.0.4 uploads raw release files, sends a refused file again while
+  the sign-in works and never signs out. A block's text field starting with "@" is a link to another block in
+  Sketchware (a typed "@user" becomes empty); type user names without "@" there. On Android 12+, github.com links open
+  in the app only after they are added under the app's "Open by default" setting. The foreground service, its
+  notification and deep links from other apps were not run on a phone.
+- Signing in on a second phone does not sign the first one out (no single-device lock; the owner's last directive).
 - A drawer's panel keeps the AppCompat Manager's light grey (#EEEEEE) in dark mode; its default black text stays readable there.
 - Not on the phone: a Gradle build (it needs a JDK and Gradle runtime of about 1.5 GB on the device), Kotlin as the
   language of the blocks (blocks generate Java; Kotlin files can be added in the Java Manager), Jetpack Compose.
