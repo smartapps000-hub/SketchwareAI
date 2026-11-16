@@ -266,13 +266,13 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 205, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(205).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 206, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(206).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.0.4 (205) with it: no notice", call(control, "decide", shipped, 205, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 204, false, null);
-        check("an older version (v2.0.3, 204): Update with the v2.0.4 URL", old198 != null && "update".equals(get(old198, "kind"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.4.apk"),
+        check("v2.0.5 (206) with it: no notice", call(control, "decide", shipped, 206, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 205, false, null);
+        check("an older version (v2.0.4, 205): Update with the v2.0.5 URL", old198 != null && "update".equals(get(old198, "kind"))
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.5.apk"),
                 old198 == null ? null : get(old198, "url"));
         Object msg = call(control, "parse", "{\"status_message\":\"Server maintenance tonight\"}");
         Object m1 = call(control, "decide", msg, 199, true, null);
