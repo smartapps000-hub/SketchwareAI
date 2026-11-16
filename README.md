@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.0.4)
+## Shipped (v1.0 – v2.0.5)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -78,6 +78,11 @@ Everything in this section is in the released APK and was exercised as described
 | Back up after saving | Signed in, a project saved in the editor (Save, Save & exit, auto-save on leaving) is backed up silently with its last boxes when its saved files changed (a plain Save at most every 5 minutes); Settings → *Back up to GitHub after saving* | v2.0.3 |
 | Public / Private and Share pills | Next to the project's #number after its first GitHub backup: *Public* puts the newest backup in the project's own public repository `SketchwareAI-Public-<name>` (asked first; the backup repository stays private), later backups update it, *Private* makes it private again; *Share* shares that repository's page while public, else the private backup's link. A copy renamed or made private on github.com is followed | v2.0.3 |
 | GitHub blocks and sample project | GitHub blocks in #1F6FEB (*has token* #2EA043); the blocks guide opens GitHub's token page and makes the *GitHub API Demo* project (also made once by itself): profile and repository list of a user name through the GitHub component, no token needed | v2.0.3 |
+| Backups never wait at 1% | A backup you tap pauses a running automatic one (it goes on afterwards from its parts); the waiting line names the running job; a watchdog stops a job with no progress for 5 minutes; a backup cut off halfway resumes (the packed file kept 7 days, parts already on GitHub skipped, 8 MB parts); every failure says what to do | v2.0.5 |
+| Notifications and Sign in again | Android 13+: the progress sheet asks for notifications once, or offers *Turn on* (the app's notification settings); a GitHub 401 explains GitHub's 10-sign-ins-per-app limit, backups wait without new requests, *Sign in again* in the sheet runs the job again | v2.0.5 |
+| Repository viewer | *Open on GitHub* (sheet, notification, shared repository links) opens the repository in the app: description, topics, versions with Restore / APK download, README, files, Open in browser, Share | v2.0.5 |
+| Public details, carousel, Paste | Public details fields are editable again (Save & update writes description, topics, README, CHANGELOG at once); versions in one row with the ★ pinned one in front, *New* and "+N older versions →"; a Paste pill inside the link box; README with a screen table and MoreBlocks, notes with MoreBlocks / variables / screen parts | v2.0.5 |
+| Names, Demo row, drawer card | Project names up to 64 characters; demo projects in their own Demo row; the drawer card keeps "GitHub" and its state whole, @username once, one-line e-mail with copy | v2.0.5 |
 | One GitHub repository per project | Back up to GitHub (and the backup after saving) goes into the project's own private repository `SketchwareAI-<name>`; each app version is a release `v<versionName>-<versionCode>` with the .swb (16 MB parts above that) and the APK built since the last backup; at most 5 versions, the one pinned **★ Standard** never removed; Public / Private is one change on GitHub | v2.0.4 |
 | Publish to GitHub | The Private pill opens a screen filled from the project (title, description, topics, README, "What's New & Fixed" from an on-phone comparison with the previous version); Publish Public writes README.md and CHANGELOG.md and makes the repository public; later backups keep those up to date | v2.0.4 |
 | Restore projects screen | Full screen: a GitHub link, your project repositories with their versions (Latest, ★ Standard), Restore and Set as Standard, the older backups; the .swb files on the phone. Restored projects are linked to their repository again. Shared github.com project links and `sketchwareai://import` open it | v2.0.4 |
@@ -188,6 +193,9 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
   in the app only after they are added under the app's "Open by default" setting. The foreground service, its
   notification and deep links from other apps were not run on a phone.
 - Signing in on a second phone does not sign the first one out (no single-device lock; the owner's last directive).
+- v2.0.5: the notification permission request, the keyboard on the new fields, the Paste pill and the APK installer
+  hand-off were not run on a phone; queue, watchdog and resume ran on the Android 12 runtime harness and against a fake
+  GitHub only.
 - A drawer's panel keeps the AppCompat Manager's light grey (#EEEEEE) in dark mode; its default black text stays readable there.
 - Not on the phone: a Gradle build (it needs a JDK and Gradle runtime of about 1.5 GB on the device), Kotlin as the
   language of the blocks (blocks generate Java; Kotlin files can be added in the Java Manager), Jetpack Compose.
