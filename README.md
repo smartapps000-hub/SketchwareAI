@@ -2,6 +2,19 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.0.4 (versionCode 205, `v2.0.4-208a80a-minApi26`)
+
+`apk/Sketchware_AI_v2.0.4.apk`, sha256 `ab09287787427bca0dc21229f1476607e969a141dc566ec6e42e3d9e8868e004` (Git LFS).
+Each project backs up into its own private GitHub repository, every app version a release with the .swb (and the APK
+you built) and at most 5 versions with a ★ Standard pin that is never removed; Public / Private in one tap; a Publish to
+GitHub screen filled from the project (README, CHANGELOG, What's New & Fixed from an on-phone comparison); a full-screen
+Restore projects page (your repositories and versions, older backups, the .swb files on the phone) that shared GitHub
+links open; progress in a notification with Cancel and Retry; tidier project and drawer cards; files, releases and
+downloads for the GitHub component. Release notes: `releases/v2.0.4/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.0.4.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.4.apk
+
 ## v2.0.3 (versionCode 204, `v2.0.3-0d1ab27-minApi26`)
 
 `apk/Sketchware_AI_v2.0.3.apk`, sha256 `b70a700d7928f64bb5dd7136b5173f0a892480b4520070743475cb7c7d3c6406` (Git LFS).
