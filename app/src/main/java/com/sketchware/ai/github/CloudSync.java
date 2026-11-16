@@ -508,8 +508,11 @@ public final class CloudSync {
             running = lane.current;
         }
         // v2.0.5: which job, and how far it is
-        String other = running == null ? "another job" : running.title() + " (" + running.percent + "%)"
-                + (running.deferred ? ", pausing for this one" : "");
+        if (running != null && running.deferred && ahead <= 1) {
+            step(job, 1, "Waiting: " + running.title() + " (" + running.percent + "%) pauses for this one…");
+            return;
+        }
+        String other = running == null ? "another job" : running.title() + " (" + running.percent + "%)";
         step(job, 1, "Waiting: " + other + (ahead > 1 ? " and " + (ahead - 1) + " more go first" : " goes first") + "…");
     }
 
@@ -669,6 +672,12 @@ public final class CloudSync {
                         retryable = true;
                         if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
                     }
+                } else if (SyncDoctor.isStorageFull(e)) {
+                    // v2.0.5: a full phone is not "no connection"
+                    if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
+                    retryable = true;
+                    message = "The phone's storage is full (" + e.getMessage() + ")."
+                            + SyncDoctor.forThrowable(e);
                 } else {
                     // no network (or GitHub didn't answer): a backup waits for the next chance, with the same boxes
                     if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
@@ -689,12 +698,14 @@ public final class CloudSync {
                     addPending(job.scId, job.options);
                 }
                 retryable = true;
-                message = e.getMessage();
+                // v2.0.5: what to do, when the message doesn't say it
+                message = SyncDoctor.withAdvice(e.code, e.getMessage());
             } catch (Throwable t) {
                 // also an Error (out of memory with a large project): the job ends, the queue goes on
                 LogUtil.e("CloudSync", "Job " + job.kind + " " + job.scId + " failed", t);
                 retryable = true;
-                message = (BACKUP.equals(job.kind) ? "The backup didn't work: " : "That didn't work: ") + t;
+                message = (BACKUP.equals(job.kind) ? "The backup didn't work: " : "That didn't work: ") + t
+                        + SyncDoctor.forThrowable(t);
             } finally {
                 synchronized (this) {
                     if (lane.current == job) lane.current = null;

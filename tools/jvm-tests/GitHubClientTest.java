@@ -594,7 +594,7 @@ public class GitHubClientTest {
                 fake.assetsById.containsKey(apkId) && again1.assets.get(0).name.equals(apkName)
                         && again1.body.contains("\"apk\":\"" + apkName + "\""), again1.body);
 
-        // a backup over 16 MiB: parts and a parts list, downloaded and joined through GitHub's file host
+        // a backup over 8 MiB (16 MiB before v2.0.5): parts and a parts list, downloaded and joined through GitHub's file host
         File bigSwb = File.createTempFile("big", ".swb");
         byte[] bigBytes = new byte[17 * 1024 * 1024 + 321];
         new java.util.Random(14).nextBytes(bigBytes);
@@ -603,10 +603,11 @@ public class GitHubClientTest {
         Fake.FakeRelease r2 = myRepo.releases.get(1);
         List<String> r2Names = new ArrayList<>();
         for (Fake.FakeAsset a : r2.assets) r2Names.add(a.name);
-        check("v2.0.4: a 17 MiB backup goes as two parts (16 MiB + the rest) and a parts list",
-                r2.assets.size() == 3 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
-                        && r2Names.get(2).endsWith(".swb.parts.json") && r2.assets.get(0).bytes.length == 16 * 1024 * 1024
-                        && r2.assets.get(1).bytes.length == 1024 * 1024 + 321, r2Names);
+        check("v2.0.5: a 17 MiB backup goes as three parts (8 MiB, 8 MiB, the rest) and a parts list",
+                r2.assets.size() == 4 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
+                        && r2Names.get(2).endsWith(".swb.part002") && r2Names.get(3).endsWith(".swb.parts.json")
+                        && r2.assets.get(0).bytes.length == 8 * 1024 * 1024 && r2.assets.get(1).bytes.length == 8 * 1024 * 1024
+                        && r2.assets.get(2).bytes.length == 1024 * 1024 + 321, r2Names);
         @SuppressWarnings("unchecked")
         List<Object> prVersions = (List<Object>) call(repo, "versions", false);
         check("v2.0.4: versions newest first, read back from the releases (facts line)",
@@ -616,7 +617,7 @@ public class GitHubClientTest {
         fake.objectGets = 0;
         call(pr, "download", token, "octo", "SketchwareAI-My_App", prVersions.get(0), bigBack, null);
         check("v2.0.4: download: the parts joined, size and SHA-256 checked, byte for byte", java.util.Arrays.equals(
-                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 3, fake.objectGets);
+                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 4, fake.objectGets);
         check("v2.0.4: the token never went to GitHub's file host (only to the API and upload hosts)",
                 !fake.objectsSawAuthorization, null);
         Fake.FakeAsset part1 = r2.assets.get(1);
@@ -706,6 +707,41 @@ public class GitHubClientTest {
         call(repo, "upload", backup(small2, null, "My App", "10.0", "10", "dropped once"), null);
         check("v2.0.4: an upload the network dropped is sent again", fake.uploadRequests.size() == 2
                 && fake.releaseFor(myRepo, "v10.0-10").assets.size() == 1, fake.uploadRequests);
+
+        // v2.0.5: a backup in parts that failed after its first part resumes: the draft is kept and reused, the part
+        // already on GitHub isn't sent again, the result is byte for byte the backup
+        fake.mode = "failAfterFirstUpload";
+        fake.uploadRequests.clear();
+        String failedCode = null;
+        try {
+            call(repo, "upload", backup(bigSwb, null, "My App", "11.0", "11", "Resumed"), null);
+        } catch (GitHubException e) {
+            failedCode = e.code;
+        }
+        Fake.FakeRelease cutRelease = fake.releaseFor(myRepo, "v11.0-11");
+        if (cutRelease == null) for (Fake.FakeRelease rel : myRepo.releases) if (rel.draft) cutRelease = rel;
+        check("v2.0.5: the second part refused (HTTP 403): the backup stops with a draft holding part000",
+                "http_403".equals(failedCode) && cutRelease != null && cutRelease.draft && cutRelease.assets.size() == 1
+                        && cutRelease.assets.get(0).name.endsWith(".swb.part000"), failedCode + " " + fake.uploadRequests);
+        long cutId = cutRelease == null ? -1 : cutRelease.id;
+        fake.mode = "";
+        fake.uploadRequests.clear();
+        call(repo, "upload", backup(bigSwb, null, "My App", "11.0", "11", "Resumed"), null);
+        Fake.FakeRelease resumed = fake.releaseFor(myRepo, "v11.0-11");
+        boolean noPart000 = true;
+        for (String u : fake.uploadRequests) if (u.endsWith(".swb.part000")) noPart000 = false;
+        check("v2.0.5: the next try reuses that draft (same release), skips part000, sends the other parts and the list, "
+                        + "and publishes", resumed != null && resumed.id == cutId && !resumed.draft && noPart000
+                        && fake.uploadRequests.size() == 3 && resumed.assets.size() == 4
+                        && Integer.valueOf(1).equals(field(repo, "skippedLast")), fake.uploadRequests);
+        @SuppressWarnings("unchecked")
+        List<Object> afterResume = (List<Object>) call(repo, "versions", false);
+        Object v11 = null;
+        for (Object v : afterResume) if ("v11.0-11".equals(field(v, "tag"))) v11 = v;
+        File resumedBack = File.createTempFile("resumed", ".swb");
+        if (v11 != null) call(pr, "download", token, "octo", "SketchwareAI-My_App", v11, resumedBack, null);
+        check("v2.0.5: the resumed backup downloads byte for byte", v11 != null
+                && java.util.Arrays.equals(java.nio.file.Files.readAllBytes(resumedBack.toPath()), bigBytes), v11);
         fake.mode = "";
 
         // Public / Private: one PATCH, nothing uploaded; the backup repository refused
@@ -1094,6 +1130,9 @@ public class GitHubClientTest {
                     return new Object[]{401, "{\"message\":\"Bad credentials\"}"};
                 }
                 if ("uploadDropOnce".equals(mode) && uploadRequests.size() == 1) return new Object[]{-1, ""};
+                if ("failAfterFirstUpload".equals(mode) && uploadRequests.size() >= 2) {
+                    return new Object[]{403, "{\"message\":\"Resource not accessible\"}"};
+                }
                 Repo r = repos.get(um.group(1));
                 FakeRelease rel = r == null ? null : r.release(Long.parseLong(um.group(2)));
                 if (rel == null) return new Object[]{404, "{\"message\":\"Not Found\"}"};

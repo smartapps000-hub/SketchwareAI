@@ -591,6 +591,104 @@ public final class GitHubTest {
                 saved1);
         deleteTree(snapDir);
 
+        // --- v2.0.5: snapshot format 2: MoreBlocks, variables, lists, screen parts, custom views, own files
+        Object mainSnap = call(snapScreens, "getAsJsonObject", firstScreen);
+        check("v2.0.5: the snapshot is format 2: each screen with its MoreBlocks, variables, lists and parts; the project "
+                        + "with its custom views and own files", Integer.valueOf(2).equals(call(call(snap, "get", "format"), "getAsInt"))
+                        && Boolean.TRUE.equals(call(mainSnap, "has", "moreBlocks")) && Boolean.TRUE.equals(call(mainSnap, "has", "variables"))
+                        && Boolean.TRUE.equals(call(mainSnap, "has", "lists")) && Boolean.TRUE.equals(call(mainSnap, "has", "parts"))
+                        && Boolean.TRUE.equals(call(snap, "has", "customViewNames")) && Boolean.TRUE.equals(call(snap, "has", "files")),
+                mainSnap);
+        Object rich = call(call(jsonParser, "parseString", String.valueOf(later)), "getAsJsonObject");
+        call(rich, "addProperty", "versionName", "9.2");
+        call(rich, "addProperty", "versionCode", "92");
+        Object richMain = call(call(rich, "getAsJsonObject", "screens"), "getAsJsonObject", firstScreen);
+        call(call(richMain, "getAsJsonArray", "moreBlocks"), "add", "loadData");
+        call(call(richMain, "getAsJsonObject", "variables"), "addProperty", "score", "Number");
+        call(call(richMain, "getAsJsonArray", "parts"), "add", "landscape");
+        call(call(rich, "getAsJsonArray", "customViewNames"), "add", "item_row");
+        call(call(rich, "getAsJsonObject", "files"), "addProperty", "java", 2);
+        Object richChanges = call(an, "compare", later, rich);
+        String richNotes = (String) call(an, "releaseNotes", rich, richChanges);
+        String richCommit = (String) call(an, "commitMessage", rich, richChanges);
+        check("v2.0.5: release notes name new MoreBlocks, variables, screen parts, custom views and Java files",
+                richNotes.contains("New MoreBlock in " + firstScreen + ": loadData")
+                        && richNotes.contains("New variables in " + firstScreen + ": score (Number)")
+                        && richNotes.contains("Screen parts added in " + firstScreen + ": landscape")
+                        && richNotes.contains("New custom view: item_row") && richNotes.contains("2 new Java files")
+                        && richCommit.contains("+1 MoreBlock"), richNotes + "\n" + richCommit);
+        Object asOld = call(call(jsonParser, "parseString", String.valueOf(later)), "getAsJsonObject");
+        call(asOld, "addProperty", "format", 1);
+        String fromOld = (String) call(an, "releaseNotes", rich, call(an, "compare", asOld, rich));
+        check("v2.0.5: a v2.0.4 (format 1) snapshot is still compared, without the new parts (nothing reported as new "
+                        + "only because the older snapshot didn't record it)", fromOld.contains("→ 9.2 (92)")
+                        && !fromOld.contains("MoreBlock") && !fromOld.contains("custom view") && !fromOld.contains("Java file"),
+                fromOld);
+        String richReadme = (String) call(an, "readme", rich, null, null, null);
+        String richDescription = (String) call(an, "description", rich);
+        check("v2.0.5: README with a screen table and the MoreBlocks; the description names the screens",
+                richReadme.contains("## Screens") && richReadme.contains("| Screen | Widgets | Logic blocks | Components | Parts |")
+                        && richReadme.contains("| " + firstScreen + " | ") && richReadme.contains("### MoreBlocks")
+                        && richReadme.contains("- loadData (" + firstScreen + ")") && richDescription.contains("with 2 screens (")
+                        && richDescription.length() <= 350, richDescription + "\n" + richReadme);
+
+        // --- v2.0.5: project names up to 64 characters (the owner's 20-letter report), the Demo row, the carousel
+        Class<?> names = c("com.sketchware.ai.project.ProjectNameValidator");
+        String sixtyFour = "Sri_D_Varahi_Parking_Stand_abcdefghijabcdefghijabcdefghijabcdefg";
+        check("v2.0.5: a project name may have 64 characters (letters, digits, _; a letter first); 65, a digit first, a "
+                        + "space or a hyphen are refused", sixtyFour.length() == 64
+                        && Boolean.TRUE.equals(call(names, "valid", "Sri_D_Varahi_Parking_Stand"))
+                        && Boolean.TRUE.equals(call(names, "valid", sixtyFour))
+                        && Boolean.FALSE.equals(call(names, "valid", sixtyFour + "x"))
+                        && Boolean.FALSE.equals(call(names, "valid", "1Parking")) && Boolean.FALSE.equals(call(names, "valid", "My App"))
+                        && Boolean.FALSE.equals(call(names, "valid", "My-App")), null);
+        Class<?> demos = c("com.sketchware.ai.project.Demos");
+        java.util.HashMap<String, Object> plain = new java.util.HashMap<>();
+        plain.put("sc_id", scId);
+        plain.put("my_sc_pkg_name", "com.my.app");
+        boolean plainIsDemo = Boolean.TRUE.equals(call(demos, "isDemo", plain));
+        java.util.HashMap<String, Object> oldDemo = new java.util.HashMap<>();
+        oldDemo.put("sc_id", "9050");
+        oldDemo.put("my_sc_pkg_name", "com.my.githubdemo");
+        call(demos, "mark", "9051", "github", 3);
+        java.util.HashMap<String, Object> newDemo = new java.util.HashMap<>();
+        newDemo.put("sc_id", "9051");
+        newDemo.put("my_sc_pkg_name", "com.my.githubdemo");
+        List<java.util.HashMap<String, Object>> demoList = new ArrayList<>(java.util.Arrays.asList(oldDemo, newDemo));
+        call(demos, "sort", demoList);
+        check("v2.0.5: demo projects (the GitHub API Demo's package or a demo mark) go to the Demo row, the newest demo "
+                        + "version first; an ordinary project doesn't", !plainIsDemo && Boolean.TRUE.equals(call(demos, "isDemo", oldDemo))
+                        && Integer.valueOf(3).equals(call(demos, "version", "9051")) && Integer.valueOf(1).equals(call(demos, "version", "9050"))
+                        && "9051".equals(demoList.get(0).get("sc_id")), demoList);
+        deleteTree(new File(sketchware, "data/9051"));
+        Class<?> backupsScreen = c("com.sketchware.ai.github.GitHubBackupsActivity");
+        List<Object> carousel = new ArrayList<>();
+        for (int i = 1; i <= 7; i++) {
+            Object ver = neu("com.sketchware.ai.github.ProjectRepo$Version");
+            set(ver, "tag", "v" + i + ".0-" + i);
+            set(ver, "time", 1000L * i);
+            set(ver, "standard", i == 2);
+            carousel.add(ver);
+        }
+        List<?> front = (List<?>) call(backupsScreen, "ordered", carousel);
+        long newest = (Long) call(backupsScreen, "newestTime", carousel);
+        List<?> noPin = (List<?>) call(backupsScreen, "ordered", carousel.subList(2, 7));
+        check("v2.0.5: the carousel: the pinned version in the front slot (\"★ Pinned\"), then the newest (\"New\") and the "
+                        + "rest newest first, five at most; without a pin the newest is in front",
+                front.size() == 5 && "v2.0-2".equals(get(front.get(0), "tag")) && "v7.0-7".equals(get(front.get(1), "tag"))
+                        && "v4.0-4".equals(get(front.get(4), "tag")) && "v7.0-7".equals(get(noPin.get(0), "tag"))
+                        && "★ Pinned".equals(call(backupsScreen, "badgeOf", front.get(0), false))
+                        && "New".equals(call(backupsScreen, "badgeOf", front.get(1), (Long) get(front.get(1), "time") == newest))
+                        && "".equals(call(backupsScreen, "badgeOf", front.get(2), false)), front.size());
+        Class<?> doctor = c("com.sketchware.ai.github.SyncDoctor");
+        String advised401 = (String) call(doctor, "withAdvice", "http_401", "GitHub refused the upload (HTTP 401).");
+        String advised5xx = (String) call(doctor, "withAdvice", "http_502", "Uploading the backup failed (HTTP 502).");
+        String alreadySaid = (String) call(doctor, "withAdvice", "http_401", "GitHub didn't accept it: tap Sign in again.");
+        check("v2.0.5: sync failures say what to do (Sign in again after a 401, Retry after a server error, nothing twice)",
+                advised401.contains("What to do: tap Sign in again") && advised5xx.contains("What to do: Retry in a minute")
+                        && alreadySaid.equals("GitHub didn't accept it: tap Sign in again.")
+                        && call(doctor, "withAdvice", "no_such_code", "x").equals("x"), advised401 + " | " + advised5xx);
+
         // --- v2.0.4: deep links into the restore screen
         Class<?> linkActivity = c("com.sketchware.ai.github.GitHubLinkActivity");
         String direct = (String) call(linkActivity, "linkOf", call(uriClass, "parse", "https://github.com/octo/SketchwareAI-My_App"));
@@ -679,7 +777,8 @@ public final class GitHubTest {
         call(cloudSync, "enqueue", neu(jobClass, "9003", "backup", null, autoOptions, false), null, result.apply("C"));
         call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), watcher, result.apply("B1"));
         call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), null, result.apply("B2"));
-        boolean waitingShown = steps.size() > 0 && steps.get(0).contains("Waiting: First goes first");
+        // v2.0.5: the running automatic backup pauses for the tap (its name and percent shown)
+        boolean waitingShown = steps.size() > 0 && steps.get(0).contains("Waiting: First (");
         boolean busy = Boolean.TRUE.equals(call(cloudSync, "isRunning", "9002"));
         release.countDown();
         waitFor(() -> ran.size() >= 3 && results.size() >= 4, 10000);
@@ -783,6 +882,83 @@ public final class GitHubTest {
                 firstSave && unchangedSkipped && saveWithinFive && leaving && switchedOff,
                 firstSave + " " + unchangedSkipped + " " + saveWithinFive + " " + leaving + " " + switchedOff);
         touched.delete();
+        // --- v2.0.5: a tap pauses a running automatic backup (it goes on after the tap's job); the watchdog stops a
+        // job with no progress and leaves a hung one behind so the queue goes on
+        ran.clear();
+        java.util.concurrent.atomic.AtomicInteger autoRuns = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.CountDownLatch hang = new java.util.concurrent.CountDownLatch(1);
+        Object runner5 = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {
+            if (!m.equals("run")) return null;
+            String id;
+            try {
+                id = (String) get(a[0], "scId");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            ran.add(id);
+            try {
+                if (id.equals("9020") && autoRuns.incrementAndGet() == 1) {
+                    Thread.sleep(20_000);
+                }
+                if (id.equals("9030")) Thread.sleep(20_000);
+                if (id.equals("9031")) {
+                    // hung: ignores the interrupt
+                    while (hang.getCount() > 0) {
+                        try {
+                            hang.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                }
+            } catch (InterruptedException e) {
+                try {
+                    throw (Exception) neu("com.sketchware.ai.github.GitHubHttp$Cancelled");
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+            return "done " + id;
+        });
+        set(syncClass, "runnerForTests", runner5);
+        steps.clear();
+        results.clear();
+        call(cloudSync, "enqueue", neu(jobClass, "9020", "backup", "Auto", autoOptions, false), null, result.apply("P"));
+        waitFor(() -> ran.contains("9020"), 5000);
+        call(cloudSync, "enqueue", neu(jobClass, "9021", "backup", "Tapped", autoOptions, true), watcher, result.apply("Q"));
+        boolean pausedText = waitFor(() -> steps.stream().anyMatch(t -> t.contains("Auto (") && t.contains("pauses for this one")), 3000);
+        boolean bothDone = waitFor(() -> results.contains("Q:true:done 9021") && results.contains("P:true:done 9020"), 15000);
+        check("v2.0.5: a tap pauses the running automatic backup (\"Auto (0%) pauses for this one\"), runs at once, and the "
+                        + "paused backup runs again after it (one result each)",
+                pausedText && bothDone && ran.equals(java.util.Arrays.asList("9020", "9021", "9020"))
+                        && java.util.Collections.frequency(results, "P:true:done 9020") == 1, ran + " " + results + " " + steps);
+        long stallBefore = (Long) get(syncClass, "STALL_MS");
+        long abandonBefore = (Long) get(syncClass, "ABANDON_MS");
+        set(syncClass, "STALL_MS", 600L);
+        set(syncClass, "ABANDON_MS", 800L);
+        ran.clear();
+        results.clear();
+        call(cloudSync, "enqueue", neu(jobClass, "9030", "backup", "Stuck", autoOptions, true), null, result.apply("S"));
+        boolean stalled = waitFor(() -> results.stream().anyMatch(r -> r.startsWith("S:false:Stopped: nothing moved")), 10000);
+        call(cloudSync, "enqueue", neu(jobClass, "9031", "backup", "Hung", autoOptions, true), null, result.apply("T"));
+        waitFor(() -> ran.contains("9031"), 5000);
+        call(cloudSync, "enqueue", neu(jobClass, "9032", "backup", "Next", autoOptions, true), null, result.apply("U"));
+        boolean wentOn = waitFor(() -> results.contains("U:true:done 9032")
+                && results.stream().anyMatch(r -> r.startsWith("T:false:")), 15000);
+        hang.countDown();
+        set(syncClass, "STALL_MS", stallBefore);
+        set(syncClass, "ABANDON_MS", abandonBefore);
+        Thread.sleep(300);
+        check("v2.0.5: the watchdog stops a job with no progress (\"Stopped: nothing moved\", it can be retried) and a "
+                        + "thread that doesn't stop is left behind: the next job runs (never \"Waiting\" forever)",
+                stalled && wentOn && Boolean.TRUE.equals(call(cloudSync, "canRetry", call(neu(jobClass, "9030", "backup",
+                        "Stuck", autoOptions, true), "key"))), results);
+        Class<?> sessionClass = c("com.sketchware.ai.github.GitHubSession");
+        call(sessionClass, "markRefused", CTX, "GitHub didn't accept the saved sign-in.", sealedNow);
+        boolean refusedNow = Boolean.TRUE.equals(call(sessionClass, "isRefused", CTX));
+        call(sessionClass, "saveProfile", CTX, account, null);
+        boolean acceptedAgain = Boolean.FALSE.equals(call(sessionClass, "isRefused", CTX));
+        check("v2.0.5: a refused sign-in is known at once (backups wait without sending more requests); GitHub accepting "
+                + "it again clears that", refusedNow && acceptedAgain, refusedNow + " " + acceptedAgain);
         set(syncClass, "runnerForTests", null);
         set(syncClass, "mainForTests", null);
         Object cleanup = call(githubPrefs, "edit");
