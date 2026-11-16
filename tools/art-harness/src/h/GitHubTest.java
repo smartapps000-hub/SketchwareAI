@@ -671,11 +671,16 @@ public final class GitHubTest {
         copiedDemo.put("my_ws_name", "GitHub_API_Demo");
         boolean ownStays = Boolean.FALSE.equals(call(demos, "isDemo", ownApp)) && Boolean.FALSE.equals(call(demos, "isDemo", copiedDemo));
         deleteTree(new File(sketchware, "data/9053"));
-        // second review (MEDIUM): a malformed mark from someone else's backup never throws (the projects screen)
+        // second review (MEDIUM): a malformed mark from someone else's backup never throws (the projects screen); an
+        // unreadable one counts as no mark (then only the v2.0.3 / v2.0.4 sample's package and name make a demo)
+        java.util.HashMap<String, Object> markedOwn = new java.util.HashMap<>();
+        markedOwn.put("sc_id", "9053");
+        markedOwn.put("my_sc_pkg_name", "com.my.githubdemo");
+        markedOwn.put("my_ws_name", "My_Own_App");
         for (String bad : new String[]{"{\"sc_id\":null}", "{\"sc_id\":{}}", "{\"sc_id\":[]}", "{\"version\":{}}", "[1,2]", "not json"}) {
             writeText(copiedMark, bad);
             try {
-                ownStays &= Boolean.FALSE.equals(call(demos, "isDemo", copiedDemo));
+                ownStays &= Boolean.FALSE.equals(call(demos, "isDemo", markedOwn));
                 ownStays &= Integer.valueOf(1).equals(call(demos, "version", "9053"));
             } catch (Throwable t) {
                 ownStays = false;
