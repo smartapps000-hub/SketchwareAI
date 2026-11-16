@@ -942,9 +942,9 @@
     {
       "id": "940 githubtest (v2.0.5)",
       "kind": "ART h.GitHubTest on a fresh m3 project",
-      "content": "v2.0.4's checks plus: snapshot format 2 (MoreBlocks, variables, lists, parts, custom views, own files), notes naming them, a format-1 snapshot compared without them, README screen table, ProjectNameValidator (64 / 65, digit first, space, hyphen), Demos (isDemo, version, sort), carousel ordered / badgeOf, SyncDoctor advice, a tap pausing a running automatic backup (it runs again after), the watchdog (stalled job stopped with Retry; a hung thread left behind and the next job run), GitHubSession.isRefused; the v2.0.3 'waits behind a running job' check now uses a running tap job",
+      "content": "v2.0.4's checks plus: snapshot format 2 (MoreBlocks, variables, lists, parts, custom views, own files), notes naming them, a format-1 snapshot compared without them, README screen table, ProjectNameValidator (64 / 65, digit first, space, hyphen), Demos (isDemo, version, sort), carousel ordered / badgeOf, SyncDoctor advice, a tap pausing a running automatic backup (it runs again after), the watchdog (stalled job stopped with Retry; a hung thread left behind and the next job run), GitHubSession.isRefused; the v2.0.3 'waits behind a running job' check now uses a running tap job; review checks: a cancel record survives a cleared interrupt flag, the resume key changes with an image, demo copies and malformed demo marks stay ordinary projects",
       "checks": [
-        "GITHUBTEST 89/89"
+        "GITHUBTEST 91/91"
       ]
     },
     {

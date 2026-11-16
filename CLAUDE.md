@@ -349,6 +349,29 @@ stopped before startForeground, a shared link crashing the restore screen before
 same-version backup, two restores picking one id, Switch to Private undone by a running Publish, a stopping service
 wiping the next start's flags; all fixed). APK v2.0.4-208a80a, versionCode 205 (next 206), sha256 `ab092877...e8868e004`,
 142,574,278 bytes.
+v2.0.5 (owner's 16 Nov directive "CRITICAL BUG-FIX, DIAGNOSTICS & UX HARDENING (v2.0.5 / versionCode 206)" with 9
+v2.0.4 phone screenshots, sent with a "v2.1.0 / versionCode 206" overhaul directive: its bug fixes are here, the overhaul
+(HoneyDrop bottom bar, full-screen tabs, Play Store / Community, single-device lock, update gate) is **next, versionCode
+207**, not built; record `engineering/v2.0.5-verification.md`): `CloudSync` a tap pauses a running automatic BACKUP
+(`deferred`, `requeueDeferred` after the taps' jobs), waiting line names the running job + percent, watchdog (`STALL_MS` 5
+min → stopped + Retry, `ABANDON_MS` 20 s → thread left, new worker; never while `packing` / restoring); cancels kept per
+thread (`GitHubHttp.CANCELLED`, `isCancelled`, `endJob`: Android's okio clears the interrupt flag); checkpoint resume
+(`backups/staging/resume/<id>.swb|.json`, key = data fingerprint + list entry + resources + libraries + custom blocks read
+before packing, 7 days; `ProjectRepo` reuses the draft with the same tag + SHA-256, skips assets already uploaded,
+`PART_BYTES` 8 MiB); refused only on an exact 401 from GET /user (`CloudBackup.refusesSignIn`), quiet waiting while
+refused, `failedSignIn` → Sign in again reruns; `SyncDoctor` "What to do" per failure; `GitHubProgress` two rows +
+POST_NOTIFICATIONS once / Turn on; `RepoViewerActivity` (Open on GitHub everywhere; APK downloads on a static queue);
+`GitHubViews.input` (editTextStyle: focusable fields) + `linkBox` (Paste pill); Public details Save on its own thread
+(`CloudSync.saveDetails`; a running backup re-reads them); carousel `ordered` / `badgeOf` (★ Pinned front, New, "+N
+older"); `ProjectNameValidator` 64; `Demos` (mark holds its sc_id) + `DemoCards` row in `GC`; analyzer format 2
+(MoreBlocks, variables, lists, parts, own files; README screen table); drawer card bottom row Sign in again / Sign out.
+GitHub's OAuth limit: 10 tokens per user / app / scope, an 11th revokes the oldest unused (else least used) one.
+Renders `setup_v205.sh` + `V205Test` / `V205LargeFontTest` (font 1.3). A test meeting a paused job: use a tap job when
+the check means "waits behind a running job". GITHUBCLIENT 107/107, GITHUBTEST 91/91, GITHUBCALL 23/23, CACHETEST 31/31,
+DOCTORTEST 21/21, JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15; three review passes (HIGH: Demo row not drawn on the first load;
+MEDIUM: cancels lost to a cleared interrupt flag, stale resume content, interrupted NIO dropping the checkpoint, false
+refusal after a 5xx, details overwritten by a running backup, a malformed demo.json crashing the projects screen; all
+fixed). APK v2.0.5-1bc8cc1, versionCode 206 (next 207), sha256 `9c68de5f...506f194ea`, 142,612,018 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
