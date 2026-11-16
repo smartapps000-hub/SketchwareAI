@@ -125,6 +125,18 @@ public final class ProjectRepo {
         return repo;
     }
 
+    /**
+     * review L1: whether the repository of that number is gone from GitHub (404), as opposed to moved to another owner
+     * (it still answers). No number: nothing on GitHub.
+     */
+    static boolean gone(String token, long number) throws IOException, GitHubException {
+        if (number <= 0) return true;
+        GitHubHttp.Response r = GitHubHttp.api("GET", "/repositories/" + number, token, null);
+        if (r.code == 404) return true;
+        if (!r.ok()) throw CloudBackup.http("Opening the project's repository", r);
+        return false;
+    }
+
     /** The project's repository as its record names it (for this account), or null. */
     static ProjectRepo open(String token, String login, String scId) throws IOException, GitHubException {
         return byNumber(token, login, ProjectLinks.repoNumber(scId, login));
@@ -546,6 +558,11 @@ public final class ProjectRepo {
                 //noinspection ResultOfMethodCallIgnored
                 list.delete();
             }
+        }
+        if (apkSize == 0 && existing != null && existing.apk != null && existing.asset(existing.apk) != null) {
+            // review M1: no newer APK: the version keeps the one it has (it isn't deleted below)
+            facts.addProperty("apk", existing.apk);
+            uploaded.add(existing.apk);
         }
         if (apkSize > 0) {
             String asset = safeFileName(backup.projectName) + "_" + tag + "_" + stamp + ".apk";

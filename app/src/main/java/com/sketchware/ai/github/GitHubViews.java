@@ -151,6 +151,15 @@ public final class GitHubViews {
         return t;
     }
 
+    /**
+     * v2.0.4: one line with "…" for a centred pill. Never setSingleLine on one: it scrolls the text sideways and centre
+     * gravity then draws it outside the pill (v2.0.1; found again by the v2.0.4 renders: empty tabs and badges).
+     */
+    public static void oneLine(TextView t) {
+        t.setMaxLines(1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    }
+
     /** A small pill on a row (36dp): orange without glow, or glass. */
     public TextView smallPill(String text, boolean orange, boolean enabled, View.OnClickListener click) {
         TextView t = new TextView(c, null, 0, orange ? R.style.Ob_Text_Button_Cta : R.style.Ob_Text_Button);

@@ -671,7 +671,7 @@ public class Fixtures {
         Object yes = block("17", "%m.textview setText %s", " ", "setText", "textview1", "token set");
         // v2.0.4: "@" and profile links as user names, files, releases, a download, the list and readable text
         Object files = block("18", "%m.GitHub list files owner %s.owner repo %s.repo folder %s.pathOrEmpty", " ",
-                "gitHubListFiles", "github1", "@octocat", "Hello-World", "");
+                "gitHubListFiles", "github1", "octocat", "Hello-World", "");
         Object releases = block("19", "%m.GitHub list releases owner %s.owner repo %s.repo", " ", "gitHubListReleases",
                 "github1", "https://github.com/octocat", "Hello-World");
         Object download = block("21", "%m.GitHub download %s.url save as %s.nameOrPath", " ", "gitHubDownloadFile",

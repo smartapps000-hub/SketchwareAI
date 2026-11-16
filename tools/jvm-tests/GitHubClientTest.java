@@ -582,14 +582,17 @@ public class GitHubClientTest {
         byte[] swb1b = new byte[130_003];
         new java.util.Random(13).nextBytes(swb1b);
         java.nio.file.Files.write(swb1.toPath(), swb1b);
+        String apkName = r1.assets.get(1).name;
+        long apkId = r1.assets.get(1).id;
         call(repo, "upload", backup(swb1, null, "My App", "1.0", "1", "First version, fixed"), null);
-        boolean oldGone = true;
-        for (Long id : oldIds) if (fake.assetsById.containsKey(id)) oldGone = false;
-        check("v2.0.4: the same version backed up again updates its release: one release, the new .swb, the old files "
-                        + "deleted", myRepo.releases.size() == 1 && myRepo.releases.get(0).id == r1Id && oldGone
-                        && myRepo.releases.get(0).assets.size() == 1
-                        && java.util.Arrays.equals(myRepo.releases.get(0).assets.get(0).bytes, swb1b)
-                        && myRepo.releases.get(0).body.startsWith("First version, fixed"), fake.deletedAssets);
+        Fake.FakeRelease again1 = myRepo.releases.get(0);
+        check("v2.0.4: the same version backed up again updates its release: one release, the new .swb, the old .swb "
+                        + "deleted", myRepo.releases.size() == 1 && again1.id == r1Id && !fake.assetsById.containsKey(oldIds.get(0))
+                        && again1.assets.size() == 2 && java.util.Arrays.equals(again1.assets.get(1).bytes, swb1b)
+                        && again1.body.startsWith("First version, fixed"), fake.deletedAssets);
+        check("v2.0.4 review M1: without a newer APK the version keeps its APK (file and facts line)",
+                fake.assetsById.containsKey(apkId) && again1.assets.get(0).name.equals(apkName)
+                        && again1.body.contains("\"apk\":\"" + apkName + "\""), again1.body);
 
         // a backup over 16 MiB: parts and a parts list, downloaded and joined through GitHub's file host
         File bigSwb = File.createTempFile("big", ".swb");

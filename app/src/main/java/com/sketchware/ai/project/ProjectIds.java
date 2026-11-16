@@ -12,6 +12,12 @@ import java.io.File;
  */
 public final class ProjectIds {
 
+    /**
+     * v2.0.4 review M2: held while a restore picks its free id and unpacks into it (a GitHub import and a restore from
+     * the phone run on different threads: without it both could pick the same id and write into one project).
+     */
+    public static final Object RESTORE_LOCK = new Object();
+
     private static final String[] FOLDERS = {"mysc/list", "data", "bak", "mysc", "resources/images", "resources/icons",
             "resources/fonts", "resources/sounds"};
 

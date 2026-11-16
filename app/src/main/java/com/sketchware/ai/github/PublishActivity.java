@@ -215,7 +215,7 @@ public class PublishActivity extends BaseAppCompatActivity {
                 renderChips();
             });
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            chip.setSingleLine(true);
+            GitHubViews.oneLine(chip);
             chip.setContentDescription(kept ? "Topic " + t + ", kept" : "Remove topic " + t);
             chips.addView(chip, new ViewGroup.LayoutParams(-2, v.dp(34)));
         }

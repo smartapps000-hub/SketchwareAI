@@ -17,5 +17,7 @@ dependencies {
     implementation "io.github.Rosemoe.sora-editor:editor:0.17.2"
     implementation "io.github.Rosemoe.sora-editor:language-java:0.17.2"
     implementation "io.github.Rosemoe.sora-editor:language-textmate:0.17.2"
+    // v2.0.4: the change analyzer and the publish screen read JSON with Gson (as the IDE does)
+    implementation "com.google.code.gson:gson:2.10.1"
     testImplementation "junit:junit:4.13.2"
 }

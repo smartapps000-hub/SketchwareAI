@@ -501,8 +501,6 @@ public class SketchGitHub {
         }
     }
 
-    private final List<String> keys = new ArrayList<String>();
-
     /**
      * Fills {@code list} with readable rows of an answer of this component (repositories, files, releases) and takes
      * its taps: a repository lists its files, a folder opens, a file or a release file downloads (to the app's Download
@@ -511,7 +509,8 @@ public class SketchGitHub {
     public void showList(ListView list, String json) {
         if (list == null) return;
         final List<String> lines = new ArrayList<String>();
-        keys.clear();
+        // each list keeps its own rows (two lists on a screen never open each other's rows)
+        final List<String> keys = new ArrayList<String>();
         try {
             JSONArray items = new JSONArray(json == null ? "[]" : json);
             for (int i = 0; i < items.length(); i++) {
@@ -527,15 +526,16 @@ public class SketchGitHub {
                     lines.add((dir ? "\uD83D\uDCC1 " : "\uD83D\uDCC4 ") + o.optString("name")
                             + (dir ? "" : "  \u00B7 " + size(o.optLong("size"))));
                     keys.add(dir ? "dir:" + o.optString("owner") + "/" + o.optString("repo") + "/" + o.optString("path")
-                            : "file:" + o.optString("downloadUrl"));
+                            : "file:" + o.optString("downloadUrl") + "\t" + o.optString("name"));
                 } else if (o.has("assets")) {
                     JSONArray assets = o.optJSONArray("assets");
                     for (int j = 0; assets != null && j < assets.length(); j++) {
                         JSONObject f = assets.getJSONObject(j);
                         lines.add("\u2B07 " + f.optString("name") + "  \u00B7 " + size(f.optLong("size")) + "\n"
                                 + o.optString("tag"));
+                        // the file's own name goes with it: an API address ends in a number, not the name
                         keys.add("file:" + (token != null && f.optString("apiUrl").length() > 0 ? f.optString("apiUrl")
-                                : f.optString("url")));
+                                : f.optString("url")) + "\t" + f.optString("name"));
                     }
                 }
             }
@@ -561,7 +561,9 @@ public class SketchGitHub {
             String[] parts = key.substring(4).split("/", 3);
             if (parts.length >= 2) listFiles(parts[0], parts[1], parts.length == 3 ? parts[2] : "");
         } else if (key.startsWith("file:") && key.length() > 5) {
-            downloadFile(key.substring(5), "");
+            String rest = key.substring(5);
+            int tab = rest.indexOf('\t');
+            downloadFile(tab < 0 ? rest : rest.substring(0, tab), tab < 0 ? "" : rest.substring(tab + 1));
         }
     }
 

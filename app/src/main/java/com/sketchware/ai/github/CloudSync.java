@@ -129,6 +129,8 @@ public final class CloudSync {
         final java.util.List<Result> results = new java.util.ArrayList<>();
         /** v2.0.4 */
         volatile boolean cancelled;
+        /** v2.0.3: a remark added to the job's closing line (review L6: per job, two lanes run at once). */
+        String note = "";
         volatile Thread thread;
         PublishDetails details;
         Import source;
@@ -286,23 +288,24 @@ public final class CloudSync {
             Job again = sync.retryJob(key);
             if (again != null) {
                 progress.restart();
-                sync.enqueue(again, progress::update, ending(sync, progress));
+                sync.enqueue(again, progress::update, ending(sync, progress, key));
             }
         }, job.link);
-        sync.enqueue(job, progress::update, ending(sync, progress));
+        sync.enqueue(job, progress::update, ending(sync, progress, key));
         Job running = sync.findByKey(key);
         if (running != null && running.link != null) progress.link(running.link);
         return progress;
     }
 
-    private static Result ending(CloudSync sync, GitHubProgress progress) {
+    private static Result ending(CloudSync sync, GitHubProgress progress, String key) {
         return (ok, message) -> {
             if (progress.hidden()) {
                 Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show();
             } else if (ok) {
                 progress.done(message);
             } else {
-                progress.failed(message, sync.lastFailedRetryable(message));
+                // review L3: Retry only when there is something to try again (never a button that does nothing)
+                progress.failed(message, sync.canRetry(key));
             }
         };
     }
@@ -381,16 +384,33 @@ public final class CloudSync {
      */
     public static void makePrivate(Activity activity, String scId, Result done) {
         CloudSync sync = get(activity);
+        if (sync.isRunning(scId)) {
+            // review M3: a running Publish would make it public again right after
+            done.done(false, "A backup or Publish of this project is running: switch it to Private when it has "
+                    + "ended (or cancel it in its notification).");
+            return;
+        }
         Thread t = new Thread(() -> {
             boolean ok = false;
             String message;
             try {
                 String[] session = sync.session();
+                sync.visibilityChanged(scId);
                 ProjectRepo repo = ProjectRepo.open(session[1], session[0], scId);
-                if (repo != null) repo.setPrivate(true);
+                if (repo != null) {
+                    repo.setPrivate(true);
+                    message = "Private: the project's repository opens only for you now.";
+                } else if (ProjectRepo.gone(session[1], ProjectLinks.repoNumber(scId, session[0]))) {
+                    message = "Private: its repository isn't on GitHub any more (nothing there to hide).";
+                } else {
+                    // review L1: moved to another owner or an organisation: never say Private when nothing changed
+                    throw new GitHubException("not_found", "The project's repository isn't on your account any more "
+                            + "(moved to another owner or an organisation?). Nothing was changed: make it private on "
+                            + "github.com.");
+                }
+                sync.visibilityChanged(scId);
                 ProjectLinks.visibilityNow(scId, session[0], true);
                 ok = true;
-                message = "Private: the project's repository opens only for you now.";
             } catch (Exception e) {
                 message = GitHubImportDialog.text(e);
             }
@@ -514,18 +534,25 @@ public final class CloudSync {
         if (waiting != null) finish(waiting, false, "Cancelled.", false);
     }
 
+    /** review M3: when a project's visibility was last written by Switch to Private or Publish (elapsed time). */
+    private final java.util.Map<String, Long> visibilityAt = new java.util.concurrent.ConcurrentHashMap<>();
+
+    void visibilityChanged(String scId) {
+        visibilityAt.put(scId, android.os.SystemClock.elapsedRealtime());
+    }
+
+    boolean visibilityChangedSince(String scId, long since) {
+        Long at = visibilityAt.get(scId);
+        return at != null && at >= since;
+    }
+
     /** Jobs that failed and can be tried again, by key (the notification's Retry and the sheet's). */
     private final java.util.Map<String, Job> failed = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** A copy of the failed job {@code key} to queue again (a tap's), or null. */
     Job retryJob(String key) {
         Job old = failed.remove(key);
-        if (old == null) return null;
-        Job again = new Job(old.scId, old.kind, old.name, old.options, true);
-        again.details = old.details;
-        again.source = old.source;
-        again.link = old.link;
-        return again;
+        return old == null ? null : retryCopy(old);
     }
 
     /** The notification's Retry: the failed job again, followed by a toast at its end. */
@@ -535,9 +562,18 @@ public final class CloudSync {
         enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
     }
 
-    /** Whether the last failure can be tried again (always, except a cancel or a missing project). */
-    boolean lastFailedRetryable(String message) {
-        return message == null || !message.startsWith("Cancelled");
+    /** Whether the failed job {@code key} can be tried again (it failed in a way worth another try). */
+    boolean canRetry(String key) {
+        return key != null && failed.containsKey(key);
+    }
+
+    /** review L3: what Retry needs of a failed job, without its screens (watchers and results hold activities). */
+    private static Job retryCopy(Job old) {
+        Job again = new Job(old.scId, old.kind, old.name, old.options, true);
+        again.details = old.details;
+        again.source = old.source;
+        again.link = old.link;
+        return again;
     }
 
     // ------------------------------------------------------------------ the worker
@@ -553,10 +589,11 @@ public final class CloudSync {
                     break;
                 }
                 job.started = true;
+                // a cancel of an earlier job must not stop this one; cleared before the thread is published, so a
+                // cancel of this job from now on always lands (review L2)
+                Thread.interrupted();
                 job.thread = Thread.currentThread();
             }
-            // a cancel of an earlier job must not stop this one
-            Thread.interrupted();
             boolean ok = false;
             boolean retryable = false;
             String message;
@@ -603,7 +640,8 @@ public final class CloudSync {
                 }
                 GitHubHttp.release();
             }
-            if (!ok && retryable && job.user) failed.put(job.key(), job);
+            if (ok) failed.remove(job.key());
+            else if (retryable && job.user) failed.put(job.key(), retryCopy(job));
             finish(job, ok, message, retryable && job.user);
             // the ones still waiting: their place moved up
             java.util.List<Job> waitingJobs;
@@ -647,12 +685,9 @@ public final class CloudSync {
         }
     }
 
-    /** v2.0.3: a remark about the job that ran last (worker thread only), added to its line. */
-    private String lastNote;
-
     /** One job's work on the worker thread; the line shown when it worked. */
     private String run(Job job) throws Exception {
-        lastNote = "";
+        if (job.cancelled) throw new GitHubHttp.Cancelled();
         Runner test = runnerForTests;
         if (test != null) return test.run(job);
         if (IMPORT.equals(job.kind)) return runImport(job);
@@ -669,7 +704,7 @@ public final class CloudSync {
         if (PUBLISH.equals(job.kind)) return runPublish(job);
         String name = upload(job, job.options, (percent, text) -> step(job, percent, text));
         removePending(job.scId);
-        return name + " backed up to its GitHub repository · the share link is on its card" + lastNote;
+        return name + " backed up to its GitHub repository · the share link is on its card" + job.note;
     }
 
     /** v2.0.3: the signed-in login and its token; the session is never removed here. */
@@ -836,6 +871,7 @@ public final class CloudSync {
             String stamp = stamp(scId);
 
             step(progress, 6, "Opening the project's repository on GitHub…");
+            long began = android.os.SystemClock.elapsedRealtime();
             ProjectRepo repo = ProjectRepo.ensure(token, login, scId, name, pkg);
             job.link = repo.link();
             PublishDetails details = PublishDetails.load(scId);
@@ -914,14 +950,15 @@ public final class CloudSync {
                 });
                 GitHubSession.clearRefused(app);
                 ProjectLinks.saved(scId, login, stored.tag, options, fingerprint, apk == null ? 0 : apkTime);
-                ProjectLinks.visibilityNow(scId, login, repo.isPrivate());
+                // review M3: a Switch to Private (or Publish) during this backup wrote the newer visibility
+                if (!visibilityChangedSince(scId, began)) ProjectLinks.visibilityNow(scId, login, repo.isPrivate());
                 // a public project keeps its page up to date (README unless edited, CHANGELOG, description)
                 if (!repo.isPrivate()) {
                     step(progress, 96, "Updating README and CHANGELOG…");
                     try {
                         publishDocs(repo, details, ProjectDiffAnalyzer.commitMessage(snapshot, changes));
                     } catch (IOException | GitHubException e) {
-                        lastNote = " (its README / CHANGELOG weren't updated: " + e.getMessage() + ")";
+                        job.note = " (its README / CHANGELOG weren't updated: " + e.getMessage() + ")";
                     }
                 }
             } finally {
@@ -984,7 +1021,10 @@ public final class CloudSync {
             }
         }
         step(job, 97, "Making " + repo.name() + " public…");
+        // review L2: a Cancel up to here never ends in a public repository
+        if (job.cancelled || Thread.currentThread().isInterrupted()) throw new GitHubHttp.Cancelled();
         repo.setPrivate(false);
+        visibilityChanged(job.scId);
         ProjectLinks.visibilityNow(job.scId, login, false);
         return name + " is public: " + repo.link();
     }
@@ -1016,11 +1056,15 @@ public final class CloudSync {
             }
             GitHubHttp.stopIfCancelled();
             step(job, 85, "Restoring as a new project" + (src.withLibraries ? " with its local libraries" : "") + "…");
-            String newId = com.sketchware.ai.project.ProjectIds.free(lC.b());
-            BackupFactory factory = new BackupFactory(newId);
-            factory.setBackupLocalLibs(src.withLibraries);
-            factory.setLibrariesFrom(src.librariesFrom);
-            factory.restore(swb);
+            String newId;
+            BackupFactory factory;
+            synchronized (com.sketchware.ai.project.ProjectIds.RESTORE_LOCK) {
+                newId = com.sketchware.ai.project.ProjectIds.free(lC.b());
+                factory = new BackupFactory(newId);
+                factory.setBackupLocalLibs(src.withLibraries);
+                factory.setLibrariesFrom(src.librariesFrom);
+                factory.restore(swb);
+            }
             if (!factory.isRestoreSuccess()) {
                 throw new GitHubException("restore", "Couldn't restore: " + factory.getError());
             }

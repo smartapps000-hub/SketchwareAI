@@ -163,7 +163,7 @@ public final class GitHubProgress {
 
     private TextView pill(String text, boolean orange, View.OnClickListener click) {
         TextView t = v.smallPill(text, orange, true, click);
-        t.setSingleLine(true);
+        GitHubViews.oneLine(t);
         return t;
     }
 
@@ -171,7 +171,8 @@ public final class GitHubProgress {
         sheet.buttons.removeAllViews();
         for (TextView pill : pills) {
             if (pill == null) continue;
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v.dp(40), 1f);
+            // its own width plus a share of the rest: "Open on GitHub" stays whole beside Hide and Cancel
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, v.dp(40), 1f);
             if (sheet.buttons.getChildCount() > 0) p.leftMargin = v.dp(8);
             sheet.buttons.addView(pill, p);
         }

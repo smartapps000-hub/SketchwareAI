@@ -94,6 +94,11 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         String l = intent == null ? null : intent.getStringExtra(EXTRA_LINK);
         if (l == null) return;
         if (phoneTab) show(false);
+        if (link == null) {
+            // review H2: the GitHub tab isn't there (no storage access yet): say what to do, never crash
+            list.addView(v.line("Then open the shared link again: " + l, false), v.full(-1, 8));
+            return;
+        }
         link.setText(l);
         importLink();
     }
@@ -117,6 +122,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         tabs.addView(tab("On this phone", phone, x -> show(true)), tabParams(8));
         list.removeAllViews();
         subtitle();
+        link = null;
         if (!storageReady()) {
             list.addView(v.line("Sketchware AI needs access to its files first: open the projects list once and allow "
                     + "it, then come back.", true), v.full(-1, 8));
@@ -135,7 +141,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         TextView t = v.glassPill(text, true, click);
         t.setBackgroundResource(on ? R.drawable.ob_seg_pill_on : R.drawable.ob_seg_pill);
         t.setTextColor(on ? 0xFFFFFFFF : v.color(R.color.ob_text_2));
-        t.setSingleLine(true);
+        GitHubViews.oneLine(t);
         return t;
     }
 
@@ -343,7 +349,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         t.setTypeface(v.bold());
         t.setGravity(Gravity.CENTER);
-        t.setSingleLine(true);
+        GitHubViews.oneLine(t);
         t.setTextColor(accent ? v.color(R.color.ob_accent) : v.color(R.color.ob_text_2));
         t.setBackgroundResource(R.drawable.ob_pill16_state);
         t.setPadding(v.dp(10), 0, v.dp(10), 0);
@@ -406,11 +412,11 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             actions.removeAllViews();
             ProjectRepo.Version s = selected[0];
             TextView restore = v.smallPill("Restore " + s.label(), true, true, x -> restoreVersion(info, login, s));
-            restore.setSingleLine(true);
+            GitHubViews.oneLine(restore);
             actions.addView(restore, new LinearLayout.LayoutParams(0, v.dp(38), 1f));
             TextView pin = v.smallPill(s.standard ? "★ Unpin" : "★ Set as Standard", false, true,
                     x -> setStandard(info, login, s, !s.standard));
-            pin.setSingleLine(true);
+            GitHubViews.oneLine(pin);
             LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, v.dp(38));
             pp.leftMargin = v.dp(8);
             actions.addView(pin, pp);

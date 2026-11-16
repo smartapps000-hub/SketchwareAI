@@ -234,20 +234,20 @@ public final class GitHubTest {
         }
         check("import links: other hosts, other pages, non-.swb files, .. refused", refused, null);
         Class<?> auth = c("com.sketchware.ai.github.GitHubInAppAuthDialog");
-        Class<?> uri = c("android.net.Uri");
-        boolean pages = Boolean.TRUE.equals(call(auth, "allowed", call(uri, "parse", "https://github.com/login/device")))
-                && Boolean.TRUE.equals(call(auth, "allowed", call(uri, "parse", "https://gist.github.com/x")))
-                && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "http://github.com/login")))
-                && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "https://evilgithub.com/login")))
-                && Boolean.FALSE.equals(call(auth, "allowed", call(uri, "parse", "https://accounts.google.com/o/oauth2")));
+        Class<?> uriClass = c("android.net.Uri");
+        boolean pages = Boolean.TRUE.equals(call(auth, "allowed", call(uriClass, "parse", "https://github.com/login/device")))
+                && Boolean.TRUE.equals(call(auth, "allowed", call(uriClass, "parse", "https://gist.github.com/x")))
+                && Boolean.FALSE.equals(call(auth, "allowed", call(uriClass, "parse", "http://github.com/login")))
+                && Boolean.FALSE.equals(call(auth, "allowed", call(uriClass, "parse", "https://evilgithub.com/login")))
+                && Boolean.FALSE.equals(call(auth, "allowed", call(uriClass, "parse", "https://accounts.google.com/o/oauth2")));
         check("sign-in window: https github.com and its subdomains only", pages, null);
         // v2.0.2: "Continue with Google / Apple" addresses start the browser sign-in instead of loading
-        boolean social = Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://github.com/sessions/social/google/initiate?return_to=x")))
-                && Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://accounts.google.com/o/oauth2/v2/auth?client_id=1")))
-                && Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://appleid.apple.com/auth/authorize")))
-                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://github.com/login/device")))
-                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://github.com/signup")))
-                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uri, "parse", "https://www.google.com/search?q=github")));
+        boolean social = Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uriClass, "parse", "https://github.com/sessions/social/google/initiate?return_to=x")))
+                && Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uriClass, "parse", "https://accounts.google.com/o/oauth2/v2/auth?client_id=1")))
+                && Boolean.TRUE.equals(call(auth, "isSocialSignIn", call(uriClass, "parse", "https://appleid.apple.com/auth/authorize")))
+                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uriClass, "parse", "https://github.com/login/device")))
+                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uriClass, "parse", "https://github.com/signup")))
+                && Boolean.FALSE.equals(call(auth, "isSocialSignIn", call(uriClass, "parse", "https://www.google.com/search?q=github")));
         check("v2.0.2: GitHub's social sign-in and the Google / Apple sign-in hosts go to the browser; other pages don't", social, null);
         String social2 = (String) get(auth, "SOCIAL_SCRIPT");
         check("v2.0.2: the social-button script only navigates to the hand-off address (no bridge, no field read)",
@@ -521,13 +521,13 @@ public final class GitHubTest {
         otherData.mkdirs();
         writeText(new File(otherData, "github_backup.json"), "{\"sc_id\":\"" + otherId + "\",\"login\":\"octo\","
                 + "\"repo\":\"SketchwareAI-My_App\",\"repo_number\":4242,\"url\":\"" + repoPage + "\"}");
-        Object refused = call(links, "linkRestored", scId, "octo", "SketchwareAI-My_App", 4242L, false, "v1.0-1");
+        Object restoreRefused = call(links, "linkRestored", scId, "octo", "SketchwareAI-My_App", 4242L, false, "v1.0-1");
         deleteTree(otherData);
         Object linkedNow = call(links, "linkRestored", scId, "octo", "SketchwareAI-My_App", 4242L, false, "v1.0-1");
         check("v2.0.4: a restored project is linked to its repository (public, Standard v1.0-1); refused while another "
-                        + "project here is linked to it", Boolean.FALSE.equals(refused) && Boolean.TRUE.equals(linkedNow)
+                        + "project here is linked to it", Boolean.FALSE.equals(restoreRefused) && Boolean.TRUE.equals(linkedNow)
                         && "public".equals(call(links, "visibility", scId, "octo")) && "v1.0-1".equals(call(links, "standardTag", scId, "octo"))
-                        && Long.valueOf(4242L).equals(call(links, "repoNumber", scId, "octo")), refused + " " + linkedNow);
+                        && Long.valueOf(4242L).equals(call(links, "repoNumber", scId, "octo")), restoreRefused + " " + linkedNow);
         linkFile.delete();
         call(links, "repoFound", scId, "octo", "SketchwareAI-My_App", 4242L, true);
         call(links, "saved", scId, "octo", null, libsOnly, "fp-1", 0L);
@@ -593,14 +593,13 @@ public final class GitHubTest {
 
         // --- v2.0.4: deep links into the restore screen
         Class<?> linkActivity = c("com.sketchware.ai.github.GitHubLinkActivity");
-        Class<?> uri = c("android.net.Uri");
-        String direct = (String) call(linkActivity, "linkOf", call(uri, "parse", "https://github.com/octo/SketchwareAI-My_App"));
-        String viaScheme = (String) call(linkActivity, "linkOf", call(uri, "parse",
+        String direct = (String) call(linkActivity, "linkOf", call(uriClass, "parse", "https://github.com/octo/SketchwareAI-My_App"));
+        String viaScheme = (String) call(linkActivity, "linkOf", call(uriClass, "parse",
                 "sketchwareai://import?url=https%3A%2F%2Fgithub.com%2Focto%2FSketchwareAI-My_App"));
-        String viaPath = (String) call(linkActivity, "linkOf", call(uri, "parse", "sketchwareai://import/octo/SketchwareAI-My_App"));
-        Object elsewhere = call(linkActivity, "linkOf", call(uri, "parse", "https://evil.example/octo/SketchwareAI-My_App"));
-        Object badScheme = call(linkActivity, "linkOf", call(uri, "parse", "sketchwareai://import?url=https%3A%2F%2Fevil.example%2Fx"));
-        Object plainHttp = call(linkActivity, "linkOf", call(uri, "parse", "http://github.com/octo/SketchwareAI-My_App"));
+        String viaPath = (String) call(linkActivity, "linkOf", call(uriClass, "parse", "sketchwareai://import/octo/SketchwareAI-My_App"));
+        Object elsewhere = call(linkActivity, "linkOf", call(uriClass, "parse", "https://evil.example/octo/SketchwareAI-My_App"));
+        Object badScheme = call(linkActivity, "linkOf", call(uriClass, "parse", "sketchwareai://import?url=https%3A%2F%2Fevil.example%2Fx"));
+        Object plainHttp = call(linkActivity, "linkOf", call(uriClass, "parse", "http://github.com/octo/SketchwareAI-My_App"));
         String repoLink = "https://github.com/octo/SketchwareAI-My_App";
         check("v2.0.4: deep links: github.com project pages and sketchwareai://import (url= or /owner/repo) open the "
                         + "restore screen; other hosts, plain http and non-GitHub addresses don't",

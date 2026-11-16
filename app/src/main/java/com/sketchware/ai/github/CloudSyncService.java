@@ -37,23 +37,29 @@ public class CloudSyncService extends Service {
     static final String EXTRA_KEY = "key";
     static final String EXTRA_ID = "notification_id";
 
-    private static volatile boolean started;
+    /** A start was asked for (startForegroundService) and the service hasn't stopped since. */
+    private static boolean started;
+    /** review H1: the service is in the foreground (startForeground done): only then may it be stopped from outside. */
+    private static boolean foreground;
     private static volatile Notification current;
+    private static final Object LOCK = new Object();
 
     // ------------------------------------------------------------------ from CloudSync
 
     /** A job runs: the service in the foreground with its notification (or the notification alone). */
     static void running(Context context, String key, String title, int percent, String text, String link) {
         Notification n = build(context, key, title, percent, text, link);
-        current = n;
-        if (!started) {
-            try {
-                started = true;
-                context.startForegroundService(new Intent(context, CloudSyncService.class));
-                return;
-            } catch (RuntimeException e) {
-                // Android refuses a foreground service from the background: the notification alone
-                started = false;
+        synchronized (LOCK) {
+            current = n;
+            if (!started) {
+                try {
+                    started = true;
+                    context.startForegroundService(new Intent(context, CloudSyncService.class));
+                    return;
+                } catch (RuntimeException e) {
+                    // Android refuses a foreground service from the background: the notification alone
+                    started = false;
+                }
             }
         }
         notify(context, ID_RUNNING, n);
@@ -85,10 +91,15 @@ public class CloudSyncService extends Service {
 
     /** Nothing runs any more: the service stops and its notification goes. */
     static void idle(Context context) {
-        current = null;
-        if (started) {
-            started = false;
-            context.stopService(new Intent(context, CloudSyncService.class));
+        synchronized (LOCK) {
+            current = null;
+            // review H1: a service still on its way to startForeground is never stopped from here (Android would
+            // crash the app: "did not then call startForeground"); it stops itself in onStartCommand instead
+            if (started && foreground) {
+                started = false;
+                foreground = false;
+                context.stopService(new Intent(context, CloudSyncService.class));
+            }
         }
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm != null) nm.cancel(ID_RUNNING);
@@ -155,6 +166,7 @@ public class CloudSyncService extends Service {
         Notification n = current;
         if (n == null) n = build(this, "idle", "GitHub", 1, "Starting…", null);
         try {
+            // always first: Android requires it of a service started with startForegroundService
             if (Build.VERSION.SDK_INT >= 29) {
                 startForeground(ID_RUNNING, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
             } else {
@@ -162,16 +174,25 @@ public class CloudSyncService extends Service {
             }
         } catch (RuntimeException e) {
             // not allowed now: the notification alone (the jobs don't depend on the service)
-            started = false;
-            notify(this, ID_RUNNING, n);
+            synchronized (LOCK) {
+                started = false;
+                foreground = false;
+            }
+            if (current != null) notify(this, ID_RUNNING, current);
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (current == null) {
-            // everything ended before the service came up
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            started = false;
-            stopSelf();
+        synchronized (LOCK) {
+            foreground = true;
+            if (current == null) {
+                // everything ended before the service came up: it stops now, in the foreground as required
+                started = false;
+                foreground = false;
+                stopForeground(STOP_FOREGROUND_REMOVE);
+                stopSelf();
+            } else if (current != n) {
+                notify(this, ID_RUNNING, current);
+            }
         }
         return START_NOT_STICKY;
     }
@@ -179,14 +200,20 @@ public class CloudSyncService extends Service {
     /** Android 15: a dataSync service's daily time is used up: it stops (the jobs go on as far as Android lets them). */
     @Override
     public void onTimeout(int startId, int fgsType) {
-        started = false;
+        synchronized (LOCK) {
+            started = false;
+            foreground = false;
+        }
         stopForeground(STOP_FOREGROUND_DETACH);
         stopSelf();
     }
 
     @Override
     public void onDestroy() {
-        started = false;
+        synchronized (LOCK) {
+            started = false;
+            foreground = false;
+        }
         super.onDestroy();
     }
 

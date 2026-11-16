@@ -282,15 +282,18 @@ public class BackupRestoreManager {
         @Override
         protected String doInBackground(String... params) {
             // v1.9.8: an id with leftover folders (a restore cut off half way) is skipped, not merged into
-            bm = new BackupFactory(com.sketchware.ai.project.ProjectIds.free(lC.b()));
-            bm.setBackupLocalLibs(restoreLocalLibs);
-            bm.setLibrariesFrom(librariesFrom);
+            // v2.0.4 review M2: one restore at a time picks an id and unpacks into it (GitHub imports run elsewhere)
+            synchronized (com.sketchware.ai.project.ProjectIds.RESTORE_LOCK) {
+                bm = new BackupFactory(com.sketchware.ai.project.ProjectIds.free(lC.b()));
+                bm.setBackupLocalLibs(restoreLocalLibs);
+                bm.setLibrariesFrom(librariesFrom);
 
-            try {
-                bm.restore(new File(file));
-            } catch (Exception e) {
-                bm.error = e.getMessage();
-                error = true;
+                try {
+                    bm.restore(new File(file));
+                } catch (Exception e) {
+                    bm.error = e.getMessage();
+                    error = true;
+                }
             }
 
             return "";

@@ -200,6 +200,8 @@ public final class GitHubHttp {
     }
 
     private static Response apiOnce(String method, String path, String token, String json) throws IOException {
+        // review L2: a cancelled job's next request never starts (a disconnect before connecting does nothing)
+        stopIfCancelled();
         HttpURLConnection c = open(api() + path, method, token);
         c.setRequestProperty("Accept", "application/vnd.github+json");
         if (json != null) {
