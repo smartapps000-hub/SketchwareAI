@@ -938,6 +938,30 @@
         "images out/v204_restore.png, out/v204_publish.png, out/v204_cards.png",
         "found and fixed: empty centred pill labels (setSingleLine), \"Open on G…\" cut"
       ]
+    },
+    {
+      "id": "940 githubtest (v2.0.5)",
+      "kind": "ART h.GitHubTest on a fresh m3 project",
+      "content": "v2.0.4's checks plus: snapshot format 2 (MoreBlocks, variables, lists, parts, custom views, own files), notes naming them, a format-1 snapshot compared without them, README screen table, ProjectNameValidator (64 / 65, digit first, space, hyphen), Demos (isDemo, version, sort), carousel ordered / badgeOf, SyncDoctor advice, a tap pausing a running automatic backup (it runs again after), the watchdog (stalled job stopped with Retry; a hung thread left behind and the next job run), GitHubSession.isRefused; the v2.0.3 'waits behind a running job' check now uses a running tap job",
+      "checks": [
+        "GITHUBTEST 89/89"
+      ]
+    },
+    {
+      "id": "GitHubClientTest (v2.0.5)",
+      "kind": "JVM 17 against the fake GitHub",
+      "content": "v2.0.4's checks with 8 MiB parts (17 MiB = three parts + list, four file-host reads), plus: a backup in parts refused after part000 (HTTP 403) leaves a draft; the next try reuses that draft, skips part000, sends the rest and publishes; the result downloads byte for byte",
+      "checks": [
+        "GITHUBCLIENT 107/107"
+      ]
+    },
+    {
+      "id": "Renders V205Test / V205LargeFontTest",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v205.sh)",
+      "content": "Public details (editable fields, topic chips, Add, Save & update), Restore projects (Paste box, carousel with ★ Pinned front, New, +4 older versions →), repository viewer on canned GitHub answers, drawer card (no name; refused with Sign in again / Sign out), progress sheet two rows + notifications line at 393 / 360 dp, Demo row; font scale 1.3 for the cards, sheet, Demo row and Restore projects",
+      "checks": [
+        "no label cut at 1.0 and 1.3 (images out/v205_*.png)"
+      ]
     }
   ]
 }

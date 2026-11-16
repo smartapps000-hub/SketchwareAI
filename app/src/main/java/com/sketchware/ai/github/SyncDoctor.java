@@ -34,7 +34,7 @@ public final class SyncDoctor {
             case "http_401_once":
             case "refused":
             case "unreadable":
-                return "What to do: tap Sign in again (GitHub keeps 10 sign-ins per app and drops the oldest); "
+                return "What to do: tap Sign in again (GitHub keeps 10 sign-ins per app and ends the least used one); "
                         + "the job runs again after it.";
             case "rate_limited":
             case "http_429":

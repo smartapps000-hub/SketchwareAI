@@ -918,6 +918,54 @@
       "verifiedOn": [
         "review (three passes); not run on a phone"
       ]
+    },
+    {
+      "fingerprint": "Backup stuck at \"1% • Waiting: another job goes first…\" (v2.0.4)",
+      "rootCause": "a tapped backup queued behind an automatic backup of another project (after Save & exit) that was uploading; the line didn't name it; a stalled transfer had no time limit",
+      "repair": "v2.0.5 CloudSync: a tap pauses a running automatic backup (it resumes after the taps' jobs from its kept parts), the waiting line names the running job and its percentage, a watchdog stops a job with no progress for 5 minutes and leaves a thread that doesn't stop behind",
+      "scope": "IDE, GitHub backups",
+      "verifiedOn": [
+        "ART GitHubTest (v2.0.5 queue checks)",
+        "v2.0.4 phone screenshot (16 Nov 2026)"
+      ]
+    },
+    {
+      "fingerprint": "Public details: fields can't be typed in, Add topic does nothing (v2.0.4)",
+      "rootCause": "EditText built in code with defStyleAttr 0: not focusable in touch mode, so a tap gives no keyboard",
+      "repair": "GitHubViews.input with android.R.attr.editTextStyle and the focus flags; Save for a public repository runs on its own thread (CloudSync.saveDetails), not behind backups",
+      "scope": "IDE UI",
+      "verifiedOn": [
+        "layoutlib V205Test (fields drawn with text and hint)",
+        "keyboard: not run (no phone)"
+      ]
+    },
+    {
+      "fingerprint": "\"You can use maximum 20 letters\" on a project name",
+      "rootCause": "upstream validator a.a.a.VB (max 20)",
+      "repair": "project.ProjectNameValidator (same rules, 64 characters) in Project settings and New Project",
+      "scope": "IDE",
+      "verifiedOn": [
+        "ART GitHubTest (valid: 64 ok, 65 refused)"
+      ]
+    },
+    {
+      "fingerprint": "GitHub \"HTTP 401: Bad credentials\" for a saved sign-in after updating or signing in again",
+      "rootCause": "GitHub keeps 10 OAuth tokens per user / app / scope; an 11th revokes the oldest unused one, else the least recently used (repeated sign-ins, several phones); the app's saved token can be one of the revoked",
+      "repair": "v2.0.5: the card explains it, backups wait without sending more requests (GitHubSession.isRefused), the progress sheet offers Sign in again and runs the job again; the app never signs out by itself",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "ART GitHubTest (refused mark, fast path)",
+        "docs.github.com OAuth token limits"
+      ]
+    },
+    {
+      "fingerprint": "No progress notification during a backup on Android 13+",
+      "rootCause": "POST_NOTIFICATIONS was asked only after Hide",
+      "repair": "GitHubProgress asks once when the sheet opens; when notifications stay off a line with Turn on opens the app's notification settings",
+      "scope": "IDE, Android 13-15",
+      "verifiedOn": [
+        "code and review; not run on a phone"
+      ]
     }
   ]
 }

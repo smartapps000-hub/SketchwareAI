@@ -297,6 +297,24 @@
       "file": "developer.android.com/training/app-links (Android 12+: unverified web links open the browser unless the user approves the domain in Open by default; Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS)",
       "purpose": "v2.0.4: GitHubLinkActivity deep links and the restore screen's shortcut card",
       "available": true
+    },
+    {
+      "id": "github-oauth-token-limit",
+      "file": "docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps (token limits: 10 tokens per user / application / scope combination; creating an 11th revokes the oldest never-used token, else the least recently used one; 10 new tokens an hour at most)",
+      "purpose": "v2.0.5: the 401 explanation (GitHubSession.refusedNote)",
+      "available": true
+    },
+    {
+      "id": "android-post-notifications",
+      "file": "developer.android.com/develop/ui/views/notifications/notification-permission (Android 13+: POST_NOTIFICATIONS runtime permission; Settings.ACTION_APP_NOTIFICATION_SETTINGS with EXTRA_APP_PACKAGE)",
+      "purpose": "v2.0.5: GitHubProgress.checkNotifications",
+      "available": true
+    },
+    {
+      "id": "github-rest-contents-readme",
+      "file": "docs.github.com/en/rest/repos/contents (GET /repos/{o}/{r}/contents/{path}?ref= with base64 content; GET /contents?ref= lists the top folder with name, type, size)",
+      "purpose": "v2.0.5: RepoViewerActivity README and files",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

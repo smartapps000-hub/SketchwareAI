@@ -288,3 +288,18 @@ Whether a generated APK runs on a given Android version depends on that project'
   its pure helpers (`name`, `size`, `fileSummary`, `releaseSummary`, `describe`, the 404 explanation) ran on ART
   (CallGitHub 23/23); its network calls, `showList` and downloads in a generated app are **not run** (ART here can't
   open sockets).
+
+## v2.0.5 (16 Nov 2026)
+
+- Queue pause / resume of automatic backups, watchdog (stall, abandon, new worker), refused sign-in fast path, failure
+  advice: ART API 31 (GitHubTest with a test runner instead of the network). Real transfers on a phone are **not run**.
+- Checkpoint resume (draft reused, parts already on GitHub skipped, byte-for-byte download), 8 MiB parts: JVM 17 against
+  the fake GitHub (`GitHubClientTest`). The real GitHub API is **not run** from here.
+- POST_NOTIFICATIONS request (Android 13+), the notification settings shortcut, the keyboard on the new text fields,
+  the clipboard Paste pill, the APK installer hand-off from the repository viewer: code and review only; **not run**
+  (no Android framework on the harness, no emulator).
+- Public details, Restore projects (Paste box, carousel), repository viewer, drawer card, progress sheet, Demo row:
+  their own code rendered with layoutlib (Android 14 view code) at font scale 1.0 and 1.3 (`V205Test`,
+  `V205LargeFontTest`); the Activities on a phone are **not run**.
+- 64-character project names: `ProjectNameValidator.valid` on ART API 31; the project settings screens themselves are
+  **not run**.

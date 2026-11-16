@@ -1324,3 +1324,72 @@ screenshots of v2.0.3, re-sent with additions after worker restarts; the last ve
   repositories (404 for private ones); `h.GitHubTest` (records, analyzer, deep links), `h.CallGitHub` (helper),
   fixture 934 (new blocks and events, a ListView); renders `tools/layoutlib-renders/setup_v204.sh` + `V204Test` run the
   real Restore and Publish screens on a window-less stand-in base.
+
+## v2.0.5 additions (16 Nov 2026): stability release for the v2.0.4 phone report
+
+Owner's 16 Nov directive "CRITICAL BUG-FIX, DIAGNOSTICS & UX HARDENING (v2.0.5 / versionCode 206)" with 9 phone
+screenshots of v2.0.4, sent together with a "v2.1.0 / versionCode 206" directive (HoneyDrop bottom bar, full-screen tabs,
+Play Store / Community, single-device lock, startup update gate). The v2.0.5 text says the stability release comes
+before any navigation redesign, so v2.0.5 holds the bug fixes of both and the v2.1.0 overhaul is the next release
+(versionCode 207). Record: `engineering/v2.0.5-verification.md`.
+
+- Text fields (`GitHubViews.input(hint, multi, lines)`): built with `android.R.attr.editTextStyle` (an `EditText` made
+  with defStyleAttr 0 isn't focusable in touch mode: no keyboard on a tap, the "Public details not working" report),
+  `Ob.Text` appearance, `ob_field`; used by `PublishActivity` (title, description, README, topic) and the import sheet.
+  `GitHubViews.linkBox(out, go)`: the link field (URI keyboard, Enter = go) with a 34dp orange **Paste** pill inside its
+  right edge: clipboard → field → `go` (`GitHubBackupsActivity.importLink` on its own `lookups` executor).
+- Project names: `project.ProjectNameValidator` (extends `a.a.a.MB` like upstream's `VB`; same rules and messages: a
+  letter first, letters / digits / `_`) with `MAX = 64` (VB: 20) in `MyProjectSettingActivity` and `ui.NewProjectActivity`.
+  The name is the workspace name (`my_ws_name`: .swb file names, the project's repository name
+  `SketchwareAI-<name>[-n]` = at most 13 + 64 + 3 characters, under GitHub's 100).
+- `CloudSync` queue: a tap's job (`user`) that finds an automatic **BACKUP** running sets `deferred` on it and stops its
+  transfer (`GitHubHttp.cancel`); the loop puts a deferred job that ended unfinished back right after the taps' jobs
+  (`requeueDeferred`, same watchers and results). Waiting text names the running job and its percentage ("Waiting:
+  Backing up X (34%) pauses for this one…"). Watchdog (`watch`, one daemon thread while a lane has a job): no step and
+  no byte for `STALL_MS` (5 min; not while packing) → `stalled`, transfer stopped, "Stopped: nothing moved …", Retry
+  kept, a backup goes to pending; a stopped job whose thread hasn't returned after `ABANDON_MS` (20 s) is left behind
+  (`abandoned`, its end told by the watchdog, a deferred one re-queued as a copy) and the lane gets a new worker; a left
+  worker ends at its next loop (`lane.worker != me`). `job.finished` guards a second end.
+- Checkpoint resume: the packed backup is moved to `<backups>/staging/resume/<scId>.swb` with `<scId>.json`
+  (fingerprint, boxes, version name / code, size, time) and reused while all match and it is < 7 days old; removed when
+  the version is on GitHub. `ProjectRepo.upload`: asset names from the file's time (stable across tries), a draft with
+  the same tag and SHA-256 is kept and reused (other drafts deleted; a published release of that tag wins), assets
+  already there with the right size and state `uploaded` are not sent again (`present`, `skippedLast`); `PART_BYTES`
+  8 MiB (16 before).
+- 401: `GitHubSession.isRefused(context)` (the refusal mark belongs to the saved sign-in); `CloudSync.run` fails a
+  backup / publish at once while refused (no request, the job waits as pending), imports read without the token;
+  `signInNeeded` → `GitHubProgress.failedSignIn` ("Sign in again": `GitHubInAppAuthDialog`, then the job's Retry).
+  `refusedNote` explains GitHub's limit of 10 tokens per user / app / scope (an 11th revokes the oldest unused one, else
+  the least recently used), the likely cause after
+  repeated sign-ins.
+- `github.SyncDoctor`: one "What to do: …" sentence per failure code (401 / refused, 403, 404, 409, 422, 429 / rate,
+  5xx, too_large, bad_* (incomplete or newer-format backup), keystore) unless the message already says what to do; out
+  of memory and a full phone (`isStorageFull`, ENOSPC: no longer reported as "no connection").
+- `GitHubProgress`: Hide | Cancel in one row, Open on GitHub (full width) under them; Android 13+: POST_NOTIFICATIONS
+  asked once when the sheet opens (pref `notifications_asked`), otherwise a line "Notifications are off …" with Turn on
+  (`ACTION_APP_NOTIFICATION_SETTINGS`, fallback app details). Open on GitHub → `RepoViewerActivity`.
+- `github.RepoViewerActivity` (new, manifest): `open(activity, link)` (a GitHub link parsed by `GitHubImport.parse`, else
+  the browser), `intent(context, owner, repo)` (notification, `GitHubLinkActivity` for repository links). Reads `GET
+  /repos/{o}/{r}` (404: private / wrong link, Sign in), the info card (badge, description, updated, stars, owner, topics
+  in `PublishActivity.FlowLayout`), Open in browser / Share, versions (`ProjectRepo.versions`, ordered as the carousel)
+  with Restore (own: with libraries; another account's: the libraries question) and APK (`GitHubHttp.downloadAsset`
+  into `.sketchware/downloads`, then the installer through the app's FileProvider `<pkg>.provider`), README.md (contents
+  API, base64, monospace, first 400 lines), the files at the top (`fileSize`). The token only when signed in and not
+  refused.
+- `GitHubBackupsActivity`: versions in one horizontal row, `ordered` = the pinned (★ Standard) version first, then
+  newest first, ≤ 5; `badgeOf` "★ Pinned" / "New" / both; "+N older versions →" scrolls the row; Pin / Unpin pill.
+- `PublishActivity`: editable fields; for a public repository **Save & update** = `CloudSync.saveDetails` (own thread,
+  progress sheet steps: description + topics, README, CHANGELOG, notes), otherwise Publish as in v2.0.4.
+- `ProjectDiffAnalyzer` format 2: per screen `moreBlocks` (eC.g names), `variables` (eC.e: name → Boolean / Number /
+  String / Map or the custom type's class), `lists` (eC.f), `parts` (toolbar, navigation drawer, floating button, full
+  screen, landscape / rotates from `ProjectFileBean`); project `customViewNames`, `files` (java, assets, resource,
+  native counts under `data/<id>/files`). `compare` reports the new parts only when both snapshots are format 2.
+  README: `## Screens` table + `### MoreBlocks`; description names the screens and what the app uses (components,
+  notable widgets, libraries), Android min–target, Material 3.
+- Drawer card: the top row keeps "GitHub" and its state (Sign out moved to a bottom row beside Sign in again); the name
+  line only when the profile has a name; @login and e-mail one line each with a middle ellipsis (copy buttons copy
+  them whole).
+- Demo row: `project.Demos` (`isDemo`: package `com.my.githubdemo` or `data/<id>/demo.json`; `version`, `mark`, `sort`
+  newest demo version first), `GitHubSample.DEMO_VERSION` 3 marked at creation; `GC.a(boolean)` moves demos out of the
+  list into `ob_demo_section` / `ob_demo_row` (`myprojects.xml`) with `ui.DemoCards` (tap opens, long press → Delete
+  with `lC.a` on a thread).

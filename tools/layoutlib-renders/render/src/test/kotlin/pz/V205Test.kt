@@ -190,7 +190,7 @@ object V205Shots {
             GitHubSession.Profile().apply {
                 login = OWNER; name = "Bammidi Eswararao"; email = "bammidieswararao@gmail.com"
                 problem = "GitHub didn't accept the saved sign-in at 08:24 (HTTP 401: Bad credentials). GitHub keeps 10 sign-ins " +
-                        "per app and drops the oldest: tap Sign in again. Backups wait; nothing is lost."
+                        "per app and ends the least used one: tap Sign in again. Backups wait; nothing is lost."
             })
 
     /** The sheet as GitHubProgress.runningButtons lays it out: Hide | Cancel, Open on GitHub under them, then the line. */

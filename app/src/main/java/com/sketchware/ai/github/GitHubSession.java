@@ -118,9 +118,9 @@ public final class GitHubSession {
     static String refusedNote(String gitHubMessage) {
         String when = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.ENGLISH).format(new java.util.Date());
         String said = gitHubMessage == null || gitHubMessage.trim().isEmpty() ? "" : " (" + gitHubMessage.trim() + ")";
-        return "GitHub didn't accept the saved sign-in at " + when + said + ". GitHub ends an app's oldest sign-in when "
-                + "the same account signs in to it more than 10 times (other phones, Sign in again), or when its access is "
-                + "removed in GitHub's settings. You're still signed in here: tap Sign in again to renew it; backups wait.";
+        return "GitHub didn't accept the saved sign-in at " + when + said + ". GitHub keeps 10 sign-ins per app for an "
+                + "account and ends the least used one when there are more (other phones, Sign in again), or when its "
+                + "access is removed in GitHub's settings. You're still signed in here: tap Sign in again to renew it; backups wait.";
     }
 
     /**
