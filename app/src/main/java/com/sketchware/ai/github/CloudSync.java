@@ -340,7 +340,7 @@ public final class CloudSync {
     public void syncPendingSoon() {
         if (!resumeCleaned) {
             resumeCleaned = true;
-            Thread t = new Thread(CloudSync::cleanResumeFiles, "CloudSyncResumeClean");
+            Thread t = new Thread(this::cleanResumeFiles, "CloudSyncResumeClean");
             t.setDaemon(true);
             t.start();
         }
@@ -987,11 +987,6 @@ public final class CloudSync {
      */
     public void projectSaved(String scId, boolean leaving) {
         if (scId == null || !scId.matches("\\d+") || !autoBackupOn(app) || TokenStore.get(app).login() == null) return;
-        if (GitHubSession.isRefused(app)) {
-            // review (LOW): nothing is sent while GitHub refuses the sign-in: the project waits for Sign in again
-            addPending(scId, ProjectLinks.lastOptions(scId) == null ? Options.AUTOMATIC : ProjectLinks.lastOptions(scId));
-            return;
-        }
         Thread t = new Thread(() -> {
             try {
                 if (lC.b(scId) == null) return;
@@ -999,6 +994,12 @@ public final class CloudSync {
                 if (now.equals(ProjectLinks.lastFingerprint(scId, TokenStore.get(app).login()))) return;
                 if (!leaving && System.currentTimeMillis() - ProjectLinks.lastBackup(scId) < 5 * 60_000L) return;
                 Options options = ProjectLinks.lastOptions(scId);
+                if (GitHubSession.isRefused(app)) {
+                    // review (LOW): nothing is sent while GitHub refuses the sign-in: a changed project waits for
+                    // Sign in again (second review: only after the change checks above)
+                    addPending(scId, options == null ? Options.AUTOMATIC : options);
+                    return;
+                }
                 Job job = new Job(scId, BACKUP, null, options == null ? Options.AUTOMATIC : options, false);
                 job.afterRunning = true;
                 enqueue(job, null, (ok, message) -> LogUtil.d("CloudSync", "Backup after save of " + scId + ": " + message));
@@ -1184,8 +1185,9 @@ public final class CloudSync {
                     }
                 }
                 job.lastActivity = android.os.SystemClock.elapsedRealtime();
-                swb = keepForResume(swb, resumeSwb, resumeInfo, fingerprint + "|" + resumeInputs(scId, options), options,
-                        versionName, versionCode);
+                // second review: the inputs read before packing (a change while packing makes the checkpoint stale)
+                swb = keepForResume(swb, resumeSwb, resumeInfo, fingerprint + "|" + inputs, options, versionName,
+                        versionCode);
             }
             boolean uploadedAll = false;
             boolean kept = swb.equals(resumeSwb);
@@ -1311,8 +1313,12 @@ public final class CloudSync {
                     for (com.google.gson.JsonElement e : list.getAsJsonArray()) {
                         if (!e.isJsonObject()) continue;
                         String dex = DeviceFlow.string(e.getAsJsonObject(), "dexPath");
-                        if (dex != null && new File(dex).getParentFile() != null) {
-                            listing(new File(dex).getParentFile(), "lib", sb, 0);
+                        File folder = dex == null ? null : new File(dex).getParentFile();
+                        // second review: only a library's own folder (libs/local_libs/<name>), never a wider one
+                        File parent = folder == null ? null : folder.getParentFile();
+                        if (parent != null && parent.getAbsolutePath().equals(new File(root, "libs/local_libs")
+                                .getAbsolutePath())) {
+                            listing(folder, "lib", sb, 0);
                         }
                     }
                 }
@@ -1359,21 +1365,39 @@ public final class CloudSync {
         return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    /** Review (LOW): kept backups older than 7 days, or of projects no longer on the phone, are removed (app start). */
-    static void cleanResumeFiles() {
+    /**
+     * Review (LOW): kept backups older than 7 days (by the time in their notes), without notes, or of projects no longer
+     * on the phone are removed at app start, per project and never while that project's backup runs (second review).
+     */
+    void cleanResumeFiles() {
         try {
             File dir = resumeFile("0", ".swb").getParentFile();
             File[] files = dir == null ? null : dir.listFiles();
             if (files == null) return;
+            java.util.Set<String> ids = new java.util.TreeSet<>();
+            for (File f : files) ids.add(f.getName().replaceAll("\\..*$", ""));
             long now = System.currentTimeMillis();
-            for (File f : files) {
-                String n = f.getName();
-                String id = n.replaceAll("\\..*$", "");
-                boolean old = now - f.lastModified() > 7L * 24 * 3600_000L;
-                boolean gone = id.matches("\\d+") && lC.b(id) == null;
-                if (old || gone || !id.matches("\\d+")) {
-                    //noinspection ResultOfMethodCallIgnored
-                    f.delete();
+            for (String id : ids) {
+                if (id.matches("\\d+") && isRunning(id)) continue;
+                boolean drop = !id.matches("\\d+") || lC.b(id) == null;
+                if (!drop) {
+                    File info = resumeFile(id, ".json");
+                    long time = 0;
+                    try {
+                        JsonObject o = DeviceFlow.parse(readSmall(info));
+                        time = o.has("time") ? o.get("time").getAsLong() : 0;
+                    } catch (IOException | RuntimeException ignored) {
+                        // no notes (or unreadable): the kept backup can't be resumed
+                    }
+                    drop = now - time > 7L * 24 * 3600_000L;
+                }
+                if (drop) {
+                    for (File f : files) {
+                        if (f.getName().replaceAll("\\..*$", "").equals(id)) {
+                            //noinspection ResultOfMethodCallIgnored
+                            f.delete();
+                        }
+                    }
                 }
             }
         } catch (RuntimeException e) {

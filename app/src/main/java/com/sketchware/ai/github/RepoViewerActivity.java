@@ -384,14 +384,14 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
             }
             boolean success = ok;
             String text = message;
-            if (isFinishing() || isDestroyed()) {
-                // the screen is gone: the end as a toast (no installer started from the background)
-                String shown = success ? "Saved to .sketchware/downloads/" + target.getName() : text;
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
-                        Toast.makeText(app, shown, Toast.LENGTH_LONG).show());
-                return;
-            }
-            ui(() -> {
+            // second review: decided on the main thread, where the screen can't go away in between
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    // the screen is gone: the end as a toast (no installer started from the background)
+                    Toast.makeText(app, success ? "Saved to .sketchware/downloads/" + target.getName() : text,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
                 if (!success) {
                     progress.failed(text, false);
                     return;

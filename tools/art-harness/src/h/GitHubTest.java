@@ -671,6 +671,18 @@ public final class GitHubTest {
         copiedDemo.put("my_ws_name", "GitHub_API_Demo");
         boolean ownStays = Boolean.FALSE.equals(call(demos, "isDemo", ownApp)) && Boolean.FALSE.equals(call(demos, "isDemo", copiedDemo));
         deleteTree(new File(sketchware, "data/9053"));
+        // second review (MEDIUM): a malformed mark from someone else's backup never throws (the projects screen)
+        for (String bad : new String[]{"{\"sc_id\":null}", "{\"sc_id\":{}}", "{\"sc_id\":[]}", "{\"version\":{}}", "[1,2]", "not json"}) {
+            writeText(copiedMark, bad);
+            try {
+                ownStays &= Boolean.FALSE.equals(call(demos, "isDemo", copiedDemo));
+                ownStays &= Integer.valueOf(1).equals(call(demos, "version", "9053"));
+            } catch (Throwable t) {
+                ownStays = false;
+                OUT.println("demo mark " + bad + ": " + t);
+            }
+        }
+        deleteTree(new File(sketchware, "data/9053"));
         call(demos, "mark", "9051", "github", 3);
         java.util.HashMap<String, Object> newDemo = new java.util.HashMap<>();
         newDemo.put("sc_id", "9051");

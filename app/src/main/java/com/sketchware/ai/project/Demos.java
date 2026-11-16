@@ -34,7 +34,11 @@ public final class Demos {
         String scId = yB.c(project, "sc_id");
         if (!scId.matches("\\d+")) return false;
         JsonObject m = readMark(scId);
-        if (m != null) return m.has("sc_id") && scId.equals(m.get("sc_id").getAsString());
+        if (m != null) {
+            // second review (MEDIUM): a mark from someone else's backup may hold anything: never throws
+            com.google.gson.JsonElement id = m.get("sc_id");
+            return id != null && id.isJsonPrimitive() && scId.equals(id.getAsString());
+        }
         // made by v2.0.3 / v2.0.4 (no mark): the sample's package and name
         return GitHubSample.PACKAGE.equals(yB.c(project, "my_sc_pkg_name"))
                 && GitHubSample.PROJECT_NAME.equals(yB.c(project, "my_ws_name"));
@@ -55,7 +59,8 @@ public final class Demos {
     public static int version(String scId) {
         JsonObject o = readMark(scId);
         try {
-            return o != null && o.has("version") ? o.get("version").getAsInt() : 1;
+            com.google.gson.JsonElement v = o == null ? null : o.get("version");
+            return v != null && v.isJsonPrimitive() ? v.getAsInt() : 1;
         } catch (RuntimeException e) {
             return 1;
         }
