@@ -198,7 +198,10 @@ public class BackupRestoreManager {
             if (done != null) done.done(false, "Sign in to restore a backup.");
             return;
         }
-        new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc, librariesFrom, done).execute("");
+        // v2.0.4 second review: off the serial AsyncTask queue (a restore waiting for RESTORE_LOCK must not hold up
+        // Run builds and the other AsyncTasks of the app)
+        new RestoreAsyncTask(new WeakReference<>(act), file, restoreLocalLibs, gc, librariesFrom, done)
+                .executeOnExecutor(android.os.AsyncTask.THREAD_POOL_EXECUTOR, "");
     }
 
     private static class BackupAsyncTask extends AsyncTask<String, Integer, String> {

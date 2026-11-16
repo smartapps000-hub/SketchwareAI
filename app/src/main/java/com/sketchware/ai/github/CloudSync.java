@@ -793,11 +793,14 @@ public final class CloudSync {
 
     private void serviceIdle() {
         if (runnerForTests != null) return;
+        long generation;
         synchronized (this) {
             if (work.current != null || imports.current != null || !work.queue.isEmpty() || !imports.queue.isEmpty()) return;
+            // second review: a job the other lane starts after this check makes this idle() a no-op
+            generation = CloudSyncService.generation();
         }
         try {
-            CloudSyncService.idle(app);
+            CloudSyncService.idle(app, generation);
         } catch (Throwable t) {
             LogUtil.d("CloudSync", "No service: " + t);
         }

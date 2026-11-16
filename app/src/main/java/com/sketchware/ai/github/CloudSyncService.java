@@ -43,6 +43,19 @@ public class CloudSyncService extends Service {
     private static boolean foreground;
     private static volatile Notification current;
     private static final Object LOCK = new Object();
+    /**
+     * Second review: the instance the flags belong to (set when it is in the foreground, cleared when it is told to
+     * stop), so the onDestroy of an instance that is stopping never clears the flags of the next start; and a count of
+     * running() calls, so an idle() decided before a job of the other lane started does nothing.
+     */
+    private static CloudSyncService instance;
+    private static long generation;
+
+    static long generation() {
+        synchronized (LOCK) {
+            return generation;
+        }
+    }
 
     // ------------------------------------------------------------------ from CloudSync
 
@@ -50,6 +63,7 @@ public class CloudSyncService extends Service {
     static void running(Context context, String key, String title, int percent, String text, String link) {
         Notification n = build(context, key, title, percent, text, link);
         synchronized (LOCK) {
+            generation++;
             current = n;
             if (!started) {
                 try {
@@ -90,14 +104,17 @@ public class CloudSyncService extends Service {
     }
 
     /** Nothing runs any more: the service stops and its notification goes. */
-    static void idle(Context context) {
+    static void idle(Context context, long seen) {
         synchronized (LOCK) {
+            // second review: a job started since the caller looked: it keeps the service and its notification
+            if (seen != generation) return;
             current = null;
             // review H1: a service still on its way to startForeground is never stopped from here (Android would
             // crash the app: "did not then call startForeground"); it stops itself in onStartCommand instead
-            if (started && foreground) {
+            if (foreground) {
                 started = false;
                 foreground = false;
+                instance = null;
                 context.stopService(new Intent(context, CloudSyncService.class));
             }
         }
@@ -184,10 +201,12 @@ public class CloudSyncService extends Service {
         }
         synchronized (LOCK) {
             foreground = true;
+            instance = this;
             if (current == null) {
                 // everything ended before the service came up: it stops now, in the foreground as required
                 started = false;
                 foreground = false;
+                instance = null;
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf();
             } else if (current != n) {
@@ -201,8 +220,11 @@ public class CloudSyncService extends Service {
     @Override
     public void onTimeout(int startId, int fgsType) {
         synchronized (LOCK) {
-            started = false;
-            foreground = false;
+            if (instance == this) {
+                started = false;
+                foreground = false;
+                instance = null;
+            }
         }
         stopForeground(STOP_FOREGROUND_DETACH);
         stopSelf();
@@ -211,8 +233,12 @@ public class CloudSyncService extends Service {
     @Override
     public void onDestroy() {
         synchronized (LOCK) {
-            started = false;
-            foreground = false;
+            // only this instance's own flags (one told to stop has already given them up)
+            if (instance == this) {
+                started = false;
+                foreground = false;
+                instance = null;
+            }
         }
         super.onDestroy();
     }
