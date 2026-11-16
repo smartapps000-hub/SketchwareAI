@@ -170,6 +170,10 @@
             android:name="com.sketchware.ai.github.PublishActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"
             android:windowSoftInputMode="adjustResize" />
+        <!-- v2.0.5: a project repository inside the app (Open on GitHub, shared repository links) -->
+        <activity
+            android:name="com.sketchware.ai.github.RepoViewerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard" />
         <!-- v2.0.4: links to Sketchware AI project repositories (github.com/<owner>/SketchwareAI-<name>) and
              sketchwareai://import?url=... open the import. github.com isn't this app's domain, so Android 12+ opens such
              links here only after the user adds them under the app's "Open by default" settings (the import screen

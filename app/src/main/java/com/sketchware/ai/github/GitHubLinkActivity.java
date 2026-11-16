@@ -29,6 +29,13 @@ public class GitHubLinkActivity extends Activity {
 
     private void open(Intent intent) {
         String link = linkOf(intent == null ? null : intent.getData());
+        GitHubImport.Source source = link == null ? null : GitHubImport.parse(link);
+        if (source != null && !source.file && (source.path == null || source.path.isEmpty())) {
+            // v2.0.5: a repository link opens the repository in the app (details, README, versions to restore)
+            startActivity(RepoViewerActivity.intent(this, source.owner, source.repo));
+            finish();
+            return;
+        }
         Intent next = new Intent(this, GitHubBackupsActivity.class);
         if (link != null) next.putExtra(GitHubBackupsActivity.EXTRA_LINK, link);
         next.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

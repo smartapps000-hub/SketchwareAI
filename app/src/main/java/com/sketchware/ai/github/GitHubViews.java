@@ -155,6 +155,84 @@ public final class GitHubViews {
      * v2.0.4: one line with "…" for a centred pill. Never setSingleLine on one: it scrolls the text sideways and centre
      * gravity then draws it outside the pill (v2.0.1; found again by the v2.0.4 renders: empty tabs and badges).
      */
+    /**
+     * v2.0.5 (owner's 16 Nov phone report: "Add a topic" / Public details fields and the link box took no typing): a text
+     * field with Android's own EditText style, so it takes focus by touch and opens the keyboard (built as
+     * {@code new EditText(context, null, 0, R.style.Ob_Text)} it had no focusableInTouchMode, so a tap did nothing), in
+     * the Ob text look on {@code ob_field}.
+     */
+    public android.widget.EditText input(String hint, boolean multi, int lines) {
+        android.widget.EditText e = new android.widget.EditText(c, null, android.R.attr.editTextStyle);
+        e.setTextAppearance(R.style.Ob_Text);
+        e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        e.setHintTextColor(color(R.color.ob_text_2));
+        e.setTextColor(color(R.color.ob_text));
+        e.setBackgroundResource(R.drawable.ob_field);
+        e.setFocusable(true);
+        e.setFocusableInTouchMode(true);
+        e.setClickable(true);
+        e.setLongClickable(true);
+        e.setCursorVisible(true);
+        if (hint != null) e.setHint(hint);
+        if (multi) {
+            e.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+            e.setMinLines(Math.min(lines, 3));
+            e.setMaxLines(lines);
+            e.setGravity(Gravity.TOP | Gravity.START);
+            e.setPadding(dp(14), dp(10), dp(14), dp(10));
+        } else {
+            e.setSingleLine(true);
+            e.setGravity(Gravity.CENTER_VERTICAL);
+            e.setPadding(dp(14), 0, dp(14), 0);
+        }
+        return e;
+    }
+
+    /**
+     * v2.0.5: the GitHub link box with a compact Paste pill inside its right edge: Paste puts the clipboard's text in
+     * the box and runs {@code go} at once (the lookup / import), as the Enter key does.
+     */
+    public FrameLayout linkBox(android.widget.EditText[] out, Runnable go) {
+        FrameLayout box = new FrameLayout(c);
+        android.widget.EditText link = input("Paste a GitHub link", false, 1);
+        link.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        link.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
+        link.setPadding(dp(14), 0, dp(96), 0);
+        link.setOnEditorActionListener((t, action, event) -> {
+            if (action == android.view.inputmethod.EditorInfo.IME_ACTION_GO
+                    || (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER
+                    && event.getAction() == android.view.KeyEvent.ACTION_DOWN)) {
+                go.run();
+                return true;
+            }
+            return false;
+        });
+        box.addView(link, new FrameLayout.LayoutParams(-1, -1));
+        TextView paste = smallPill("Paste", true, true, x -> {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                    c.getSystemService(Context.CLIPBOARD_SERVICE);
+            CharSequence text = null;
+            if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip() != null && cm.getPrimaryClip().getItemCount() > 0) {
+                text = cm.getPrimaryClip().getItemAt(0).coerceToText(c);
+            }
+            if (text == null || text.toString().trim().isEmpty()) {
+                android.widget.Toast.makeText(c, "The clipboard has no link: copy one first", android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            link.setText(text.toString().trim());
+            link.setSelection(link.getText().length());
+            go.run();
+        });
+        oneLine(paste);
+        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(-2, dp(34), Gravity.END | Gravity.CENTER_VERTICAL);
+        pp.rightMargin = dp(7);
+        box.addView(paste, pp);
+        paste.setContentDescription("Paste the link from the clipboard and import it");
+        out[0] = link;
+        return box;
+    }
+
     public static void oneLine(TextView t) {
         t.setMaxLines(1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);

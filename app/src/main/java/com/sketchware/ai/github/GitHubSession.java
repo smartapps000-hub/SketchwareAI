@@ -118,8 +118,19 @@ public final class GitHubSession {
     static String refusedNote(String gitHubMessage) {
         String when = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.ENGLISH).format(new java.util.Date());
         String said = gitHubMessage == null || gitHubMessage.trim().isEmpty() ? "" : " (" + gitHubMessage.trim() + ")";
-        return "GitHub didn't accept the saved sign-in at " + when + said + ". You're still signed in here: tap Sign in "
-                + "again to renew it.";
+        return "GitHub didn't accept the saved sign-in at " + when + said + ". GitHub ends an app's oldest sign-in when "
+                + "the same account signs in to it more than 10 times (other phones, Sign in again), or when its access is "
+                + "removed in GitHub's settings. You're still signed in here: tap Sign in again to renew it; backups wait.";
+    }
+
+    /**
+     * v2.0.5: whether GitHub refused the saved sign-in (marked by a 401 and not renewed since): backups then wait
+     * without asking GitHub again (no stream of 401s) until Sign in again.
+     */
+    public static boolean isRefused(Context context) {
+        String refused = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString("refused", null);
+        return refused != null && refused.equals(TokenStore.get(context).sealedKey());
     }
 
     /**

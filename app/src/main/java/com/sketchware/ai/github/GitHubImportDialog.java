@@ -88,15 +88,9 @@ public final class GitHubImportDialog {
         header.addView(info, ip);
         content.addView(header);
 
-        link = new EditText(activity, null, 0, R.style.Ob_Text);
-        link.setHint("Paste a GitHub link");
-        link.setHintTextColor(v.color(R.color.ob_text_2));
-        link.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        link.setSingleLine(true);
-        link.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        // v2.0.5: a field that takes typing (GitHubViews.input)
+        link = v.input("Paste a GitHub link", false, 1);
         link.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        link.setBackgroundResource(R.drawable.ob_field);
-        link.setPadding(v.dp(14), 0, v.dp(14), 0);
         content.addView(link, v.full(48, 14));
         TextView explain = v.line("A repository, a folder or a .swb file on github.com", false);
         explain.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);

@@ -180,23 +180,9 @@ public class PublishActivity extends BaseAppCompatActivity {
     }
 
     private EditText field(String text, boolean multi, int lines) {
-        EditText e = new EditText(this, null, 0, R.style.Ob_Text);
+        // v2.0.5: a field that takes typing (GitHubViews.input)
+        EditText e = v.input(null, multi, lines);
         e.setText(text == null ? "" : text);
-        e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        e.setHintTextColor(v.color(R.color.ob_text_2));
-        e.setBackgroundResource(R.drawable.ob_field);
-        if (multi) {
-            e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                    | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-            e.setMinLines(Math.min(lines, 3));
-            e.setMaxLines(lines);
-            e.setGravity(Gravity.TOP | Gravity.START);
-            e.setPadding(v.dp(14), v.dp(10), v.dp(14), v.dp(10));
-        } else {
-            e.setSingleLine(true);
-            e.setGravity(Gravity.CENTER_VERTICAL);
-            e.setPadding(v.dp(14), 0, v.dp(14), 0);
-        }
         return e;
     }
 
@@ -240,7 +226,9 @@ public class PublishActivity extends BaseAppCompatActivity {
         details.readme = readme.getText().toString();
         details.readmeCustom = !details.readme.equals(generatedReadme);
         details.notes = notes.getText().toString();
-        GitHubProgress progress = CloudSync.publish(this, scId, name, details);
+        // v2.0.5: Public details are saved at once on their own (a first Publish runs as a job: it may back up first)
+        GitHubProgress progress = edit && "public".equals(ProjectLinks.visibility(scId, TokenStore.get(this).login()))
+                ? CloudSync.saveDetails(this, scId, name, details) : CloudSync.publish(this, scId, name, details);
         progress.whenClosed(ok -> {
             if (ok && !isFinishing()) finish();
         });

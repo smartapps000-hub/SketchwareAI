@@ -129,6 +129,13 @@ public final class CloudSync {
         final java.util.List<Result> results = new java.util.ArrayList<>();
         /** v2.0.4 */
         volatile boolean cancelled;
+        /**
+         * v2.0.5 (owner's 16 Nov phone report: "1% • Waiting: another job goes first…"): an automatic job paused for a
+         * tap (it goes back in the queue and resumes where it stopped), a job the watchdog stopped for making no
+         * progress, a job whose thread didn't stop in time (the lane goes on without it), and when it last moved.
+         */
+        volatile boolean deferred, stalled, abandoned, finished, packing;
+        volatile long lastActivity, stopAskedAt;
         /** v2.0.3: a remark added to the job's closing line (review L6: per job, two lanes run at once). */
         String note = "";
         volatile Thread thread;
@@ -304,8 +311,10 @@ public final class CloudSync {
             } else if (ok) {
                 progress.done(message);
             } else {
-                // review L3: Retry only when there is something to try again (never a button that does nothing)
-                progress.failed(message, sync.canRetry(key));
+                // review L3: Retry only when there is something to try again (never a button that does nothing);
+                // v2.0.5: a refused sign-in offers Sign in again (then the job runs again)
+                if (sync.needsSignIn(key)) progress.failedSignIn(message);
+                else progress.failed(message, sync.canRetry(key));
             }
         };
     }
@@ -460,12 +469,18 @@ public final class CloudSync {
             }
             if (progress != null) target.watchers.add(progress);
             if (result != null) target.results.add(result);
-            ahead = target.started ? 0 : positionOf(lane, target);
-            if (lane.worker == null || !lane.worker.isAlive()) {
-                lane.worker = new Thread(() -> loop(lane), lane.name);
-                lane.worker.setDaemon(true);
-                lane.worker.start();
+            // v2.0.5: a tap never waits behind an automatic backup: that one pauses (its parts on GitHub are kept,
+            // it resumes after the taps' jobs)
+            Job running = lane.current;
+            if (target.user && !target.started && running != null && running != target && !running.user
+                    && !running.deferred && !running.finished && BACKUP.equals(running.kind)) {
+                running.deferred = true;
+                running.stopAskedAt = android.os.SystemClock.elapsedRealtime();
+                GitHubHttp.cancel(running.thread);
+                ensureWatchdog();
             }
+            ahead = target.started ? 0 : positionOf(lane, target);
+            ensureWorker(lane);
         }
         if (progress != null) {
             Job j = target;
@@ -492,7 +507,9 @@ public final class CloudSync {
         synchronized (this) {
             running = lane.current;
         }
-        String other = running == null || running.name == null ? "another job" : running.name;
+        // v2.0.5: which job, and how far it is
+        String other = running == null ? "another job" : running.title() + " (" + running.percent + "%)"
+                + (running.deferred ? ", pausing for this one" : "");
         step(job, 1, "Waiting: " + other + (ahead > 1 ? " and " + (ahead - 1) + " more go first" : " goes first") + "…");
     }
 
@@ -517,7 +534,10 @@ public final class CloudSync {
             for (Lane lane : new Lane[]{work, imports}) {
                 if (lane.current != null && key.equals(lane.current.key())) {
                     lane.current.cancelled = true;
+                    lane.current.stopAskedAt = android.os.SystemClock.elapsedRealtime();
                     GitHubHttp.cancel(lane.current.thread);
+                    // v2.0.5: a thread that doesn't stop (packing, a slow disk) is left behind; the lane goes on
+                    ensureWatchdog();
                     return;
                 }
                 for (java.util.Iterator<Job> it = lane.queue.iterator(); it.hasNext(); ) {
@@ -562,6 +582,32 @@ public final class CloudSync {
         enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
     }
 
+    /**
+     * v2.0.5: a 401 outside the queue (Save details): when GET /user refuses the sign-in too, it is marked refused
+     * (the card says so, backups wait); the message to show.
+     */
+    String refusedNow(GitHubException e) {
+        try {
+            String[] session = session();
+            if (new CloudBackup(session[1], session[0]).signInWorks()) {
+                return e.getMessage() + " GitHub accepts the sign-in itself: try again.";
+            }
+            String note = GitHubSession.refusedNote(null);
+            GitHubSession.markRefused(app, note, session[2]);
+            return note;
+        } catch (Exception other) {
+            return e.getMessage();
+        }
+    }
+
+    /** v2.0.5: jobs that failed because GitHub refused the saved sign-in (they run again after Sign in again). */
+    private final java.util.Set<String> signInNeeded = java.util.Collections.newSetFromMap(
+            new java.util.concurrent.ConcurrentHashMap<>());
+
+    boolean needsSignIn(String key) {
+        return key != null && signInNeeded.contains(key);
+    }
+
     /** Whether the failed job {@code key} can be tried again (it failed in a way worth another try). */
     boolean canRetry(String key) {
         return key != null && failed.containsKey(key);
@@ -579,9 +625,12 @@ public final class CloudSync {
     // ------------------------------------------------------------------ the worker
 
     private void loop(Lane lane) {
+        Thread me = Thread.currentThread();
         while (true) {
             Job job;
             synchronized (this) {
+                // v2.0.5: a worker left behind by the watchdog (its job didn't stop) ends here
+                if (lane.worker != me) return;
                 job = lane.queue.pollFirst();
                 lane.current = job;
                 if (job == null) {
@@ -592,8 +641,10 @@ public final class CloudSync {
                 // a cancel of an earlier job must not stop this one; cleared before the thread is published, so a
                 // cancel of this job from now on always lands (review L2)
                 Thread.interrupted();
-                job.thread = Thread.currentThread();
+                job.thread = me;
+                job.lastActivity = android.os.SystemClock.elapsedRealtime();
             }
+            ensureWatchdog();
             boolean ok = false;
             boolean retryable = false;
             String message;
@@ -606,10 +657,18 @@ public final class CloudSync {
                 removePending(job.scId);
                 message = e.getMessage();
             } catch (GitHubHttp.Cancelled e) {
-                message = "Cancelled.";
+                message = stoppedMessage(job);
+                if (job.stalled) {
+                    retryable = true;
+                    if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
+                }
             } catch (IOException e) {
-                if (job.cancelled) {
-                    message = "Cancelled.";
+                if (job.cancelled || job.deferred || job.stalled) {
+                    message = stoppedMessage(job);
+                    if (job.stalled) {
+                        retryable = true;
+                        if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
+                    }
                 } else {
                     // no network (or GitHub didn't answer): a backup waits for the next chance, with the same boxes
                     if (BACKUP.equals(job.kind)) addPending(job.scId, job.options);
@@ -621,6 +680,9 @@ public final class CloudSync {
                     LogUtil.d("CloudSync", "Job " + job.kind + " " + job.scId + " waits: " + e);
                 }
             } catch (GitHubException e) {
+                if ("refused".equals(e.code) || "unreadable".equals(e.code) || "http_401".equals(e.code)) {
+                    signInNeeded.add(job.key());
+                }
                 if (BACKUP.equals(job.kind) && ("keystore".equals(e.code) || "unauthorized".equals(e.code)
                         || "refused".equals(e.code) || "unreadable".equals(e.code) || SignIn.isPassing(e.code))) {
                     // worth another try: a Keystore hiccup, a server error / rate limit, or a sign-in to come
@@ -635,14 +697,27 @@ public final class CloudSync {
                 message = (BACKUP.equals(job.kind) ? "The backup didn't work: " : "That didn't work: ") + t;
             } finally {
                 synchronized (this) {
-                    lane.current = null;
+                    if (lane.current == job) lane.current = null;
                     job.thread = null;
                 }
                 GitHubHttp.release();
             }
+            synchronized (this) {
+                // its end was already told by the watchdog, and the lane has another worker now
+                if (job.abandoned || lane.worker != me) return;
+                if (job.deferred && !ok && !job.cancelled) {
+                    // v2.0.5: paused for a tap: back in the queue after the taps' jobs (it resumes from its parts)
+                    requeueDeferred(lane, job);
+                    continue;
+                }
+            }
             if (ok) failed.remove(job.key());
             else if (retryable && job.user) failed.put(job.key(), retryCopy(job));
-            finish(job, ok, message, retryable && job.user);
+            if (ok) signInNeeded.remove(job.key());
+            if (!job.finished) {
+                job.finished = true;
+                finish(job, ok, message, retryable && job.user);
+            }
             // the ones still waiting: their place moved up
             java.util.List<Job> waitingJobs;
             synchronized (this) {
@@ -659,6 +734,123 @@ public final class CloudSync {
             }
         }
         serviceIdle();
+    }
+
+    /** v2.0.5: the closing line of a job that was stopped (Cancel, the watchdog, or paused for a tap). */
+    private static String stoppedMessage(Job job) {
+        if (job.stalled) {
+            return "Stopped: nothing moved for " + (STALL_MS / 60_000) + " minutes (the network?). "
+                    + (BACKUP.equals(job.kind) ? "The backup waits for the next chance; its finished parts are kept."
+                    : "Try again.");
+        }
+        return "Cancelled.";
+    }
+
+    /** A paused automatic job goes back, right after the taps' jobs, as it was (same watchers and results). */
+    private void requeueDeferred(Lane lane, Job job) {
+        job.started = false;
+        job.deferred = false;
+        job.stalled = false;
+        job.percent = 0;
+        job.text = "Waiting…";
+        java.util.ArrayDeque<Job> users = new java.util.ArrayDeque<>();
+        while (!lane.queue.isEmpty() && lane.queue.peekFirst().user) users.addLast(lane.queue.pollFirst());
+        lane.queue.addFirst(job);
+        while (!users.isEmpty()) lane.queue.addFirst(users.pollLast());
+    }
+
+    private void ensureWorker(Lane lane) {
+        synchronized (this) {
+            if (lane.worker == null || !lane.worker.isAlive()) {
+                lane.worker = new Thread(() -> loop(lane), lane.name);
+                lane.worker.setDaemon(true);
+                lane.worker.start();
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ v2.0.5: the watchdog
+
+    /** No step, no byte for this long (not while packing): the job is stopped and the queue goes on. */
+    static long STALL_MS = 5 * 60_000L;
+    /** A stopped job's thread that hasn't returned after this long is left behind; the lane gets a new worker. */
+    static long ABANDON_MS = 20_000L;
+    private Thread watchdog;
+
+    private void ensureWatchdog() {
+        synchronized (this) {
+            if (watchdog != null && watchdog.isAlive()) return;
+            watchdog = new Thread(this::watch, "CloudSyncWatchdog");
+            watchdog.setDaemon(true);
+            watchdog.start();
+        }
+    }
+
+    private void watch() {
+        while (true) {
+            try {
+                Thread.sleep(Math.min(15_000L, Math.max(200L, ABANDON_MS / 4)));
+            } catch (InterruptedException e) {
+                return;
+            }
+            java.util.List<Object[]> left = new java.util.ArrayList<>();
+            synchronized (this) {
+                boolean any = false;
+                long now = android.os.SystemClock.elapsedRealtime();
+                for (Lane lane : new Lane[]{work, imports}) {
+                    Job j = lane.current;
+                    if (j == null) continue;
+                    any = true;
+                    if (!j.stalled && !j.cancelled && !j.deferred && !j.packing && now - j.lastActivity > STALL_MS) {
+                        j.stalled = true;
+                        j.stopAskedAt = now;
+                        GitHubHttp.cancel(j.thread);
+                    } else if ((j.stalled || j.cancelled || (j.deferred && !j.packing)) && j.stopAskedAt > 0
+                            && now - j.stopAskedAt > ABANDON_MS) {
+                        // its thread didn't stop: the lane goes on without it
+                        j.abandoned = true;
+                        lane.current = null;
+                        lane.worker = null;
+                        if (j.deferred && !j.cancelled) {
+                            requeueDeferred(lane, copyOf(j));
+                        } else {
+                            left.add(new Object[]{j});
+                        }
+                        ensureWorkerLocked(lane);
+                    }
+                }
+                if (!any) {
+                    watchdog = null;
+                    return;
+                }
+            }
+            for (Object[] o : left) {
+                Job j = (Job) o[0];
+                if (j.stalled && BACKUP.equals(j.kind)) addPending(j.scId, j.options);
+                if (j.stalled && j.user) failed.put(j.key(), retryCopy(j));
+                if (!j.finished) {
+                    j.finished = true;
+                    finish(j, false, stoppedMessage(j), j.stalled && j.user);
+                }
+            }
+        }
+    }
+
+    private void ensureWorkerLocked(Lane lane) {
+        lane.worker = new Thread(() -> loop(lane), lane.name);
+        lane.worker.setDaemon(true);
+        lane.worker.start();
+    }
+
+    /** A paused job left behind: the same job again (its watchers and results move with it). */
+    private static Job copyOf(Job old) {
+        Job again = retryCopy(old);
+        again.user = old.user;
+        again.afterRunning = old.afterRunning;
+        again.watchers.addAll(old.watchers);
+        again.results.addAll(old.results);
+        old.finished = true;
+        return again;
     }
 
     private void finish(Job job, boolean ok, String message, boolean retryable) {
@@ -691,6 +883,13 @@ public final class CloudSync {
         Runner test = runnerForTests;
         if (test != null) return test.run(job);
         if (IMPORT.equals(job.kind)) return runImport(job);
+        signInNeeded.remove(job.key());
+        if (GitHubSession.isRefused(app)) {
+            // v2.0.5: GitHub refused this sign-in: no request until it is renewed (no stream of 401s); it waits
+            throw new GitHubException("refused", GitHubSession.problemOf(app) == null
+                    ? "GitHub didn't accept the saved sign-in: tap Sign in again; the backup waits."
+                    : GitHubSession.problemOf(app));
+        }
         if (job.afterRunning && !job.user) {
             // second review: a backup after a save that waited behind a running one: skipped when that one (or an
             // earlier one) already holds these saved files
@@ -761,6 +960,7 @@ public final class CloudSync {
 
     /** A step of {@code job} for every screen following it (main thread) and the notification. */
     private void step(Job job, int percent, String text) {
+        job.lastActivity = android.os.SystemClock.elapsedRealtime();
         java.util.List<Progress> watchers;
         synchronized (this) {
             job.percent = percent;
@@ -886,30 +1086,48 @@ public final class CloudSync {
                     ? "Packing the project" + (options.localLibraries ? ", local libraries" : "")
                     + (options.customBlocks ? " & custom blocks" : "") + "…" : "Packing the project…");
             File swb = null;
-            // review (M6): a save while the project is packed could give a torn copy: packed again when its files
-            // changed meanwhile (at most three times)
-            for (int pack = 0; ; pack++) {
-                GitHubHttp.stopIfCancelled();
-                BackupFactory factory = new BackupFactory(scId);
-                factory.setBackupLocalLibs(options.localLibraries);
-                factory.setBackupCustomBlocks(options.customBlocks);
-                // the saved project, read with its own instances: never the editor's shared copy (it may be open)
-                factory.setReadSavedDataOnly(true);
-                factory.backup(name);
-                swb = factory.getOutFile();
-                if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
-                String after = fingerprint(scId);
-                // second review: also by size and time, so a save that wrote the same bytes while the files were
-                // copied (each file is rewritten in place) packs again too
-                String stampAfter = stamp(scId);
-                if ((after.equals(fingerprint) && stampAfter.equals(stamp)) || pack >= 2) {
-                    fingerprint = after;
-                    break;
+            // v2.0.5 (checkpoint resume): the packed backup of an earlier try that didn't finish, when the project's
+            // saved files, the boxes and the version are still the same: its finished parts on GitHub are kept
+            File resumeSwb = resumeFile(scId, ".swb");
+            File resumeInfo = resumeFile(scId, ".json");
+            if (resumable(resumeInfo, resumeSwb, fingerprint, options, versionName, versionCode)) {
+                swb = resumeSwb;
+                step(progress, 14, "Resuming the upload: the parts already on GitHub are kept…");
+            } else {
+                clearResume(scId);
+                job.packing = true;
+                try {
+                    // review (M6): a save while the project is packed could give a torn copy: packed again when its
+                    // files changed meanwhile (at most three times)
+                    for (int pack = 0; ; pack++) {
+                        GitHubHttp.stopIfCancelled();
+                        BackupFactory factory = new BackupFactory(scId);
+                        factory.setBackupLocalLibs(options.localLibraries);
+                        factory.setBackupCustomBlocks(options.customBlocks);
+                        // the saved project, read with its own instances: never the editor's shared copy (it may be open)
+                        factory.setReadSavedDataOnly(true);
+                        factory.backup(name);
+                        swb = factory.getOutFile();
+                        if (swb == null) throw new GitHubException("backup", "The backup file couldn't be made: " + factory.getError());
+                        String after = fingerprint(scId);
+                        // second review: also by size and time, so a save that wrote the same bytes while the files were
+                        // copied (each file is rewritten in place) packs again too
+                        String stampAfter = stamp(scId);
+                        if ((after.equals(fingerprint) && stampAfter.equals(stamp)) || pack >= 2) {
+                            fingerprint = after;
+                            break;
+                        }
+                        BackupFactory.deleteUploadedBackup(swb);
+                        fingerprint = after;
+                        stamp = stampAfter;
+                    }
+                } finally {
+                    job.packing = false;
                 }
-                BackupFactory.deleteUploadedBackup(swb);
-                fingerprint = after;
-                stamp = stampAfter;
+                job.lastActivity = android.os.SystemClock.elapsedRealtime();
+                swb = keepForResume(swb, resumeSwb, resumeInfo, fingerprint, options, versionName, versionCode);
             }
+            boolean uploadedAll = false;
             try {
                 File apk = lastBuiltApk(scId);
                 long apkTime = apk == null ? 0 : apk.lastModified();
@@ -931,6 +1149,7 @@ public final class CloudSync {
                 ProjectRepo.Version stored = repo.upload(backup, new CloudBackup.UploadProgress() {
                     @Override
                     public void uploading(long sent, long total) {
+                        job.lastActivity = android.os.SystemClock.elapsedRealtime();
                         int percent = 15 + (int) (75 * Math.min(1.0, sent / (double) Math.max(1, total)));
                         if (percent > last[0]) {
                             last[0] = percent;
@@ -951,6 +1170,7 @@ public final class CloudSync {
                                 + "…");
                     }
                 });
+                uploadedAll = true;
                 GitHubSession.clearRefused(app);
                 ProjectLinks.saved(scId, login, stored.tag, options, fingerprint, apk == null ? 0 : apkTime);
                 // review M3: a Switch to Private (or Publish) during this backup wrote the newer visibility
@@ -965,8 +1185,8 @@ public final class CloudSync {
                     }
                 }
             } finally {
-                // the .swb was made for the upload only (and its folder, when nothing else is in it)
-                BackupFactory.deleteUploadedBackup(swb);
+                // v2.0.5: kept for a resume until it is on GitHub (then removed with its notes)
+                if (uploadedAll) clearResume(scId);
             }
         } catch (GitHubException e) {
             if ("http_401".equals(e.code) || "unauthorized".equals(e.code)) {
@@ -986,11 +1206,133 @@ public final class CloudSync {
         return name;
     }
 
+    // ------------------------------------------------------------------ v2.0.5: checkpoint resume
+
+    /** The kept packed backup of a project ({@code .swb}) and what it was made from ({@code .json}). */
+    static File resumeFile(String scId, String suffix) {
+        return new File(BackupFactory.getBackupDir(), "staging/resume/" + scId + suffix);
+    }
+
+    /** Whether the kept backup still is this project as saved now, with these boxes and this version (≤ 7 days old). */
+    static boolean resumable(File info, File swb, String fingerprint, Options options, String versionName,
+                             String versionCode) {
+        if (!info.isFile() || !swb.isFile()) return false;
+        try {
+            JsonObject o = DeviceFlow.parse(new String(java.nio.file.Files.readAllBytes(info.toPath()),
+                    java.nio.charset.StandardCharsets.UTF_8));
+            long size = o.has("size") ? o.get("size").getAsLong() : -1;
+            long time = o.has("time") ? o.get("time").getAsLong() : 0;
+            return size == swb.length() && fingerprint.equals(DeviceFlow.string(o, "fingerprint"))
+                    && String.valueOf(options.localLibraries).equals(DeviceFlow.string(o, "localLibraries"))
+                    && String.valueOf(options.customBlocks).equals(DeviceFlow.string(o, "customBlocks"))
+                    && String.valueOf(versionName).equals(DeviceFlow.string(o, "versionName"))
+                    && String.valueOf(versionCode).equals(DeviceFlow.string(o, "versionCode"))
+                    && System.currentTimeMillis() - time < 7L * 24 * 3600_000L;
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Moves the packed backup to the resume place (same volume: a rename) with its notes; returns the kept file. */
+    static File keepForResume(File packed, File swb, File info, String fingerprint, Options options, String versionName,
+                              String versionCode) throws IOException {
+        File dir = swb.getParentFile();
+        if (dir != null && !dir.isDirectory() && !dir.mkdirs()) return packed;
+        //noinspection ResultOfMethodCallIgnored
+        swb.delete();
+        if (!packed.renameTo(swb)) {
+            java.nio.file.Files.copy(packed.toPath(), swb.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+        }
+        // the folder the backup was made in (when nothing else is in it)
+        BackupFactory.deleteUploadedBackup(packed);
+        JsonObject o = new JsonObject();
+        o.addProperty("fingerprint", fingerprint);
+        o.addProperty("localLibraries", String.valueOf(options.localLibraries));
+        o.addProperty("customBlocks", String.valueOf(options.customBlocks));
+        o.addProperty("versionName", String.valueOf(versionName));
+        o.addProperty("versionCode", String.valueOf(versionCode));
+        o.addProperty("size", swb.length());
+        o.addProperty("time", System.currentTimeMillis());
+        File tmp = new File(info.getPath() + ".tmp");
+        java.nio.file.Files.write(tmp.toPath(), o.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if (!tmp.renameTo(info)) throw new IOException("Can't write " + info);
+        return swb;
+    }
+
+    static void clearResume(String scId) {
+        //noinspection ResultOfMethodCallIgnored
+        resumeFile(scId, ".swb").delete();
+        //noinspection ResultOfMethodCallIgnored
+        resumeFile(scId, ".json").delete();
+    }
+
     /** The public page: description, topics, README (when on), CHANGELOG. */
     static void publishDocs(ProjectRepo repo, PublishDetails details, String message) throws IOException, GitHubException {
         repo.setDetails(details.description, details.topics);
         if (details.readmeOn && details.readme != null) repo.putFile("README.md", details.readme, message);
         repo.putFile("CHANGELOG.md", details.changelogText(), message);
+    }
+
+    /**
+     * v2.0.5 (owner's 16 Nov phone report: "Public details" Save did nothing visible): the details of a project already
+     * on GitHub saved at once on their own thread (never behind a running backup): description and topics, README.md
+     * (when on), CHANGELOG.md and the newest version's notes, each step on the sheet; the details are kept on the phone
+     * first. Main thread only.
+     */
+    public static GitHubProgress saveDetails(Activity activity, String scId, String name, PublishDetails details) {
+        CloudSync sync = get(activity);
+        GitHubProgress progress = GitHubProgress.show(activity, R.drawable.ob_ic_github, "Save details of " + name);
+        progress.update(2, "Saving on this phone…");
+        details.save(scId);
+        Thread t = new Thread(() -> {
+            String message;
+            boolean ok = false;
+            try {
+                String[] session = sync.session();
+                sync.post(() -> progress.update(15, "Opening the project's repository on GitHub…"));
+                ProjectRepo repo = ProjectRepo.open(session[1], session[0], scId);
+                if (repo == null) {
+                    throw new GitHubException("not_found", "The project's repository isn't on GitHub (or not on this "
+                            + "account): back the project up first.");
+                }
+                String link = repo.link();
+                sync.post(() -> progress.link(link));
+                sync.post(() -> progress.update(40, "Saving the description and " + details.topics.size() + " topics…"));
+                repo.setDetails(details.description, details.topics);
+                if (details.readmeOn && details.readme != null) {
+                    sync.post(() -> progress.update(60, "Writing README.md…"));
+                    repo.putFile("README.md", details.readme, "Update README");
+                }
+                sync.post(() -> progress.update(75, "Writing CHANGELOG.md…"));
+                repo.putFile("CHANGELOG.md", details.changelogText(), "Update CHANGELOG");
+                java.util.List<ProjectRepo.Version> versions = repo.versions(false);
+                if (!versions.isEmpty() && details.notes != null) {
+                    ProjectRepo.Version newest = versions.get(0);
+                    if (!details.notes.trim().equals(newest.notes == null ? "" : newest.notes.trim())) {
+                        sync.post(() -> progress.update(90, "Saving the release notes of " + newest.label() + "…"));
+                        repo.setNotes(newest, details.notes);
+                    }
+                }
+                ok = true;
+                message = "Saved on GitHub: description, " + details.topics.size() + " topics"
+                        + (details.readmeOn ? ", README.md" : "") + ", CHANGELOG.md.";
+            } catch (GitHubException e) {
+                message = e.getMessage();
+                if ("http_401".equals(e.code)) message = sync.refusedNow(e) ;
+            } catch (Exception e) {
+                message = GitHubImportDialog.text(e);
+            }
+            boolean success = ok;
+            String text = message;
+            sync.post(() -> {
+                if (success) progress.done(text);
+                else progress.failed(text, false);
+            });
+        }, "CloudSyncDetails");
+        t.setDaemon(true);
+        t.start();
+        return progress;
     }
 
     /**
@@ -1042,7 +1384,8 @@ public final class CloudSync {
     private String runImport(Job job) throws Exception {
         Import src = job.source;
         String login = TokenStore.get(app).login();
-        String token = login == null ? null : TokenStore.get(app).token();
+        // v2.0.5: a sign-in GitHub refused isn't sent (a public project still imports without it)
+        String token = login == null || GitHubSession.isRefused(app) ? null : TokenStore.get(app).token();
         File staging = new File(BackupFactory.getBackupDir(), "staging/" + Long.toHexString(System.nanoTime()));
         if (!staging.isDirectory() && !staging.mkdirs()) throw new IOException("Can't create " + staging);
         File swb = new File(staging, ProjectRepo.safeFileName(src.title == null ? src.repo : src.title) + ".swb");
@@ -1094,6 +1437,7 @@ public final class CloudSync {
         int[] last = {4};
         long started = android.os.SystemClock.elapsedRealtime();
         return (done, total) -> {
+            job.lastActivity = android.os.SystemClock.elapsedRealtime();
             long all = total > 0 ? total : knownSize;
             int percent = all > 0 ? 5 + (int) (75 * Math.min(1.0, done / (double) all))
                     : Math.min(75, 5 + (int) (done / (512 * 1024)));

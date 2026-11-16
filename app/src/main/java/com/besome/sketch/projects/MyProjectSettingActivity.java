@@ -73,7 +73,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
     private LinearLayout advancedSettingsContainer;
     private ImageView appIcon;
     private UB projectPackageNameValidator;
-    private VB projectNameValidator;
+    private com.sketchware.ai.project.ProjectNameValidator projectNameValidator;
     private LB projectAppNameValidator;
     private boolean projectHasCustomIcon = false;
     private boolean updatingExistingProject = false;
@@ -189,7 +189,8 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
 
         projectAppNameValidator = new LB(getApplicationContext(), appName);
         projectPackageNameValidator = new UB(getApplicationContext(), packageName);
-        projectNameValidator = new VB(getApplicationContext(), projectName);
+        // v2.0.5: up to 64 characters (upstream VB allowed 20)
+        projectNameValidator = new com.sketchware.ai.project.ProjectNameValidator(getApplicationContext(), projectName);
         projectPackageName.setPrivateImeOptions("defaultInputmode=english;");
         this.projectName.setPrivateImeOptions("defaultInputmode=english;");
         projectPackageName.setOnFocusChangeListener((v, hasFocus) -> {

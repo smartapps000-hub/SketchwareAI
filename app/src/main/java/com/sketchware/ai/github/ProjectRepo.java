@@ -48,7 +48,8 @@ public final class ProjectRepo {
     public static final String TOPIC = "sketchware-ai";
     public static final int MAX_VERSIONS = 5;
     /** Release assets up to this size go up in one request; larger backups in parts of this size. */
-    public static final long PART_BYTES = 16L * 1024 * 1024;
+    /** v2.0.5: 8 MiB (16 MiB in v2.0.4): a retry resumes from the last finished part, so smaller parts lose less. */
+    public static final long PART_BYTES = 8L * 1024 * 1024;
     /** What a backup may weigh (release assets go up to 2 GB each; a phone's patience is the real limit). */
     public static final long MAX_BYTES = 1024L * 1024 * 1024;
     static final String MARKER_START = "<!-- sketchware-ai ";
@@ -480,19 +481,33 @@ public final class ProjectRepo {
         }
         String tag = tagFor(backup.versionName, backup.versionCode);
         long now = System.currentTimeMillis();
-        String stamp = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ENGLISH).format(new java.util.Date(now));
+        // v2.0.5: the files are named after the packed file's time, so a retry with the same packed file finds the
+        // parts it already sent (checkpoint resume)
+        long packed = swb.lastModified() > 0 ? swb.lastModified() : now;
+        String stamp = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ENGLISH).format(new java.util.Date(packed));
         String base = safeFileName(backup.projectName) + "_" + stamp;
         long size = swb.length();
         String sha256 = SwbParts.sha256(swb);
 
-        // drafts this app left behind (a backup cut off before it was published) go first
+        // drafts this app left behind (a backup cut off before it was published) go first, except the one of this
+        // very backup (same version, same SHA-256): it is resumed
         List<Version> all = versions(true);
+        Version resume = null;
         for (Version v : all) {
-            if (v.draft) deleteRelease(v);
+            if (!v.draft) continue;
+            if (resume == null && tag.equals(v.tag) && sha256.equals(v.sha256)) {
+                resume = v;
+            } else {
+                deleteRelease(v);
+            }
         }
         Version existing = null;
         for (Version v : all) {
             if (!v.draft && tag.equals(v.tag)) existing = v;
+        }
+        if (existing != null && resume != null) {
+            deleteRelease(resume);
+            resume = null;
         }
         boolean standard = existing != null && existing.standard;
         JsonObject facts = new JsonObject();
@@ -505,8 +520,15 @@ public final class ProjectRepo {
         facts.addProperty("sha256", sha256);
         facts.addProperty("standard", standard);
         long releaseId;
+        // v2.0.5: the files already on that release (a resumed draft, or the same version's release after a cut-off
+        // update): one with the right name and size isn't sent again
+        java.util.Map<String, Asset> present = new java.util.HashMap<>();
         if (existing != null) {
             releaseId = existing.id;
+            for (Asset a : existing.assets) present.put(a.name, a);
+        } else if (resume != null) {
+            releaseId = resume.id;
+            for (Asset a : resume.assets) present.put(a.name, a);
         } else {
             JsonObject body = new JsonObject();
             body.addProperty("tag_name", tag);
@@ -520,6 +542,8 @@ public final class ProjectRepo {
         }
 
         // the files: one .swb, or parts with their list
+        this.present = present;
+        skippedLast = 0;
         Set<String> uploaded = new HashSet<>();
         long apkSize = backup.apk != null && backup.apk.isFile() ? backup.apk.length() : 0;
         long total = size + apkSize;
@@ -600,9 +624,26 @@ public final class ProjectRepo {
      * One asset, checked by its size; tried again (up to three times) after a dropped connection, a server error, or a
      * 401 while GET /user still accepts the sign-in. A half-uploaded asset of that name is removed before a new try.
      */
+    /** v2.0.5: the files already on the release being written (checkpoint resume); set by upload. */
+    private java.util.Map<String, Asset> present = new java.util.HashMap<>();
+    /** v2.0.5 tests: how many files the last upload didn't send again. */
+    int skippedLast;
+
     private void uploadAsset(long releaseId, String assetName, File file, long offset, long length, String type,
                              long before, long total, CloudBackup.UploadProgress progress, String what)
             throws IOException, GitHubException {
+        Asset there = present.get(assetName);
+        if (there != null) {
+            if (there.size == length && (there.state == null || "uploaded".equals(there.state))) {
+                // already on GitHub from an earlier try: resumed after it
+                skippedLast++;
+                if (progress != null) progress.uploading(before + length, total);
+                return;
+            }
+            // half there: removed, then sent again
+            deleteAsset(there.id);
+            present.remove(assetName);
+        }
         int tries = assetPauses.length + 1;
         for (int attempt = 1; ; attempt++) {
             GitHubHttp.stopIfCancelled();

@@ -37,6 +37,8 @@ public final class GitHubSample {
     public static final String NAME = "GitHub API Demo";
     public static final String PROJECT_NAME = "GitHub_API_Demo";
     public static final String PACKAGE = "com.my.githubdemo";
+    /** v2.0.5: the demo's version (v2.0.3's first demo = 1, v2.0.4's list and downloads = 2, this one = 3). */
+    public static final int DEMO_VERSION = 3;
     private static final String SEEDED = "github_sample_seeded";
 
     private GitHubSample() {
@@ -82,6 +84,8 @@ public final class GitHubSample {
         try {
             NewProjectSetup.create(context, scId, choices);
             fill(scId);
+            // v2.0.5: a demo (the projects list shows it in its Demo row, the newest version first)
+            Demos.mark(scId, "github", DEMO_VERSION);
         } catch (RuntimeException | Error e) {
             // no half-made project in the list
             try {

@@ -95,7 +95,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     private ImageView icon;
     private LB appNameValidator;
     private UB packageValidator;
-    private VB projectNameValidator;
+    private com.sketchware.ai.project.ProjectNameValidator projectNameValidator;
 
     private LinearLayout templates;
     private LinearLayout palettes;
@@ -143,7 +143,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         versionName = findViewById(R.id.np_version_name);
         appNameValidator = new LB(getApplicationContext(), (TextInputLayout) findViewById(R.id.np_ti_app_name));
         packageValidator = new UB(getApplicationContext(), (TextInputLayout) findViewById(R.id.np_ti_package));
-        projectNameValidator = new VB(getApplicationContext(), (TextInputLayout) findViewById(R.id.np_ti_project));
+        projectNameValidator = new com.sketchware.ai.project.ProjectNameValidator(getApplicationContext(),
+                (TextInputLayout) findViewById(R.id.np_ti_project));
         packageName.setPrivateImeOptions("defaultInputmode=english;");
         projectName.setPrivateImeOptions("defaultInputmode=english;");
         packageName.setText("com.my." + defaultName.toLowerCase());

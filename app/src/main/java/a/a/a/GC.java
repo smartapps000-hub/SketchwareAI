@@ -224,6 +224,17 @@ public class GC extends DA implements View.OnClickListener {
             //noinspection Java8ListSort
             Collections.sort(allProjects, new ProjectComparator());
         }
+        // v2.0.5: demo projects go to the Demo row (newest demo version first), not the list
+        ArrayList<HashMap<String, Object>> demos = new ArrayList<>();
+        for (java.util.Iterator<HashMap<String, Object>> it = allProjects.iterator(); it.hasNext(); ) {
+            HashMap<String, Object> project = it.next();
+            if (com.sketchware.ai.project.Demos.isDemo(project)) {
+                demos.add(project);
+                it.remove();
+            }
+        }
+        com.sketchware.ai.project.Demos.sort(demos);
+        renderDemos(demos);
         applyFilter();
         publishProjectCount();
 
@@ -238,6 +249,71 @@ public class GC extends DA implements View.OnClickListener {
         } else if (requestCode == REQUEST_CODE_RESTORE_PROJECT) {
             chooseRestore();
         }
+    }
+
+    /** v2.0.5: the Demo row: one compact card per demo project; tap opens it, a long press offers Delete. */
+    private void renderDemos(ArrayList<HashMap<String, Object>> demos) {
+        View root = getView();
+        if (root == null) return;
+        View section = root.findViewById(R.id.ob_demo_section);
+        LinearLayout row = root.findViewById(R.id.ob_demo_row);
+        if (section == null || row == null) return;
+        row.removeAllViews();
+        section.setVisibility(demos.isEmpty() ? View.GONE : View.VISIBLE);
+        com.sketchware.ai.github.GitHubViews v = new com.sketchware.ai.github.GitHubViews(getContext());
+        for (int i = 0; i < demos.size(); i++) {
+            HashMap<String, Object> project = demos.get(i);
+            String scId = yB.c(project, "sc_id");
+            String name = yB.c(project, "my_app_name");
+            LinearLayout card = new LinearLayout(getContext());
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackgroundResource(R.drawable.ob_pill16_state);
+            card.setPadding(v.dp(14), v.dp(10), v.dp(14), v.dp(10));
+            card.setMinimumWidth(v.dp(180));
+            TextView title = new TextView(getContext(), null, 0, R.style.Ob_Text_Label);
+            title.setText(name.isEmpty() ? yB.c(project, "my_ws_name") : name);
+            title.setTypeface(v.bold());
+            com.sketchware.ai.github.GitHubViews.oneLine(title);
+            card.addView(title);
+            TextView badge = new TextView(getContext(), null, 0, R.style.Ob_Text_Caption);
+            badge.setText(i == 0 ? "Latest demo" : "Older demo");
+            badge.setTypeface(v.bold());
+            badge.setTextColor(v.color(i == 0 ? R.color.ob_accent : R.color.ob_text_2));
+            card.addView(badge);
+            TextView detail = new TextView(getContext(), null, 0, R.style.Ob_Text_Caption);
+            detail.setText("#" + scId + " · " + yB.c(project, "sc_ver_name") + " (" + yB.c(project, "sc_ver_code") + ")");
+            com.sketchware.ai.github.GitHubViews.oneLine(detail);
+            card.addView(detail);
+            card.setClickable(true);
+            card.setOnClickListener(x -> toDesignActivity(scId));
+            card.setOnLongClickListener(x -> {
+                confirmDeleteDemo(scId, title.getText().toString());
+                return true;
+            });
+            card.setContentDescription(title.getText() + ", " + badge.getText() + ", project " + scId);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
+            if (i > 0) p.leftMargin = v.dp(8);
+            row.addView(card, p);
+        }
+    }
+
+    private void confirmDeleteDemo(String scId, String name) {
+        if (getActivity() == null) return;
+        new com.sketchware.ai.ui.ObAlertBuilder(getActivity(), R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Delete " + name + " #" + scId + "?")
+                .setMessage("The demo project is removed from this phone (its GitHub backups stay).")
+                .setPositiveButton("Delete", (d, w) -> {
+                    android.content.Context app = getActivity() == null ? null : getActivity().getApplicationContext();
+                    if (app == null) return;
+                    new Thread(() -> {
+                        lC.a(app, scId);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            if (getActivity() != null) refreshProjectsList();
+                        });
+                    }, "DeleteDemo").start();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void toDesignActivity(String sc_id) {

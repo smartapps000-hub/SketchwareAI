@@ -37,8 +37,9 @@ import mod.hey.studios.project.backup.BackupRestoreManager;
  * <li><b>GitHub</b>: a link field (a project repository, a folder or a .swb file on github.com; also what a shared link
  * opens, {@link GitHubLinkActivity}); the account's project repositories ({@link ProjectRepo}), shown at once from
  * the phone's copy ({@link RepoCache}) and refreshed in the background, each with its Public / Private badge, Share,
- * and its versions (at most five: the newest first, "Latest"; the Standard one second, "★ Standard"; then by date),
- * Restore and Set as Standard; and the older backups of {@link CloudBackup#REPO} (read only).</li>
+ * and its versions in one horizontal row (at most five; v2.0.5: the pinned one in front, "★ Pinned", else the newest,
+ * "New"; then by date; "+N older versions →"), Restore and ★ Pin / Unpin; and the older backups of
+ * {@link CloudBackup#REPO} (read only).</li>
  * <li><b>On this phone</b>: every .swb in the backups folder with its time and size, newest first, Restore; and a .swb
  * file from anywhere. Nothing here is ever deleted by the app.</li>
  * </ul>
@@ -56,6 +57,12 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     private boolean phoneTab;
     private final ExecutorService work = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "RestoreProjects");
+        t.setDaemon(true);
+        return t;
+    });
+    /** v2.0.5: link lookups on their own worker (never behind the projects list being read). */
+    private final ExecutorService lookups = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "RestoreLookups");
         t.setDaemon(true);
         return t;
     });
@@ -106,6 +113,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     @Override
     public void onDestroy() {
         work.shutdownNow();
+        lookups.shutdownNow();
         super.onDestroy();
     }
 
@@ -160,16 +168,10 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
 
     private void buildGitHub() {
         list.addView(title("Import from a link"), v.full(-1, 4));
-        link = new EditText(this, null, 0, R.style.Ob_Text);
-        link.setHint("Paste a GitHub link");
-        link.setHintTextColor(v.color(R.color.ob_text_2));
-        link.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        link.setSingleLine(true);
-        link.setGravity(Gravity.CENTER_VERTICAL);
-        link.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        link.setBackgroundResource(R.drawable.ob_field);
-        link.setPadding(v.dp(14), 0, v.dp(14), 0);
-        list.addView(link, v.full(48, 8));
+        // v2.0.5: a box that takes typing, with Paste inside its right edge (pastes and looks the link up at once)
+        EditText[] box = new EditText[1];
+        list.addView(v.linkBox(box, this::importLink), v.full(50, 8));
+        link = box[0];
         TextView hint = v.line("A project repository, a folder or a .swb file on github.com", false);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(hint, v.full(-1, 6));
@@ -363,21 +365,36 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         body.addView(v.line(why, true));
     }
 
-    /** Latest first, the Standard one second, the rest by date (newest first); at most five. */
+    /**
+     * v2.0.5 (owner's 16 Nov directive): the pinned (★ Standard) version in the front slot when there is one, else the
+     * newest ("New"); then the rest newest first; at most five.
+     */
     static List<ProjectRepo.Version> ordered(List<ProjectRepo.Version> versions) {
         List<ProjectRepo.Version> byDate = new ArrayList<>(versions);
         ProjectRepo.sortNewestFirst(byDate);
         List<ProjectRepo.Version> out = new ArrayList<>();
         if (byDate.isEmpty()) return out;
-        out.add(byDate.get(0));
         for (ProjectRepo.Version x : byDate) {
-            if (x.standard && x != byDate.get(0)) {
+            if (x.standard) {
                 out.add(x);
                 break;
             }
         }
         for (ProjectRepo.Version x : byDate) if (!out.contains(x)) out.add(x);
-        return out.size() > ProjectRepo.MAX_VERSIONS ? out.subList(0, ProjectRepo.MAX_VERSIONS) : out;
+        return out.size() > ProjectRepo.MAX_VERSIONS ? new ArrayList<>(out.subList(0, ProjectRepo.MAX_VERSIONS)) : out;
+    }
+
+    static long newestTime(List<ProjectRepo.Version> versions) {
+        long t = Long.MIN_VALUE;
+        for (ProjectRepo.Version x : versions) t = Math.max(t, x.time);
+        return t;
+    }
+
+    /** "★ Pinned", "New", both, or nothing. */
+    static String badgeOf(ProjectRepo.Version ver, boolean newest) {
+        if (ver.standard && newest) return "★ Pinned · New";
+        if (ver.standard) return "★ Pinned";
+        return newest ? "New" : "";
     }
 
     private void renderVersions(ProjectRepo.Info info, String login, List<ProjectRepo.Version> versions) {
@@ -389,12 +406,25 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             body.addView(v.line("No versions yet (back it up from its card).", false));
             return;
         }
+        long newest = newestTime(versions);
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout strip = new LinearLayout(this);
         strip.setOrientation(LinearLayout.HORIZONTAL);
         scroll.addView(strip);
         body.addView(scroll);
+        if (shown.size() > 1) {
+            // v2.0.5: how many more sit in the row (swipe; a tap scrolls to them)
+            int more = shown.size() - 1;
+            TextView older = new TextView(this, null, 0, R.style.Ob_Text_Caption);
+            older.setText("+" + more + (more == 1 ? " older version →" : " older versions →"));
+            older.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            older.setTypeface(v.bold());
+            older.setTextColor(v.color(R.color.ob_accent));
+            older.setGravity(Gravity.END);
+            older.setOnClickListener(x -> scroll.smoothScrollTo(strip.getWidth(), 0));
+            body.addView(older, v.full(-1, 6));
+        }
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         body.addView(actions, v.full(-1, 10));
@@ -404,7 +434,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             strip.removeAllViews();
             for (int i = 0; i < shown.size(); i++) {
                 ProjectRepo.Version ver = shown.get(i);
-                strip.addView(chip(ver, i == 0, ver == selected[0], x -> {
+                strip.addView(chip(ver, ver.time == newest, ver == selected[0], x -> {
                     selected[0] = ver;
                     refresh[0].run();
                 }), chipParams(i));
@@ -414,7 +444,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             TextView restore = v.smallPill("Restore " + s.label(), true, true, x -> restoreVersion(info, login, s));
             GitHubViews.oneLine(restore);
             actions.addView(restore, new LinearLayout.LayoutParams(0, v.dp(38), 1f));
-            TextView pin = v.smallPill(s.standard ? "★ Unpin" : "★ Set as Standard", false, true,
+            // v2.0.5: Pin moves the version to the front slot (★ Pinned); Unpin gives it back to New
+            TextView pin = v.smallPill(s.standard ? "Unpin" : "★ Pin", false, true,
                     x -> setStandard(info, login, s, !s.standard));
             GitHubViews.oneLine(pin);
             LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, v.dp(38));
@@ -430,7 +461,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         return p;
     }
 
-    private LinearLayout chip(ProjectRepo.Version ver, boolean latest, boolean selected, View.OnClickListener click) {
+    private LinearLayout chip(ProjectRepo.Version ver, boolean newest, boolean selected, View.OnClickListener click) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setBackgroundResource(selected ? R.drawable.ob_seg_pill_on : R.drawable.ob_seg_pill);
@@ -439,10 +470,10 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         TextView label = new TextView(this, null, 0, R.style.Ob_Text_Label);
         label.setText(ver.label());
         label.setTypeface(v.bold());
-        label.setSingleLine(true);
+        GitHubViews.oneLine(label);
         label.setTextColor(selected ? 0xFFFFFFFF : v.color(R.color.ob_text));
         c.addView(label);
-        String tagLine = latest && ver.standard ? "Latest · ★ Standard" : latest ? "Latest" : ver.standard ? "★ Standard" : "";
+        String tagLine = badgeOf(ver, newest);
         if (!tagLine.isEmpty()) {
             TextView t = new TextView(this, null, 0, R.style.Ob_Text_Caption);
             t.setText(tagLine);
@@ -464,7 +495,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     }
 
     private void setStandard(ProjectRepo.Info info, String login, ProjectRepo.Version ver, boolean on) {
-        android.widget.Toast.makeText(this, on ? "Pinning " + ver.label() + " as Standard…" : "Unpinning…",
+        android.widget.Toast.makeText(this, on ? "Pinning " + ver.label() + "…" : "Unpinning…",
                 android.widget.Toast.LENGTH_SHORT).show();
         work.execute(() -> {
             try {
@@ -476,8 +507,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                 linkedProjectsStandard(login, info.number, on ? ver.tag : null);
                 ui(() -> {
                     renderVersions(info, login, versions);
-                    android.widget.Toast.makeText(this, on ? ver.label() + " is the Standard version: it is never "
-                            + "removed" : "Unpinned", android.widget.Toast.LENGTH_SHORT).show();
+                    android.widget.Toast.makeText(this, on ? ver.label() + " is pinned: it stays in front and is "
+                            + "never removed" : "Unpinned", android.widget.Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception e) {
                 String why = GitHubImportDialog.text(e);
@@ -626,7 +657,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         busy = true;
         status("Looking at " + source.owner + "/" + source.repo + "…", false);
         String login = TokenStore.get(this).login();
-        work.execute(() -> {
+        lookups.execute(() -> {
             try {
                 String token = login == null ? null : token();
                 GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(source.owner) + "/"

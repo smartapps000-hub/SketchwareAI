@@ -52,6 +52,7 @@ public final class DrawerAccountCard {
         View copyEmail = card.findViewById(R.id.drawer_account_copy_email);
         TextView status = card.findViewById(R.id.drawer_account_status);
         TextView renew = card.findViewById(R.id.drawer_account_renew);
+        TextView signOut = card.findViewById(R.id.drawer_account_signout);
         GitHubViews v = new GitHubViews(card.getContext());
         if (profile == null) {
             v.showPicture(picture, null);
@@ -67,6 +68,7 @@ public final class DrawerAccountCard {
             subtitle.setTextColor(v.color(R.color.ob_text_2));
             action.setVisibility(View.GONE);
             details.setVisibility(View.GONE);
+            if (signOut != null) signOut.setVisibility(View.GONE);
             card.setOnClickListener(x -> actions.signIn());
             card.setClickable(true);
             card.setContentDescription("Sign in with GitHub");
@@ -85,16 +87,25 @@ public final class DrawerAccountCard {
         boolean trouble = profile.problem != null;
         subtitle.setText(trouble ? "Sign-in not accepted" : "Connected");
         subtitle.setTextColor(v.color(trouble ? R.color.ob_error : R.color.ob_text_2));
-        action.setVisibility(View.VISIBLE);
-        action.setOnClickListener(x -> actions.signOut());
+        // v2.0.5: Sign out sits under the details (the top row keeps "GitHub" and its state whole)
+        action.setVisibility(View.GONE);
+        signOut.setVisibility(View.VISIBLE);
+        signOut.setOnClickListener(x -> actions.signOut());
         // the details, each on its own lines, wrapping (nothing cut, nothing drawn over)
         details.setVisibility(View.VISIBLE);
+        // v2.0.5: the name line only when GitHub has a name (else @username showed twice); @username and the e-mail
+        // on one line each (middle ellipsis: both ends stay visible), the copy buttons copy them whole
         boolean named = profile.name != null && !profile.name.trim().isEmpty();
-        wrap(name, named ? profile.name.trim() : "@" + profile.login);
-        wrap(login, "@" + profile.login);
+        if (named) {
+            wrap(name, profile.name.trim());
+            name.setVisibility(View.VISIBLE);
+        } else {
+            name.setVisibility(View.GONE);
+        }
+        oneLine(login, "@" + profile.login);
         copyLogin.setOnClickListener(x -> copy(card, "GitHub user name", profile.login));
         if (profile.email != null && !profile.email.isEmpty()) {
-            wrap(email, profile.email);
+            oneLine(email, profile.email);
             emailRow.setVisibility(View.VISIBLE);
             copyEmail.setOnClickListener(x -> copy(card, "E-mail", profile.email));
         } else {
@@ -122,6 +133,15 @@ public final class DrawerAccountCard {
         card.setOnClickListener(null);
         card.setClickable(false);
         card.setContentDescription("GitHub account @" + profile.login);
+    }
+
+    /** v2.0.5: one line, never wrapped; a long value keeps its start and end ("bammidieswar…@gmail.com"). */
+    private static void oneLine(TextView t, String text) {
+        t.setSelected(false);
+        t.setSingleLine(true);
+        t.setMaxLines(1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        t.setText(text);
     }
 
     /** v2.0.4: one tap copies (a toast says what). */

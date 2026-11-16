@@ -97,7 +97,7 @@ public class CloudSyncService extends Service {
         }
         if (link != null && link.startsWith("https://github.com/")) {
             b.addAction(new Notification.Action.Builder(null, "Open on GitHub", PendingIntent.getActivity(context, id,
-                    new Intent(Intent.ACTION_VIEW, Uri.parse(link)), PendingIntent.FLAG_IMMUTABLE
+                    viewer(context, link), PendingIntent.FLAG_IMMUTABLE
                             | PendingIntent.FLAG_UPDATE_CURRENT)).build());
         }
         notify(context, id, b.build());
@@ -138,7 +138,7 @@ public class CloudSyncService extends Service {
                         .build());
         if (link != null && link.startsWith("https://github.com/")) {
             b.addAction(new Notification.Action.Builder(null, "Open on GitHub", PendingIntent.getActivity(context, 1,
-                    new Intent(Intent.ACTION_VIEW, Uri.parse(link)), PendingIntent.FLAG_IMMUTABLE
+                    viewer(context, link), PendingIntent.FLAG_IMMUTABLE
                             | PendingIntent.FLAG_UPDATE_CURRENT)).build());
         }
         if (Build.VERSION.SDK_INT >= 31) b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
@@ -149,6 +149,14 @@ public class CloudSyncService extends Service {
         Intent i = new Intent(context, Actions.class).setAction(action).putExtra(EXTRA_KEY, key).putExtra(EXTRA_ID, id);
         return PendingIntent.getBroadcast(context, (action + key).hashCode(), i,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    /** v2.0.5: "Open on GitHub" opens the repository in the app (RepoViewerActivity); other links the browser. */
+    static Intent viewer(Context context, String link) {
+        GitHubImport.Source source = GitHubImport.parse(link);
+        Intent i = source == null ? new Intent(Intent.ACTION_VIEW, Uri.parse(link))
+                : RepoViewerActivity.intent(context, source.owner, source.repo);
+        return i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     }
 
     private static PendingIntent openApp(Context context) {
