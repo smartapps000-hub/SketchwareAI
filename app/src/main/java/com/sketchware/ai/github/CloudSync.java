@@ -1314,10 +1314,14 @@ public final class CloudSync {
                         if (!e.isJsonObject()) continue;
                         String dex = DeviceFlow.string(e.getAsJsonObject(), "dexPath");
                         File folder = dex == null ? null : new File(dex).getParentFile();
-                        // second review: only a library's own folder (libs/local_libs/<name>), never a wider one
+                        // second review: only a library's own folder (.sketchware/libs/local_libs/<name>), never a
+                        // wider one; third review: by its path's last parts, so /sdcard/… and /storage/emulated/0/…
+                        // spellings of the same folder both count
                         File parent = folder == null ? null : folder.getParentFile();
-                        if (parent != null && parent.getAbsolutePath().equals(new File(root, "libs/local_libs")
-                                .getAbsolutePath())) {
+                        File libs = parent == null ? null : parent.getParentFile();
+                        File sketchwareDir = libs == null ? null : libs.getParentFile();
+                        if (sketchwareDir != null && "local_libs".equals(parent.getName()) && "libs".equals(libs.getName())
+                                && ".sketchware".equals(sketchwareDir.getName()) && !folder.getName().isEmpty()) {
                             listing(folder, "lib", sb, 0);
                         }
                     }
