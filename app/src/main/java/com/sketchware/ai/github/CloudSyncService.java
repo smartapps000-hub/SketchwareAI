@@ -117,9 +117,10 @@ public class CloudSyncService extends Service {
                 instance = null;
                 context.stopService(new Intent(context, CloudSyncService.class));
             }
+            // third review: inside the lock (a job of the other lane can't post its notification in between)
+            NotificationManager nm = context.getSystemService(NotificationManager.class);
+            if (nm != null) nm.cancel(ID_RUNNING);
         }
-        NotificationManager nm = context.getSystemService(NotificationManager.class);
-        if (nm != null) nm.cancel(ID_RUNNING);
     }
 
     private static Notification build(Context context, String key, String title, int percent, String text, String link) {
@@ -191,12 +192,13 @@ public class CloudSyncService extends Service {
             }
         } catch (RuntimeException e) {
             // not allowed now: the notification alone (the jobs don't depend on the service)
+            // third review: stopped inside the lock (a running() in between would start it again only to be stopped)
             synchronized (LOCK) {
                 started = false;
                 foreground = false;
+                if (current != null) notify(this, ID_RUNNING, current);
+                stopSelf();
             }
-            if (current != null) notify(this, ID_RUNNING, current);
-            stopSelf();
             return START_NOT_STICKY;
         }
         synchronized (LOCK) {
@@ -225,9 +227,10 @@ public class CloudSyncService extends Service {
                 foreground = false;
                 instance = null;
             }
+            // third review: inside the lock, as idle() and the self-stop do
+            stopForeground(STOP_FOREGROUND_DETACH);
+            stopSelf();
         }
-        stopForeground(STOP_FOREGROUND_DETACH);
-        stopSelf();
     }
 
     @Override
