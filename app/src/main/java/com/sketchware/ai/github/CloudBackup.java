@@ -401,6 +401,18 @@ public final class CloudBackup {
         }
     }
 
+    /**
+     * v2.0.5 review (MEDIUM): GitHub refuses this sign-in itself: GET /user answers exactly 401. Anything else (200, a
+     * server error, a rate limit, 403, no network) is not a refusal: a 401 elsewhere was a one-off.
+     */
+    public boolean refusesSignIn() {
+        try {
+            return GitHubHttp.api("GET", "/user", token, null).code == 401;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     /** v2.0.3: GET /user answers 200 with this token (a 401 elsewhere was a one-off); false on 401. */
     public boolean signInWorks() throws IOException {
         GitHubHttp.Response r = GitHubHttp.api("GET", "/user", token, null);

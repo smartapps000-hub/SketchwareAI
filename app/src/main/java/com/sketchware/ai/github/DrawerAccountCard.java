@@ -130,6 +130,17 @@ public final class DrawerAccountCard {
             status.setTextColor(v.color(R.color.ob_text_2));
             renew.setVisibility(View.GONE);
         }
+        // review (LOW): with Sign in again beside it both pills share the row (two lines rather than cut at a large
+        // font); alone, Sign out keeps its own width
+        android.widget.LinearLayout.LayoutParams renewParams = (android.widget.LinearLayout.LayoutParams) renew.getLayoutParams();
+        android.widget.LinearLayout.LayoutParams outParams = (android.widget.LinearLayout.LayoutParams) signOut.getLayoutParams();
+        boolean both = renew.getVisibility() == View.VISIBLE;
+        renewParams.width = both ? 0 : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+        renewParams.weight = both ? 1 : 0;
+        outParams.width = both ? 0 : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+        outParams.weight = both ? 1 : 0;
+        renew.setLayoutParams(renewParams);
+        signOut.setLayoutParams(outParams);
         card.setOnClickListener(null);
         card.setClickable(false);
         card.setContentDescription("GitHub account @" + profile.login);

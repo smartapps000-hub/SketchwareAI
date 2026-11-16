@@ -152,7 +152,8 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                 : "This repository isn't there, or it is private and belongs to another account.", true), v.full(-1, 8));
         if (signedOut) {
             list.addView(v.smallPill("Sign in", true, true, x -> GitHubInAppAuthDialog.show(this, l -> {
-                if (!isFinishing()) load();
+                // review (LOW): a screen destroyed meanwhile (its executor shut down) loads nothing
+                if (!isFinishing() && !isDestroyed()) load();
             })), pillAt(6));
         }
         browserRow();
@@ -332,17 +333,34 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                 .show();
     }
 
+    /**
+     * Review (LOW): APK downloads go one after the other on a queue of their own that outlives this screen (leaving it
+     * doesn't stop a download), and the same file is never written twice at once.
+     */
+    private static final ExecutorService DOWNLOADS = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "RepoViewerDownload");
+        t.setDaemon(true);
+        return t;
+    });
+    private static final java.util.Set<String> DOWNLOADING = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** The version's APK into .sketchware/downloads, then Android's installer (it asks before installing). */
     private void downloadApk(ProjectRepo.Version ver, ProjectRepo.Asset apk) {
+        File dir = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/downloads");
+        File target = new File(dir, ProjectRepo.safeFileName(apk.name));
+        if (!DOWNLOADING.add(target.getAbsolutePath())) {
+            Toast.makeText(this, "That APK is already downloading.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         GitHubProgress progress = GitHubProgress.show(this, R.drawable.ob_ic_github, "APK of " + displayName(repo) + " "
                 + ver.label());
         progress.update(2, "Connecting to GitHub…");
-        String token = token();
-        File dir = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/downloads");
-        File target = new File(dir, ProjectRepo.safeFileName(apk.name));
-        work.execute(() -> {
+        android.content.Context app = getApplicationContext();
+        DOWNLOADS.execute(() -> {
             String message;
             boolean ok = false;
+            // review (LOW): the token is read here, not on the main thread (Keystore)
+            String token = token();
             try {
                 if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("Can't create " + dir);
                 File part = new File(target.getPath() + ".part");
@@ -361,9 +379,18 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                 message = "Saved to .sketchware/downloads/" + target.getName() + ": Android's installer opens.";
             } catch (Exception e) {
                 message = GitHubImportDialog.text(e);
+            } finally {
+                DOWNLOADING.remove(target.getAbsolutePath());
             }
             boolean success = ok;
             String text = message;
+            if (isFinishing() || isDestroyed()) {
+                // the screen is gone: the end as a toast (no installer started from the background)
+                String shown = success ? "Saved to .sketchware/downloads/" + target.getName() : text;
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                        Toast.makeText(app, shown, Toast.LENGTH_LONG).show());
+                return;
+            }
             ui(() -> {
                 if (!success) {
                     progress.failed(text, false);

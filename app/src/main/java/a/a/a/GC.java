@@ -56,6 +56,9 @@ public class GC extends DA implements View.OnClickListener {
     private RecyclerView myProjects;
     private View cvCreateNew;
     private View cvRestoreProjects;
+    /** v2.0.5 review (HIGH): found in initialize (getView() is still null during the first load in onCreateView). */
+    private View demoSection;
+    private LinearLayout demoRow;
     /** Every project on disk; {@link #projectsList} is what the search filter lets through. */
     private ArrayList<HashMap<String, Object>> allProjects = new ArrayList<>();
     private String searchQuery = "";
@@ -102,6 +105,8 @@ public class GC extends DA implements View.OnClickListener {
 
         cvCreateNew = parent.findViewById(R.id.cv_create_new);
         cvCreateNew.setOnClickListener(this);
+        demoSection = parent.findViewById(R.id.ob_demo_section);
+        demoRow = parent.findViewById(R.id.ob_demo_row);
 
         isCollapsed = false;
 
@@ -253,11 +258,9 @@ public class GC extends DA implements View.OnClickListener {
 
     /** v2.0.5: the Demo row: one compact card per demo project; tap opens it, a long press offers Delete. */
     private void renderDemos(ArrayList<HashMap<String, Object>> demos) {
-        View root = getView();
-        if (root == null) return;
-        View section = root.findViewById(R.id.ob_demo_section);
-        LinearLayout row = root.findViewById(R.id.ob_demo_row);
-        if (section == null || row == null) return;
+        View section = demoSection;
+        LinearLayout row = demoRow;
+        if (section == null || row == null || getContext() == null) return;
         row.removeAllViews();
         section.setVisibility(demos.isEmpty() ? View.GONE : View.VISIBLE);
         for (int i = 0; i < demos.size(); i++) {

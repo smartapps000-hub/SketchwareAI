@@ -178,6 +178,7 @@ public final class GitHubHttp {
             try {
                 r = apiOnce(method, path, token, json);
             } catch (IOException e) {
+                if (isCancelled()) throw new Cancelled();
                 if (!read || attempt >= backoff.length || !worthRetry(e)) throw e;
                 pause(backoff[attempt]);
                 continue;
@@ -227,6 +228,7 @@ public final class GitHubHttp {
                 c.setRequestProperty("Accept", "application/vnd.github.raw");
                 r = read(c);
             } catch (IOException e) {
+                if (isCancelled()) throw new Cancelled();
                 if (attempt >= backoff.length || !worthRetry(e)) throw e;
                 pause(backoff[attempt]);
                 continue;
@@ -352,6 +354,7 @@ public final class GitHubHttp {
                 }
                 return r;
             } catch (IOException e) {
+                if (isCancelled()) throw new Cancelled();
                 if (attempt >= backoff.length || !worthRetry(e)) throw e;
                 pause(backoff[attempt]);
             }
@@ -479,6 +482,7 @@ public final class GitHubHttp {
                     }
                     return r;
                 } catch (IOException e) {
+                    if (isCancelled()) throw new Cancelled();
                     if (attempt >= backoff.length || !worthRetry(e)) throw e;
                     pause(backoff[attempt]);
                 }
@@ -530,13 +534,14 @@ public final class GitHubHttp {
 
     /** A dropped or timed-out connection is worth another try; a missing host (offline, no DNS) or TLS problem not. */
     static boolean worthRetry(IOException e) {
-        if (e instanceof NoRetry) return false;
+        if (e instanceof NoRetry || isCancelled()) return false;
         if (e instanceof java.net.UnknownHostException) return false;
         if (e instanceof javax.net.ssl.SSLHandshakeException) return false;
         return true;
     }
 
     private static void pause(long millis) throws IOException {
+        stopIfCancelled();
         long jitter = millis <= 0 ? 0 : (long) (Math.random() * Math.min(500, millis / 4));
         try {
             Thread.sleep(millis + jitter);
@@ -544,6 +549,7 @@ public final class GitHubHttp {
             Thread.currentThread().interrupt();
             throw new Cancelled();
         }
+        stopIfCancelled();
     }
 
     /** While this credential's rate-limit pause lasts: a 429 answer without going to GitHub; else null. */
@@ -620,9 +626,17 @@ public final class GitHubHttp {
         }
     }
 
+    /**
+     * v2.0.5 review (MEDIUM): the threads whose job was cancelled, paused or stopped. Android's HTTP stack (okio's
+     * timeouts) clears a thread's interrupt flag and throws an InterruptedIOException, which looked like a dropped
+     * connection worth another try: the cancel is kept here until the job ends ({@link #endJob}).
+     */
+    private static final java.util.Set<Thread> CANCELLED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** v2.0.4: stops {@code worker}'s transfer: interrupted, and its open connection closed. */
     static void cancel(Thread worker) {
         if (worker == null) return;
+        CANCELLED.add(worker);
         worker.interrupt();
         HttpURLConnection c = ACTIVE.get(worker);
         if (c != null) {
@@ -634,9 +648,20 @@ public final class GitHubHttp {
         }
     }
 
+    /** Whether the current thread's job was cancelled (its interrupt flag, or the record a cleared flag can't lose). */
+    static boolean isCancelled() {
+        Thread t = Thread.currentThread();
+        return t.isInterrupted() || CANCELLED.contains(t);
+    }
+
     /** Throws {@link Cancelled} when the current thread was cancelled. */
     static void stopIfCancelled() throws Cancelled {
-        if (Thread.currentThread().isInterrupted()) throw new Cancelled();
+        if (isCancelled()) throw new Cancelled();
+    }
+
+    /** v2.0.5: a job ends (or starts) on the current thread: its cancel record goes. */
+    static void endJob() {
+        CANCELLED.remove(Thread.currentThread());
     }
 
     /** The current thread's work is done with its connection. */

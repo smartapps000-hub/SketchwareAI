@@ -655,6 +655,22 @@ public final class GitHubTest {
         java.util.HashMap<String, Object> oldDemo = new java.util.HashMap<>();
         oldDemo.put("sc_id", "9050");
         oldDemo.put("my_sc_pkg_name", "com.my.githubdemo");
+        oldDemo.put("my_ws_name", "GitHub_API_Demo");
+        // review: a project of the sample's package with another name, and a copy carrying another project's mark, are
+        // the user's own projects
+        java.util.HashMap<String, Object> ownApp = new java.util.HashMap<>();
+        ownApp.put("sc_id", "9052");
+        ownApp.put("my_sc_pkg_name", "com.my.githubdemo");
+        ownApp.put("my_ws_name", "My_Own_App");
+        File copiedMark = new File(sketchware, "data/9053/demo.json");
+        copiedMark.getParentFile().mkdirs();
+        writeText(copiedMark, "{\"demo\":\"github\",\"version\":3,\"sc_id\":\"9051\"}");
+        java.util.HashMap<String, Object> copiedDemo = new java.util.HashMap<>();
+        copiedDemo.put("sc_id", "9053");
+        copiedDemo.put("my_sc_pkg_name", "com.my.githubdemo");
+        copiedDemo.put("my_ws_name", "GitHub_API_Demo");
+        boolean ownStays = Boolean.FALSE.equals(call(demos, "isDemo", ownApp)) && Boolean.FALSE.equals(call(demos, "isDemo", copiedDemo));
+        deleteTree(new File(sketchware, "data/9053"));
         call(demos, "mark", "9051", "github", 3);
         java.util.HashMap<String, Object> newDemo = new java.util.HashMap<>();
         newDemo.put("sc_id", "9051");
@@ -664,7 +680,8 @@ public final class GitHubTest {
         check("v2.0.5: demo projects (the GitHub API Demo's package or a demo mark) go to the Demo row, the newest demo "
                         + "version first; an ordinary project doesn't", !plainIsDemo && Boolean.TRUE.equals(call(demos, "isDemo", oldDemo))
                         && Integer.valueOf(3).equals(call(demos, "version", "9051")) && Integer.valueOf(1).equals(call(demos, "version", "9050"))
-                        && "9051".equals(demoList.get(0).get("sc_id")), demoList);
+                        && "9051".equals(demoList.get(0).get("sc_id")) && ownStays
+                        && Boolean.TRUE.equals(call(demos, "isDemo", newDemo)), demoList + " " + ownStays);
         deleteTree(new File(sketchware, "data/9051"));
         Class<?> backupsScreen = c("com.sketchware.ai.github.GitHubBackupsActivity");
         List<Object> carousel = new ArrayList<>();
@@ -685,6 +702,43 @@ public final class GitHubTest {
                         && "★ Pinned".equals(call(backupsScreen, "badgeOf", front.get(0), false))
                         && "New".equals(call(backupsScreen, "badgeOf", front.get(1), (Long) get(front.get(1), "time") == newest))
                         && "".equals(call(backupsScreen, "badgeOf", front.get(2), false)), front.size());
+        // review (MEDIUM): a cancel is kept for the thread even when the HTTP stack clears its interrupt flag
+        Class<?> http = c("com.sketchware.ai.github.GitHubHttp");
+        boolean[] seen = new boolean[3];
+        java.util.concurrent.CountDownLatch cancelLatch = new java.util.concurrent.CountDownLatch(1);
+        Thread transfer = new Thread(() -> {
+            try {
+                cancelLatch.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                // the flag is cleared here, as okio's timeout check does
+            }
+            try {
+                while (!Thread.interrupted() && cancelLatch.getCount() > 0) Thread.sleep(5);
+                seen[0] = Boolean.TRUE.equals(call(http, "isCancelled"));
+                seen[1] = !Boolean.TRUE.equals(call(http, "worthRetry", new java.io.IOException("dropped")));
+                call(http, "endJob");
+                seen[2] = !Boolean.TRUE.equals(call(http, "isCancelled"));
+            } catch (Throwable t) {
+                OUT.println("cancel thread: " + t);
+            }
+        });
+        transfer.start();
+        Thread.sleep(100);
+        call(http, "cancel", transfer);
+        cancelLatch.countDown();
+        transfer.join(10_000);
+        check("v2.0.5 review: a cancelled transfer stays cancelled after its interrupt flag is cleared (no retry), "
+                + "until its job ends", seen[0] && seen[1] && seen[2], seen[0] + " " + seen[1] + " " + seen[2]);
+        // review (MEDIUM): the resume key changes with the project's images (not only data/<id>)
+        Object automaticOptions = get(c("com.sketchware.ai.github.CloudSync$Options"), "AUTOMATIC");
+        String keyBefore = (String) call(c("com.sketchware.ai.github.CloudSync"), "resumeInputs", scId, automaticOptions);
+        File image = new File(sketchware, "resources/images/" + scId + "/v205_review.png");
+        image.getParentFile().mkdirs();
+        writeText(image, "not really a png");
+        String keyAfter = (String) call(c("com.sketchware.ai.github.CloudSync"), "resumeInputs", scId, automaticOptions);
+        image.delete();
+        check("v2.0.5 review: a kept backup isn't resumed after an image (icon, sound, font, the project's list entry, "
+                + "libraries) changed", !keyBefore.equals(keyAfter), keyBefore + " / " + keyAfter);
         Class<?> doctor = c("com.sketchware.ai.github.SyncDoctor");
         String advised401 = (String) call(doctor, "withAdvice", "http_401", "GitHub refused the upload (HTTP 401).");
         String advised5xx = (String) call(doctor, "withAdvice", "http_502", "Uploading the backup failed (HTTP 502).");
