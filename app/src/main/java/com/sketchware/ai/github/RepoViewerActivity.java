@@ -429,6 +429,13 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
         });
     }
 
+    /** v2.0.5 render: "66 B", "1.8 KB", "2.3 MB" (a small file never shows as "0.0 MB"). */
+    static String fileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format(java.util.Locale.ENGLISH, "%.1f KB", bytes / 1024.0);
+        return CloudSync.megabytes(bytes);
+    }
+
     static String shorten(String text, int maxLines) {
         String[] lines = text.split("\n", -1);
         if (lines.length <= maxLines) return text;
@@ -456,7 +463,7 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                         boolean dir = "dir".equals(DeviceFlow.string(o, "type"));
                         long size = o.has("size") && o.get("size").isJsonPrimitive() ? o.get("size").getAsLong() : 0;
                         rows.add(new String[]{(dir ? "📁 " : "📄 ") + DeviceFlow.string(o, "name"),
-                                dir ? "folder" : CloudSync.megabytes(size)});
+                                dir ? "folder" : fileSize(size)});
                     }
                 }
             }

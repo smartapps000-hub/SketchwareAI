@@ -260,40 +260,12 @@ public class GC extends DA implements View.OnClickListener {
         if (section == null || row == null) return;
         row.removeAllViews();
         section.setVisibility(demos.isEmpty() ? View.GONE : View.VISIBLE);
-        com.sketchware.ai.github.GitHubViews v = new com.sketchware.ai.github.GitHubViews(getContext());
         for (int i = 0; i < demos.size(); i++) {
             HashMap<String, Object> project = demos.get(i);
             String scId = yB.c(project, "sc_id");
-            String name = yB.c(project, "my_app_name");
-            LinearLayout card = new LinearLayout(getContext());
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setBackgroundResource(R.drawable.ob_pill16_state);
-            card.setPadding(v.dp(14), v.dp(10), v.dp(14), v.dp(10));
-            card.setMinimumWidth(v.dp(180));
-            TextView title = new TextView(getContext(), null, 0, R.style.Ob_Text_Label);
-            title.setText(name.isEmpty() ? yB.c(project, "my_ws_name") : name);
-            title.setTypeface(v.bold());
-            com.sketchware.ai.github.GitHubViews.oneLine(title);
-            card.addView(title);
-            TextView badge = new TextView(getContext(), null, 0, R.style.Ob_Text_Caption);
-            badge.setText(i == 0 ? "Latest demo" : "Older demo");
-            badge.setTypeface(v.bold());
-            badge.setTextColor(v.color(i == 0 ? R.color.ob_accent : R.color.ob_text_2));
-            card.addView(badge);
-            TextView detail = new TextView(getContext(), null, 0, R.style.Ob_Text_Caption);
-            detail.setText("#" + scId + " · " + yB.c(project, "sc_ver_name") + " (" + yB.c(project, "sc_ver_code") + ")");
-            com.sketchware.ai.github.GitHubViews.oneLine(detail);
-            card.addView(detail);
-            card.setClickable(true);
-            card.setOnClickListener(x -> toDesignActivity(scId));
-            card.setOnLongClickListener(x -> {
-                confirmDeleteDemo(scId, title.getText().toString());
-                return true;
-            });
-            card.setContentDescription(title.getText() + ", " + badge.getText() + ", project " + scId);
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
-            if (i > 0) p.leftMargin = v.dp(8);
-            row.addView(card, p);
+            String name = yB.c(project, "my_app_name").isEmpty() ? yB.c(project, "my_ws_name") : yB.c(project, "my_app_name");
+            row.addView(com.sketchware.ai.ui.DemoCards.card(getContext(), project, i, () -> toDesignActivity(scId),
+                    () -> confirmDeleteDemo(scId, name)), com.sketchware.ai.ui.DemoCards.params(getContext(), i));
         }
     }
 

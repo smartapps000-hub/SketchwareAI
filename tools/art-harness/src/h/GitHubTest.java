@@ -39,7 +39,12 @@ public final class GitHubTest {
         OUT.println("GITHUB CHECK " + (result ? "ok  " : "FAIL") + " " + name + (detail == null ? "" : " - " + detail));
     }
 
+    /** v2.0.5: throws a checked exception (a job's Cancelled) out of a proxy handler as it is. */
     @SuppressWarnings("unchecked")
+    static <T extends Throwable> void sneaky(Throwable t) throws T {
+        throw (T) t;
+    }
+
     /** v2.0.3: polls {@code condition} until it holds or {@code millis} pass; true when it held. */
     static boolean waitFor(java.util.function.BooleanSupplier condition, long millis) throws InterruptedException {
         long end = System.currentTimeMillis() + millis;
@@ -772,13 +777,15 @@ public final class GitHubTest {
             return null;
         });
         String jobClass = "com.sketchware.ai.github.CloudSync$Job";
-        call(cloudSync, "enqueue", neu(jobClass, "9001", "backup", "First", autoOptions, false), null, result.apply("A"));
+        // v2.0.5: the running job is a tap's (a running automatic backup pauses for a tap: checked below)
+        call(cloudSync, "enqueue", neu(jobClass, "9001", "backup", "First", autoOptions, true), null, result.apply("A"));
         waitFor(() -> ran.contains("9001"), 5000);
         call(cloudSync, "enqueue", neu(jobClass, "9003", "backup", null, autoOptions, false), null, result.apply("C"));
         call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), watcher, result.apply("B1"));
         call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), null, result.apply("B2"));
-        // v2.0.5: the running automatic backup pauses for the tap (its name and percent shown)
-        boolean waitingShown = steps.size() > 0 && steps.get(0).contains("Waiting: First (");
+        // v2.0.5: the running job's name and percent are shown
+        boolean waitingShown = steps.size() > 0 && steps.get(0).contains("Waiting: Backing up First (")
+                && steps.get(0).contains("goes first");
         boolean busy = Boolean.TRUE.equals(call(cloudSync, "isRunning", "9002"));
         release.countDown();
         waitFor(() -> ran.size() >= 3 && results.size() >= 4, 10000);
@@ -911,11 +918,13 @@ public final class GitHubTest {
                     }
                 }
             } catch (InterruptedException e) {
+                Object cancelled;
                 try {
-                    throw (Exception) neu("com.sketchware.ai.github.GitHubHttp$Cancelled");
-                } catch (Exception ex) {
+                    cancelled = neu("com.sketchware.ai.github.GitHubHttp$Cancelled");
+                } catch (Throwable ex) {
                     throw new RuntimeException(ex);
                 }
+                GitHubTest.<RuntimeException>sneaky((Throwable) cancelled);
             }
             return "done " + id;
         });

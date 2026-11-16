@@ -584,7 +584,7 @@ public final class ProjectDiffAnalyzer {
                     case "WebView": out.add("WebView"); break;
                     case "MapView": out.add("Google Maps"); break;
                     case "VideoView": out.add("VideoView"); break;
-                    case "RecyclerView": case "ListView": case "GridView": out.add("lists"); break;
+                    case "RecyclerView": case "ListView": case "GridView": out.add("scrolling lists"); break;
                     case "ViewPager": case "TabLayout": out.add("tabs"); break;
                     case "BottomNavigationView": out.add("bottom navigation"); break;
                     case "AdView": out.add("AdMob banner"); break;
