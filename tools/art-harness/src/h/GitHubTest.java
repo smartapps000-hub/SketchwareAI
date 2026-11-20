@@ -266,14 +266,87 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 206, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(206).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 207, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(207).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.0.5 (206) with it: no notice", call(control, "decide", shipped, 206, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 205, false, null);
-        check("an older version (v2.0.4, 205): Update with the v2.0.5 URL", old198 != null && "update".equals(get(old198, "kind"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.5.apk"),
+        check("v2.1.0 (207) with it: no notice", call(control, "decide", shipped, 207, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 206, false, null);
+        check("an older version (v2.0.5, 206): Update with the v2.1.0 URL, not forced", old198 != null
+                && "update".equals(get(old198, "kind")) && Boolean.FALSE.equals(get(old198, "force"))
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.0.apk"),
                 old198 == null ? null : get(old198, "url"));
+        check("v2.1.0: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 207 "
+                        + "\"v2.1.0\", update not forced",
+                String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
+                        && Integer.valueOf(207).equals(get(shipped, "latestVersionCode"))
+                        && "v2.1.0".equals(get(shipped, "latestVersionName")) && Boolean.FALSE.equals(get(shipped, "forceUpdate")),
+                get(shipped, "updateSha256"));
+        Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
+                + "ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"latest_version_code\":301,"
+                + "\"latest_version_name\":\"v3.0.1\",\"coming_soon\":\"  Wear OS projects  \","
+                + "\"update_url\":\"https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/x.apk\"}");
+        Object forcedNotice = call(control, "decide", forced, 207, true, null);
+        check("v2.1.0: a forced update: the notice can't be put off; the SHA-256 kept in lower case; latest and "
+                        + "\"coming soon\" read (trimmed)",
+                forcedNotice != null && Boolean.TRUE.equals(get(forcedNotice, "force"))
+                        && "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789".equals(get(forced, "updateSha256"))
+                        && Integer.valueOf(301).equals(get(forced, "latestVersionCode")) && "v3.0.1".equals(get(forced, "latestVersionName"))
+                        && "Wear OS projects".equals(get(forced, "comingSoon")), get(forced, "comingSoon"));
+        check("v2.1.0: a SHA-256 that isn't 64 hex digits is ignored (the updater then opens the link in the browser)",
+                get(call(control, "parse", "{\"update_sha256\":\"abc\"}"), "updateSha256") == null
+                        && get(call(control, "parse", "{\"update_sha256\":\"" + new String(new char[64]).replace((char) 0, (char) 103) + "\"}"), "updateSha256") == null,
+                null);
+        Class<?> updater = c("com.sketchware.ai.github.AppUpdater");
+        Object newerRelease = call(control, "parse", "{\"min_version_code\":1,\"latest_version_code\":99999,"
+                + "\"update_url\":\"https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/x.apk\"}");
+        check("v2.1.0: Settings offers an update when a newer release is out (not only below the minimum); none without a "
+                        + "link or for this version",
+                Boolean.TRUE.equals(call(updater, "newerAvailable", newerRelease))
+                        && Boolean.FALSE.equals(call(updater, "newerAvailable", call(control, "parse", "{\"latest_version_code\":99999}")))
+                        && Boolean.FALSE.equals(call(updater, "newerAvailable", shipped)), null);
+        // --- v2.1.0: the Play Store list kept on the phone, the sound switch, this install's id
+        Class<?> storeClass = c("com.sketchware.ai.github.PlayStore");
+        Object app1 = neu("com.sketchware.ai.github.PlayStore$App");
+        set(app1, "owner", "ann");
+        set(app1, "repo", "SketchwareAI-Notes");
+        set(app1, "number", 11L);
+        set(app1, "title", "Notes Pro");
+        set(app1, "video", "https://youtu.be/abc");
+        @SuppressWarnings("unchecked")
+        List<String> app1Shots = (List<String>) get(app1, "screenshots");
+        app1Shots.add("https://raw.githubusercontent.com/ann/SketchwareAI-Notes/main/playstore/screenshots/01.jpg");
+        app1Shots.add("https://evil.example/x.jpg");
+        Object app2 = neu("com.sketchware.ai.github.PlayStore$App");
+        set(app2, "owner", "cy");
+        set(app2, "repo", "SketchwareAI-Public-Timer");
+        call(storeClass, "save", CTX, java.util.Arrays.asList(app1, app2));
+        @SuppressWarnings("unchecked")
+        List<Object> storeKept = (List<Object>) call(storeClass, "cached", CTX);
+        check("v2.1.0: the Play Store list is kept on the phone for offline use (pictures from GitHub's file host only)",
+                storeKept.size() == 2 && "Notes Pro".equals(call(storeKept.get(0), "name")) && Long.valueOf(11).equals(get(storeKept.get(0), "number"))
+                        && ((List<?>) get(storeKept.get(0), "screenshots")).size() == 1 && "Timer".equals(call(storeKept.get(1), "name")),
+                storeKept.size());
+        Object app1b = neu("com.sketchware.ai.github.PlayStore$App");
+        set(app1b, "owner", "Ann");
+        set(app1b, "repo", "sketchwareai-notes");
+        set(app1b, "title", "Notes 2");
+        call(storeClass, "remember", CTX, app1b);
+        @SuppressWarnings("unchecked")
+        List<Object> kept2 = (List<Object>) call(storeClass, "cached", CTX);
+        check("v2.1.0: an app's page read later replaces its entry (owner and name in any case), nothing doubled",
+                kept2.size() == 2 && "Notes 2".equals(call(kept2.get(0), "name")), kept2.size());
+        Class<?> barClass = c("com.sketchware.ai.ui.HoneyDropBar");
+        boolean soundDefault = Boolean.TRUE.equals(call(barClass, "soundOn", CTX));
+        call(barClass, "setSoundOn", CTX, false);
+        boolean soundOff = Boolean.FALSE.equals(call(barClass, "soundOn", CTX));
+        call(barClass, "setSoundOn", CTX, true);
+        check("v2.1.0: the Honey-Drop sound is on by default and Settings' switch turns it off", soundDefault && soundOff
+                && Boolean.TRUE.equals(call(barClass, "soundOn", CTX)), null);
+        Class<?> deviceGuard = c("com.sketchware.ai.github.SingleDeviceGuard");
+        Object id1 = call(deviceGuard, "installId", CTX);
+        Object id2 = call(deviceGuard, "installId", CTX);
+        check("v2.1.0: this install's id is made once and kept (a reinstall is a new phone)",
+                id1 != null && id1.equals(id2) && String.valueOf(id1).length() == 36, id1);
         Object msg = call(control, "parse", "{\"status_message\":\"Server maintenance tonight\"}");
         Object m1 = call(control, "decide", msg, 199, true, null);
         check("a status message once", m1 != null && "message".equals(get(m1, "kind"))
@@ -828,7 +901,7 @@ public final class GitHubTest {
             }
             ran.add(id);
             try {
-                if (id.equals("9001")) release.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (id.equals("9001") || id.equals("9002")) release.await(20, java.util.concurrent.TimeUnit.SECONDS);
                 if (id.equals("9006")) release2.await(20, java.util.concurrent.TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {
             }
@@ -848,23 +921,44 @@ public final class GitHubTest {
             return null;
         });
         String jobClass = "com.sketchware.ai.github.CloudSync$Job";
-        // v2.0.5: the running job is a tap's (a running automatic backup pauses for a tap: checked below)
+        // v2.1.0 (owner's 16 Nov directive "2-3 simultaneous backups"): two lanes for taps, one for automatic backups
         call(cloudSync, "enqueue", neu(jobClass, "9001", "backup", "First", autoOptions, true), null, result.apply("A"));
         waitFor(() -> ran.contains("9001"), 5000);
-        call(cloudSync, "enqueue", neu(jobClass, "9003", "backup", null, autoOptions, false), null, result.apply("C"));
         call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), watcher, result.apply("B1"));
         call(cloudSync, "enqueue", neu(jobClass, "9002", "backup", "Second", autoOptions, true), null, result.apply("B2"));
-        // v2.0.5: the running job's name and percent are shown
-        boolean waitingShown = steps.size() > 0 && steps.get(0).contains("Waiting: Backing up First (")
-                && steps.get(0).contains("goes first");
+        boolean secondAtOnce = waitFor(() -> ran.contains("9002"), 5000);
+        call(cloudSync, "enqueue", neu(jobClass, "9003", "backup", null, autoOptions, false), null, result.apply("C"));
+        boolean autoBeside = waitFor(() -> results.contains("C:true:done 9003"), 5000);
+        List<String> steps3 = java.util.Collections.synchronizedList(new ArrayList<>());
+        Object watcher3 = proxy("com.sketchware.ai.github.CloudSync$Progress", (m, a) -> {
+            if (m.equals("step")) steps3.add(a[0] + " " + a[1]);
+            return null;
+        });
+        call(cloudSync, "enqueue", neu(jobClass, "9009", "backup", "Third", autoOptions, true), watcher3, result.apply("D"));
+        Thread.sleep(400);
+        boolean thirdWaits = !ran.contains("9009") && steps3.size() > 0 && steps3.get(0).contains("Waiting: Backing up ")
+                && steps3.get(0).contains("goes first");
         boolean busy = Boolean.TRUE.equals(call(cloudSync, "isRunning", "9002"));
+        boolean bothRunning = !results.stream().anyMatch(r -> r.startsWith("A:") || r.startsWith("B1:"));
         release.countDown();
-        waitFor(() -> ran.size() >= 3 && results.size() >= 4, 10000);
-        check("v2.0.3: a tap's backup waits visibly behind a running one, then goes before the automatic ones",
-                waitingShown && busy && ran.subList(0, 3).equals(java.util.Arrays.asList("9001", "9002", "9003")), ran + " " + steps);
+        waitFor(() -> ran.contains("9009") && results.contains("D:true:done 9009") && results.contains("B2:true:done 9002"),
+                10000);
+        check("v2.1.0: two taps' backups run at once (two lanes) and an automatic backup runs beside them in its own lane",
+                secondAtOnce && autoBeside && bothRunning && busy, ran + " " + results);
+        check("v2.1.0: a third tap waits visibly (the running job's name and percent) while both lanes are busy, then runs",
+                thirdWaits && results.contains("D:true:done 9009"), ran + " " + steps3);
         check("v2.0.3: a second tap on the same project joins its backup (one upload, both hear the end)",
                 results.contains("B1:true:done 9002") && results.contains("B2:true:done 9002")
                         && java.util.Collections.frequency(ran, "9002") == 1, results);
+        // v2.1.0: one notification for several running jobs
+        Object nj1 = neu(jobClass, "9091", "backup", "Alpha", autoOptions, true);
+        set(nj1, "percent", 40);
+        Object nj2 = neu(jobClass, "9092", "publish", "Beta", autoOptions, true);
+        set(nj2, "percent", 75);
+        String[] combined = (String[]) call(syncClass, "combined", java.util.Arrays.asList(nj1, nj2));
+        check("v2.1.0: several running jobs share one notification: \"2 GitHub jobs\", a line each, the least percent",
+                "2 GitHub jobs".equals(combined[0]) && combined[1].equals("Backing up Alpha · 40%\nPublishing Beta · 75%")
+                        && "40".equals(combined[2]), java.util.Arrays.toString(combined));
         call(cloudSync, "enqueue", neu(jobClass, "9004", "backup", null, autoOptions, false), null, result.apply("E"));
         call(cloudSync, "enqueue", neu(jobClass, "9005", "backup", null, autoOptions, false), null, result.apply("F"));
         waitFor(() -> ran.contains("9005") && results.size() >= 6, 10000);
@@ -965,6 +1059,7 @@ public final class GitHubTest {
         ran.clear();
         java.util.concurrent.atomic.AtomicInteger autoRuns = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.CountDownLatch hang = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch autoHold = new java.util.concurrent.CountDownLatch(1);
         Object runner5 = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {
             if (!m.equals("run")) return null;
             String id;
@@ -973,13 +1068,20 @@ public final class GitHubTest {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            ran.add(id);
+            String kind;
             try {
-                if (id.equals("9020") && autoRuns.incrementAndGet() == 1) {
+                kind = (String) get(a[0], "kind");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            ran.add("publish".equals(kind) ? id + "p" : id);
+            try {
+                if (id.equals("9022")) autoHold.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (id.equals("9020") && "backup".equals(kind) && autoRuns.incrementAndGet() == 1) {
                     Thread.sleep(20_000);
                 }
                 if (id.equals("9030")) Thread.sleep(20_000);
-                if (id.equals("9031")) {
+                if (id.equals("9031") && "backup".equals(kind)) {
                     // hung: ignores the interrupt
                     while (hang.getCount() > 0) {
                         try {
@@ -1002,14 +1104,28 @@ public final class GitHubTest {
         set(syncClass, "runnerForTests", runner5);
         steps.clear();
         results.clear();
+        // v2.1.0: a tap on another project runs at once beside a running automatic backup (its own lane)
+        call(cloudSync, "enqueue", neu(jobClass, "9022", "backup", "Long", autoOptions, false), null, result.apply("O1"));
+        waitFor(() -> ran.contains("9022"), 5000);
+        call(cloudSync, "enqueue", neu(jobClass, "9023", "backup", "Quick", autoOptions, true), null, result.apply("O2"));
+        boolean besideAuto = waitFor(() -> results.contains("O2:true:done 9023"), 5000)
+                && !results.stream().anyMatch(r -> r.startsWith("O1:"));
+        autoHold.countDown();
+        waitFor(() -> results.contains("O1:true:done 9022"), 5000);
+        check("v2.1.0: a tap on another project neither waits for nor pauses a running automatic backup", besideAuto
+                && results.contains("O1:true:done 9022") && java.util.Collections.frequency(ran, "9022") == 1, ran + " " + results);
+        ran.clear();
+        results.clear();
+        steps.clear();
+        // v2.0.5 (kept in v2.1.0): a tap's job of the project whose automatic backup runs pauses that backup
         call(cloudSync, "enqueue", neu(jobClass, "9020", "backup", "Auto", autoOptions, false), null, result.apply("P"));
         waitFor(() -> ran.contains("9020"), 5000);
-        call(cloudSync, "enqueue", neu(jobClass, "9021", "backup", "Tapped", autoOptions, true), watcher, result.apply("Q"));
+        call(cloudSync, "enqueue", neu(jobClass, "9020", "publish", "Auto", autoOptions, true), watcher, result.apply("Q"));
         boolean pausedText = waitFor(() -> steps.stream().anyMatch(t -> t.contains("Auto (") && t.contains("pauses for this one")), 3000);
-        boolean bothDone = waitFor(() -> results.contains("Q:true:done 9021") && results.contains("P:true:done 9020"), 15000);
-        check("v2.0.5: a tap pauses the running automatic backup (\"Auto (0%) pauses for this one\"), runs at once, and the "
-                        + "paused backup runs again after it (one result each)",
-                pausedText && bothDone && ran.equals(java.util.Arrays.asList("9020", "9021", "9020"))
+        boolean bothDone = waitFor(() -> results.contains("Q:true:done 9020") && results.contains("P:true:done 9020"), 15000);
+        check("v2.0.5: a tap pauses the running automatic backup of its project (\"Auto (0%) pauses for this one\"), runs "
+                        + "at once, and the paused backup runs again after it (one result each)",
+                pausedText && bothDone && ran.equals(java.util.Arrays.asList("9020", "9020p", "9020"))
                         && java.util.Collections.frequency(results, "P:true:done 9020") == 1, ran + " " + results + " " + steps);
         long stallBefore = (Long) get(syncClass, "STALL_MS");
         long abandonBefore = (Long) get(syncClass, "ABANDON_MS");
@@ -1021,8 +1137,9 @@ public final class GitHubTest {
         boolean stalled = waitFor(() -> results.stream().anyMatch(r -> r.startsWith("S:false:Stopped: nothing moved")), 10000);
         call(cloudSync, "enqueue", neu(jobClass, "9031", "backup", "Hung", autoOptions, true), null, result.apply("T"));
         waitFor(() -> ran.contains("9031"), 5000);
-        call(cloudSync, "enqueue", neu(jobClass, "9032", "backup", "Next", autoOptions, true), null, result.apply("U"));
-        boolean wentOn = waitFor(() -> results.contains("U:true:done 9032")
+        // v2.1.0: the next job of the same project (so in the same lane as the hung one)
+        call(cloudSync, "enqueue", neu(jobClass, "9031", "publish", "Next", autoOptions, true), null, result.apply("U"));
+        boolean wentOn = waitFor(() -> results.contains("U:true:done 9031")
                 && results.stream().anyMatch(r -> r.startsWith("T:false:")), 15000);
         hang.countDown();
         set(syncClass, "STALL_MS", stallBefore);

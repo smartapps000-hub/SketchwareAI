@@ -1096,20 +1096,27 @@ public final class CloudSync {
         lastServicePercent = fingerprint;
         try {
             if (running.size() > 1) {
-                StringBuilder lines = new StringBuilder();
-                int least = 100;
-                for (Job j : running) {
-                    if (lines.length() > 0) lines.append('\n');
-                    lines.append(j.title()).append(" · ").append(Math.max(0, Math.min(100, j.percent))).append('%');
-                    least = Math.min(least, j.percent);
-                }
-                CloudSyncService.running(app, null, running.size() + " GitHub jobs", least, lines.toString(), null);
+                String[] combined = combined(running);
+                CloudSyncService.running(app, null, combined[0], Integer.parseInt(combined[2]), combined[1], null);
                 return;
             }
             CloudSyncService.running(app, job.key(), job.title(), job.percent, job.text, job.link);
         } catch (Throwable t) {
             LogUtil.d("CloudSync", "No progress notification: " + t);
         }
+    }
+
+    /** v2.1.0: the shared notification of several running jobs: {title, one line per job, the least percent}. */
+    static String[] combined(java.util.List<Job> running) {
+        StringBuilder lines = new StringBuilder();
+        int least = 100;
+        for (Job j : running) {
+            int percent = Math.max(0, Math.min(100, j.percent));
+            if (lines.length() > 0) lines.append('\n');
+            lines.append(j.title()).append(" · ").append(percent).append('%');
+            least = Math.min(least, percent);
+        }
+        return new String[]{running.size() + " GitHub jobs", lines.toString(), String.valueOf(least)};
     }
 
     private void serviceIdle() {

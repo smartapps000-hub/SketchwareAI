@@ -351,7 +351,7 @@ public final class PlayStore {
         steps.step(95, "Checking the newest version…");
         List<ProjectRepo.Version> versions = ProjectRepo.versions(token, login, repo, false);
         if (versions.isEmpty()) return "No version yet: back the project up so the store offers it.";
-        ProjectRepo.Version front = GitHubBackupsActivity.ordered(versions).get(0);
+        ProjectRepo.Version front = ProjectRepo.ordered(versions).get(0);
         if (front.apk == null) {
             return "Its newest version " + front.label() + " has no APK: Run the project, then back it up, so the store "
                     + "can offer the APK too (the .swb is offered now).";

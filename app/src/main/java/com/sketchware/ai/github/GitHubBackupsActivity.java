@@ -404,18 +404,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
      * newest ("New"); then the rest newest first; at most five.
      */
     static List<ProjectRepo.Version> ordered(List<ProjectRepo.Version> versions) {
-        List<ProjectRepo.Version> byDate = new ArrayList<>(versions);
-        ProjectRepo.sortNewestFirst(byDate);
-        List<ProjectRepo.Version> out = new ArrayList<>();
-        if (byDate.isEmpty()) return out;
-        for (ProjectRepo.Version x : byDate) {
-            if (x.standard) {
-                out.add(x);
-                break;
-            }
-        }
-        for (ProjectRepo.Version x : byDate) if (!out.contains(x)) out.add(x);
-        return out.size() > ProjectRepo.MAX_VERSIONS ? new ArrayList<>(out.subList(0, ProjectRepo.MAX_VERSIONS)) : out;
+        return ProjectRepo.ordered(versions);
     }
 
     static long newestTime(List<ProjectRepo.Version> versions) {

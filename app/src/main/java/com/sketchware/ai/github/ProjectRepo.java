@@ -335,6 +335,25 @@ public final class ProjectRepo {
         public String state;
     }
 
+    /**
+     * v2.0.5 (owner's 16 Nov directive): the pinned (★ Standard) version in the front slot when there is one, else the
+     * newest ("New"); then the rest newest first; at most five. (v2.1.0: here, so the Play Store uses it too.)
+     */
+    static List<Version> ordered(List<Version> versions) {
+        List<Version> byDate = new ArrayList<>(versions);
+        sortNewestFirst(byDate);
+        List<Version> out = new ArrayList<>();
+        if (byDate.isEmpty()) return out;
+        for (Version x : byDate) {
+            if (x.standard) {
+                out.add(x);
+                break;
+            }
+        }
+        for (Version x : byDate) if (!out.contains(x)) out.add(x);
+        return out.size() > MAX_VERSIONS ? new ArrayList<>(out.subList(0, MAX_VERSIONS)) : out;
+    }
+
     /** The versions, newest first (drafts left out unless {@code withDrafts}). */
     List<Version> versions(boolean withDrafts) throws IOException, GitHubException {
         return versions(token, login, name, withDrafts);
