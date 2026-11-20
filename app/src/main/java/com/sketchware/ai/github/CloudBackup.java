@@ -407,8 +407,14 @@ public final class CloudBackup {
      */
     public boolean refusesSignIn() {
         try {
+            if (GitHubHttp.api("GET", "/user", token, null).code != 401) return false;
+            // v2.1.0: asked once more after 3 s before a refusal is recorded
+            Thread.sleep(3000);
             return GitHubHttp.api("GET", "/user", token, null).code == 401;
         } catch (IOException e) {
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return false;
         }
     }

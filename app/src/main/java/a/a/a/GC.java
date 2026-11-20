@@ -256,39 +256,12 @@ public class GC extends DA implements View.OnClickListener {
         }
     }
 
-    /** v2.0.5: the Demo row: one compact card per demo project; tap opens it, a long press offers Delete. */
+    /**
+     * v2.1.0 (owner's 16 Nov directive): the Demo row is gone from the projects list; demo projects are listed in
+     * Restore projects > Demo (they stay out of this list).
+     */
     private void renderDemos(ArrayList<HashMap<String, Object>> demos) {
-        View section = demoSection;
-        LinearLayout row = demoRow;
-        if (section == null || row == null || getContext() == null) return;
-        row.removeAllViews();
-        section.setVisibility(demos.isEmpty() ? View.GONE : View.VISIBLE);
-        for (int i = 0; i < demos.size(); i++) {
-            HashMap<String, Object> project = demos.get(i);
-            String scId = yB.c(project, "sc_id");
-            String name = yB.c(project, "my_app_name").isEmpty() ? yB.c(project, "my_ws_name") : yB.c(project, "my_app_name");
-            row.addView(com.sketchware.ai.ui.DemoCards.card(getContext(), project, i, () -> toDesignActivity(scId),
-                    () -> confirmDeleteDemo(scId, name)), com.sketchware.ai.ui.DemoCards.params(getContext(), i));
-        }
-    }
-
-    private void confirmDeleteDemo(String scId, String name) {
-        if (getActivity() == null) return;
-        new com.sketchware.ai.ui.ObAlertBuilder(getActivity(), R.style.SketchwareAI_GlassAlertDialog)
-                .setTitle("Delete " + name + " #" + scId + "?")
-                .setMessage("The demo project is removed from this phone (its GitHub backups stay).")
-                .setPositiveButton("Delete", (d, w) -> {
-                    android.content.Context app = getActivity() == null ? null : getActivity().getApplicationContext();
-                    if (app == null) return;
-                    new Thread(() -> {
-                        lC.a(app, scId);
-                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                            if (getActivity() != null) refreshProjectsList();
-                        });
-                    }, "DeleteDemo").start();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        if (demoSection != null) demoSection.setVisibility(View.GONE);
     }
 
     private void toDesignActivity(String sc_id) {

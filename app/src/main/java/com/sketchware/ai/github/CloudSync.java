@@ -607,7 +607,7 @@ public final class CloudSync {
             if (!new CloudBackup(session[1], session[0]).refusesSignIn()) {
                 return e.getMessage() + " GitHub didn't refuse the sign-in itself: try again.";
             }
-            String note = GitHubSession.refusedNote(null);
+            String note = GitHubSession.refusedNote(app, null);
             GitHubSession.markRefused(app, note, session[2]);
             return note;
         } catch (Exception other) {
@@ -1274,7 +1274,7 @@ public final class CloudSync {
                     throw new GitHubException("http_401_once", e.getMessage() + " GitHub didn't refuse the sign-in "
                             + "itself: you're still signed in; try again.");
                 }
-                String note = GitHubSession.refusedNote(null);
+                String note = GitHubSession.refusedNote(app, null);
                 // review (L1): only the sign-in this backup used (a new sign-in meanwhile isn't marked)
                 GitHubSession.markRefused(app, note, session[2]);
                 throw new GitHubException("refused", e.getMessage() + " " + note + " The backup waits.");

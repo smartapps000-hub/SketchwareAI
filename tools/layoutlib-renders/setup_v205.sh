@@ -13,7 +13,7 @@ real() { sed -e 's/^import com\.sketchware\.remod\.R;/import pz.render.R;/' \
 # the app's androidx is the shrunk copy in app/libs (FileProvider.getUriForFile is "a" there); the render has the real one
 real $SRC/java/com/sketchware/ai/github/RepoViewerActivity.java $G/RepoViewerActivity.java
 sed -i 's/androidx\.core\.content\.FileProvider\.a(/androidx.core.content.FileProvider.getUriForFile(/' $G/RepoViewerActivity.java
-real $SRC/java/com/sketchware/ai/ui/DemoCards.java $U/DemoCards.java
+[ -f $SRC/java/com/sketchware/ai/ui/DemoCards.java ] && real $SRC/java/com/sketchware/ai/ui/DemoCards.java $U/DemoCards.java  # gone in v2.1.0
 w() { mkdir -p "$(dirname "$1")"; cat > "$1"; }
 
 w $G/GitHubSession.java <<'X'

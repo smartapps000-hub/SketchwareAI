@@ -1,5 +1,7 @@
 package com.sketchware.ai.github;
 
+import a.a.a.lC;
+import a.a.a.yB;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
@@ -55,6 +57,12 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     private LinearLayout list;
     private LinearLayout tabs;
     private boolean phoneTab;
+    /** v2.1.0: which tab: {@link #TAB_GITHUB}, {@link #TAB_DEMO}, {@link #TAB_PHONE}. */
+    private int tab;
+    static final int TAB_GITHUB = 0;
+    static final int TAB_DEMO = 1;
+    static final int TAB_PHONE = 2;
+    public static final String EXTRA_TAB = "tab";
     private final ExecutorService work = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "RestoreProjects");
         t.setDaemon(true);
@@ -85,8 +93,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         ((TextView) findViewById(R.id.gs_title)).setText("Restore projects");
         findViewById(R.id.gs_back).setOnClickListener(x -> finish());
         tabs.setVisibility(View.VISIBLE);
-        phoneTab = getIntent().getBooleanExtra(EXTRA_PHONE, false);
-        show(phoneTab);
+        int first = getIntent().getIntExtra(EXTRA_TAB, getIntent().getBooleanExtra(EXTRA_PHONE, false) ? TAB_PHONE : TAB_GITHUB);
+        show(first);
         linkFrom(getIntent());
     }
 
@@ -100,14 +108,15 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     private void linkFrom(Intent intent) {
         String l = intent == null ? null : intent.getStringExtra(EXTRA_LINK);
         if (l == null) return;
-        if (phoneTab) show(false);
+        if (tab != TAB_GITHUB) show(TAB_GITHUB);
         if (link == null) {
             // review H2: the GitHub tab isn't there (no storage access yet): say what to do, never crash
             list.addView(v.line("Then open the shared link again: " + l, false), v.full(-1, 8));
             return;
         }
         link.setText(l);
-        importLink();
+        // a shared link only looks the project up (nothing is restored without a tap)
+        importLink(false);
     }
 
     @Override
@@ -119,15 +128,28 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
 
     private void subtitle() {
         String login = TokenStore.get(this).login();
-        ((TextView) findViewById(R.id.gs_subtitle)).setText(phoneTab ? "Backups on this phone"
+        ((TextView) findViewById(R.id.gs_subtitle)).setText(tab == TAB_PHONE ? "Backups on this phone"
+                : tab == TAB_DEMO ? "Demo projects on this phone"
                 : login == null ? "GitHub · not signed in" : "GitHub · @" + login);
     }
 
+    /** v2.0.4 callers: the phone tab or the GitHub tab. */
     private void show(boolean phone) {
+        show(phone ? TAB_PHONE : TAB_GITHUB);
+    }
+
+    /**
+     * v2.1.0 (owner's 16 Nov directive): three tabs on one line, [ GitHub ] [ Demo ] [ On this phone ], 12sp, equal
+     * widths; GitHub first.
+     */
+    private void show(int which) {
+        tab = which;
+        boolean phone = which == TAB_PHONE;
         phoneTab = phone;
         tabs.removeAllViews();
-        tabs.addView(tab("GitHub", !phone, x -> show(false)), tabParams(0));
-        tabs.addView(tab("On this phone", phone, x -> show(true)), tabParams(8));
+        tabs.addView(tab("GitHub", which == TAB_GITHUB, x -> show(TAB_GITHUB)), tabParams(0));
+        tabs.addView(tab("Demo", which == TAB_DEMO, x -> show(TAB_DEMO)), tabParams(6));
+        tabs.addView(tab("On this phone", phone, x -> show(TAB_PHONE)), tabParams(6));
         list.removeAllViews();
         subtitle();
         link = null;
@@ -142,6 +164,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             return;
         }
         if (phone) buildPhone();
+        else if (which == TAB_DEMO) buildDemo();
         else buildGitHub();
     }
 
@@ -149,12 +172,14 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         TextView t = v.glassPill(text, true, click);
         t.setBackgroundResource(on ? R.drawable.ob_seg_pill_on : R.drawable.ob_seg_pill);
         t.setTextColor(on ? 0xFFFFFFFF : v.color(R.color.ob_text_2));
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        t.setPadding(v.dp(6), 0, v.dp(6), 0);
         GitHubViews.oneLine(t);
         return t;
     }
 
     private LinearLayout.LayoutParams tabParams(int leftDp) {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v.dp(40), 1f);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v.dp(38), 1f);
         p.leftMargin = v.dp(leftDp);
         return p;
     }
@@ -170,12 +195,13 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         list.addView(title("Import from a link"), v.full(-1, 4));
         // v2.0.5: a box that takes typing, with Paste inside its right edge (pastes and looks the link up at once)
         EditText[] box = new EditText[1];
-        list.addView(v.linkBox(box, this::importLink), v.full(50, 8));
+        // v2.1.0: Paste (or the keyboard's Go) imports at once: the front version (★ pinned, else the newest), or the one
+        // .swb a link points to; the other versions are listed under it
+        list.addView(v.linkBox(box, () -> importLink(true)), v.full(50, 8));
         link = box[0];
-        TextView hint = v.line("A project repository, a folder or a .swb file on github.com", false);
+        TextView hint = v.line("Paste a project repository, folder or .swb link: the import starts at once", false);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(hint, v.full(-1, 6));
-        list.addView(v.pill("Import from link", false, true, x -> importLink()), v.full(46, 10));
         linkStatus = v.line("", false);
         linkStatus.setVisibility(View.GONE);
         list.addView(linkStatus, v.full(-1, 8));
@@ -297,24 +323,25 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setBackgroundResource(R.drawable.ob_pill16);
-            card.setPadding(v.dp(14), v.dp(12), v.dp(10), v.dp(12));
+            // v2.1.0: compact, the density of the projects list's cards
+            card.setPadding(v.dp(12), v.dp(8), v.dp(8), v.dp(8));
             LinearLayout top = new LinearLayout(this);
             top.setOrientation(LinearLayout.HORIZONTAL);
             top.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
             name.setText(displayName(info.name));
             name.setTypeface(v.bold());
-            name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
             name.setSingleLine(true);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
             top.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
             TextView badge = badge(info.isPrivate ? "Private" : "Public", !info.isPrivate);
-            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(28));
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(26));
             bp.leftMargin = v.dp(6);
             top.addView(badge, bp);
             ImageView share = v.iconButton(R.drawable.ob_ic_share, "Share " + info.name);
             share.setOnClickListener(x -> ProjectLinks.share(this, displayName(info.name), ProjectRepo.link(login, info.name)));
-            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(v.dp(36), v.dp(36));
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(v.dp(32), v.dp(32));
             sp.leftMargin = v.dp(6);
             top.addView(share, sp);
             card.addView(top);
@@ -326,7 +353,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             card.addView(when, v.full(-1, 2));
             LinearLayout body = new LinearLayout(this);
             body.setOrientation(LinearLayout.VERTICAL);
-            card.addView(body, v.full(-1, 8));
+            card.addView(body, v.full(-1, 6));
             List<ProjectRepo.Version> kept = RepoCache.versions(this, login, info.number);
             cards.put(info.number, body);
             if (kept != null) {
@@ -334,7 +361,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             } else {
                 body.addView(v.line("Loading versions…", false));
             }
-            projects.addView(card, v.full(-1, 10));
+            projects.addView(card, v.full(-1, 8));
         }
     }
 
@@ -413,21 +440,11 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         strip.setOrientation(LinearLayout.HORIZONTAL);
         scroll.addView(strip);
         body.addView(scroll);
-        if (shown.size() > 1) {
-            // v2.0.5: how many more sit in the row (swipe; a tap scrolls to them)
-            int more = shown.size() - 1;
-            TextView older = new TextView(this, null, 0, R.style.Ob_Text_Caption);
-            older.setText("+" + more + (more == 1 ? " older version →" : " older versions →"));
-            older.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            older.setTypeface(v.bold());
-            older.setTextColor(v.color(R.color.ob_accent));
-            older.setGravity(Gravity.END);
-            older.setOnClickListener(x -> scroll.smoothScrollTo(strip.getWidth(), 0));
-            body.addView(older, v.full(-1, 6));
-        }
+        // v2.1.0: one compact row under the versions: "+N older versions →" left, Restore and Pin right (small pills)
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        body.addView(actions, v.full(-1, 10));
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        body.addView(actions, v.full(-1, 6));
         ProjectRepo.Version[] selected = {shown.get(0)};
         Runnable[] refresh = new Runnable[1];
         refresh[0] = () -> {
@@ -441,15 +458,31 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             }
             actions.removeAllViews();
             ProjectRepo.Version s = selected[0];
-            TextView restore = v.smallPill("Restore " + s.label(), true, true, x -> restoreVersion(info, login, s));
+            TextView older = new TextView(this, null, 0, R.style.Ob_Text_Caption);
+            if (shown.size() > 1) {
+                // v2.0.5: how many more sit in the row (swipe; a tap scrolls to them)
+                int more = shown.size() - 1;
+                older.setText("+" + more + (more == 1 ? " older →" : " older →"));
+                older.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                older.setTypeface(v.bold());
+                older.setTextColor(v.color(R.color.ob_accent));
+                older.setOnClickListener(x -> scroll.smoothScrollTo(strip.getWidth(), 0));
+                older.setContentDescription(more + (more == 1 ? " older version" : " older versions"));
+            }
+            GitHubViews.oneLine(older);
+            actions.addView(older, new LinearLayout.LayoutParams(0, -2, 1f));
+            TextView restore = v.smallPill("Restore", true, true, x -> restoreVersion(info, login, s));
+            restore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            restore.setContentDescription("Restore " + s.label());
             GitHubViews.oneLine(restore);
-            actions.addView(restore, new LinearLayout.LayoutParams(0, v.dp(38), 1f));
+            actions.addView(restore, new LinearLayout.LayoutParams(-2, v.dp(32)));
             // v2.0.5: Pin moves the version to the front slot (★ Pinned); Unpin gives it back to New
             TextView pin = v.smallPill(s.standard ? "Unpin" : "★ Pin", false, true,
                     x -> setStandard(info, login, s, !s.standard));
+            pin.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             GitHubViews.oneLine(pin);
-            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, v.dp(38));
-            pp.leftMargin = v.dp(8);
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, v.dp(32));
+            pp.leftMargin = v.dp(6);
             actions.addView(pin, pp);
         };
         refresh[0].run();
@@ -465,10 +498,11 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setBackgroundResource(selected ? R.drawable.ob_seg_pill_on : R.drawable.ob_seg_pill);
-        c.setPadding(v.dp(12), v.dp(8), v.dp(12), v.dp(8));
-        c.setMinimumWidth(v.dp(120));
+        c.setPadding(v.dp(10), v.dp(6), v.dp(10), v.dp(6));
+        c.setMinimumWidth(v.dp(104));
         TextView label = new TextView(this, null, 0, R.style.Ob_Text_Label);
         label.setText(ver.label());
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         label.setTypeface(v.bold());
         GitHubViews.oneLine(label);
         label.setTextColor(selected ? 0xFFFFFFFF : v.color(R.color.ob_text));
@@ -646,7 +680,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         linkStatus.setVisibility(text == null ? View.GONE : View.VISIBLE);
     }
 
-    private void importLink() {
+    private void importLink(boolean auto) {
         if (busy) return;
         GitHubImport.Source source = GitHubImport.parse(link.getText().toString());
         found.removeAllViews();
@@ -660,8 +694,9 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         lookups.execute(() -> {
             try {
                 String token = login == null ? null : token();
-                GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(source.owner) + "/"
-                        + CloudBackup.enc(source.repo), token, null);
+                // v2.1.0: a lookup waits 10 seconds at most
+                GitHubHttp.Response r = GitHubHttp.quick(RepoViewerActivity.TIMEOUT_MILLIS, () -> GitHubHttp.api("GET",
+                        "/repos/" + CloudBackup.enc(source.owner) + "/" + CloudBackup.enc(source.repo), token, null));
                 if (r.code == 404) {
                     ui(() -> {
                         busy = false;
@@ -672,7 +707,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                                 + source.owner + ") can restore it.", true);
                         if (login == null) {
                             found.addView(v.smallPill("Sign in", true, true, x -> GitHubInAppAuthDialog.show(this, l -> {
-                                if (!isFinishing()) importLink();
+                                if (!isFinishing()) importLink(true);
                             })), pillAt(6));
                         }
                     });
@@ -684,7 +719,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                 long number = ProjectRepo.number(repoInfo);
                 boolean own = login != null && login.equalsIgnoreCase(source.owner);
                 List<ProjectRepo.Version> versions = source.file ? new ArrayList<>()
-                        : ProjectRepo.versions(token, source.owner, source.repo, false);
+                        : GitHubHttp.quick(RepoViewerActivity.TIMEOUT_MILLIS,
+                        () -> ProjectRepo.versions(token, source.owner, source.repo, false));
                 if (!versions.isEmpty()) {
                     List<ProjectRepo.Version> shown = ordered(versions);
                     ui(() -> {
@@ -699,6 +735,13 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                             found.addView(v.row(displayName(source.repo) + " " + ver.label(), tagLine,
                                     v.smallPill("Import", true, true, x -> importRelease(source, number, isPrivate, own, ver))),
                                     v.full(-1, 8));
+                        }
+                        if (auto) {
+                            ProjectRepo.Version front = shown.get(0);
+                            status("Importing " + displayName(source.repo) + " " + front.label() + " (the "
+                                    + (front.standard ? "pinned" : "newest") + " version)…"
+                                    + (shown.size() > 1 ? " The other versions are below." : ""), false);
+                            importRelease(source, number, isPrivate, own, front);
                         }
                         if (!isPrivate) {
                             TextView note = v.line("Public project: you can also look at it on GitHub.", false);
@@ -718,6 +761,10 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                         return;
                     }
                     status(files.size() == 1 ? "1 backup:" : files.size() + " backups:", false);
+                    if (auto && files.size() == 1) {
+                        status("Importing " + SwbParts.displayName(files.get(0)) + "…", false);
+                        importFile(source, number, isPrivate, own, files.get(0));
+                    }
                     for (String path : files) {
                         String file = SwbParts.displayName(path);
                         String folder = path.contains("/") ? path.substring(0, path.lastIndexOf('/')) : "(top folder)";
@@ -726,13 +773,114 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     }
                 });
             } catch (Exception e) {
-                String why = GitHubImportDialog.text(e);
+                String why = RepoViewerActivity.whyFailed(e);
                 ui(() -> {
                     busy = false;
                     status(why, true);
                 });
             }
         });
+    }
+
+    // ------------------------------------------------------------------ v2.1.0: Demo
+
+    /**
+     * v2.1.0 (owner's 16 Nov directive: the Demo row off the projects list, a centred Demo tab): the demo projects on
+     * this phone numbered #1, #2 … (newest demo version first, {@link com.sketchware.ai.project.Demos#sort}); a tap
+     * opens one, a long press offers Delete. None yet: a button makes the GitHub API Demo.
+     */
+    private void buildDemo() {
+        list.addView(title("Demo projects"), v.full(-1, 4));
+        TextView note = v.line("Ready-made projects that show what Sketchware AI can do: open one to look at its screens and "
+                + "blocks, or run it.", false);
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        list.addView(note, v.full(-1, 4));
+        LinearLayout rows = new LinearLayout(this);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        rows.addView(v.line("Reading the projects…", false));
+        list.addView(rows, v.full(-1, 8));
+        work.execute(() -> {
+            List<java.util.HashMap<String, Object>> demos = demoProjects();
+            ui(() -> renderDemos(rows, demos));
+        });
+    }
+
+    static List<java.util.HashMap<String, Object>> demoProjects() {
+        List<java.util.HashMap<String, Object>> demos = new ArrayList<>();
+        try {
+            List<java.util.HashMap<String, Object>> all = lC.a();
+            if (all != null) {
+                for (java.util.HashMap<String, Object> p : all) {
+                    if (com.sketchware.ai.project.Demos.isDemo(p)) demos.add(p);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // no project list: none
+        }
+        com.sketchware.ai.project.Demos.sort(demos);
+        return demos;
+    }
+
+    private void renderDemos(LinearLayout rows, List<java.util.HashMap<String, Object>> demos) {
+        rows.removeAllViews();
+        if (demos.isEmpty()) {
+            rows.addView(v.line("No demo project on this phone yet.", false));
+            rows.addView(v.smallPill("Make the GitHub API Demo", true, true, x -> {
+                android.widget.Toast.makeText(this, "Making the GitHub API Demo…", android.widget.Toast.LENGTH_SHORT).show();
+                work.execute(() -> {
+                    String made = null;
+                    try {
+                        made = com.sketchware.ai.project.GitHubSample.create(getApplicationContext());
+                    } catch (RuntimeException e) {
+                        // shown below
+                    }
+                    String id = made;
+                    ui(() -> {
+                        if (id == null) {
+                            android.widget.Toast.makeText(this, "The demo couldn't be made.", android.widget.Toast.LENGTH_LONG).show();
+                        }
+                        if (tab == TAB_DEMO) show(TAB_DEMO);
+                    });
+                });
+            }), pillAt(8));
+            return;
+        }
+        for (int i = 0; i < demos.size(); i++) {
+            java.util.HashMap<String, Object> p = demos.get(i);
+            String scId = yB.c(p, "sc_id");
+            String app = yB.c(p, "my_app_name");
+            String name = app.isEmpty() ? yB.c(p, "my_ws_name").replace('_', ' ') : app;
+            String detail = "Project #" + scId + " · v" + yB.c(p, "sc_ver_name") + " ("
+                    + yB.c(p, "sc_ver_code") + ")" + (i == 0 ? " · Latest demo" : "");
+            TextView open = v.smallPill("Open", true, true, x -> openProject(scId));
+            open.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            GitHubViews.oneLine(open);
+            LinearLayout row = v.row("#" + (i + 1) + "  " + name, detail, open);
+            row.setOnLongClickListener(x -> {
+                new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                        .setTitle("Delete " + name + " (#" + scId + ")?")
+                        .setMessage("The demo project is removed from this phone (its GitHub backups stay).")
+                        .setPositiveButton("Delete", (d, w) -> work.execute(() -> {
+                            lC.a(getApplicationContext(), scId);
+                            ui(() -> {
+                                if (tab == TAB_DEMO) show(TAB_DEMO);
+                            });
+                        }))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+                return true;
+            });
+            rows.addView(row, v.full(-1, i == 0 ? 0 : 6));
+        }
+    }
+
+    /** Opens a project in the editor (as the projects list does). */
+    private void openProject(String scId) {
+        Intent intent = new Intent(this, com.besome.sketch.design.DesignActivity.class);
+        mod.hey.studios.project.ProjectTracker.setScId(scId);
+        intent.putExtra("sc_id", scId);
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
     }
 
     private void importRelease(GitHubImport.Source source, long number, boolean isPrivate, boolean own,

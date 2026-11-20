@@ -114,6 +114,53 @@ public final class GitHubSession {
         return p == null ? null : p.problem;
     }
 
+    /**
+     * v2.1.0 (owner's 16 Nov report: "HTTP 401 after installing the new APK"): the sign-in's own history, kept so a
+     * refusal can say when this sign-in was made (and with which app version), how many sign-ins this phone made, and
+     * when GitHub last accepted it. A token GitHub ends is GitHub's decision (its 10-per-app limit, access removed, a
+     * token found in a public place); these lines show which it can have been.
+     */
+    static void noteSignedIn(Context context) {
+        SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        prefs.edit().putLong("signed_in_at", now).putLong("accepted_at", now)
+                .putString("signed_in_version", appVersion(context))
+                .putInt("signin_count", prefs.getInt("signin_count", 0) + 1).apply();
+    }
+
+    /** v2.1.0: GitHub accepted the saved sign-in just now (a backup, the re-check). */
+    static void noteAccepted(Context context) {
+        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putLong("accepted_at", System.currentTimeMillis()).apply();
+    }
+
+    static String appVersion(Context context) {
+        try {
+            return context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
+    /** v2.1.0: the refusal's words with the sign-in's history (see {@link #noteSignedIn}). */
+    static String refusedNote(Context context, String gitHubMessage) {
+        SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale.ENGLISH);
+        StringBuilder sb = new StringBuilder(refusedNote(gitHubMessage));
+        long signedIn = prefs.getLong("signed_in_at", 0);
+        long accepted = prefs.getLong("accepted_at", 0);
+        if (signedIn > 0) {
+            sb.append(" This sign-in: made ").append(f.format(new java.util.Date(signedIn)));
+            String version = prefs.getString("signed_in_version", null);
+            if (version != null) sb.append(" with ").append(version);
+            int count = prefs.getInt("signin_count", 0);
+            if (count > 0) sb.append(" (sign-in ").append(count).append(" on this phone)");
+            if (accepted > 0) sb.append(", last accepted ").append(f.format(new java.util.Date(accepted)));
+            sb.append('.');
+        }
+        return sb.toString();
+    }
+
     /** v2.0.3: the account card's and the messages' words for a 401. */
     static String refusedNote(String gitHubMessage) {
         String when = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.ENGLISH).format(new java.util.Date());
@@ -151,6 +198,7 @@ public final class GitHubSession {
     /** v2.0.3: GitHub accepted the saved token again (or a new sign-in): the mark goes. */
     static void clearRefused(Context context) {
         SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        noteAccepted(context);
         if (prefs.getString("refused", null) == null) return;
         prefs.edit().remove("refused").remove("refused_note").apply();
         changed();
@@ -214,13 +262,23 @@ public final class GitHubSession {
                 try {
                     account = CloudBackup.account(token);
                 } catch (GitHubException e) {
-                    // only when it is still this token (a new sign-in meanwhile keeps the new session)
-                    if ("unauthorized".equals(e.code) && token.equals(TokenStore.get(app).token())) {
-                        LogUtil.d("GitHubSession", "GitHub didn't accept the saved token: marked, not signed out");
-                        markRefused(app, refusedNote(e.getMessage()), sealed);
+                    if (!"unauthorized".equals(e.code)) return;
+                    // v2.1.0: asked once more after 3 s (a refusal is never decided on one answer)
+                    try {
+                        Thread.sleep(3000);
+                        account = CloudBackup.account(token);
+                    } catch (GitHubException again) {
+                        // only when it is still this token (a new sign-in meanwhile keeps the new session)
+                        if ("unauthorized".equals(again.code) && token.equals(TokenStore.get(app).token())) {
+                            LogUtil.d("GitHubSession", "GitHub didn't accept the saved token twice: marked, not signed out");
+                            markRefused(app, refusedNote(app, again.getMessage()), sealed);
+                        }
+                        return;
+                    } catch (InterruptedException interrupted) {
+                        return;
                     }
-                    return;
                 }
+                noteAccepted(app);
                 String email = null;
                 try {
                     email = CloudBackup.primaryEmail(token);

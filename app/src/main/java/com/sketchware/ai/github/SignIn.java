@@ -345,6 +345,7 @@ public final class SignIn {
                 if (g[0] != generation) return;
                 TokenStore.get(app).save(token, account.login, account.id);
             }
+            GitHubSession.noteSignedIn(app);
             GitHubSession.saveProfile(app, account, null);
             AuthGuard.reset();
             synchronized (this) {

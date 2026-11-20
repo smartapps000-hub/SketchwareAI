@@ -114,27 +114,61 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
         return login != null && login.equalsIgnoreCase(owner);
     }
 
+    /**
+     * v2.1.0 (owner's 16 Nov report: "Reading … on GitHub…" forever): every call to GitHub here waits 10 seconds at
+     * most (connect and read, one try: {@link GitHubHttp#quick}); the page this phone saw last is shown at once while
+     * GitHub is asked; a refusal or a timeout says so with Try again (and the saved page stays).
+     */
+    static final int TIMEOUT_MILLIS = 10_000;
+    private LinearLayout statusRow;
+    private boolean cachedShown;
+
     private void load() {
         list.removeAllViews();
-        list.addView(v.line("Reading " + owner + "/" + repo + " on GitHub…", false), v.full(-1, 8));
+        statusRow = null;
+        cachedShown = false;
+        JsonObject cached = readCache();
+        JsonObject cachedInfo = cached == null || !cached.has("info") || !cached.get("info").isJsonObject() ? null
+                : cached.getAsJsonObject("info");
+        if (cachedInfo != null) {
+            showInfo(cachedInfo);
+            cachedShown = true;
+            String readme = DeviceFlow.string(cached, "readme");
+            if (readme != null) showReadme(readme);
+            if (own()) {
+                List<ProjectRepo.Version> saved = RepoCache.versions(this, TokenStore.get(this).login(), ProjectRepo.number(cachedInfo));
+                if (saved != null && !saved.isEmpty()) {
+                    showVersions(saved, ProjectRepo.number(cachedInfo),
+                            !cachedInfo.has("private") || cachedInfo.get("private").getAsBoolean());
+                }
+            }
+            setStatus("Saved on this phone · checking GitHub…", false, false);
+        } else {
+            list.addView(v.line("Reading " + owner + "/" + repo + " on GitHub…", false), v.full(-1, 8));
+        }
         work.execute(() -> {
             String token = token();
             try {
-                GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(owner) + "/" + CloudBackup.enc(repo),
-                        token, null);
+                GitHubHttp.Response r = GitHubHttp.quick(TIMEOUT_MILLIS, () -> GitHubHttp.api("GET", "/repos/"
+                        + CloudBackup.enc(owner) + "/" + CloudBackup.enc(repo), token, null));
                 if (r.code == 404) {
                     ui(() -> notFound(token == null));
                     return;
                 }
                 if (!r.ok()) throw CloudBackup.http("Opening " + owner + "/" + repo, r);
                 JsonObject info = DeviceFlow.parse(r.body);
+                writeCache(info, null);
                 ui(() -> showInfo(info));
                 loadVersions(token, info);
                 loadReadme(token, DeviceFlow.string(info, "default_branch"));
                 loadFiles(token, DeviceFlow.string(info, "default_branch"));
             } catch (Exception e) {
-                String why = GitHubImportDialog.text(e);
+                String why = whyFailed(e);
                 ui(() -> {
+                    if (cachedShown) {
+                        setStatus("Saved on this phone. " + why, true, true);
+                        return;
+                    }
                     list.removeAllViews();
                     list.addView(v.line(why, true), v.full(-1, 8));
                     list.addView(v.smallPill("Try again", true, true, x -> load()), pillAt(6));
@@ -142,6 +176,72 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                 });
             }
         });
+    }
+
+    /** "GitHub didn't answer within 10 seconds" for a timeout, else the error's own words. */
+    static String whyFailed(Exception e) {
+        Throwable t = e;
+        for (int i = 0; t != null && i < 5; i++, t = t.getCause()) {
+            if (t instanceof java.net.SocketTimeoutException) {
+                return "GitHub didn't answer within " + (TIMEOUT_MILLIS / 1000) + " seconds (a slow network?).";
+            }
+        }
+        return GitHubImportDialog.text(e);
+    }
+
+    /** The line at the top of the page: where the page comes from, or why GitHub couldn't be read (with Try again). */
+    private void setStatus(String text, boolean error, boolean retry) {
+        if (list == null) return;
+        if (statusRow != null && statusRow.getParent() != null) ((android.view.ViewGroup) statusRow.getParent()).removeView(statusRow);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView line = v.line(text, error);
+        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        row.addView(line, new LinearLayout.LayoutParams(0, -2, 1f));
+        if (retry) {
+            TextView again = v.smallPill("Try again", true, true, x -> load());
+            GitHubViews.oneLine(again);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, v.dp(34));
+            p.leftMargin = v.dp(8);
+            row.addView(again, p);
+        }
+        statusRow = row;
+        list.addView(row, 0, v.full(-1, 0));
+    }
+
+    private File cacheFile() {
+        return new File(getFilesDir(), "repo_viewer/" + owner.toLowerCase(java.util.Locale.ROOT) + "__"
+                + repo.toLowerCase(java.util.Locale.ROOT) + ".json");
+    }
+
+    private JsonObject readCache() {
+        File f = cacheFile();
+        if (!f.isFile() || f.length() > 2L * 1024 * 1024) return null;
+        try {
+            return DeviceFlow.parse(new String(java.nio.file.Files.readAllBytes(f.toPath()),
+                    java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Keeps the repository's details (and its README when given) for the next visit; atomic. */
+    private void writeCache(JsonObject info, String readme) {
+        try {
+            JsonObject o = readCache();
+            if (o == null) o = new JsonObject();
+            if (info != null) o.add("info", info);
+            if (readme != null) o.addProperty("readme", readme.length() > 200_000 ? readme.substring(0, 200_000) : readme);
+            File f = cacheFile();
+            File dir = f.getParentFile();
+            if (dir != null && !dir.isDirectory() && !dir.mkdirs()) return;
+            File tmp = new File(f.getPath() + ".tmp");
+            java.nio.file.Files.write(tmp.toPath(), o.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            if (!tmp.renameTo(f)) tmp.delete();
+        } catch (Exception ignored) {
+            // a cache only
+        }
     }
 
     private void notFound(boolean signedOut) {
@@ -168,6 +268,7 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
 
     private void showInfo(JsonObject info) {
         list.removeAllViews();
+        statusRow = null;
         boolean isPrivate = !info.has("private") || info.get("private").getAsBoolean();
         infoBox = new LinearLayout(this);
         infoBox.setOrientation(LinearLayout.VERTICAL);
@@ -254,12 +355,13 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
 
     private void loadVersions(String token, JsonObject info) {
         try {
-            List<ProjectRepo.Version> versions = ProjectRepo.versions(token, owner, repo, false);
+            List<ProjectRepo.Version> versions = GitHubHttp.quick(TIMEOUT_MILLIS,
+                    () -> ProjectRepo.versions(token, owner, repo, false));
             long number = ProjectRepo.number(info);
             boolean isPrivate = !info.has("private") || info.get("private").getAsBoolean();
             ui(() -> showVersions(versions, number, isPrivate));
         } catch (Exception e) {
-            String why = GitHubImportDialog.text(e);
+            String why = whyFailed(e);
             ui(() -> {
                 if (versionsBox == null) return;
                 versionsBox.removeAllViews();
@@ -417,8 +519,9 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
     private void loadReadme(String token, String branch) {
         String text;
         try {
-            GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(owner) + "/" + CloudBackup.enc(repo)
-                    + "/contents/README.md" + (branch == null ? "" : "?ref=" + CloudBackup.enc(branch)), token, null);
+            GitHubHttp.Response r = GitHubHttp.quick(TIMEOUT_MILLIS, () -> GitHubHttp.api("GET", "/repos/"
+                    + CloudBackup.enc(owner) + "/" + CloudBackup.enc(repo) + "/contents/README.md"
+                    + (branch == null ? "" : "?ref=" + CloudBackup.enc(branch)), token, null));
             if (r.code == 404) {
                 text = null;
             } else {
@@ -429,7 +532,7 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                         java.nio.charset.StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
-            String why = GitHubImportDialog.text(e);
+            String why = whyFailed(e);
             ui(() -> {
                 if (readmeBox == null) return;
                 readmeBox.removeAllViews();
@@ -438,22 +541,26 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
             return;
         }
         String shown = text;
-        ui(() -> {
-            if (readmeBox == null) return;
-            readmeBox.removeAllViews();
-            if (shown == null) {
-                readmeBox.addView(v.line("No README.md in this repository.", false));
-                return;
-            }
-            TextView t = new TextView(this, null, 0, R.style.Ob_Text);
-            t.setText(shorten(shown, 400));
-            t.setTypeface(android.graphics.Typeface.MONOSPACE);
-            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            t.setTextIsSelectable(true);
-            t.setBackgroundResource(R.drawable.ob_field);
-            t.setPadding(v.dp(14), v.dp(12), v.dp(14), v.dp(12));
-            readmeBox.addView(t);
-        });
+        writeCache(null, shown == null ? "" : shown);
+        ui(() -> showReadme(shown == null ? "" : shown));
+    }
+
+    /** The README's first 400 lines (empty: "No README.md in this repository."). */
+    private void showReadme(String text) {
+        if (readmeBox == null) return;
+        readmeBox.removeAllViews();
+        if (text == null || text.isEmpty()) {
+            readmeBox.addView(v.line("No README.md in this repository.", false));
+            return;
+        }
+        TextView t = new TextView(this, null, 0, R.style.Ob_Text);
+        t.setText(shorten(text, 400));
+        t.setTypeface(android.graphics.Typeface.MONOSPACE);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        t.setTextIsSelectable(true);
+        t.setBackgroundResource(R.drawable.ob_field);
+        t.setPadding(v.dp(14), v.dp(12), v.dp(14), v.dp(12));
+        readmeBox.addView(t);
     }
 
     /** v2.0.5 render: "66 B", "1.8 KB", "2.3 MB" (a small file never shows as "0.0 MB"). */
@@ -475,8 +582,9 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
         List<String[]> rows = new ArrayList<>();
         String failed = null;
         try {
-            GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(owner) + "/" + CloudBackup.enc(repo)
-                    + "/contents" + (branch == null ? "" : "?ref=" + CloudBackup.enc(branch)), token, null);
+            GitHubHttp.Response r = GitHubHttp.quick(TIMEOUT_MILLIS, () -> GitHubHttp.api("GET", "/repos/"
+                    + CloudBackup.enc(owner) + "/" + CloudBackup.enc(repo) + "/contents"
+                    + (branch == null ? "" : "?ref=" + CloudBackup.enc(branch)), token, null));
             if (r.code == 404) {
                 failed = "The repository is empty.";
             } else {
@@ -495,7 +603,7 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                 }
             }
         } catch (Exception e) {
-            failed = GitHubImportDialog.text(e);
+            failed = whyFailed(e);
         }
         String why = failed;
         ui(() -> {

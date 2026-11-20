@@ -170,7 +170,8 @@ public final class GitHubHttp {
      * connection or a passing server error; every call stops at once while a rate-limit pause lasts.
      */
     static Response api(String method, String path, String token, String json) throws IOException {
-        boolean read = "GET".equals(method) && json == null;
+        // v2.1.0: quick mode tries once (the screen offers Retry)
+        boolean read = "GET".equals(method) && json == null && QUICK.get() == null;
         for (int attempt = 0; ; attempt++) {
             Response limited = limitedNow(token);
             if (limited != null) return limited;
@@ -215,6 +216,27 @@ public final class GitHubHttp {
             }
         }
         return read(c);
+    }
+
+    /**
+     * v2.1.0 (owner's 16 Nov report: the repository viewer stayed on "Reading … on GitHub…"): the calls a screen waits
+     * for run in quick mode: connect and read timeouts of {@code millis}, one try. A long upload keeps the long ones.
+     */
+    private static final ThreadLocal<Integer> QUICK = new ThreadLocal<>();
+
+    interface Call<T> {
+        T run() throws IOException, GitHubException;
+    }
+
+    static <T> T quick(int millis, Call<T> call) throws IOException, GitHubException {
+        Integer before = QUICK.get();
+        QUICK.set(millis);
+        try {
+            return call.run();
+        } finally {
+            if (before == null) QUICK.remove();
+            else QUICK.set(before);
+        }
     }
 
     /** A GET of a file's raw text (Accept: application/vnd.github.raw), as a string; tried again like {@link #api}. */
@@ -591,9 +613,11 @@ public final class GitHubHttp {
 
     private static HttpURLConnection open(String url, String method, String token) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        // v2.0.1: 2G / 3G: a slow first answer is not a failure
-        c.setConnectTimeout(30_000);
-        c.setReadTimeout(120_000);
+        // v2.0.1: 2G / 3G: a slow first answer is not a failure; v2.1.0: a screen that waits for an answer uses short
+        // timeouts (quick mode)
+        Integer quick = QUICK.get();
+        c.setConnectTimeout(quick != null ? quick : 30_000);
+        c.setReadTimeout(quick != null ? quick : 120_000);
         c.setInstanceFollowRedirects(false);
         c.setUseCaches(false);
         try {
