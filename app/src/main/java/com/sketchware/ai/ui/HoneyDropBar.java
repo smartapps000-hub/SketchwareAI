@@ -122,7 +122,7 @@ public final class HoneyDropBar extends LinearLayout {
         TextView label = new TextView(context);
         label.setText(LABELS[index]);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
-        label.setSingleLine(true);
+        // never setSingleLine on centred text (it scrolls sideways and draws outside: v2.0.1, v2.0.4)
         label.setMaxLines(1);
         label.setEllipsize(android.text.TextUtils.TruncateAt.END);
         label.setGravity(Gravity.CENTER);

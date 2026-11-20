@@ -37,6 +37,8 @@ public final class PlayStore {
     public static final class App {
         public String owner;
         public String repo;
+        /** The repository's number (GitHub's id: kept across renames). */
+        public long number;
         public String title;
         public String description;
         public long stars;
@@ -54,6 +56,7 @@ public final class PlayStore {
             JsonObject o = new JsonObject();
             o.addProperty("owner", owner);
             o.addProperty("repo", repo);
+            o.addProperty("number", number);
             o.addProperty("title", title);
             o.addProperty("description", description);
             o.addProperty("stars", stars);
@@ -71,6 +74,7 @@ public final class PlayStore {
             App a = new App();
             a.owner = DeviceFlow.string(o, "owner");
             a.repo = DeviceFlow.string(o, "repo");
+            a.number = o.has("number") && o.get("number").isJsonPrimitive() ? o.get("number").getAsLong() : 0;
             a.title = DeviceFlow.string(o, "title");
             a.description = DeviceFlow.string(o, "description");
             a.stars = o.has("stars") && o.get("stars").isJsonPrimitive() ? o.get("stars").getAsLong() : 0;
@@ -129,6 +133,7 @@ public final class PlayStore {
             App a = new App();
             a.owner = ownerObj == null ? null : DeviceFlow.string(ownerObj, "login");
             a.repo = DeviceFlow.string(item, "name");
+            a.number = item.has("id") && item.get("id").isJsonPrimitive() ? item.get("id").getAsLong() : 0;
             a.description = DeviceFlow.string(item, "description");
             a.stars = item.has("stargazers_count") && item.get("stargazers_count").isJsonPrimitive()
                     ? item.get("stargazers_count").getAsLong() : 0;
@@ -221,7 +226,7 @@ public final class PlayStore {
         return out;
     }
 
-    public static void save(Context context, List<App> apps) {
+    public static synchronized void save(Context context, List<App> apps) {
         try {
             JsonArray list = new JsonArray();
             for (App a : apps) list.add(a.toJson());
@@ -234,6 +239,47 @@ public final class PlayStore {
         } catch (Exception ignored) {
             // a cache only
         }
+    }
+
+    /** The app on the phone's list (the store page read later replaces the search answer's words). */
+    public static synchronized void remember(Context context, App app) {
+        List<App> apps = cached(context);
+        boolean found = false;
+        for (int i = 0; i < apps.size(); i++) {
+            App a = apps.get(i);
+            if (a.owner.equalsIgnoreCase(app.owner) && a.repo.equalsIgnoreCase(app.repo)) {
+                apps.set(i, app);
+                found = true;
+            }
+        }
+        if (!found) apps.add(app);
+        save(context, apps);
+    }
+
+    /** The search answer merged with what the phone read before (store pages, pictures), in the answer's order. */
+    static List<App> merge(List<App> found, List<App> before) {
+        List<App> out = new ArrayList<>();
+        for (App f : found) {
+            App old = null;
+            for (App b : before) {
+                if (b.owner.equalsIgnoreCase(f.owner) && b.repo.equalsIgnoreCase(f.repo)) old = b;
+            }
+            if (old != null && old.listingRead && old.updated >= f.updated) {
+                old.stars = f.stars;
+                old.number = f.number != 0 ? f.number : old.number;
+                old.branch = f.branch;
+                out.add(old);
+            } else {
+                if (old != null) {
+                    // pushed since: the store page is read again on the app's page, the old words shown until then
+                    f.title = old.title;
+                    f.video = old.video;
+                    f.screenshots.addAll(old.screenshots);
+                }
+                out.add(f);
+            }
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ publishing

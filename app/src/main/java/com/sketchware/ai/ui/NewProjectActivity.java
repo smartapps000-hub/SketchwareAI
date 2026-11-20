@@ -132,7 +132,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         scId = com.sketchware.ai.project.ProjectIds.free(lC.b());
         String defaultName = lC.c();
         ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
-        findViewById(R.id.np_back).setOnClickListener(v -> finish());
+        findViewById(R.id.np_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.np_cancel).setOnClickListener(v -> finish());
         findViewById(R.id.np_create).setOnClickListener(v -> create());
 
@@ -242,6 +242,13 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         folders.f(wq.g() + File.separator + scId);
         folders.f(wq.t() + File.separator + scId);
         folders.f(wq.d() + File.separator + scId);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // v2.1.0: opened as the bottom bar's Create tab: "Do you want to close Create?"
+        if (TabScreens.onBack(this)) return;
+        super.onBackPressed();
     }
 
     @Override

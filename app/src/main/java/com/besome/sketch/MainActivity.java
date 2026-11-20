@@ -20,12 +20,10 @@ import android.widget.Toast;
 
 import androidx.appcompat.widget.Toolbar;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
-import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager.widget.ViewPager;
 
 import com.besome.sketch.lib.base.BasePermissionAppCompatActivity;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.sketchware.ai.migration.ImportProgressDialog;
 import com.sketchware.ai.migration.LegacyImportController;
@@ -43,7 +41,6 @@ import a.a.a.Xf;
 import a.a.a.aB;
 import a.a.a.bB;
 import a.a.a.gg;
-import a.a.a.l;
 import a.a.a.nd;
 import a.a.a.oB;
 import a.a.a.sB;
@@ -62,10 +59,8 @@ import mod.tyron.backup.SingleCopyAsyncTask;
 
 public class MainActivity extends BasePermissionAppCompatActivity implements ViewPager.e {
 
-    private FloatingActionButton fab;
-    private DrawerLayout drawerLayout;
-    private l drawerToggle;
-    private MainDrawer drawer;
+    /** v2.1.0: the Honey-Drop bottom bar (in place of the side drawer and the floating + button). */
+    private com.sketchware.ai.ui.HoneyDropBar bar;
     private ViewPager viewPager;
     private DB u;
     private CoordinatorLayout coordinator;
@@ -176,19 +171,13 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
     @Override
     public void onBackPressed() {
-        if (drawer.isShown()) {
-            // DrawerLayout#closeDrawers()
-            drawerLayout.b();
-        } else {
-            finish();
-        }
+        // v2.1.0: Back on Home leaves the app (the tabs ask before they close, Home doesn't)
+        finish();
     }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        // ActionBarDrawerToggle#onConfigurationChanged(Configuration)
-        drawerToggle.a(newConfig);
     }
 
     @Override
@@ -217,19 +206,15 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         setUpGlassHeader();
         ImageView logo = findViewById(R.id.img_title_logo);
         logo.setOnClickListener(v -> invalidateOptionsMenu());
-        drawer = findViewById(R.id.left_drawer);
-        drawerLayout = findViewById(R.id.drawer_layout);
-        drawerToggle = new l(this, drawerLayout, R.string.app_name, R.string.app_name);
-        // DrawerLayout#addDrawerListener(DrawerLayout.DrawerListener)
-        drawerLayout.a((DrawerLayout.c) drawerToggle);
         d().a("");
+        bar = findViewById(R.id.ob_honey_bar);
+        bar.setListener(this::openTab);
 
         viewPager = findViewById(R.id.viewpager);
         viewPager.setAdapter(new PagerAdapter(getSupportFragmentManager()));
         // ViewPager#addOnPageChangeListener(ViewPager.OnPageChangeListener)
         viewPager.a(this);
 
-        fab = findViewById(R.id.fab);
         coordinator = findViewById(R.id.layout_coordinator);
 
         // Nothing touches /sdcard/.sketchware (and no import starts) until access is granted.
@@ -238,8 +223,9 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         if (!hasStorageAccess) {
             showNoticeNeedStorageAccess();
         } else {
-            // v1.9.8: release notices from config/app-control.json (background, notices only, never a lock)
-            com.sketchware.ai.github.AppControl.check(this);
+            // v1.9.8: release notices from config/app-control.json (background, notices only, never a lock);
+            // v2.1.0: as the startup gate, 3.5 s after the list shows: update first, then sign-in and the one-device check
+            com.sketchware.ai.github.AppControl.scheduleGate(this);
         }
 
         if (Intent.ACTION_VIEW.equals(getIntent().getAction())) {
@@ -328,26 +314,22 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // ActionBarDrawerToggle#onOptionsItemSelected(MenuItem)
-        if (drawerToggle.a(item)) {
-            return true;
-        } else {
-            return super.onOptionsItemSelected(item);
-        }
-    }
-
-    @Override
-    public void onPostCreate(Bundle savedInstanceState) {
-        super.onPostCreate(savedInstanceState);
-        // ActionBarDrawerToggle#syncState()
-        drawerToggle.b();
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        // v1.9.9: the sign-in screen first when app-control.json requires it (it can't be dismissed)
-        if (!com.sketchware.ai.github.AuthGuard.check(this)) return;
+        // v2.1.0: back from a tab: the drop flows back to Home
+        if (bar != null && bar.selected() != com.sketchware.ai.ui.HoneyDropBar.HOME) {
+            bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
+        }
+        // v1.9.9: the sign-in screen first when app-control.json requires it (it can't be dismissed); v2.1.0: only once
+        // the startup gate (update first) has cleared
+        if (com.sketchware.ai.github.AppControl.gatePassed() && !com.sketchware.ai.github.AuthGuard.check(this)) return;
+        // v2.1.0: this phone was signed out because the account signed in on another phone: said once
+        com.sketchware.ai.github.SingleDeviceGuard.showSignedOut(this);
+        if (com.sketchware.ai.github.AppControl.gatePassed()) com.sketchware.ai.github.SingleDeviceGuard.check(this);
         // v2.0.0: with a network, in the background: the GitHub session (a revoked token signs out), app-control.json,
         // and the projects that wait for their first backup
         com.sketchware.ai.github.GitHubSession.recheckOnline(this);
@@ -374,6 +356,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         if (j()) {
             maybeOfferLegacyImport();
         }
+        // v2.1.0: storage access granted from the system settings: the startup gate starts now (once per process)
+        if (j()) com.sketchware.ai.github.AppControl.scheduleGate(this);
         // v1.9.8: an app-control.json notice that couldn't be shown yet
         com.sketchware.ai.github.AppControl.showPending(this);
     }
@@ -532,17 +516,60 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
                 projectsFragment.refreshProjectsList();
             }
             projectsFragment.showCreateNewProjectLayout();
-        } else if (position == 1) {
-            fab.c();
         }
     }
 
-    /** Glass header: menu pill opens the drawer, search pill swaps the title for a live filter. */
+    /**
+     * v2.1.0 (owner's 16 Nov directive "Honey-Drop bottom bar, full-screen tabs"): a tab of the bar opens its own
+     * full-screen screen (Back on its first page asks to close it; Home's onResume then lets the drop flow back).
+     */
+    private void openTab(int tab) {
+        Intent intent = null;
+        switch (tab) {
+            case com.sketchware.ai.ui.HoneyDropBar.CREATE:
+                if (com.sketchware.ai.github.AppControl.updateRequired()) {
+                    Toast.makeText(this, "Update Sketchware AI first: this version can't make new projects any more.",
+                            Toast.LENGTH_LONG).show();
+                    com.sketchware.ai.github.AppControl.showPending(this);
+                } else if (projectsFragment != null && projectsFragment.openCreate()) {
+                    return;
+                }
+                bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
+                return;
+            case com.sketchware.ai.ui.HoneyDropBar.GITHUB:
+                intent = com.sketchware.ai.ui.TabScreens.asTab(new Intent(this,
+                        com.sketchware.ai.github.GitHubBackupsActivity.class), "GitHub");
+                break;
+            case com.sketchware.ai.ui.HoneyDropBar.STORE:
+                intent = com.sketchware.ai.github.PlayStoreActivity.tab(this);
+                break;
+            case com.sketchware.ai.ui.HoneyDropBar.COMMUNITY:
+                intent = com.sketchware.ai.github.CommunityActivity.tab(this);
+                break;
+            case com.sketchware.ai.ui.HoneyDropBar.SETTINGS:
+                intent = com.sketchware.ai.ui.TabScreens.asTab(new Intent(this, com.sketchware.ai.ui.SettingsActivity.class),
+                        "Settings");
+                break;
+            default:
+                return;
+        }
+        try {
+            startActivity(intent);
+        } catch (RuntimeException e) {
+            bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
+        }
+    }
+
+    /** v2.1.0: the projects list scrolled (down: the bar slides away; up: it comes back). */
+    public void projectsScrolled(boolean down) {
+        if (bar != null) bar.setScrolledAway(down);
+    }
+
+    /** Glass header: the search pill swaps the title for a live filter (v2.1.0: no menu pill, no drawer). */
     private void setUpGlassHeader() {
         View titleBlock = findViewById(R.id.ob_title_block);
         android.widget.EditText searchField = findViewById(R.id.ob_search_field);
         ImageView search = findViewById(R.id.ob_search);
-        findViewById(R.id.ob_menu).setOnClickListener(v -> drawerLayout.h(android.view.Gravity.START));
         search.setOnClickListener(v -> {
             boolean open = searchField.getVisibility() != View.VISIBLE;
             android.view.inputmethod.InputMethodManager imm =

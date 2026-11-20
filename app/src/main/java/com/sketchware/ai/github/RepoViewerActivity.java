@@ -385,12 +385,12 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
             String detail = (mark.isEmpty() ? "" : mark + " · ") + (ver.time > 0 ? CloudBackup.formatTime(ver.time) : ver.tag)
                     + (ver.size > 0 ? " · " + CloudSync.megabytes(ver.size) : "");
             List<View> actions = new ArrayList<>();
-            TextView restore = v.smallPill("Restore", true, true, x -> restore(ver, number, isPrivate));
+            TextView restore = v.smallPill("Restore", true, true, x -> restore(this, owner, repo, ver, number, isPrivate));
             GitHubViews.oneLine(restore);
             actions.add(restore);
             ProjectRepo.Asset apk = ver.apk == null ? null : apkAsset(ver);
             if (apk != null) {
-                TextView get = v.smallPill("APK", false, true, x -> downloadApk(ver, apk));
+                TextView get = v.smallPill("APK", false, true, x -> downloadApk(this, owner, repo, ver, apk));
                 GitHubViews.oneLine(get);
                 actions.add(get);
             }
@@ -403,34 +403,38 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
         return null;
     }
 
-    private void restore(ProjectRepo.Version ver, long number, boolean isPrivate) {
-        if (!AuthGuard.check(this)) return;
+    /** v2.1.0: also the Play Store's "Import .SWB" (an app of another account: the libraries question first). */
+    static void restore(Activity activity, String owner, String repo, ProjectRepo.Version ver, long number,
+                        boolean isPrivate) {
+        if (!AuthGuard.check(activity)) return;
+        String login = TokenStore.get(activity).login();
+        boolean own = login != null && login.equalsIgnoreCase(owner);
         CloudSync.Import src = new CloudSync.Import();
         src.owner = owner;
         src.repo = repo;
-        src.number = own() ? number : 0;
+        src.number = own ? number : 0;
         src.repoPrivate = isPrivate;
         src.version = ver;
         src.size = ver.size;
         src.title = displayName(repo) + " " + ver.label();
-        if (own()) {
+        if (own) {
             src.withLibraries = true;
-            CloudSync.importProject(this, src);
+            CloudSync.importProject(activity, src);
             return;
         }
         String from = owner + "/" + repo;
-        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+        new ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("Local libraries from " + from)
                 .setMessage("If this backup brings local libraries, their code goes into the apps you build with them: "
                         + "copy them only if you trust " + from + ". Libraries already on this phone are never replaced.")
                 .setPositiveButton("Without libraries", (d, w) -> {
                     src.withLibraries = false;
-                    CloudSync.importProject(this, src);
+                    CloudSync.importProject(activity, src);
                 })
                 .setNegativeButton("Copy libraries", (d, w) -> {
                     src.withLibraries = true;
                     src.librariesFrom = from;
-                    CloudSync.importProject(this, src);
+                    CloudSync.importProject(activity, src);
                 })
                 .show();
     }
@@ -447,22 +451,24 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
     private static final java.util.Set<String> DOWNLOADING = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /** The version's APK into .sketchware/downloads, then Android's installer (it asks before installing). */
-    private void downloadApk(ProjectRepo.Version ver, ProjectRepo.Asset apk) {
+    /** v2.1.0: also the Play Store's "Download & Install APK". */
+    static void downloadApk(Activity activity, String owner, String repo, ProjectRepo.Version ver, ProjectRepo.Asset apk) {
         File dir = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/downloads");
         File target = new File(dir, ProjectRepo.safeFileName(apk.name));
         if (!DOWNLOADING.add(target.getAbsolutePath())) {
-            Toast.makeText(this, "That APK is already downloading.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "That APK is already downloading.", Toast.LENGTH_SHORT).show();
             return;
         }
-        GitHubProgress progress = GitHubProgress.show(this, R.drawable.ob_ic_github, "APK of " + displayName(repo) + " "
+        GitHubProgress progress = GitHubProgress.show(activity, R.drawable.ob_ic_github, "APK of " + displayName(repo) + " "
                 + ver.label());
         progress.update(2, "Connecting to GitHub…");
-        android.content.Context app = getApplicationContext();
+        android.content.Context app = activity.getApplicationContext();
         DOWNLOADS.execute(() -> {
             String message;
             boolean ok = false;
             // review (LOW): the token is read here, not on the main thread (Keystore)
-            String token = token();
+            String token = TokenStore.get(app).login() == null || GitHubSession.isRefused(app) ? null
+                    : TokenStore.get(app).token();
             try {
                 if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("Can't create " + dir);
                 File part = new File(target.getPath() + ".part");
@@ -471,8 +477,11 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                         (done, total) -> {
                             long all = total > 0 ? total : apk.size;
                             int percent = all > 0 ? 5 + (int) (90 * Math.min(1.0, done / (double) all)) : 50;
-                            ui(() -> progress.update(percent, "Downloading… " + CloudSync.megabytes(done)
-                                    + (all > 0 ? " of " + CloudSync.megabytes(all) : "")));
+                            activity.runOnUiThread(() -> {
+                                if (activity.isFinishing() || activity.isDestroyed()) return;
+                                progress.update(percent, "Downloading… " + CloudSync.megabytes(done)
+                                        + (all > 0 ? " of " + CloudSync.megabytes(all) : ""));
+                            });
                         });
                 if (!r.ok()) throw CloudBackup.http("Downloading the APK", r);
                 if (target.exists() && !target.delete()) throw new java.io.IOException("Can't replace " + target);
@@ -488,7 +497,7 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
             String text = message;
             // second review: decided on the main thread, where the screen can't go away in between
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                if (isFinishing() || isDestroyed()) {
+                if (activity.isFinishing() || activity.isDestroyed()) {
                     // the screen is gone: the end as a toast (no installer started from the background)
                     Toast.makeText(app, success ? "Saved to .sketchware/downloads/" + target.getName() : text,
                             Toast.LENGTH_LONG).show();
@@ -499,20 +508,20 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
                     return;
                 }
                 progress.done(text);
-                install(target);
+                install(activity, target);
             });
         });
     }
 
-    private void install(File apk) {
+    static void install(Activity activity, File apk) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            Uri uri = androidx.core.content.FileProvider.a(getApplicationContext(), getPackageName() + ".provider", apk);
+            Uri uri = androidx.core.content.FileProvider.a(activity.getApplicationContext(), activity.getPackageName() + ".provider", apk);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.setDataAndType(uri, "application/vnd.android.package-archive");
-            startActivity(intent);
+            activity.startActivity(intent);
         } catch (RuntimeException e) {
-            Toast.makeText(this, "The APK is in .sketchware/downloads (no installer could open it)", Toast.LENGTH_LONG).show();
+            Toast.makeText(activity, "The APK is in .sketchware/downloads (no installer could open it)", Toast.LENGTH_LONG).show();
         }
     }
 

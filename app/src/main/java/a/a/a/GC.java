@@ -33,7 +33,6 @@ import com.besome.sketch.lib.ui.CircleImageView;
 import com.besome.sketch.projects.MyProjectButton;
 import com.besome.sketch.projects.MyProjectButtonLayout;
 import com.besome.sketch.projects.MyProjectSettingActivity;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.sketchware.remod.R;
 
 import java.io.File;
@@ -66,7 +65,6 @@ public class GC extends DA implements View.OnClickListener {
     private AnimatorSet collapseAnimatorSet;
     private AnimatorSet expandAnimatorSet;
     private ProjectsAdapter projectsAdapter;
-    private FloatingActionButton floatingActionButton;
 
     private void toProjectSettingOrRequestPermission(int position) {
         if (super.c()) {
@@ -93,8 +91,7 @@ public class GC extends DA implements View.OnClickListener {
                 ((MainActivity) getActivity()).s();
             }
         });
-        floatingActionButton = getActivity().findViewById(R.id.fab);
-        floatingActionButton.setOnClickListener(this);
+        // v2.1.0: no floating + button (the bottom bar's Create tab makes projects)
 
         myProjects = parent.findViewById(R.id.myprojects);
         myProjects.setHasFixedSize(true);
@@ -391,21 +388,31 @@ public class GC extends DA implements View.OnClickListener {
     }
 
     public void showCreateNewProjectLayout() {
-        if (allProjects.size() > 0) {
-            cvCreateNew.setVisibility(View.GONE);
-            floatingActionButton.f();
-        } else {
-            cvCreateNew.setVisibility(View.VISIBLE);
-            floatingActionButton.c();
-        }
+        cvCreateNew.setVisibility(allProjects.size() > 0 ? View.GONE : View.VISIBLE);
     }
 
     private void toProjectSettingsActivity() {
+        toProjectSettingsActivity(false);
+    }
+
+    private void toProjectSettingsActivity(boolean asTab) {
         // v1.8.7: new projects are made on the full-screen New Project screen (templates, colours, SDK); the
         // setting dialog (MyProjectSettingActivity) stays for the settings of existing projects.
         Intent intent = new Intent(getActivity(), com.sketchware.ai.ui.NewProjectActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        if (asTab) com.sketchware.ai.ui.TabScreens.asTab(intent, "Create");
         startActivityForResult(intent, REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY);
+    }
+
+    /**
+     * v2.1.0: the bottom bar's Create tab (the New Project screen as a tab: Back on it asks to close Create); false
+     * while storage access is missing (asked for) or an update is required (the startup gate).
+     */
+    public boolean openCreate() {
+        if (getActivity() == null || com.sketchware.ai.github.AppControl.updateRequired()) return false;
+        if (!super.a(REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY)) return false;
+        toProjectSettingsActivity(true);
+        return true;
     }
 
     private void restoreProject() {
@@ -530,6 +537,10 @@ public class GC extends DA implements View.OnClickListener {
                     @Override
                     public void a(RecyclerView recyclerView1, int var2, int var3) {
                         super.a(recyclerView1, var2, var3);
+                        // v2.1.0: the bottom bar slides away while the list scrolls down and comes back on the way up
+                        if (getActivity() instanceof MainActivity && (var3 > 4 || var3 < -4)) {
+                            ((MainActivity) getActivity()).projectsScrolled(var3 > 4);
+                        }
                         if (var3 > 4) {
                             if (isCollapsed) return;
                             collapseAnimatorSet.start();

@@ -91,7 +91,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         list = findViewById(R.id.gs_list);
         tabs = findViewById(R.id.gs_tabs);
         ((TextView) findViewById(R.id.gs_title)).setText("Restore projects");
-        findViewById(R.id.gs_back).setOnClickListener(x -> finish());
+        findViewById(R.id.gs_back).setOnClickListener(x -> onBackPressed());
         tabs.setVisibility(View.VISIBLE);
         int first = getIntent().getIntExtra(EXTRA_TAB, getIntent().getBooleanExtra(EXTRA_PHONE, false) ? TAB_PHONE : TAB_GITHUB);
         show(first);
@@ -117,6 +117,13 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         link.setText(l);
         // a shared link only looks the project up (nothing is restored without a tap)
         importLink(false);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // v2.1.0: opened as the GitHub tab of the bottom bar: "Do you want to close GitHub?"
+        if (com.sketchware.ai.ui.TabScreens.onBack(this)) return;
+        super.onBackPressed();
     }
 
     @Override

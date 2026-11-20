@@ -205,8 +205,18 @@ public final class AppControl {
     static void passGate(Activity a) {
         gatePassed = true;
         if (a == null || a.isFinishing() || a.isDestroyed()) return;
-        AuthGuard.check(a);
+        // the main screen in front asks now; else its next onResume does (a project may be open meanwhile)
+        if (a.hasWindowFocus()) AuthGuard.check(a);
         SingleDeviceGuard.check(a);
+    }
+
+    /** {@link #passGate} on the main thread, or only the mark when the screen is gone. */
+    private static void passGateLater(Activity a) {
+        if (a == null) {
+            gatePassed = true;
+            return;
+        }
+        a.runOnUiThread(() -> passGate(a));
     }
 
     /** At app start: reads the file in the background (once per process) and shows its notice on {@code activity}. */
@@ -234,7 +244,7 @@ public final class AppControl {
                 Activity a = ref.get();
                 if (notice == null || !"update".equals(notice.kind)) {
                     // v2.1.0: no update: the sign-in gate next (then a message, if any)
-                    if (a != null) a.runOnUiThread(() -> passGate(a));
+                    passGateLater(a);
                     // the sign-in gate itself asks (passGate): no second sign-in prompt
                     if (notice == null || "login".equals(notice.kind)) return;
                 } else {
@@ -256,6 +266,8 @@ public final class AppControl {
                 if (a != null) a.runOnUiThread(() -> showPending(a));
             } catch (Throwable t) {
                 LogUtil.e("AppControl", "Couldn't read app-control.json", t);
+                // never a gate that stays shut
+                passGateLater(ref.get());
             }
         }, "AppControl");
         thread.setDaemon(true);

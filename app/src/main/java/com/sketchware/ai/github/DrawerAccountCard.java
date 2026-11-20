@@ -78,13 +78,18 @@ public final class DrawerAccountCard {
         // the top row: the picture, "GitHub" and its state, Sign out
         // v2.0.4 (owner's 16 Nov phone test: "GitHu-b", "Connect-ed" beside Sign out): smaller, one line each
         title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
-        title.setSingleLine(true);
+        title.setSingleLine(false);
+        title.setMaxLines(1);
         title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         subtitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11);
-        subtitle.setSingleLine(true);
-        subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        title.setText("GitHub");
+        // v2.1.0 (owner's 16 Nov phone report: "Sign-in not accepted" drawn over the next line): no single-line
+        // scrolling text; the refused state may take two lines and pushes the rest down
         boolean trouble = profile.problem != null;
+        subtitle.setSingleLine(false);
+        subtitle.setMaxLines(trouble ? 2 : 1);
+        subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        subtitle.setIncludeFontPadding(true);
+        title.setText("GitHub");
         subtitle.setText(trouble ? "Sign-in not accepted" : "Connected");
         subtitle.setTextColor(v.color(trouble ? R.color.ob_error : R.color.ob_text_2));
         // v2.0.5: Sign out sits under the details (the top row keeps "GitHub" and its state whole)
