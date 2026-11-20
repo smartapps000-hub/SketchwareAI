@@ -133,9 +133,14 @@ public class CloudSyncService extends Service {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
-                .setContentIntent(openApp(context))
-                .addAction(new Notification.Action.Builder(null, "Cancel", action(context, ACTION_CANCEL, key, ID_RUNNING))
-                        .build());
+                .setContentIntent(openApp(context));
+        // v2.1.0: several jobs share this notification (key null): a line per job, no Cancel (each sheet has its own)
+        if (key != null) {
+            b.addAction(new Notification.Action.Builder(null, "Cancel", action(context, ACTION_CANCEL, key, ID_RUNNING))
+                    .build());
+        } else if (text != null) {
+            b.setStyle(new Notification.BigTextStyle().bigText(text));
+        }
         if (link != null && link.startsWith("https://github.com/")) {
             b.addAction(new Notification.Action.Builder(null, "Open on GitHub", PendingIntent.getActivity(context, 1,
                     viewer(context, link), PendingIntent.FLAG_IMMUTABLE

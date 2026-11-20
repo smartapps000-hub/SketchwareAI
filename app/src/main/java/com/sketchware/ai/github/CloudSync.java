@@ -181,13 +181,51 @@ public final class CloudSync {
         }
     }
 
-    /** Backups and publishing, one at a time (one project's jobs never overlap). */
+    /**
+     * Backups and publishing you start, one at a time per lane. v2.1.0 (owner's 16 Nov directive "2-3 simultaneous
+     * backups"): two lanes for jobs you start and one for the automatic backups, so up to three projects upload at once;
+     * one project's jobs always share a lane ({@link #laneFor}), so they never overlap.
+     */
     private final Lane work = new Lane("CloudSync");
-    /** Imports, one at a time, beside the backups. */
+    private final Lane work2 = new Lane("CloudSync2");
+    /** v2.1.0: backups the app starts by itself (after saving, pending ones). */
+    private final Lane auto = new Lane("CloudSyncAuto");
+    /** Imports, one at a time, beside the backups (any number wait in its queue). */
     private final Lane imports = new Lane("CloudSyncImport");
 
-    private Lane laneOf(String kind) {
-        return IMPORT.equals(kind) ? imports : work;
+    private Lane[] lanes() {
+        return new Lane[]{work, work2, auto, imports};
+    }
+
+    private Lane[] workLanes() {
+        return new Lane[]{work, work2, auto};
+    }
+
+    /** The lane {@code job} lives in (running or waiting), else null. */
+    private Lane laneHolding(Job job) {
+        for (Lane lane : lanes()) {
+            if (lane.current == job || lane.queue.contains(job)) return lane;
+        }
+        return null;
+    }
+
+    /**
+     * v2.1.0: where a new job goes: an import to the imports lane; a job of a project that has a job in a lane already
+     * to that lane (after it); a job you start to the less busy of the two lanes for taps; an automatic backup to its
+     * own lane.
+     */
+    private Lane laneFor(Job job) {
+        if (IMPORT.equals(job.kind)) return imports;
+        for (Lane lane : workLanes()) {
+            if (lane.current != null && lane.current.scId.equals(job.scId) && !lane.current.finished) return lane;
+            for (Job j : lane.queue) if (j.scId.equals(job.scId)) return lane;
+        }
+        if (!job.user) return auto;
+        return load(work2) < load(work) ? work2 : work;
+    }
+
+    private static int load(Lane lane) {
+        return (lane.current != null ? 1 : 0) + lane.queue.size();
     }
 
     /** Tests: a job's work instead of the real one ({@link #run}), and where results go instead of the main thread. */
@@ -247,14 +285,17 @@ public final class CloudSync {
     }
 
     private Job find(String scId, String kind) {
-        Lane lane = laneOf(kind);
-        if (lane.current != null && lane.current.scId.equals(scId) && lane.current.kind.equals(kind)) return lane.current;
+        for (Lane lane : workLanes()) {
+            if (lane.current != null && lane.current.scId.equals(scId) && lane.current.kind.equals(kind)) return lane.current;
+        }
         return findQueued(scId, kind);
     }
 
     private Job findQueued(String scId, String kind) {
-        for (Job job : laneOf(kind).queue) {
-            if (job.scId.equals(scId) && job.kind.equals(kind)) return job;
+        for (Lane lane : workLanes()) {
+            for (Job job : lane.queue) {
+                if (job.scId.equals(scId) && job.kind.equals(kind)) return job;
+            }
         }
         return null;
     }
@@ -452,10 +493,12 @@ public final class CloudSync {
     void enqueue(Job job, Progress progress, Result result) {
         Job target;
         int ahead;
-        Lane lane = laneOf(job.kind);
+        Lane lane;
         synchronized (this) {
             if (IMPORT.equals(job.kind)) target = findImport(job.key());
             else target = job.afterRunning ? findQueued(job.scId, job.kind) : find(job.scId, job.kind);
+            Lane holding = target == null ? null : laneHolding(target);
+            lane = holding != null ? holding : laneFor(job);
             if (target == null) {
                 target = job;
                 if (job.user) {
@@ -529,7 +572,7 @@ public final class CloudSync {
     }
 
     synchronized Job findByKey(String key) {
-        for (Lane lane : new Lane[]{work, imports}) {
+        for (Lane lane : lanes()) {
             if (lane.current != null && key.equals(lane.current.key())) return lane.current;
             for (Job j : lane.queue) if (key.equals(j.key())) return j;
         }
@@ -546,7 +589,7 @@ public final class CloudSync {
     public void cancel(String key) {
         Job waiting = null;
         synchronized (this) {
-            for (Lane lane : new Lane[]{work, imports}) {
+            for (Lane lane : lanes()) {
                 if (lane.current != null && key.equals(lane.current.key())) {
                     lane.current.cancelled = true;
                     lane.current.stopAskedAt = android.os.SystemClock.elapsedRealtime();
@@ -842,7 +885,7 @@ public final class CloudSync {
             synchronized (this) {
                 boolean any = false;
                 long now = android.os.SystemClock.elapsedRealtime();
-                for (Lane lane : new Lane[]{work, imports}) {
+                for (Lane lane : lanes()) {
                     Job j = lane.current;
                     if (j == null) continue;
                     any = true;
@@ -1030,14 +1073,39 @@ public final class CloudSync {
     private long lastServiceUpdate;
     private int lastServicePercent = -1;
 
-    /** The notification of a running job (at most every 700 ms, or when the percentage moves). */
+    /**
+     * The notification of a running job (at most every 700 ms, or when the percentage moves). v2.1.0: several jobs at
+     * once share one notification: "3 GitHub jobs" with a line per job (no Cancel there: each job's sheet has its own).
+     */
     private void service(Job job, boolean start) {
         if (runnerForTests != null || (!job.user && !start && job.percent < 100 && !job.started)) return;
+        java.util.List<Job> running = new java.util.ArrayList<>();
+        synchronized (this) {
+            for (Lane lane : lanes()) {
+                if (lane.current != null && !lane.current.finished) running.add(lane.current);
+            }
+        }
+        int fingerprint = job.percent;
+        if (running.size() > 1) {
+            fingerprint = 0;
+            for (Job j : running) fingerprint = fingerprint * 31 + j.percent;
+        }
         long now = android.os.SystemClock.elapsedRealtime();
-        if (!start && job.percent == lastServicePercent && now - lastServiceUpdate < 700) return;
+        if (!start && fingerprint == lastServicePercent && now - lastServiceUpdate < 700) return;
         lastServiceUpdate = now;
-        lastServicePercent = job.percent;
+        lastServicePercent = fingerprint;
         try {
+            if (running.size() > 1) {
+                StringBuilder lines = new StringBuilder();
+                int least = 100;
+                for (Job j : running) {
+                    if (lines.length() > 0) lines.append('\n');
+                    lines.append(j.title()).append(" · ").append(Math.max(0, Math.min(100, j.percent))).append('%');
+                    least = Math.min(least, j.percent);
+                }
+                CloudSyncService.running(app, null, running.size() + " GitHub jobs", least, lines.toString(), null);
+                return;
+            }
             CloudSyncService.running(app, job.key(), job.title(), job.percent, job.text, job.link);
         } catch (Throwable t) {
             LogUtil.d("CloudSync", "No progress notification: " + t);
@@ -1048,7 +1116,9 @@ public final class CloudSync {
         if (runnerForTests != null) return;
         long generation;
         synchronized (this) {
-            if (work.current != null || imports.current != null || !work.queue.isEmpty() || !imports.queue.isEmpty()) return;
+            for (Lane lane : lanes()) {
+                if (lane.current != null || !lane.queue.isEmpty()) return;
+            }
             // second review: a job the other lane starts after this check makes this idle() a no-op
             generation = CloudSyncService.generation();
         }

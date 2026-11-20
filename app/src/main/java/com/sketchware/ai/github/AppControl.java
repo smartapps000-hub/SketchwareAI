@@ -51,6 +51,15 @@ public final class AppControl {
         public String updateUrl;
         /** A link for the status message (the update link is for updates only). */
         public String messageUrl;
+        /** v2.1.0: an update below {@link #minVersionCode} can't be put off (no Later; Create waits for it). */
+        public boolean forceUpdate;
+        /** v2.1.0: the update APK's SHA-256 (64 hex digits): the in-app updater installs only a file that matches. */
+        public String updateSha256;
+        /** v2.1.0: the newest release (Settings > App updates says Latest or offers it). */
+        public int latestVersionCode;
+        public String latestVersionName;
+        /** v2.1.0: a line about what comes next (Settings > App updates, a badge; empty: none). */
+        public String comingSoon = "";
     }
 
     /** Links only into the owner's repository: whoever can change the file can't send users anywhere else. */
@@ -71,6 +80,8 @@ public final class AppControl {
         public String text;
         /** https only, else null. */
         public String url;
+        /** v2.1.0: an update that can't be put off. */
+        public boolean force;
     }
 
     /** Reads app-control.json leniently; null when it isn't a JSON object. */
@@ -90,6 +101,17 @@ public final class AppControl {
             if (c.statusMessage.length() > 500) c.statusMessage = c.statusMessage.substring(0, 500);
             c.updateUrl = safeUrl(DeviceFlow.string(o, "update_url"));
             c.messageUrl = safeUrl(DeviceFlow.string(o, "message_url"));
+            if (o.has("force_update") && o.get("force_update").isJsonPrimitive()) c.forceUpdate = o.get("force_update").getAsBoolean();
+            String sha = DeviceFlow.string(o, "update_sha256");
+            c.updateSha256 = sha != null && sha.trim().toLowerCase(java.util.Locale.ROOT).matches("[0-9a-f]{64}")
+                    ? sha.trim().toLowerCase(java.util.Locale.ROOT) : null;
+            if (o.has("latest_version_code") && o.get("latest_version_code").isJsonPrimitive()) {
+                c.latestVersionCode = o.get("latest_version_code").getAsInt();
+            }
+            String latestName = DeviceFlow.string(o, "latest_version_name");
+            c.latestVersionName = latestName == null || latestName.length() > 40 ? null : latestName.trim();
+            String soon = DeviceFlow.string(o, "coming_soon");
+            c.comingSoon = soon == null ? "" : soon.trim().length() > 200 ? soon.trim().substring(0, 200) : soon.trim();
             return c;
         } catch (RuntimeException e) {
             return null;
@@ -108,6 +130,7 @@ public final class AppControl {
             n.title = "Update available";
             n.text = c.statusMessage.isEmpty() ? "A newer Sketchware AI is ready." : c.statusMessage;
             n.url = c.updateUrl;
+            n.force = c.forceUpdate;
             return n;
         }
         if (!c.appEnabled || (!c.statusMessage.isEmpty() && !c.statusMessage.equals(lastMessage))) {
@@ -138,6 +161,54 @@ public final class AppControl {
         return json == null ? null : parse(json);
     }
 
+    // ------------------------------------------------------------------ v2.1.0: the startup gate
+
+    private static volatile boolean gatePassed;
+    private static volatile boolean updateRequired;
+    private static boolean gateScheduled;
+
+    /** The startup gate cleared (no update needed, or put off): the sign-in gate may ask now. */
+    public static boolean gatePassed() {
+        return gatePassed;
+    }
+
+    /** An update that can't be put off is waiting: Create waits for it. */
+    public static boolean updateRequired() {
+        return updateRequired;
+    }
+
+    /**
+     * v2.1.0 (owner's 16 Nov directive "sequential startup gate"): the projects list shows at once; 3.5 seconds later
+     * app-control.json is read (GitHub, else the copy on this phone): first the update gate (Update with the in-app
+     * updater, Later only when it may be put off), and only when that clears the sign-in gate ({@link AuthGuard}) and
+     * the one-device check ({@link SingleDeviceGuard}). Once per process.
+     */
+    public static void scheduleGate(Activity activity) {
+        synchronized (AppControl.class) {
+            if (gateScheduled) return;
+            gateScheduled = true;
+        }
+        java.lang.ref.WeakReference<Activity> ref = new java.lang.ref.WeakReference<>(activity);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            Activity a = ref.get();
+            if (a == null) {
+                synchronized (AppControl.class) {
+                    gateScheduled = false;
+                }
+                return;
+            }
+            check(a);
+        }, 3500);
+    }
+
+    /** The gate's second step: the sign-in gate and the one-device check, on the main screen in front. */
+    static void passGate(Activity a) {
+        gatePassed = true;
+        if (a == null || a.isFinishing() || a.isDestroyed()) return;
+        AuthGuard.check(a);
+        SingleDeviceGuard.check(a);
+    }
+
     /** At app start: reads the file in the background (once per process) and shows its notice on {@code activity}. */
     public static void check(Activity activity) {
         synchronized (AppControl.class) {
@@ -160,8 +231,15 @@ public final class AppControl {
                 boolean signedIn = TokenStore.get(app).login() != null;
                 Notice notice = decide(config, com.sketchware.remod.BuildConfig.VERSION_CODE, signedIn,
                         prefs.getString("shown_message", null));
-                if (notice == null) return;
                 Activity a = ref.get();
+                if (notice == null || !"update".equals(notice.kind)) {
+                    // v2.1.0: no update: the sign-in gate next (then a message, if any)
+                    if (a != null) a.runOnUiThread(() -> passGate(a));
+                    // the sign-in gate itself asks (passGate): no second sign-in prompt
+                    if (notice == null || "login".equals(notice.kind)) return;
+                } else {
+                    updateRequired = notice.force;
+                }
                 if ("login".equals(notice.kind)) {
                     // v1.9.9: required sign-in is the sign-in screen itself (AuthGuard), not a dialog
                     // only while the main screen is in front (the read takes seconds: the user may have opened a
@@ -284,6 +362,19 @@ public final class AppControl {
         com.sketchware.ai.ui.ObAlertBuilder b = new com.sketchware.ai.ui.ObAlertBuilder(a,
                 com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
         b.setTitle(notice.title).setMessage(notice.text);
+        if ("update".equals(notice.kind)) {
+            // v2.1.0: the in-app updater (download, SHA-256 check, Android's installer); Later only when it may wait
+            Config config = cached(a);
+            b.setPositiveButton("Update", (d, w) -> AppUpdater.start(a, config));
+            if (!notice.force) {
+                b.setNegativeButton("Later", (d, w) -> passGate(a));
+                b.setOnCancelListener(d -> passGate(a));
+            } else {
+                b.setCancelable(false);
+            }
+            b.show();
+            return;
+        }
         if ("login".equals(notice.kind)) {
             b.setPositiveButton("Sign in", (d, w) -> a.startActivity(new Intent(a, GitHubActivity.class)));
             b.setNegativeButton("Later", null);

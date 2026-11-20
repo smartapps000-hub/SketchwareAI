@@ -346,6 +346,8 @@ public final class SignIn {
                 TokenStore.get(app).save(token, account.login, account.id);
             }
             GitHubSession.noteSignedIn(app);
+            // v2.1.0: this phone is the account's phone now (another phone signs out at its next check)
+            SingleDeviceGuard.claim(app);
             GitHubSession.saveProfile(app, account, null);
             AuthGuard.reset();
             synchronized (this) {
