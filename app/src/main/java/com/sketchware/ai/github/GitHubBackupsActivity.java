@@ -1005,7 +1005,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     restore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                     GitHubViews.oneLine(restore);
                     LinearLayout row = v.row(f.getName().replaceAll("(?i)\\.swb$", ""), detail, restore);
-                    icons.put(f, withIcon(row, f.getName().replaceAll("(?i)\\.swb$", "")));
+                    icons.put(f, withIcon(row, f.getName().replaceAll("(?i)\\.swb$", "").replaceAll("(?i)_v\\d.*$", "")));
                     rows.addView(row, v.full(-1, 6));
                 }
                 // v2.1.1: each backup's own app icon (its resources/icons/icon.png)
