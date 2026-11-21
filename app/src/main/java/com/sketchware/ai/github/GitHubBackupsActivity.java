@@ -1,5 +1,6 @@
 package com.sketchware.ai.github;
 
+import a.a.a.GC;
 import a.a.a.lC;
 import a.a.a.yB;
 import android.app.AlertDialog;
@@ -402,7 +403,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         tile.setBackgroundResource(R.drawable.ob_avatar);
         tile.setClipToOutline(true);
         TextView letters = new TextView(this);
-        letters.setText(a.a.a.GC.monogram(name == null ? "" : name));
+        letters.setText(GC.monogram(name == null ? "" : name));
         letters.setTypeface(v.bold());
         letters.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         letters.setTextColor(v.color(R.color.ob_accent_2));

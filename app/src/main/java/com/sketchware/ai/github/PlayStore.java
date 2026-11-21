@@ -68,7 +68,7 @@ public final class PlayStore {
             return "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + branch + "/" + RepoIcons.PATH;
         }
 
-        /** "v4.7.6 (84) · Re-published · Update #3", "v4.7.7 (85) · Updated", "v1.0 (1)", or null when unknown. */
+        /** "Re-published v4.7.6 (84) • Update #3", "Updated to v4.7.7 (85)", "v1.0 (1)", or null when unknown. */
         public String status() {
             return statusOf(versionName, versionCode, action, publishNumber);
         }
@@ -154,12 +154,16 @@ public final class PlayStore {
         return n.replace('_', ' ');
     }
 
-    /** v2.1.1: the version line of a card or an app page. */
+    /**
+     * v2.1.1 (owner's 21 Nov directive): the version line of a card or an app page: "Re-published v4.7.6 (84) • Update
+     * #3" (the same version code published again), "Updated to v4.7.7 (85)" (a new version code), "v1.0 (1)" (the first
+     * publish); null when unknown.
+     */
     static String statusOf(String versionName, String versionCode, String action, int publishNumber) {
         if (versionName == null || versionName.isEmpty()) return null;
         String label = "v" + versionName + (versionCode == null || versionCode.isEmpty() ? "" : " (" + versionCode + ")");
-        if ("republished".equals(action)) return label + " · Re-published · Update #" + Math.max(2, publishNumber);
-        if ("updated".equals(action)) return label + " · Updated";
+        if ("republished".equals(action)) return "Re-published " + label + " • Update #" + Math.max(2, publishNumber);
+        if ("updated".equals(action)) return "Updated to " + label;
         return label;
     }
 
@@ -468,6 +472,45 @@ public final class PlayStore {
         java.util.Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
         for (File f : files) if (out.size() < MAX_SHOTS) out.add(f);
         return out;
+    }
+
+    /**
+     * Adds a picture to the form as the next {@code NN.jpg} (written to a temp file, then renamed); false when the form
+     * has {@link #MAX_SHOTS} already.
+     */
+    public static synchronized boolean stagePicture(File dir, byte[] jpeg) throws IOException {
+        List<File> have = stagedPictures(dir);
+        if (have.size() >= MAX_SHOTS) return false;
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Can't create " + dir);
+        renumber(dir);
+        File target = new File(dir, String.format(Locale.ROOT, "%02d.jpg", stagedPictures(dir).size() + 1));
+        File tmp = new File(dir, target.getName() + ".tmp");
+        java.nio.file.Files.write(tmp.toPath(), jpeg);
+        if (!tmp.renameTo(target)) {
+            //noinspection ResultOfMethodCallIgnored
+            tmp.delete();
+            throw new IOException("Couldn't save " + target);
+        }
+        return true;
+    }
+
+    /** Removes the form's picture at {@code index}; the others keep their order as 01.jpg, 02.jpg … */
+    public static synchronized void unstagePicture(File dir, int index) {
+        List<File> have = stagedPictures(dir);
+        if (index < 0 || index >= have.size()) return;
+        //noinspection ResultOfMethodCallIgnored
+        have.get(index).delete();
+        renumber(dir);
+    }
+
+    /** 01.jpg, 02.jpg … without gaps, in the same order (each name only ever moves down: no clash). */
+    static void renumber(File dir) {
+        List<File> have = stagedPictures(dir);
+        for (int i = 0; i < have.size(); i++) {
+            File want = new File(dir, String.format(Locale.ROOT, "%02d.jpg", i + 1));
+            if (!have.get(i).getName().equals(want.getName())) //noinspection ResultOfMethodCallIgnored
+                have.get(i).renameTo(want);
+        }
     }
 
     /** The staging folder of a publish form for repository {@code number} (filesDir/publish_staging/<number>). */

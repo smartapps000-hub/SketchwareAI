@@ -1,10 +1,12 @@
 package com.sketchware.ai.github;
 
+import a.a.a.GC;
 import a.a.a.lC;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -14,6 +16,7 @@ import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -38,17 +41,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * v2.1.0 (owner's 16 Nov directive "GitHub-powered Play Store"): the Play Store tab of the bottom bar. Three pages, each
- * a screen of its own (Back goes from a page to the one before; on the list, opened as the tab, Back asks to close the
- * tab):
+ * v2.1.0 (owner's 16 Nov directive "GitHub-powered Play Store"), v2.1.1 (owner's 21 Nov directive "Google Play-grade
+ * Play Store"): the Play Store tab of the bottom bar. Four pages, each a screen of its own (Back goes from a page to
+ * the one before; on the list, opened as the tab, Back asks to close the tab):
  * <ul>
- * <li>the list ({@link PlayStore#search}: public repositories with the store topic; the copy on the phone first, then
- * GitHub, 10 seconds at most), a filter box and "Publish your app";</li>
- * <li>an app: its store page, the pictures (a row; a tap opens them full screen), Download &amp; Install APK and Import
- * .SWB from its newest version, Watch demo video, Open on GitHub, and the reviews (its GitHub Discussions; reading and
- * writing them needs a sign-in, GitHub's rule);</li>
- * <li>Publish: one of the account's project repositories, the words, a video link and up to eight pictures, then (after
- * asking) public with the store topic and Discussions on.</li>
+ * <li>the list: the search box in the header (typing filters the apps on the phone, the keyboard's Search asks GitHub,
+ * "@name" opens a creator), "Publish your app" and the app cards (the app's own icon, name, @creator · ★, its version
+ * line);</li>
+ * <li>an app: icon, name, @creator (a tap opens the creator's page) and the version line; Downloads, Likes (a tap likes
+ * or takes the like back), Shares (Share opens Android's share sheet) and Views; What's new; the pictures; Download
+ * &amp; Install APK, Import .SWB, Watch demo video, Open on GitHub; the reviews;</li>
+ * <li>a creator: picture, name, @login, bio, apps / projects / followers / downloads, the store apps and the other
+ * public projects;</li>
+ * <li>Publish: one of the account's project repositories, the words, a video link and up to eight pictures, all kept on
+ * the phone at once ({@code files/publish_staging/<repository number>}: a sign-in, a turned screen or leaving loses
+ * nothing), then after asking a {@link CloudSync} job with the progress sheet and the notification.</li>
  * </ul>
  */
 public class PlayStoreActivity extends BaseAppCompatActivity {
@@ -56,8 +63,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     static final String EXTRA_OWNER = "playstore_owner";
     static final String EXTRA_REPO = "playstore_repo";
     static final String EXTRA_PUBLISH = "playstore_publish";
+    static final String EXTRA_DEVELOPER = "playstore_developer";
     static final int TIMEOUT_MILLIS = 10_000;
     private static final int PICK_PICTURES = 7421;
+    /** A missing picture (an app without an icon on GitHub) is asked again after a day. */
+    static final long MISSING_RETRY_MILLIS = 24 * 3600_000L;
 
     private GitHubViews v;
     private LinearLayout list;
@@ -66,18 +76,21 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         t.setDaemon(true);
         return t;
     });
-    /**
-     * review (MEDIUM): publishing and posting outlive the screen (leaving it never cuts a publish off half-way); their
-     * end is a toast when the sheet was hidden or the screen is gone.
-     */
-    static final ExecutorService WRITES = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "PlayStoreWrites");
+    /** v2.1.1: icons and pictures, three at a time (a list of 30 apps doesn't start 30 downloads at once). */
+    private final ExecutorService images = Executors.newFixedThreadPool(3, r -> {
+        Thread t = new Thread(r, "PlayStoreImages");
         t.setDaemon(true);
         return t;
     });
-    /** second review (LOW): reviews, posts and replies don't wait behind a publish's picture uploads. */
+    /** second review (LOW): reviews, posts, replies and reactions on their own thread; they outlive the screen. */
     static final ExecutorService POSTS = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "PlayStorePosts");
+        t.setDaemon(true);
+        return t;
+    });
+    /** v2.1.1: the publish form's words and pictures written to the phone, in order. */
+    private static final ExecutorService STAGE = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "PlayStoreStage");
         t.setDaemon(true);
         return t;
     });
@@ -90,6 +103,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         return new Intent(activity, PlayStoreActivity.class).putExtra(EXTRA_OWNER, owner).putExtra(EXTRA_REPO, repo);
     }
 
+    static Intent developer(Activity activity, String login) {
+        return new Intent(activity, PlayStoreActivity.class).putExtra(EXTRA_DEVELOPER, login);
+    }
+
+    static boolean validLogin(String login) {
+        return login != null && login.matches("[A-Za-z0-9-]{1,39}");
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -100,17 +121,37 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         findViewById(R.id.gs_back).setOnClickListener(x -> onBackPressed());
         String owner = getIntent().getStringExtra(EXTRA_OWNER);
         String repo = getIntent().getStringExtra(EXTRA_REPO);
+        String creator = getIntent().getStringExtra(EXTRA_DEVELOPER);
         if (owner != null && repo != null) {
-            if (!owner.matches("[A-Za-z0-9-]{1,39}") || !repo.matches("[A-Za-z0-9_.-]{1,100}")) {
+            if (!validLogin(owner) || !repo.matches("[A-Za-z0-9_.-]{1,100}")) {
                 finish();
                 return;
             }
             buildApp(owner, repo);
+        } else if (creator != null) {
+            if (!validLogin(creator)) {
+                finish();
+                return;
+            }
+            buildDeveloper(creator);
         } else if (getIntent().getBooleanExtra(EXTRA_PUBLISH, false)) {
             buildPublish();
         } else {
             buildList();
         }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // a publish that finished meanwhile removed the staged pictures
+        if (picturesRow != null) showPictures();
+    }
+
+    @Override
+    public void onPause() {
+        saveForm();
+        super.onPause();
     }
 
     @Override
@@ -122,6 +163,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     @Override
     public void onDestroy() {
         work.shutdownNow();
+        images.shutdownNow();
         super.onDestroy();
     }
 
@@ -134,6 +176,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         TokenStore store = TokenStore.get(this);
         if (store.login() == null || GitHubSession.isRefused(this)) return null;
         return store.token();
+    }
+
+    /** Signed in and not refused (no Keystore read: the token is read on a worker thread). */
+    private boolean signedIn() {
+        return TokenStore.get(this).login() != null && !GitHubSession.isRefused(this);
     }
 
     private void ui(Runnable r) {
@@ -149,6 +196,41 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         return t;
     }
 
+    /** 1234 → "1.2K", 2500000 → "2.5M"; -1 → "–" (not known). */
+    static String count(long n) {
+        if (n < 0) return "–";
+        if (n < 1000) return Long.toString(n);
+        if (n < 1_000_000) return trim(n / 1000.0) + "K";
+        return trim(n / 1_000_000.0) + "M";
+    }
+
+    private static String trim(double d) {
+        String s = d >= 100 ? Long.toString(Math.round(d)) : String.format(Locale.ROOT, "%.1f", d);
+        return s.endsWith(".0") ? s.substring(0, s.length() - 2) : s;
+    }
+
+    /**
+     * An app's tile: the two letters on the orange tile (the design file's project tiles), covered by the app's own
+     * icon ({@link RepoIcons#PATH} on GitHub) once it is read.
+     */
+    private FrameLayout appTile(PlayStore.App a, int sizeDp) {
+        FrameLayout tile = new FrameLayout(this);
+        tile.setBackgroundResource(R.drawable.ob_tile_orange);
+        tile.setClipToOutline(true);
+        TextView letters = new TextView(this, null, 0, R.style.Ob_Text_Button_Cta);
+        letters.setText(GC.monogram(a.name()));
+        letters.setGravity(Gravity.CENTER);
+        letters.setIncludeFontPadding(false);
+        letters.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeDp >= 60 ? 22 : 16);
+        tile.addView(letters, new FrameLayout.LayoutParams(-1, -1));
+        ImageView icon = new ImageView(this);
+        icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        icon.setContentDescription(null);
+        tile.addView(icon, new FrameLayout.LayoutParams(-1, -1));
+        if (a.owner != null && a.repo != null) loadPicture(a.iconUrl(), icon, v.dp(sizeDp));
+        return tile;
+    }
+
     // ------------------------------------------------------------------ the list
 
     private LinearLayout appsBox;
@@ -158,13 +240,20 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     private void buildList() {
         title("Play Store", "Apps made with Sketchware AI, shared on GitHub");
-        list.removeAllViews();
-        list.addView(v.actionCard(R.drawable.ob_ic_store, "Publish your app",
-                "A project backed up to GitHub: its APK, .swb, pictures and reviews", x -> {
-                    if (!AuthGuard.check(this)) return;
-                    startActivity(new Intent(this, PlayStoreActivity.class).putExtra(EXTRA_PUBLISH, true));
-                }), v.full(-1, 4));
-        EditText search = v.input("Filter by name or account", false, 1);
+        // v2.1.1 (owner's 21 Nov directive "search bar at the top"): the search box in the header
+        LinearLayout header = findViewById(R.id.gs_tabs);
+        header.setVisibility(View.VISIBLE);
+        EditText search = v.input("Search apps or @creator", false, 1);
+        search.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        search.setContentDescription("Search the Play Store");
+        android.graphics.drawable.Drawable glass = getDrawable(R.drawable.ob_ic_search);
+        if (glass != null) {
+            glass = glass.mutate();
+            glass.setBounds(0, 0, v.dp(18), v.dp(18));
+            glass.setTint(v.color(R.color.ob_text_2));
+            search.setCompoundDrawablesRelative(glass, null, null, null);
+            search.setCompoundDrawablePadding(v.dp(10));
+        }
         search.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -180,7 +269,22 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 showApps();
             }
         });
-        list.addView(search, v.full(46, 12));
+        search.setOnEditorActionListener((view, actionId, event) -> {
+            String text = search.getText().toString().trim();
+            if (text.startsWith("@") && validLogin(text.substring(1))) {
+                startActivity(developer(this, text.substring(1)));
+                return true;
+            }
+            searchGitHub(text);
+            return false;
+        });
+        header.addView(search, new LinearLayout.LayoutParams(-1, v.dp(44)));
+        list.removeAllViews();
+        list.addView(v.actionCard(R.drawable.ob_ic_store, "Publish your app",
+                "A project backed up to GitHub: its APK, .swb, pictures and reviews", x -> {
+                    if (!AuthGuard.check(this)) return;
+                    startActivity(new Intent(this, PlayStoreActivity.class).putExtra(EXTRA_PUBLISH, true));
+                }), v.full(-1, 4));
         listStatus = v.line("", false);
         listStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(listStatus, v.full(-1, 10));
@@ -189,22 +293,41 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         list.addView(appsBox, v.full(-1, 6));
         apps = PlayStore.cached(this);
         showApps();
-        refreshList();
+        refreshList(null);
     }
 
-    private void refreshList() {
-        listStatus.setText(apps.isEmpty() ? "Reading the Play Store on GitHub…" : "Saved on this phone · checking GitHub…");
+    private void searchGitHub(String text) {
+        if (text.isEmpty()) {
+            refreshList(null);
+        } else {
+            refreshList(text);
+        }
+    }
+
+    /** The store from GitHub (all of it, or the apps matching {@code text}), merged into the phone's copy. */
+    private void refreshList(String text) {
+        boolean searching = text != null && !text.isEmpty();
+        listStatus.setText(searching ? "Searching GitHub for “" + text + "”…"
+                : apps.isEmpty() ? "Reading the Play Store on GitHub…" : "Saved on this phone · checking GitHub…");
         listStatus.setTextColor(v.color(R.color.ob_text_2));
         work.execute(() -> {
             String token = token();
             try {
-                List<PlayStore.App> found = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.search(token));
+                List<PlayStore.App> found = GitHubHttp.quick(TIMEOUT_MILLIS,
+                        () -> PlayStore.search(token, searching ? text : null, null));
                 List<PlayStore.App> merged = PlayStore.merge(found, PlayStore.cached(getApplicationContext()));
                 PlayStore.save(getApplicationContext(), merged);
                 ui(() -> {
                     apps = merged;
-                    listStatus.setText(merged.isEmpty() ? "No apps in the store yet: be the first (Publish your app)."
-                            : merged.size() + (merged.size() == 1 ? " app" : " apps") + " · newest first");
+                    View retry = appsBox.findViewWithTag("retry");
+                    if (retry != null) appsBox.removeView(retry);
+                    if (searching) {
+                        listStatus.setText(found.isEmpty() ? "No app on GitHub matches “" + text + "”."
+                                : found.size() + (found.size() == 1 ? " app" : " apps") + " on GitHub match “" + text + "”");
+                    } else {
+                        listStatus.setText(merged.isEmpty() ? "No apps in the store yet: be the first (Publish your app)."
+                                : merged.size() + (merged.size() == 1 ? " app" : " apps") + " · newest first");
+                    }
                     showApps();
                 });
             } catch (Exception e) {
@@ -212,9 +335,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 ui(() -> {
                     listStatus.setText((apps.isEmpty() ? "" : "Showing the copy on this phone. ") + why);
                     listStatus.setTextColor(v.color(R.color.ob_error));
-                    TextView retry = v.smallPill("Try again", false, true, x -> refreshList());
-                    GitHubViews.oneLine(retry);
                     if (appsBox.findViewWithTag("retry") == null) {
+                        TextView retry = v.smallPill("Try again", false, true, x -> refreshList(text));
+                        GitHubViews.oneLine(retry);
                         retry.setTag("retry");
                         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, v.dp(34));
                         p.bottomMargin = v.dp(8);
@@ -227,36 +350,44 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     private void showApps() {
         if (appsBox == null) return;
+        View retry = appsBox.findViewWithTag("retry");
         appsBox.removeAllViews();
+        if (retry != null) appsBox.addView(retry);
         int shown = 0;
         for (PlayStore.App a : apps) {
-            if (!filter.isEmpty() && !a.name().toLowerCase(Locale.ROOT).contains(filter)
-                    && !a.owner.toLowerCase(Locale.ROOT).contains(filter)) {
-                continue;
-            }
+            if (!matches(a, filter)) continue;
             appsBox.addView(appCard(a), v.full(-1, shown == 0 ? 0 : 8));
             shown++;
         }
-        if (shown == 0 && !apps.isEmpty()) appsBox.addView(v.line("No app matches “" + filter + "”.", false));
+        if (shown == 0 && !apps.isEmpty()) {
+            appsBox.addView(v.line("No app on this phone matches “" + filter + "”: Search on the keyboard asks GitHub.",
+                    false));
+        }
     }
 
-    /** A compact card: letter tile, name, @owner · ★ · date, two lines of description. */
+    /** The phone's filter: the name, the creator ("@name" too) and the description. */
+    static boolean matches(PlayStore.App a, String filter) {
+        if (filter == null || filter.isEmpty()) return true;
+        String f = filter.startsWith("@") ? filter.substring(1) : filter;
+        if (f.isEmpty()) return true;
+        if (a.owner != null && a.owner.toLowerCase(Locale.ROOT).contains(f)) return true;
+        if (filter.startsWith("@")) return false;
+        return a.name().toLowerCase(Locale.ROOT).contains(f)
+                || a.description != null && a.description.toLowerCase(Locale.ROOT).contains(f);
+    }
+
+    /** A compact card: icon, name, @creator · ★ · date, the version line, two lines of description. */
     private View appCard(PlayStore.App a) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setBackgroundResource(R.drawable.ob_pill16_state);
         card.setPadding(v.dp(12), v.dp(10), v.dp(12), v.dp(10));
-        TextView tile = new TextView(this, null, 0, R.style.Ob_Text_Button_Cta);
-        String name = a.name();
-        tile.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT));
-        tile.setGravity(Gravity.CENTER);
-        tile.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        tile.setBackgroundResource(R.drawable.ob_tile_orange);
-        card.addView(tile, new LinearLayout.LayoutParams(v.dp(44), v.dp(44)));
+        card.addView(appTile(a, 48), new LinearLayout.LayoutParams(v.dp(48), v.dp(48)));
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView title = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        String name = a.name();
         title.setText(name);
         title.setTypeface(v.bold());
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -267,6 +398,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         GitHubViews.oneLine(meta);
         texts.addView(meta);
+        String status = a.status();
+        if (status != null) {
+            TextView s = v.line(status, false);
+            s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            s.setTextColor(v.color(R.color.ob_accent));
+            GitHubViews.oneLine(s);
+            texts.addView(s);
+        }
         if (a.description != null && !a.description.isEmpty()) {
             TextView d = v.line(a.description, false);
             d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -278,7 +417,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         tp.leftMargin = v.dp(12);
         card.addView(texts, tp);
         card.setOnClickListener(x -> startActivity(app(this, a.owner, a.repo)));
-        card.setContentDescription(name + " by " + a.owner);
+        card.setContentDescription(name + " by " + a.owner + (status == null ? "" : ", " + status));
         return card;
     }
 
@@ -291,6 +430,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private LinearLayout reviewsBox;
     private TextView appStatus;
     private String[] discussionInfo;
+    private final PlayStore.Stats stats = new PlayStore.Stats();
+    private TextView[] statValues;
+    private TextView[] statLabels;
+    private LinearLayout[] statCells;
 
     private void buildApp(String owner, String repo) {
         current = null;
@@ -331,21 +474,65 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackgroundResource(R.drawable.ob_pill16);
         card.setPadding(v.dp(14), v.dp(12), v.dp(14), v.dp(12));
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.addView(appTile(a, 64), new LinearLayout.LayoutParams(v.dp(64), v.dp(64)));
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
         TextView name = new TextView(this, null, 0, R.style.Ob_Text_Title);
         name.setText(a.name());
         name.setMaxLines(2);
-        card.addView(name);
-        TextView meta = v.line("@" + a.owner + " · ★ " + a.stars + (a.updated > 0 ? " · updated "
-                + CloudBackup.formatTime(a.updated) : ""), false);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        texts.addView(name);
+        // v2.1.1: the creator opens their page
+        TextView creator = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        creator.setText("@" + a.owner);
+        creator.setTextColor(v.color(R.color.ob_accent));
+        creator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        creator.setPadding(0, v.dp(4), v.dp(8), v.dp(4));
+        creator.setBackgroundResource(R.drawable.ob_press_overlay);
+        creator.setContentDescription("Developer @" + a.owner + ": open their page");
+        GitHubViews.oneLine(creator);
+        creator.setOnClickListener(x -> startActivity(developer(this, a.owner)));
+        texts.addView(creator, new LinearLayout.LayoutParams(-2, -2));
+        String status = a.status();
+        TextView meta = v.line((status == null ? "" : status + "\n") + "★ " + a.stars
+                + (a.updated > 0 ? " · updated " + CloudBackup.formatTime(a.updated) : ""), false);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        card.addView(meta, v.full(-1, 2));
+        texts.addView(meta);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
+        tp.leftMargin = v.dp(14);
+        top.addView(texts, tp);
+        card.addView(top);
         if (a.description != null && !a.description.isEmpty()) {
             TextView d = v.line(a.description, false);
             d.setTextColor(v.color(R.color.ob_text));
             d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            card.addView(d, v.full(-1, 8));
+            card.addView(d, v.full(-1, 10));
         }
         pageBox.addView(card);
+        pageBox.addView(statsRow(), v.full(-1, 10));
+        if (a.changelog != null && !a.changelog.trim().isEmpty()) {
+            pageBox.addView(heading("What's new"), v.full(-1, 18));
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setBackgroundResource(R.drawable.ob_pill16);
+            box.setPadding(v.dp(14), v.dp(10), v.dp(14), v.dp(12));
+            if (status != null) {
+                TextView s = v.line(status + (a.publishedAt > 0 ? " · " + CloudBackup.formatTime(a.publishedAt) : ""), false);
+                s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                s.setTextColor(v.color(R.color.ob_accent));
+                box.addView(s);
+            }
+            TextView c = v.line(a.changelog.trim(), false);
+            c.setTextColor(v.color(R.color.ob_text));
+            c.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            c.setMaxLines(14);
+            c.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            box.addView(c, v.full(-1, status == null ? 0 : 6));
+            pageBox.addView(box, v.full(-1, 6));
+        }
         if (!a.screenshots.isEmpty()) {
             HorizontalScrollView scroll = new HorizontalScrollView(this);
             scroll.setHorizontalScrollBarEnabled(false);
@@ -366,8 +553,131 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 shotsRow.addView(shot, p);
                 loadPicture(urls.get(i), shot, v.dp(248));
             }
-            pageBox.addView(scroll, v.full(-1, 10));
+            pageBox.addView(scroll, v.full(-1, 12));
         }
+    }
+
+    /**
+     * v2.1.1 (owner's 21 Nov directive "Google Play-style stats row"): Downloads (GitHub's download counts of the
+     * versions' APK and .swb), Likes (❤️ on the app's stats post: a tap likes or takes it back), Shares (🚀: Share
+     * opens Android's share sheet and counts this account once) and Views (👀: counted once per signed-in account when
+     * the page opens). "–" = not known yet (signed out: GitHub shows reactions to signed-in accounts only).
+     */
+    private View statsRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String[] labels = {"Downloads", "Likes", "Shares", "Views"};
+        statValues = new TextView[4];
+        statLabels = new TextView[4];
+        statCells = new LinearLayout[4];
+        for (int i = 0; i < 4; i++) {
+            LinearLayout cell = new LinearLayout(this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setGravity(Gravity.CENTER);
+            cell.setBackgroundResource(R.drawable.ob_pill16);
+            cell.setPadding(v.dp(4), v.dp(8), v.dp(4), v.dp(8));
+            TextView value = new TextView(this, null, 0, R.style.Ob_Text_Label);
+            value.setTypeface(v.bold());
+            value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+            value.setGravity(Gravity.CENTER);
+            GitHubViews.oneLine(value);
+            cell.addView(value, new LinearLayout.LayoutParams(-1, -2));
+            TextView label = v.line(labels[i], false);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            label.setGravity(Gravity.CENTER);
+            GitHubViews.oneLine(label);
+            cell.addView(label, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            if (i > 0) p.leftMargin = v.dp(6);
+            row.addView(cell, p);
+            statValues[i] = value;
+            statLabels[i] = label;
+            statCells[i] = cell;
+        }
+        statCells[1].setOnClickListener(x -> toggleLike());
+        statCells[2].setOnClickListener(x -> share());
+        showStats();
+        return row;
+    }
+
+    private void showStats() {
+        if (statValues == null) return;
+        boolean signedIn = signedIn();
+        statValues[0].setText(count(stats.downloads));
+        statValues[1].setText(count(stats.likes));
+        statValues[2].setText(count(stats.shares));
+        statValues[3].setText(count(stats.views));
+        statLabels[1].setText(stats.liked ? "❤ Liked" : "♡ Like");
+        statValues[1].setTextColor(v.color(stats.liked ? R.color.ob_amber : R.color.ob_text));
+        statLabels[2].setText("↗ Share");
+        // Like works when the counter is known, or signs in first; Share always opens the share sheet
+        boolean likeWorks = !signedIn || stats.subjectId != null;
+        statCells[1].setClickable(likeWorks);
+        statCells[1].setBackgroundResource(likeWorks ? R.drawable.ob_pill16_state : R.drawable.ob_pill16);
+        statCells[1].setContentDescription(count(stats.likes) + " likes. " + (!signedIn ? "Sign in to like."
+                : stats.subjectId == null ? "Likes start with its owner's next publish." : stats.liked ? "Tap to take the like back."
+                : "Tap to like."));
+        statCells[2].setClickable(true);
+        statCells[2].setBackgroundResource(R.drawable.ob_pill16_state);
+        statCells[2].setContentDescription(count(stats.shares) + " shares. Tap to share.");
+        statCells[0].setContentDescription(count(stats.downloads) + " downloads");
+        statCells[3].setContentDescription(count(stats.views) + " views");
+    }
+
+    private void toggleLike() {
+        if (!signedIn()) {
+            GitHubInAppAuthDialog.show(this, login -> recreate());
+            return;
+        }
+        String subject = stats.subjectId;
+        if (subject == null) return;
+        boolean add = !stats.liked;
+        stats.liked = add;
+        stats.likes = Math.max(0, stats.likes + (add ? 1 : -1));
+        showStats();
+        android.content.Context app = getApplicationContext();
+        POSTS.execute(() -> {
+            try {
+                String token = token();
+                if (token == null) throw new GitHubException("signed_out", "Sign in again.");
+                PlayStore.react(token, subject, PlayStore.LIKE, add);
+            } catch (Exception e) {
+                ui(() -> {
+                    stats.liked = !add;
+                    stats.likes = Math.max(0, stats.likes + (add ? -1 : 1));
+                    showStats();
+                });
+                toast(app, (add ? "The like" : "Taking the like back") + " didn't work: " + GitHubImportDialog.text(e));
+            }
+        });
+    }
+
+    private void share() {
+        PlayStore.App a = current;
+        String link = "https://github.com/" + a.owner + "/" + a.repo;
+        Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_SUBJECT, a.name())
+                .putExtra(Intent.EXTRA_TEXT, a.name() + " by @" + a.owner + " (made with Sketchware AI): " + link);
+        try {
+            startActivity(Intent.createChooser(send, "Share " + a.name()));
+        } catch (RuntimeException e) {
+            Toast.makeText(this, "No app on this phone shares links.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String subject = stats.subjectId;
+        if (!signedIn() || subject == null || stats.shared) return;
+        stats.shared = true;
+        stats.shares = Math.max(0, stats.shares) + 1;
+        showStats();
+        POSTS.execute(() -> {
+            try {
+                String token = token();
+                if (token != null) PlayStore.react(token, subject, PlayStore.SHARE, true);
+            } catch (Exception ignored) {
+                // counted again at a later share (GitHub keeps one rocket per account)
+                ui(() -> stats.shared = false);
+            }
+        });
     }
 
     private void loadApp() {
@@ -380,12 +690,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         work.execute(() -> {
             String token = token();
             String failure = null;
+            boolean read = false;
             try {
                 GitHubHttp.quick(TIMEOUT_MILLIS, () -> {
                     PlayStore.readListing(token, fresh);
                     return null;
                 });
                 PlayStore.remember(getApplicationContext(), fresh);
+                read = true;
                 ui(() -> {
                     current = fresh;
                     appStatus.setText("");
@@ -402,15 +714,70 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
             String why = failure;
             List<ProjectRepo.Version> found = versions;
+            long downloads = found == null ? -1 : downloadsOf(found);
             ui(() -> {
                 if (why != null) {
                     appStatus.setText(why);
                     appStatus.setTextColor(v.color(R.color.ob_error));
                 }
+                if (downloads >= 0) stats.downloads = downloads;
+                showStats();
                 showActions(found, why != null);
             });
+            loadReactions(token, read ? fresh : a);
             loadReviews(token);
         });
+    }
+
+    /** GitHub's download counts of the versions' APK and .swb files. */
+    static long downloadsOf(List<ProjectRepo.Version> versions) {
+        long total = 0;
+        for (ProjectRepo.Version ver : versions) {
+            for (ProjectRepo.Asset x : ver.assets) {
+                if (x.name != null && (x.name.endsWith(".apk") || x.name.endsWith(".swb"))) total += Math.max(0, x.downloads);
+            }
+        }
+        return total;
+    }
+
+    /** Likes, shares and views of the app's stats post; this account's view counted once. */
+    private void loadReactions(String token, PlayStore.App a) {
+        if (token == null || a.statsDiscussion <= 0) return;
+        PlayStore.Stats got = new PlayStore.Stats();
+        try {
+            GitHubHttp.quick(TIMEOUT_MILLIS, () -> {
+                PlayStore.reactions(token, a, got);
+                return null;
+            });
+        } catch (Exception e) {
+            return;
+        }
+        boolean countView = got.subjectId != null && !got.viewed;
+        if (countView) {
+            got.viewed = true;
+            got.views = Math.max(0, got.views) + 1;
+        }
+        ui(() -> {
+            long downloads = stats.downloads;
+            stats.subjectId = got.subjectId;
+            stats.likes = got.likes;
+            stats.liked = got.liked;
+            stats.shares = got.shares;
+            stats.shared = got.shared;
+            stats.views = got.views;
+            stats.viewed = got.viewed;
+            stats.downloads = downloads;
+            showStats();
+        });
+        if (countView) {
+            POSTS.execute(() -> {
+                try {
+                    PlayStore.react(token, got.subjectId, PlayStore.VIEW, true);
+                } catch (Exception ignored) {
+                    // counted at the next visit
+                }
+            });
+        }
     }
 
     private void showActions(List<ProjectRepo.Version> versions, boolean failed) {
@@ -525,11 +892,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         TextView write = v.smallPill("Write a review", true, true, x -> writeReview());
         GitHubViews.oneLine(write);
         reviewsBox.addView(write, pillWrap(0));
-        if (posts.isEmpty()) {
-            reviewsBox.addView(v.line("No reviews yet.", false), v.full(-1, 10));
-            return;
-        }
+        int shown = 0;
         for (PlayStore.Post p : posts) {
+            // v2.1.1: the stats post holds the counters, it isn't a review
+            if (p.title != null && p.title.startsWith("📊 ")) continue;
             String detail = "@" + p.author + (p.time > 0 ? " · " + CloudBackup.formatTime(p.time) : "")
                     + (p.comments > 0 ? " · " + p.comments + (p.comments == 1 ? " reply" : " replies") : "")
                     + (p.body == null || p.body.isEmpty() ? "" : "\n" + p.body);
@@ -537,7 +903,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             row.setBackgroundResource(R.drawable.ob_pill16_state);
             row.setOnClickListener(x -> startActivity(CommunityActivity.thread(this, a.owner, a.repo, p.number, p.title)));
             reviewsBox.addView(row, v.full(-1, 8));
+            shown++;
         }
+        if (shown == 0) reviewsBox.addView(v.line("No reviews yet.", false), v.full(-1, 10));
     }
 
     private void writeReview() {
@@ -620,11 +988,167 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         });
     }
 
+    // ------------------------------------------------------------------ a creator
+
+    private void buildDeveloper(String login) {
+        title("@" + login, "Developer · Play Store");
+        list.removeAllViews();
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundResource(R.drawable.ob_pill16);
+        card.setPadding(v.dp(14), v.dp(14), v.dp(14), v.dp(14));
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        FrameLayout tile = new FrameLayout(this);
+        tile.setBackgroundResource(R.drawable.ob_avatar);
+        tile.setClipToOutline(true);
+        TextView letters = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        letters.setText(GC.monogram(login));
+        letters.setTypeface(v.bold());
+        letters.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        letters.setTextColor(v.color(R.color.ob_accent_2));
+        letters.setGravity(Gravity.CENTER);
+        tile.addView(letters, new FrameLayout.LayoutParams(-1, -1));
+        ImageView avatar = new ImageView(this);
+        avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        avatar.setContentDescription(null);
+        tile.addView(avatar, new FrameLayout.LayoutParams(-1, -1));
+        top.addView(tile, new LinearLayout.LayoutParams(v.dp(72), v.dp(72)));
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(this, null, 0, R.style.Ob_Text_Title);
+        name.setText(login);
+        name.setMaxLines(2);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        texts.addView(name);
+        TextView handle = v.line("@" + login, false);
+        handle.setTextColor(v.color(R.color.ob_accent));
+        GitHubViews.oneLine(handle);
+        texts.addView(handle);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
+        tp.leftMargin = v.dp(14);
+        top.addView(texts, tp);
+        card.addView(top);
+        TextView bio = v.line("", false);
+        bio.setTextColor(v.color(R.color.ob_text));
+        bio.setVisibility(View.GONE);
+        card.addView(bio, v.full(-1, 10));
+        list.addView(card, v.full(-1, 4));
+
+        LinearLayout numbers = new LinearLayout(this);
+        numbers.setOrientation(LinearLayout.HORIZONTAL);
+        String[] labels = {"Apps", "Projects", "Followers", "Downloads"};
+        TextView[] values = new TextView[4];
+        for (int i = 0; i < 4; i++) {
+            LinearLayout cell = new LinearLayout(this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setGravity(Gravity.CENTER);
+            cell.setBackgroundResource(R.drawable.ob_pill16);
+            cell.setPadding(v.dp(4), v.dp(8), v.dp(4), v.dp(8));
+            TextView value = new TextView(this, null, 0, R.style.Ob_Text_Label);
+            value.setTypeface(v.bold());
+            value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+            value.setGravity(Gravity.CENTER);
+            value.setText("–");
+            GitHubViews.oneLine(value);
+            cell.addView(value, new LinearLayout.LayoutParams(-1, -2));
+            TextView label = v.line(labels[i], false);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            label.setGravity(Gravity.CENTER);
+            GitHubViews.oneLine(label);
+            cell.addView(label, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            if (i > 0) p.leftMargin = v.dp(6);
+            numbers.addView(cell, p);
+            values[i] = value;
+        }
+        list.addView(numbers, v.full(-1, 10));
+        TextView status = v.line("Reading @" + login + " on GitHub…", false);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        list.addView(status, v.full(-1, 10));
+        LinearLayout appsList = new LinearLayout(this);
+        appsList.setOrientation(LinearLayout.VERTICAL);
+        list.addView(appsList, v.full(-1, 4));
+        loadDeveloper(login, name, bio, avatar, values, status, appsList);
+    }
+
+    private void loadDeveloper(String login, TextView name, TextView bio, ImageView avatar, TextView[] values,
+                               TextView status, LinearLayout appsList) {
+        status.setText("Reading @" + login + " on GitHub…");
+        status.setTextColor(v.color(R.color.ob_text_2));
+        work.execute(() -> {
+            String token = token();
+            PlayStore.Developer d;
+            try {
+                d = GitHubHttp.quick(TIMEOUT_MILLIS * 2, () -> PlayStore.developer(token, login));
+            } catch (Exception e) {
+                String why = RepoViewerActivity.whyFailed(e);
+                ui(() -> {
+                    status.setText(why);
+                    status.setTextColor(v.color(R.color.ob_error));
+                    appsList.removeAllViews();
+                    TextView retry = v.smallPill("Try again", false, true,
+                            x -> loadDeveloper(login, name, bio, avatar, values, status, appsList));
+                    GitHubViews.oneLine(retry);
+                    appsList.addView(retry, pillWrap(0));
+                });
+                return;
+            }
+            ui(() -> {
+                ((TextView) findViewById(R.id.gs_title)).setText(d.name != null && !d.name.isEmpty() ? d.name : "@" + d.login);
+                name.setText(d.name != null && !d.name.isEmpty() ? d.name : d.login);
+                if (d.bio != null && !d.bio.trim().isEmpty()) {
+                    bio.setText(d.bio.trim());
+                    bio.setVisibility(View.VISIBLE);
+                }
+                values[0].setText(count(d.apps.size()));
+                values[1].setText(count(d.projects.size()));
+                values[2].setText(count(d.followers));
+                status.setText("");
+                appsList.removeAllViews();
+                appsList.addView(heading("Apps in the Play Store"), v.full(-1, 8));
+                if (d.apps.isEmpty()) {
+                    appsList.addView(v.line("No app in the store yet.", false), v.full(-1, 6));
+                }
+                for (PlayStore.App a : d.apps) appsList.addView(appCard(a), v.full(-1, 8));
+                appsList.addView(heading("Projects and demos"), v.full(-1, 22));
+                if (d.projects.isEmpty()) {
+                    appsList.addView(v.line("No other public Sketchware AI project.", false), v.full(-1, 6));
+                }
+                for (PlayStore.App p : d.projects) {
+                    LinearLayout row = v.row(p.name(), (p.description == null || p.description.isEmpty()
+                            ? p.repo : p.description) + (p.updated > 0 ? " · " + CloudBackup.formatTime(p.updated) : ""));
+                    row.setBackgroundResource(R.drawable.ob_pill16_state);
+                    row.setOnClickListener(x -> startActivity(RepoViewerActivity.intent(this, p.owner, p.repo)));
+                    appsList.addView(row, v.full(-1, 8));
+                }
+            });
+            if (d.avatar != null) loadPicture(d.avatar, avatar, v.dp(72));
+            // the downloads of the store apps (ten at most: one request each)
+            long total = 0;
+            boolean known = false;
+            int asked = 0;
+            for (PlayStore.App a : d.apps) {
+                if (asked++ >= 10) break;
+                try {
+                    total += GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.downloads(token, a));
+                    known = true;
+                } catch (Exception ignored) {
+                    // left out of the sum
+                }
+            }
+            long sum = total;
+            boolean any = known || d.apps.isEmpty();
+            ui(() -> values[3].setText(any ? count(sum) : "–"));
+        });
+    }
+
     // ------------------------------------------------------------------ pictures
 
-    /** A picture of the store (GitHub's file host only), kept in the app's cache, decoded no larger than needed. */
+    /** A picture of the store (GitHub's file and avatar hosts only), kept in the app's cache, decoded no larger than needed. */
     private void loadPicture(String url, ImageView into, int heightPx) {
-        work.execute(() -> {
+        images.execute(() -> {
             Bitmap bitmap = picture(url, heightPx);
             ui(() -> {
                 if (bitmap != null) into.setImageBitmap(bitmap);
@@ -633,18 +1157,31 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     }
 
     Bitmap picture(String url, int heightPx) {
-        if (PlayStore.safeImage(url) == null) return null;
+        if (PlayStore.safeImage(url) == null && PlayStore.safeAvatar(url) == null) return null;
         File dir = new File(getCacheDir(), "playstore");
-        File file = new File(dir, Integer.toHexString(url.hashCode()) + "_" + url.length() + ".img");
+        String key = Integer.toHexString(url.hashCode()) + "_" + url.length();
+        File file = new File(dir, key + ".img");
+        // v2.1.1: an app without an icon on GitHub (404) isn't asked again for a day
+        File missing = new File(dir, key + ".none");
         try {
             if (!file.isFile()) {
+                if (missing.isFile() && System.currentTimeMillis() - missing.lastModified() < MISSING_RETRY_MILLIS) {
+                    return null;
+                }
                 if (!dir.isDirectory() && !dir.mkdirs()) return null;
                 java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
                 c.setConnectTimeout(TIMEOUT_MILLIS);
                 c.setReadTimeout(TIMEOUT_MILLIS);
                 c.setInstanceFollowRedirects(false);
                 try {
-                    if (c.getResponseCode() != 200) return null;
+                    int code = c.getResponseCode();
+                    if (code == 404) {
+                        java.nio.file.Files.write(missing.toPath(), new byte[0]);
+                        //noinspection ResultOfMethodCallIgnored
+                        missing.setLastModified(System.currentTimeMillis());
+                        return null;
+                    }
+                    if (code != 200) return null;
                     File temp = new File(file.getPath() + ".tmp" + Thread.currentThread().getId());
                     long total = 0;
                     try (InputStream in = c.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(temp)) {
@@ -656,10 +1193,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                             out.write(buf, 0, n);
                         }
                     } catch (java.io.IOException e) {
+                        //noinspection ResultOfMethodCallIgnored
                         temp.delete();
                         throw e;
                     }
-                    if (!temp.renameTo(file)) temp.delete();
+                    if (!temp.renameTo(file)) //noinspection ResultOfMethodCallIgnored
+                        temp.delete();
+                    //noinspection ResultOfMethodCallIgnored
+                    missing.delete();
                 } finally {
                     c.disconnect();
                 }
@@ -714,7 +1255,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             image.setImageDrawable(null);
             String url = urls.get(at[0]);
             int shownAt = at[0];
-            work.execute(() -> {
+            images.execute(() -> {
                 Bitmap b = picture(url, Math.min(height, 2048));
                 ui(() -> {
                     if (b != null && at[0] == shownAt && d.isShowing()) image.setImageBitmap(b);
@@ -746,35 +1287,96 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     // ------------------------------------------------------------------ publishing
 
-    private final List<byte[]> pictures = new ArrayList<>();
+    private static final String PREFS = "playstore_publish";
     private LinearLayout picturesRow;
     private LinearLayout reposBox;
     private ProjectRepo.Info chosen;
+    /** The repository whose form is on screen (staging folder), also before the list of projects is read. */
+    private long chosenNumber;
+    private String login;
     private EditText titleField;
     private EditText descriptionField;
     private EditText videoField;
+    /** True while the fields are being filled from the phone (no save meanwhile). */
+    private boolean filling;
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE);
+    }
+
+    private File staging() {
+        return chosenNumber > 0 ? PlayStore.stagingDir(this, chosenNumber) : null;
+    }
 
     private void buildPublish() {
         title("Publish your app", "To the Play Store on GitHub");
         list.removeAllViews();
-        String login = TokenStore.get(this).login();
+        login = TokenStore.get(this).login();
         if (login == null) {
-            list.addView(v.row("Sign in to publish", "The store lists public repositories of GitHub accounts.",
-                    signInPill()), v.full(-1, 4));
+            list.addView(v.row("Sign in to publish", "The store lists public repositories of GitHub accounts. What you "
+                    + "type here stays on this phone.", signInPill()), v.full(-1, 4));
             return;
         }
+        // v2.1.1: the project chosen last time, with its form and pictures as they were left
+        chosenNumber = prefs().getLong("chosen_" + login, 0);
         list.addView(heading("1 · Your project"), v.full(-1, 4));
         list.addView(v.line("Projects backed up to GitHub from this account. The newest version's APK and .swb are what "
                 + "the store offers: Run the project before its backup to include the APK.", false), v.full(-1, 4));
         reposBox = new LinearLayout(this);
         reposBox.setOrientation(LinearLayout.VERTICAL);
         list.addView(reposBox, v.full(-1, 8));
+
+        list.addView(heading("2 · Store page"), v.full(-1, 22));
+        titleField = v.input("App name", false, 1);
+        list.addView(titleField, v.full(46, 6));
+        descriptionField = v.input("What the app does", true, 6);
+        list.addView(descriptionField, v.full(-1, 8));
+        videoField = v.input("Demo video link (https://…, optional)", false, 1);
+        videoField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        list.addView(videoField, v.full(46, 8));
+        TextWatcher save = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (!filling) saveForm();
+            }
+        };
+        titleField.addTextChangedListener(save);
+        descriptionField.addTextChangedListener(save);
+        videoField.addTextChangedListener(save);
+
+        list.addView(heading("3 · Pictures"), v.full(-1, 22));
+        list.addView(v.line("Up to " + PlayStore.MAX_SHOTS + " screenshots, kept on this phone until the app is published "
+                + "(long-press one to remove it).", false), v.full(-1, 4));
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        picturesRow = new LinearLayout(this);
+        picturesRow.setOrientation(LinearLayout.HORIZONTAL);
+        scroll.addView(picturesRow);
+        list.addView(scroll, v.full(-1, 8));
+
+        TextView publish = v.pill("Publish to the Play Store", true, true, x -> confirmPublish());
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, v.dp(50));
+        pp.topMargin = v.dp(24);
+        list.addView(publish, pp);
+
+        if (chosenNumber > 0) fillForm(null);
+        showPictures();
+
         long[] at = new long[1];
         List<ProjectRepo.Info> kept = RepoCache.repos(this, login, at);
         // review (HIGH): nothing saved on this phone yet (signed in before v2.0.4, or offline at sign-in)
         if (kept != null) showRepos(kept);
         else reposBox.addView(v.line("Reading your projects on GitHub…", false));
         boolean nothingSaved = kept == null;
+        String account = login;
         work.execute(() -> {
             String token = token();
             if (token == null) {
@@ -788,7 +1390,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
             try {
                 List<ProjectRepo.Info> own = GitHubHttp.quick(TIMEOUT_MILLIS, () -> ProjectRepo.listOwn(token));
-                RepoCache.saveRepos(getApplicationContext(), login, own);
+                RepoCache.saveRepos(getApplicationContext(), account, own);
                 ui(() -> showRepos(own));
             } catch (Exception e) {
                 String why = RepoViewerActivity.whyFailed(e);
@@ -798,31 +1400,57 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 });
             }
         });
+    }
 
-        list.addView(heading("2 · Store page"), v.full(-1, 22));
-        titleField = v.input("App name", false, 1);
-        list.addView(titleField, v.full(46, 6));
-        descriptionField = v.input("What the app does", true, 6);
-        list.addView(descriptionField, v.full(-1, 8));
-        videoField = v.input("Demo video link (https://…, optional)", false, 1);
-        videoField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        list.addView(videoField, v.full(46, 8));
+    /**
+     * The form of the chosen project from the phone: its saved words, else (first time) the repository's name and
+     * description.
+     */
+    private void fillForm(ProjectRepo.Info info) {
+        File dir = staging();
+        if (dir == null) return;
+        PlayStore.Listing staged = PlayStore.Listing.load(dir);
+        filling = true;
+        try {
+            String t = staged.title != null ? staged.title : info != null ? PlayStore.displayName(info.name) : "";
+            String d = staged.description != null ? staged.description
+                    : info != null && info.description != null && !info.description.startsWith("Sketchware AI")
+                    ? info.description : "";
+            titleField.setText(t);
+            descriptionField.setText(d);
+            videoField.setText(staged.video == null ? "" : staged.video);
+        } finally {
+            filling = false;
+        }
+    }
 
-        list.addView(heading("3 · Pictures"), v.full(-1, 22));
-        list.addView(v.line("Up to " + PlayStore.MAX_SHOTS + " screenshots (long-press one to remove it).", false),
-                v.full(-1, 4));
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        picturesRow = new LinearLayout(this);
-        picturesRow.setOrientation(LinearLayout.HORIZONTAL);
-        scroll.addView(picturesRow);
-        list.addView(scroll, v.full(-1, 8));
-        showPictures();
+    /** The form's words to the phone (its own thread, in order). */
+    private void saveForm() {
+        File dir = staging();
+        if (dir == null || titleField == null) return;
+        PlayStore.Listing form = new PlayStore.Listing();
+        form.title = titleField.getText().toString();
+        form.description = descriptionField.getText().toString();
+        form.video = videoField.getText().toString();
+        STAGE.execute(() -> {
+            try {
+                form.saveForm(dir);
+            } catch (Exception e) {
+                mod.jbk.util.LogUtil.d("PlayStore", "Form not saved: " + e);
+            }
+        });
+    }
 
-        TextView publish = v.pill("Publish to the Play Store", true, true, x -> confirmPublish());
-        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, v.dp(50));
-        pp.topMargin = v.dp(24);
-        list.addView(publish, pp);
+    private void choose(ProjectRepo.Info info, List<ProjectRepo.Info> repos) {
+        if (chosenNumber != info.number) {
+            saveForm();
+            chosenNumber = info.number;
+            prefs().edit().putLong("chosen_" + login, info.number).apply();
+            fillForm(info);
+            showPictures();
+        }
+        chosen = info;
+        showRepos(repos);
     }
 
     private void showRepos(List<ProjectRepo.Info> repos) {
@@ -833,18 +1461,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             return;
         }
         for (ProjectRepo.Info info : repos) {
+            if (chosen == null && info.number == chosenNumber) chosen = info;
             boolean picked = chosen != null && chosen.number == info.number;
-            TextView choose = v.smallPill(picked ? "✓ Chosen" : "Choose", picked, true, x -> {
-                chosen = info;
-                if (titleField != null && titleField.getText().length() == 0) {
-                    titleField.setText(PlayStore.displayName(info.name));
-                }
-                if (descriptionField != null && descriptionField.getText().length() == 0 && info.description != null
-                        && !info.description.startsWith("Sketchware AI")) {
-                    descriptionField.setText(info.description);
-                }
-                showRepos(repos);
-            });
+            TextView choose = v.smallPill(picked ? "✓ Chosen" : "Choose", picked, true, x -> choose(info, repos));
             GitHubViews.oneLine(choose);
             LinearLayout row = v.row(PlayStore.displayName(info.name), info.name + (info.isPrivate ? " · private" : " · public"),
                     choose);
@@ -854,28 +1473,36 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     private void showPictures() {
         picturesRow.removeAllViews();
-        for (int i = 0; i < pictures.size(); i++) {
-            byte[] jpeg = pictures.get(i);
+        File dir = staging();
+        List<File> staged = dir == null ? new ArrayList<>() : PlayStore.stagedPictures(dir);
+        for (int i = 0; i < staged.size(); i++) {
             ImageView shot = new ImageView(this);
             shot.setScaleType(ImageView.ScaleType.CENTER_CROP);
             shot.setBackgroundResource(R.drawable.ob_pill16);
             shot.setClipToOutline(true);
             BitmapFactory.Options o = new BitmapFactory.Options();
             o.inSampleSize = 4;
-            shot.setImageBitmap(BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length, o));
+            shot.setImageBitmap(BitmapFactory.decodeFile(staged.get(i).getPath(), o));
             int index = i;
             shot.setContentDescription("Picture " + (i + 1) + " (long-press to remove)");
             shot.setOnLongClickListener(x -> {
-                pictures.remove(index);
-                showPictures();
+                STAGE.execute(() -> {
+                    PlayStore.unstagePicture(dir, index);
+                    ui(this::showPictures);
+                });
                 return true;
             });
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(v.dp(84), v.dp(156));
             p.rightMargin = v.dp(8);
             picturesRow.addView(shot, p);
         }
-        if (pictures.size() < PlayStore.MAX_SHOTS) {
+        if (staged.size() < PlayStore.MAX_SHOTS) {
             TextView add = v.glassPill("+ Add", true, x -> {
+                if (staging() == null) {
+                    Toast.makeText(this, "Choose the project first (step 1): its pictures are kept with it.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
                 Intent pick = new Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
                         .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true).addCategory(Intent.CATEGORY_OPENABLE);
                 try {
@@ -893,6 +1520,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != PICK_PICTURES || resultCode != RESULT_OK || data == null) return;
+        File dir = staging();
+        if (dir == null) return;
         List<Uri> uris = new ArrayList<>();
         ClipData clip = data.getClipData();
         if (clip != null) {
@@ -901,19 +1530,26 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             uris.add(data.getData());
         }
         android.content.ContentResolver resolver = getContentResolver();
-        work.execute(() -> {
-            List<byte[]> made = new ArrayList<>();
+        android.content.Context app = getApplicationContext();
+        // v2.1.1: each picture is copied to the phone at once (the picker's permission ends with this screen)
+        STAGE.execute(() -> {
+            int failed = 0;
+            int full = 0;
             for (Uri uri : uris) {
                 byte[] jpeg = jpeg(resolver, uri);
-                if (jpeg != null) made.add(jpeg);
-            }
-            ui(() -> {
-                for (byte[] j : made) if (pictures.size() < PlayStore.MAX_SHOTS) pictures.add(j);
-                if (made.size() < uris.size()) {
-                    Toast.makeText(this, (uris.size() - made.size()) + " picture(s) couldn't be read.", Toast.LENGTH_LONG).show();
+                if (jpeg == null) {
+                    failed++;
+                    continue;
                 }
-                showPictures();
-            });
+                try {
+                    if (!PlayStore.stagePicture(dir, jpeg)) full++;
+                } catch (Exception e) {
+                    failed++;
+                }
+            }
+            if (failed > 0) toast(app, failed + (failed == 1 ? " picture" : " pictures") + " couldn't be read.");
+            if (full > 0) toast(app, "Up to " + PlayStore.MAX_SHOTS + " pictures: " + full + " left out.");
+            ui(this::showPictures);
         });
     }
 
@@ -960,73 +1596,38 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             Toast.makeText(this, "The video link must start with https://", Toast.LENGTH_LONG).show();
             return;
         }
-        PlayStore.Listing listing = new PlayStore.Listing();
-        listing.title = titleField.getText().toString().trim();
-        if (listing.title.isEmpty()) listing.title = PlayStore.displayName(chosen.name);
-        listing.description = descriptionField.getText().toString();
-        listing.video = video;
-        listing.screenshots.addAll(pictures);
+        saveForm();
         ProjectRepo.Info repo = chosen;
+        String title = titleField.getText().toString().trim();
+        if (title.isEmpty()) title = PlayStore.displayName(repo.name);
+        String appTitle = title;
+        // v2.1.1 (owner's 21 Nov screenshot: "Make SketchwareAI-… public?" cut): a short title, the name in the text
         new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
-                .setTitle("Make " + repo.name + " public?")
-                .setMessage("Everyone can then see the project's code, its versions (APK and .swb) and this store page; "
-                        + "GitHub Discussions are switched on for its reviews. Make it private again any time with its "
-                        + "card's pill (it then leaves the store).")
-                .setPositiveButton("Publish", (d, w) -> publish(repo, listing))
+                .setTitle("Make it public?")
+                .setMessage(repo.name + " becomes public: everyone can see the project's code, its versions (APK and .swb) "
+                        + "and this store page; GitHub Discussions are switched on for its reviews. Make it private again "
+                        + "any time with its card's pill (it then leaves the store).")
+                .setPositiveButton("Publish", (d, w) -> publish(repo, appTitle))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
-    private void publish(ProjectRepo.Info repo, PlayStore.Listing listing) {
-        GitHubProgress progress = GitHubProgress.show(this, R.drawable.ob_ic_store, "Publishing " + listing.title);
-        progress.update(2, "Starting…");
-        Runnable[] again = new Runnable[1];
-        again[0] = () -> {
-            progress.restart();
-            runPublish(progress, repo, listing);
-        };
-        progress.actions(null, again[0], null);
-        runPublish(progress, repo, listing);
+    /**
+     * v2.1.1: the publish runs as a {@link CloudSync} job (progress sheet and notification; leaving the screen doesn't
+     * stop it); a refused sign-in pauses it and Sign in again runs it from the staged files.
+     */
+    private void publish(ProjectRepo.Info repo, String title) {
+        CloudSync.Store store = new CloudSync.Store();
+        store.repo = repo.name;
+        store.number = repo.number;
+        store.title = title;
+        store.staging = PlayStore.stagingDir(this, repo.number);
+        store.scId = linkedProject(login, repo);
+        STAGE.execute(() -> ui(() -> CloudSync.publishToStore(this, store)));
     }
 
-    /** Every step repeats safely (PATCH, topics, files replaced by their sha), so Retry runs it all again. */
-    private void runPublish(GitHubProgress progress, ProjectRepo.Info repo, PlayStore.Listing listing) {
-        android.content.Context app = getApplicationContext();
-        WRITES.execute(() -> {
-            TokenStore store = TokenStore.get(app);
-            String login = store.login();
-            String token = store.token();
-            try {
-                if (login == null || token == null) throw new GitHubException("signed_out", "Sign in to publish.");
-                String note = PlayStore.publish(token, login, repo.name, listing,
-                        (percent, text) -> ui(() -> progress.update(percent, text)));
-                repo.isPrivate = false;
-                markLocalProjectPublic(app, login, repo);
-                String done = note == null ? "Published: it is in the Play Store now." : "Published. " + note;
-                if (gone() || progress.hidden()) toast(app, listing.title + ": " + done);
-                ui(() -> {
-                    progress.done(done);
-                    progress.link(ProjectRepo.link(login, repo.name));
-                });
-            } catch (Exception e) {
-                String why = GitHubImportDialog.text(e);
-                if (gone() || progress.hidden()) toast(app, "Publishing " + listing.title + " didn't work: " + why);
-                ui(() -> progress.failed(why, true));
-            }
-        });
-    }
-
-    private boolean gone() {
-        return isFinishing() || isDestroyed();
-    }
-
-    /** A toast from any thread, with the app's context (the screen may be gone). */
-    static void toast(android.content.Context app, String text) {
-        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(app, text, Toast.LENGTH_LONG).show());
-    }
-
-    /** The project on this phone linked to that repository shows Public now. */
-    private static void markLocalProjectPublic(android.content.Context app, String login, ProjectRepo.Info repo) {
+    /** The project on this phone linked to that repository (by number, else by name), or null. */
+    private static String linkedProject(String login, ProjectRepo.Info repo) {
         try {
             for (java.util.HashMap<String, Object> p : lC.a()) {
                 Object id = p.get("sc_id");
@@ -1034,13 +1635,17 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 String scId = id.toString();
                 if (ProjectLinks.repoNumber(scId, login) == repo.number
                         || repo.name.equalsIgnoreCase(ProjectLinks.repoName(scId, login))) {
-                    // review (LOW): a backup running meanwhile doesn't write the card back to Private (told first)
-                    CloudSync.get(app).visibilityChanged(scId);
-                    ProjectLinks.visibilityNow(scId, login, false);
+                    return scId;
                 }
             }
         } catch (RuntimeException ignored) {
-            // the card catches up at the next backup
+            // published without the local project's icon
         }
+        return null;
+    }
+
+    /** A toast from any thread, with the app's context (the screen may be gone). */
+    static void toast(android.content.Context app, String text) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(app, text, Toast.LENGTH_LONG).show());
     }
 }
