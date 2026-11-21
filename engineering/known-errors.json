@@ -1051,6 +1051,45 @@
         "JVM V211ClientTest (upload / skip / read)",
         "render V211Test"
       ]
+    },
+    {
+      "fingerprint": "Signed out after updating Sketchware AI (v2.1.0 → v2.1.1); the account card shows Sign in with GitHub",
+      "rootCause": "no update path removes a sign-in; the only automatic sign-out is the one-phone rule, which compared installs: another install of the app on the same phone (a reinstall, a cloned app) counted as another phone; a reinstall itself loses the app's data",
+      "repair": "v2.1.2: device_key (hash of ANDROID_ID | login) in the mark; a mark of this phone never signs it out; every sign-out recorded with its reason (SessionLog) and shown on the signed-out card",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "ART GitHubTest (decide with device keys)",
+        "JVM V210ClientTest",
+        "render V212Test (the card's line)"
+      ]
+    },
+    {
+      "fingerprint": "Backup at 90% for minutes, 'Uploading… 6.2 MB of 6.2 MB · 15 KB/s'",
+      "rootCause": "the network sent 15 KB/s (the app already streamed with a fixed length and 64 KB writes); at 90% every byte had been handed to the network and the app waited for GitHub's answer with no word on screen; the speed counted from the job's start",
+      "repair": "v2.1.2: the last ~8 s speed, 'All N handed to the network · waiting for GitHub to confirm', a background-slowness note; one asset up to 25 MiB",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "ART GitHubTest (UploadSpeed, partsFor)",
+        "JVM GitHubClientTest (parts above 25 MiB)"
+      ]
+    },
+    {
+      "fingerprint": "Bottom bar: a cut bump above Home at the bar's left end",
+      "rootCause": "the edge window was still half open where the top-left corner arc ended, so Home's crest started with a 4-5 dp vertical step",
+      "repair": "v2.1.2: the corners sampled along their arcs with the edge offset added; the window is 0 only at the bar's ends",
+      "scope": "IDE",
+      "verifiedOn": [
+        "render V212Test (Home and Settings at rest, 3x ends)"
+      ]
+    },
+    {
+      "fingerprint": "Play Store app page: the Like tile drawn without its glass; a tap does nothing",
+      "rootCause": "the Like / Share cells swapped their background to a fading selector; with the counters not read yet a Like tap returned silently",
+      "repair": "v2.1.2: all four cells keep ob_pill16, a press foreground on Like / Share; a Like tap always answers",
+      "scope": "IDE",
+      "verifiedOn": [
+        "render V212Test"
+      ]
     }
   ]
 }

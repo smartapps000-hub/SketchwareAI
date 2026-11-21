@@ -986,6 +986,13 @@ public final class GitHubInAppAuthDialog extends Dialog {
         boolean email = "email".equals(kind);
         chrome.otpTitle.setText(email ? "Email verification code" : "Two-factor code");
         chrome.openMail.setVisibility(email ? View.VISIBLE : View.GONE);
+        // alone, Paste & fill takes the row without the gap it keeps beside Open Gmail
+        android.view.ViewGroup.LayoutParams lp = chrome.pasteFill.getLayoutParams();
+        if (lp instanceof android.widget.LinearLayout.LayoutParams) {
+            ((android.widget.LinearLayout.LayoutParams) lp).leftMargin = email ? (int) (8 * getContext().getResources()
+                    .getDisplayMetrics().density) : 0;
+            chrome.pasteFill.setLayoutParams(lp);
+        }
         chrome.otp.setVisibility(View.VISIBLE);
         status(email ? "GitHub e-mailed you a code: copy it, then tap Paste & fill." : "Copy the code from your "
                 + "authenticator app, then tap Paste & fill.", false);

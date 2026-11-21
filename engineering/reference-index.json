@@ -369,6 +369,18 @@
       "file": "Android Studio's default ic_launcher_background / ic_launcher_foreground vectors (108 dp viewport: grid, long shadow gradient, robot path); the Android robot is CC BY 3.0 (Google)",
       "purpose": "v2.1.1: tools/icons/make_default_app_icon.py (geometry checked against the stock template icon: circle, grid lines, head bounds)",
       "available": true
+    },
+    {
+      "id": "github-verification-pages",
+      "file": "GitHub's sign-in verification pages: /sessions/verified-device (e-mailed device code, field otp, autocomplete one-time-code) and /sessions/two-factor/app (field app_totp / app_otp); read from GitHub's public page structure, checked only with jsdom stand-ins",
+      "purpose": "v2.1.2: OtpAssist (the code helper)",
+      "available": true
+    },
+    {
+      "id": "android-id-scope",
+      "file": "Settings.Secure.ANDROID_ID documentation: Android 8.0+ a 64-bit value unique to each combination of app signing key, user and device",
+      "purpose": "v2.1.2: SingleDeviceGuard device_key (the same phone across reinstalls)",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

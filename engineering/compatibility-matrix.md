@@ -334,3 +334,16 @@ Whether a generated APK runs on a given Android version depends on that project'
   manifest (aapt2); an actual backup / restore or phone transfer is **not run**.
 - The bar's glass drop, crater, splash and waves: layoutlib at 10 moments of a tap; the running animation on a phone,
   SoundPool with the new 44.1 kHz WAV and the ringer-mode check are **not run**.
+
+## v2.1.2 (21 Nov 2026)
+
+- Tabs kept behind Home (`FLAG_ACTIVITY_REORDER_TO_FRONT`, `moveTaskToBack`): framework behaviour on Android 8-17; not run
+  here (no Activity runs in the harness). How long Android keeps a stopped tab before it re-creates it depends on the phone's
+  memory.
+- The e-mail / two-factor code helper: the fill script ran in jsdom against stand-ins of GitHub's pages; GitHub's real pages,
+  the clipboard (Android 10+ reads it only while the app is in front; 13+ shows "pasted") and opening Gmail are **not run**.
+- The update notification (`UpdateNotice`, POST_NOTIFICATIONS on 13+, a FileProvider install intent from a notification):
+  **not run**. The card and the sheet's buttons: layoutlib.
+- `SingleDeviceGuard`'s device key uses ANDROID_ID, which Android 8+ scopes to the app's signing key, the user and the phone
+  (the same after a reinstall with the same key; another Android user or a work profile has another).
+

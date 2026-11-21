@@ -1520,3 +1520,44 @@ gold; 4-stage physics; new honey_drop.wav". Record: `engineering/v2.1.1-verifica
   `sketchware_ai_github`, `_github_signin`, `_github_profile`, `sketchware_ai_device` (a token sealed by this phone's
   Keystore key can't be read elsewhere).
 - `GitHubSession.answerOf` (the refusal note quotes "HTTP 401 …" once).
+
+## v2.1.2 additions (21 Nov 2026): tabs kept, update card, sign-in record, code helper, honest uploads, letters in the app
+
+Owner's 21 Nov directive "CRITICAL PERFORMANCE, UX & BUG-FIX (v2.1.2 / versionCode 209)" with 17 v2.1.1 phone
+screenshots (9 points). Record: `engineering/v2.1.2-verification.md`.
+
+- **Tabs** (`ui.TabScreens`): no "Do you want to close …?"; Back on a tab's first page starts Home with
+  `FLAG_ACTIVITY_REORDER_TO_FRONT` and the tab stays behind it; Home re-opens a tab with the same flag (`TabScreens.reopen`),
+  so it comes back scrolled where it was with its inner page; the tab screens take only the tab marks in `onNewIntent`.
+  Create (`EXTRA_CLOSES`) is a form and closes on Back. Back on Home = `moveTaskToBack(true)` (Android 12+ behaviour; the
+  kept tabs would otherwise surface).
+- **Zero-lag reads**: Home's project list (`GC.a`) is read on a single-thread executor and applied with a generation
+  number; the list read last in the process shows at once meanwhile. `ProjectLinks.read` (Home cards) keeps a record per
+  file stamp + size (cleared on every write and `listChanged`); `PlayStore.cached` parses once per file version (copies
+  handed out); `GitHubSession.profile` keeps the Keystore read per sealed sign-in and `warmUp` does it at start off the main
+  thread; `AppControl.cached` parses once per text.
+- **Update**: `UpdateCard` (glow heading, "vA → vB" pill, `update_reason`, up to three `update_notes`, orange Update; no
+  Later and not dismissible when required); `AppUpdater` has no Cancel (Hide only; after an error Hide + Retry,
+  `GitHubProgress.failedHideRetry`); `UpdateNotice` (channel "App updates": progress while hidden, "Tap to install" with
+  the FileProvider URI, the error). app-control.json: `status_message_max_version_code` (an older version's plain dialog
+  gets the text, the updated one doesn't show it again), `update_reason`, `update_notes`.
+- **Sign-in across updates**: nothing in an update removes a sign-in; the only automatic sign-out is the one-phone rule.
+  `SingleDeviceGuard` marks carry `device_key` = SHA-256("device:" + ANDROID_ID | login); a mark with this phone's key (or,
+  written before v2.1.2, this phone's model) is this phone: "keep" / "claim", never "signout". `SessionLog`
+  (`no_backup/session_log.json`, last 30: signed in, signed out with its reason, installed / updated with the sign-in's
+  state) and the signed-out account card's line (`SessionLog.signedOutLine`).
+- **Code helper** (`OtpAssist`): on https github.com `/sessions/verified-device` (Open Gmail + Paste & fill) and
+  `/sessions/two-factor…` (not webauthn / recovery; Paste & fill): the copied 6- or 8-digit code (also "123 456") goes
+  into GitHub's field the way typing does, then GitHub's own submit is pressed after 0.5 s unless the page sent the form
+  itself; digits only (anything else refused before a script is made).
+- **Upload**: `ProjectRepo.SINGLE_MAX_BYTES` 25 MiB (one asset; above it 8 MiB parts), `partsFor`; `CloudSync.UploadSpeed`
+  (speed of the last ~8 s; "All N handed to the network · waiting for GitHub to confirm" when every byte is written; a note
+  after 20 s under 30 KB/s while no screen of the app is in front). The stream was already fixed-length with 64 KB writes.
+- **Letters in the app**: Play Store tiles (`PlayStoreActivity.monogramTile`: the app's letters under its real icon), New
+  Project and project settings (`ui.MonogramDrawable`); the round Android icon is only the APK's default (template).
+- **Screens**: Play Store title without the cut subtitle, a slim "Publish your app" row, @creator and the version pill on
+  their own rows, four counters on one glass (Like / Share with a press foreground; Like always answers); Restore's Demo and
+  On this phone cards in the GitHub card's shape (`GitHubBackupsActivity.slimCard`), no Demo paragraph; the bar's top
+  corners sampled along their arcs with the edge offset added (`HoneyDropBar.onDraw`, window 0 only at the bar's ends):
+  an edge tab's crest grows out of the corner (v2.1.1 had a 4-5 dp step where the arc ended).
+

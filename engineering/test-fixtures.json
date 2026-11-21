@@ -1011,6 +1011,22 @@
       "checks": [
         "images out/v211_*.png"
       ]
+    },
+    {
+      "id": "otp-script-test.js",
+      "kind": "node + jsdom (OtpScriptPrint prints the script)",
+      "content": "the e-mailed code page (one field + Verify), a page that sends the form by itself, six one-digit boxes, the two-factor app field, hidden / disabled fields, no field, an 8-digit code; a non-digit text refused",
+      "checks": [
+        "OTPSCRIPT 11/11"
+      ]
+    },
+    {
+      "id": "Renders V212Test / V212LargeFontTest",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v212.sh)",
+      "content": "bar with Home / Settings selected (3x ends) and a tap into Home; Play Store list and app page; update card (required / not) and the download sheet's buttons; Restore's three tabs; the sign-in window's code bar; Settings signed out with its reason; the letters tiles",
+      "checks": [
+        "images out/v212_*.png"
+      ]
     }
   ]
 }
