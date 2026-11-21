@@ -1524,3 +1524,10 @@ It adds or updates the components below. Full list: CREDITS.md in the source.
 
 	https://github.com/primer/octicons
 	MIT License
+
+* Android robot (Google)
+
+	The Android robot is reproduced or modified from work created and shared by Google and used according to terms
+	described in the Creative Commons 3.0 Attribution License. Used in the default launcher icon of apps built
+	without an icon of their own.
+	https://creativecommons.org/licenses/by/3.0/

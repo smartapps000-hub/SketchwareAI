@@ -1458,3 +1458,55 @@ part C (audit, suites, main, binaries). Record: `engineering/v2.1.0-verification
   are static helpers the Play Store uses.
 - `ProjectRepo.create` returns null on 422 "name already exists" (two lanes, same-name projects): `ensure` tries the
   next name.
+
+## v2.1.1 additions (21 Nov 2026): app icons, a Play Store with counters, a native Community, glass bar, default icon
+
+Owner's 21 Nov directive (v2.1.1 / versionCode 208) with 10 v2.1.0 screenshots, then two corrections the same day:
+"this APK default icon, same as it is" (the stock green icon he photographed) and "original Android robot from image 3
+on our Obsidian / orange glass card; the card keeps its monogram", plus "transparent glass droplet, splash and waves, no
+gold; 4-stage physics; new honey_drop.wav". Record: `engineering/v2.1.1-verification.md`.
+
+- **Default launcher icon** (`assets/resource/600/res.zip` → `drawable-xhdpi/app_icon.png`, 144 px, drawn by
+  `tools/icons/make_default_app_icon.py`: Android Studio's `ic_launcher_foreground` robot path, white, eyes as holes, on a
+  superellipse n = 4.2 squircle, `#26262C → #0B0B0D` body, `#FF6D24 → #FFB347` radial glow, white-to-amber rim). Every
+  Run build and export extracts the template (`yq.a(Context, wq.e("600"))`), and a project's own icon replaces it
+  (`yq.a(iconPath)` when `custom_icon`), so no build code changed and the IDE's cards keep their monograms. The themed
+  robot written as a project's own icon (first v2.1.1 draft) was reverted before the release.
+- **Project icons everywhere** (`github.RepoIcons`): the phone's `resources/icons/<sc_id>/icon.png` (custom_icon), a
+  .swb's `resources/icons/icon.png`, and GitHub's `playstore/icon.png` (contents API; written after every backup by
+  `CloudSync` and by Publish; skipped when the git blob id is the same; read with the token for private repositories;
+  `files/repo_icons/<number>.png`, a 404 remembered a day as `.none`). Restore cards: the Home monogram tile
+  (`GC.monogram`, now public) with the icon laid over it when found (`GitHubBackupsActivity.iconTile`).
+- **Play Store** (`PlayStore`, `PlayStoreActivity`): search box in the header (`gs_tabs`; text filters the phone's list,
+  IME Search = `PlayStore.search(token, text, user)` with an URL-encoded `q`, `@login` opens a creator); `App` version
+  fields from `listing.json` (`version_name`, `version_code`, `action` published / republished / updated,
+  `publish_number`, `changelog`, `published_at`, `stats_discussion`) → `status()`; app page with the icon
+  (`iconUrl()` = raw.githubusercontent.com/…/playstore/icon.png through `picture()`, which also accepts GitHub's avatar
+  host and remembers a 404 for a day), @creator, Downloads (`downloadsOf`: .apk/.swb `download_count`), Likes / Shares /
+  Views (`Stats`, `reactions`: ❤️ / 🚀 / 👀 reactions on the app's "📊 <title> · Play Store" discussion, made at publish
+  in General by `ensureStatsDiscussion`; `react` add/remove; a view counted once per account; signed out = "–"),
+  What's new; creator page (`developer`: GET /users/{login} + two searches); publish form kept per repository in
+  `files/publish_staging/<number>` (`Listing.load` / `saveForm`, `stagePicture` / `unstagePicture` / `renumber`, saved
+  on every keystroke and in onPause on its own thread `STAGE`), the last chosen repository in prefs
+  `playstore_publish/chosen_<login>`; `publish()` = PATCH public + Discussions, topics, icon, pictures, `removeExtraShots`,
+  versions, `readPage`, stats post, store page (steps 5 → 97).
+- **Publish as a job** (`CloudSync.STORE`, `Store`, `publishToStore`, `runStore`): progress sheet + dataSync
+  notification; a 401 is confirmed with GET /user (as backups) and marks the sign-in refused; `resumeAfterSignIn()`
+  (called by `SignIn` after a successful sign-in) re-runs every job in `signInNeeded` from `failed`, then the pending
+  backups; the sheet's Sign in again `join(key, …)`s the run the sign-in started. Staged pictures are deleted only after
+  a successful publish.
+- **Community** (`CommunityActivity` rewritten, `PlayStore.feed`): repositories = smartapps000-hub/SketchwareAI, topic
+  `sketchwareai-community`, the store's apps, the viewer's own repositories with Discussions on; one aliased GraphQL
+  query for up to 15 (`GitHubGraphQL.runLenient`: data kept when another slot errs); stats posts left out; newest first;
+  `files/community/feed.json` offline; New post → repository (only those with Discussions on) → category; thread authors
+  open the creator page; "Open on GitHub" only on a discussion just read (never a Discussions page that is off).
+- **Bar** (`ui.HoneyDropBar` drawing rewritten): the body path's top edge = crest (12 dp bump under the selected tab) +
+  crater (Gaussian, 8 dp) + travelling damped waves (k = 2π/36 dp, front to both ends), corners windowed; glass
+  teardrop / micro droplets / crown spikes / jet / beads (radial white fills 0x10 → 0x5E, white rims, specular dots,
+  faint amber caustic); icon translation = dip then lift (9 dp) on the crest; warm pool under the lifted icon; DURATION
+  1150 ms, LAND 0.26, CRATER_END 0.38, listener at 0.40. `res/raw/honey_drop.wav` from `tools/sound/make_honey_drop.py`
+  (44.1 kHz 16-bit mono, 0.31 s, −3 dBFS).
+- **Backups of the app**: `android:fullBackupContent` / `android:dataExtractionRules` exclude the shared preferences
+  `sketchware_ai_github`, `_github_signin`, `_github_profile`, `sketchware_ai_device` (a token sealed by this phone's
+  Keystore key can't be read elsewhere).
+- `GitHubSession.answerOf` (the refusal note quotes "HTTP 401 …" once).
