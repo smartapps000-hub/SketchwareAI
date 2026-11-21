@@ -2,6 +2,20 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.1 (versionCode 208, `v2.1.1-491ab6c-minApi26`)
+
+`apk/Sketchware_AI_v2.1.1.apk`, sha256 `c623ae929c0221e002839f8030ef355c3e95b8aabcfcd577b6ab031b45018b4f` (Git LFS).
+A required update for v2.1.0 (it offers it by itself, downloads it in the app and checks this SHA-256). Apps built from a
+project without its own icon get the round Android icon in Sketchware AI's glass (frosted slate-obsidian, dark cast
+shadow, light frosted robot, no border); the bottom bar's drop is clear glass with a new sound; the Play Store has search
+at the top, real app icons, version lines, Downloads / Likes / Shares / Views, one row of Install APK / .SWB / Demo /
+GitHub, a creator page and a publish that keeps its words and pictures; Community is built in the app; slimmer Restore
+cards with icons; a publish stopped by a refused sign-in continues after Sign in again (same account only). Release
+notes: `releases/v2.1.1/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.1.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.1.apk
+
 ## v2.1.0 (versionCode 207, `v2.1.0-ed691a0-minApi26`)
 
 `apk/Sketchware_AI_v2.1.0.apk`, sha256 `e2330d1c2d73b6f13f7985c9a266ec5f775753fd7fa81ab265a96ac0f0b08edb` (Git LFS).
