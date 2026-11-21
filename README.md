@@ -2,6 +2,19 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.0 (versionCode 207, `v2.1.0-ed691a0-minApi26`)
+
+`apk/Sketchware_AI_v2.1.0.apk`, sha256 `e2330d1c2d73b6f13f7985c9a266ec5f775753fd7fa81ab265a96ac0f0b08edb` (Git LFS).
+The new Home: no side menu or floating button but the Honey-Drop bottom bar (Home, Create, GitHub, Play Store, Community,
+Settings) with full-screen tabs; a Play Store and a Community on GitHub; one phone per GitHub account; an update check at
+start with an in-app, SHA-256-checked download. And the v2.0.5 phone fixes: GitHub | Demo | On this phone tabs with
+compact cards, Paste imports at once, the repository viewer waits 10 seconds at most, up to three backups at once in one
+notification, a 401 confirmed twice with the sign-in's history. Release notes: `releases/v2.1.0/RELEASE-NOTES.md` on
+`main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.0.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.0.apk
+
 ## v2.0.5 (versionCode 206, `v2.0.5-1bc8cc1-minApi26`)
 
 `apk/Sketchware_AI_v2.0.5.apk`, sha256 `9c68de5ffb6e6539cd1ba3cd242f14989e16c9152c787d6d7dc7e18506f194ea` (Git LFS).
