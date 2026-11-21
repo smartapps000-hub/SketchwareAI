@@ -303,3 +303,20 @@ Whether a generated APK runs on a given Android version depends on that project'
   `V205LargeFontTest`); the Activities on a phone are **not run**.
 - 64-character project names: `ProjectNameValidator.valid` on ART API 31; the project settings screens themselves are
   **not run**.
+
+## v2.1.0 (20-21 Nov 2026)
+
+- Backup lanes (two tap lanes, an automatic lane, imports), the combined notification text, the requeue of a paused
+  job, the watchdog per lane: ART API 31 (GitHubTest with a test runner instead of the network). Several real transfers
+  at once on a phone are **not run**.
+- `GitHubHttp.quick` (one try, the given timeout), the 401 asked twice, the single-device mark (read / write / sha
+  conflict / decide), Play Store search / store page / publish, GitHub GraphQL Discussions, the updater's host rule:
+  JVM 17 against a local fake GitHub (`V210ClientTest`). The real GitHub API (search by topic, Discussions, contents
+  writes) is **not run** from here.
+- The Honey-Drop bar (drawing at chosen moments of a tap), Home without drawer / FAB, Restore tabs, Settings, Play Store,
+  Community, the viewer's saved page with the timeout line: layoutlib (Android 14 view code) from their own code on a
+  window-less stand-in base (`V210Test`, `V210LargeFontTest` at font scale 1.3). The animation running, the droplet
+  sound (SoundPool, ringer mode), back stacks and the close guard as Activities, the startup gate's timing, the
+  in-app updater (download on a phone, "Install unknown apps", Android's installer through the FileProvider's
+  cache-path) and the single-device sign-out on a second phone are **not run**.
+

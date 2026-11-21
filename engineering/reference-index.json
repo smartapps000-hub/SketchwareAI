@@ -315,6 +315,30 @@
       "file": "docs.github.com/en/rest/repos/contents (GET /repos/{o}/{r}/contents/{path}?ref= with base64 content; GET /contents?ref= lists the top folder with name, type, size)",
       "purpose": "v2.0.5: RepoViewerActivity README and files",
       "available": true
+    },
+    {
+      "id": "github-graphql-discussions",
+      "file": "docs.github.com/en/graphql/guides/using-the-graphql-api-for-discussions (repository.discussions, discussionCategories, discussion(number:), createDiscussion, addDiscussionComment; GraphQL always needs a token)",
+      "purpose": "v2.1.0: PlayStore reviews, CommunityActivity",
+      "available": true
+    },
+    {
+      "id": "github-rest-search-topics",
+      "file": "docs.github.com/en/rest/search/search#search-repositories (q=topic:<name>, sort=updated; 10 searches a minute signed out) and /repos/{o}/{r}/topics (PUT names)",
+      "purpose": "v2.1.0: PlayStore.search and publish",
+      "available": true
+    },
+    {
+      "id": "android-autosize-textview",
+      "file": "developer.android.com/develop/ui/views/text-and-emoji/autosizing-textview (setAutoSizeTextTypeUniformWithConfiguration, API 26; needs a fixed width)",
+      "purpose": "v2.1.0: GitHubViews.fitOneLine",
+      "available": true
+    },
+    {
+      "id": "android-fileprovider-cache-path",
+      "file": "developer.android.com/reference/androidx/core/content/FileProvider (cache-path shares getCacheDir() subfolders)",
+      "purpose": "v2.1.0: AppUpdater's checked APK in cacheDir/updates",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

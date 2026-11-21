@@ -1,7 +1,12 @@
 {
   "app_enabled": true,
-  "min_version_code": 206,
+  "min_version_code": 207,
   "require_login": false,
   "status_message": "",
-  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.0.5.apk"
+  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.0.apk",
+  "update_sha256": "e2330d1c2d73b6f13f7985c9a266ec5f775753fd7fa81ab265a96ac0f0b08edb",
+  "force_update": false,
+  "latest_version_code": 207,
+  "latest_version_name": "v2.1.0",
+  "coming_soon": ""
 }

@@ -1393,3 +1393,68 @@ before any navigation redesign, so v2.0.5 holds the bug fixes of both and the v2
   newest demo version first), `GitHubSample.DEMO_VERSION` 3 marked at creation; `GC.a(boolean)` moves demos out of the
   list into `ob_demo_section` / `ob_demo_row` (`myprojects.xml`) with `ui.DemoCards` (tap opens, long press → Delete
   with `lC.a` on a thread).
+
+## v2.1.0 additions (20-21 Nov 2026): the v2.0.5 phone fixes and the Home overhaul
+
+Owner's 16 Nov "MASTER DIRECTIVE (v2.1.0 / versionCode 207)" with 7 v2.0.5 phone screenshots: part A (six phone bugs),
+part B (bottom bar, full-screen tabs, Play Store / Community on GitHub, single-device lock, sequential update gate),
+part C (audit, suites, main, binaries). Record: `engineering/v2.1.0-verification.md`.
+
+- Home (`com.besome.sketch.MainActivity`, `res/layout/main.xml`): no `DrawerLayout` / `MainDrawer` / FAB (the FAB view
+  stays in the layout, 0dp and GONE; `MainDrawer.java` is left unused); root `CoordinatorLayout` with
+  `clipChildren=false` (the drop falls above the bar); `ui.HoneyDropBar` (`ob_honey_bar`, 62dp, margins 12/12/10).
+  Back on Home = `finish()`. `openTab`: Create → `GC.openCreate()` (storage access and `AppControl.updateRequired()`
+  first; `NewProjectActivity` as a tab), GitHub → `GitHubBackupsActivity`, Play Store → `PlayStoreActivity.tab`,
+  Community → `CommunityActivity.tab`, Settings → `ui.SettingsActivity`, each through `ui.TabScreens.asTab` (extras
+  `sketchware_ai_as_tab`, `sketchware_ai_tab_name`); `onBackPressed` of a tab screen → `TabScreens.onBack` ("Do you
+  want to close X?" Cancel / Close). `onResume`: the bar flows back to Home, `setScrolledAway(false)`, AuthGuard only
+  once the gate passed, `SingleDeviceGuard.showSignedOut` + `check`. `GC` scroll listener → `projectsScrolled(down)`.
+- `ui.HoneyDropBar`: six tab views (30dp icon + Sora bold label, `GitHubViews.fitOneLine(label, 6, 9.5)`); `onDraw`
+  glass rounded rect + honey pill (`LinearGradient` #FFD166 → #FFB347 → #FF6D24; head eased, tail spring-settled);
+  `dispatchDraw` waves (damped cosine on the top edge from t 0.34) and the teardrop (falls 0-0.34, squashes to 0.46,
+  melts); `ValueAnimator` 760 ms; listener fires at 0.34 (one tap at a time); `SoundPool` (`res/raw/honey_drop.wav`,
+  22.05 kHz mono, 9,746 bytes, made here) only with `RINGER_MODE_NORMAL` and the switch on (prefs `sketchware_ai_ui` /
+  `honey_drop_sound`); `frameForTests(from, to, fraction)` for renders.
+- `ui.SettingsActivity` (manifest): the account card (`drawer_account` out of `main_drawer_header`, `DrawerAccountCard`),
+  Back up after saving (`P12` / `CloudSync.AUTO_BACKUP_KEY`), Restore projects, the sound switch, App updates (version
+  without hash; Update to vX with `AppUpdater`, else a "Latest" / "Not checked yet" badge; "Coming soon" badge with
+  `coming_soon`), and the drawer's items.
+- `CloudSync` lanes: `work`, `work2` (taps), `auto` (automatic backups), `imports`. `laneFor`: an import → imports; a
+  project with a job in a lane → that lane; a tap → the less loaded tap lane; else auto. A running automatic BACKUP
+  pauses only for a tap's job in its own lane (same project). A deferred job is requeued in the `finally`'s lock that
+  frees the lane. Several running jobs → one notification (`combined`: "N GitHub jobs", "title · P%" per line, the least
+  percent; key null → no Cancel, `BigTextStyle`); refreshed when one of them ends.
+- `GitHubHttp.quick(millis, call)`: a ThreadLocal timeout for connect + read and no read retries (one try) on that
+  thread; `RepoViewerActivity` (10 s, page saved in `files/repo_viewer/<owner>__<repo>.json` shown first, "Saved on this
+  phone · checking GitHub…", `whyFailed` → "GitHub didn't answer within 10 seconds"), Play Store, Community.
+- 401: `CloudBackup.refusesSignIn` and `GitHubSession.recheckOnline` ask GET /user again after 3 s; refused only on two
+  401s. `GitHubSession.noteSignedIn` (signed_in_at, accepted_at, signed_in_version, signin_count; the count survives a
+  sign-out) → `refusedNote` adds "This sign-in: made … with … (sign-in N on this phone), last accepted …".
+- `GitHubBackupsActivity`: tabs GitHub | Demo | On this phone (`EXTRA_TAB`, 12sp, `fitOneLine` 9-12sp, 38dp); compact
+  cards; Paste → `importLink(true)` (front version: pinned, else newest; or the single .swb); Demo tab = `lC.a()`
+  filtered by `Demos.isDemo`, `Demos.sort`, "#i Name", Open → DesignActivity, long press Delete, "Make the GitHub API
+  Demo" when none. `GC` no longer shows the Demo row. `ProjectRepo.ordered` (moved from the activity).
+- `AppControl` gate: `scheduleGate` (3.5 s after Home, once per process; from onCreate and onResume with storage
+  access) → `check` → update notice (`force_update` only with a link → `updateRequired`, no Later, not cancelable) or
+  `passGate` (sets `gatePassed`; AuthGuard when the screen has focus; `SingleDeviceGuard.check`). New fields
+  `force_update`, `update_sha256` (64 hex), `latest_version_code`, `latest_version_name`, `coming_soon`.
+  `showUpdateAgain` for Create while an update is required. `AppUpdater`: GitHub hosts over https only, redirects by
+  hand, into `cacheDir/updates` (`provider_paths.xml` `cache-path name="updates"`), SHA-256 compared, reused after the
+  "Install unknown apps" detour; no SHA-256 → the link in the browser (v2.0.5 behaviour).
+- `SingleDeviceGuard`: `.device-session.json` in `SketchwareAI-Projects` {active_device_hash = SHA-256(install id |
+  login), device, app_version, time}; install id in `getNoBackupFilesDir()/device_install_id`. `claim` (at sign-in)
+  writes `claim_pending` + `signed_in_at` first; `check` (gate, then every 6 h) under one lock: `decide(there, mine,
+  pending, signedInAt)` → claim / keep / signout (another phone's mark and no pending claim, or a pending claim older
+  than that mark). Errors change nothing. `forget` at sign-out. This reverses v2.0.3's "never sign out automatically"
+  only for this case (the owner's directive).
+- `GitHubGraphQL.run` (POST /graphql; signed_out / http_401 / graphql / bad_answer); `PlayStore` (topic
+  `sketchwareai-playstore`; search; `playstore/listing.json` + `playstore/screenshots` (raw.githubusercontent.com only,
+  png/jpg/webp, ≤ 8); cache `files/playstore/apps.json`, `merge`; `publish`: refuses `SketchwareAI-Projects`, PATCH
+  private:false + has_discussions:true, topics kept + store topic, screenshots `NN.jpg` and the page through the
+  contents API, note when the front version has no APK; Discussions: `posts`, `thread`, `newPost`, `reply`,
+  `reviewCategory`). `PlayStoreActivity` (list / app page / publish; app-wide `WRITES` executor for publish and posts;
+  pictures cached in `cacheDir/playstore`, decoded with inSampleSize; full-screen viewer), `CommunityActivity`
+  (smartapps000-hub/SketchwareAI's Discussions; thread page with reply). `RepoViewerActivity.restore/downloadApk/install`
+  are static helpers the Play Store uses.
+- `ProjectRepo.create` returns null on 422 "name already exists" (two lanes, same-name projects): `ensure` tries the
+  next name.

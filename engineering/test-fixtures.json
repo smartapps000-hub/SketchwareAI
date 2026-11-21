@@ -962,6 +962,31 @@
       "checks": [
         "no label cut at 1.0 and 1.3 (images out/v205_*.png)"
       ]
+    },
+    {
+      "id": "940 githubtest (v2.1.0)",
+      "kind": "ART h.GitHubTest on a fresh m3 project",
+      "content": "v2.0.5's checks with the queue rewritten for the lanes (two taps at once in two lanes, an automatic backup beside them, a third tap waiting visibly, a tap on another project neither waiting for nor pausing an automatic backup, a same-project publish pausing its automatic backup, the watchdog's next job in the same lane) plus: CloudSync.combined, the repository's app-control.json (min 207, v2.1.0 link, SHA-256, latest 207, not forced), a forced notice, SHA-256 validation, AppUpdater.newerAvailable, PlayStore save / cached / remember, the Honey-Drop sound switch, SingleDeviceGuard.installId",
+      "checks": [
+        "GITHUBTEST 102/102"
+      ]
+    },
+    {
+      "id": "V210ClientTest (v2.1.0)",
+      "kind": "JVM 17 against a local fake GitHub (tools/jvm-tests/V210ClientTest.java)",
+      "content": "GitHubHttp.quick (1 s timeout, one request; the next call normal); CloudBackup.refusesSignIn (401 once / twice); SingleDeviceGuard hash / read / write (private repository made first) / sha conflict / decide / sign-in time; PlayStore search (topic, private skipped, signed out), readListing (title trimmed, https video, pictures sorted, raw.githubusercontent.com only, ≤ 8), safe links, merge, publish (backup repository refused without a request; PATCH private:false + has_discussions; topics kept + store topic; screenshots; listing without an unsafe video; no-version note); GitHubGraphQL errors; posts / reviewCategory / thread / newPost / reply; AppUpdater host rule",
+      "checks": [
+        "V210CLIENT 27/27"
+      ]
+    },
+    {
+      "id": "Renders V210Test / V210LargeFontTest",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v210.sh)",
+      "content": "Home (main.xml with project cards) and the Honey-Drop bar settled on Home, the drop falling toward GitHub, landing with waves, the pill flowing, settled on Play Store; Restore projects GitHub / Demo / On this phone tabs; Settings (update offered with Coming soon; refused account); Play Store list, app page (pictures, Get it, reviews), Publish; Community (list, thread, Discussions off, signed out); the repository viewer's saved page with the 10-second timeout line; font scale 1.3 on 360 dp: bar, Demo tab, Settings",
+      "checks": [
+        "no label cut at 1.0 and 1.3 (images out/v210_*.png)",
+        "found and fixed: drop and waves clipped above the bar, three labels cut at 1.3, the version name beside the Update pill"
+      ]
     }
   ]
 }

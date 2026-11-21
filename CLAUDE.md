@@ -372,6 +372,30 @@ DOCTORTEST 21/21, JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15; three review passes (HI
 MEDIUM: cancels lost to a cleared interrupt flag, stale resume content, interrupted NIO dropping the checkpoint, false
 refusal after a 5xx, details overwritten by a running backup, a malformed demo.json crashing the projects screen; all
 fixed). APK v2.0.5-1bc8cc1, versionCode 206 (next 207), sha256 `9c68de5f...506f194ea`, 142,612,018 bytes.
+v2.1.0 (owner's 16 Nov "MASTER DIRECTIVE (v2.1.0 / versionCode 207)" with 7 v2.0.5 phone screenshots; record
+`engineering/v2.1.0-verification.md`): Home without drawer / FAB (`main.xml` root CoordinatorLayout `clipChildren=false`,
+`MainDrawer.java` unused): `ui.HoneyDropBar` (six tabs, Canvas drop / waves / honey pill #FF6D24→#FFB347→#FFD166,
+760 ms, `res/raw/honey_drop.wav` via SoundPool only with ringer normal + switch on, `frameForTests` for renders, one tap at
+a time) → full-screen tabs (`ui.TabScreens` close guard "Do you want to close X?", Back on Home = finish; Create =
+`GC.openCreate` → NewProjectActivity as a tab; `ui.SettingsActivity` holds the drawer's items, account card, sound and
+backup switches, App updates badges); `GitHubViews.fitOneLine` (Android 8+ autosize; bar 6-9.5sp, Restore tabs 9-12sp:
+whole at font scale 1.3 on 360 dp). Restore projects tabs GitHub | Demo | On this phone (Demo row off Home), compact
+cards, Paste imports at once. `GitHubHttp.quick` (10 s, one try) + saved viewer page. 401 asked twice (3 s), refusal
+note with the sign-in's history. CloudSync lanes work / work2 (taps) / auto / imports, a project's jobs share a lane,
+`combined` notification ("N GitHub jobs"), paused job requeued in the lock that frees the lane. `PlayStore` (topic
+`sketchwareai-playstore`, `playstore/listing.json` + screenshots, cache, publish after asking: public + topic +
+Discussions, `SketchwareAI-Projects` refused) + `PlayStoreActivity` + `CommunityActivity` (smartapps000-hub/SketchwareAI
+Discussions; **off on GitHub until the owner switches them on**) via `GitHubGraphQL`. `SingleDeviceGuard`
+(`.device-session.json`: SHA-256(install id in no-backup | login) + sign-in time; claim recorded locally first, `decide`
+claim / keep / signout; reverses v2.0.3's never-auto-logout for this case only). `AppControl` gate: 3.5 s → update
+(`force_update` only with a link; `AppUpdater` in-app download into `cacheDir/updates`, provider `cache-path`,
+SHA-256 from `update_sha256`) → `passGate` (AuthGuard, device check); `latest_version_*`, `coming_soon`. Render harness
+`setup_v210.sh` + `V210Test` (window-less base takes `Activity activity` parameters by sed). JVM `V210ClientTest`
+(JDK HttpServer fake): V210CLIENT 27/27; GITHUBTEST 102/102, GITHUBCLIENT 107/107, CACHETEST 31/31, DOCTORTEST 21/21,
+JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15; two review passes (HIGH: Publish NPE, the device check signing out the phone that
+just signed in; MEDIUM: shared picture list, publish cut off by leaving, update gate gaps, update APK in shared storage,
+mark time = write time; all fixed). Permissions unchanged. APK v2.1.0-ed691a0, versionCode 207 (next 208), sha256
+`e2330d1c...b0f0b08edb`, 142,693,495 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two

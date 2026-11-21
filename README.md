@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.0.5)
+## Shipped (v1.0 – v2.1.0)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -83,6 +83,11 @@ Everything in this section is in the released APK and was exercised as described
 | Repository viewer | *Open on GitHub* (sheet, notification, shared repository links) opens the repository in the app: description, topics, versions with Restore / APK download, README, files, Open in browser, Share | v2.0.5 |
 | Public details, carousel, Paste | Public details fields are editable again (Save & update writes description, topics, README, CHANGELOG at once); versions in one row with the ★ pinned one in front, *New* and "+N older versions →"; a Paste pill inside the link box; README with a screen table and MoreBlocks, notes with MoreBlocks / variables / screen parts | v2.0.5 |
 | Names, Demo row, drawer card | Project names up to 64 characters; demo projects in their own Demo row; the drawer card keeps "GitHub" and its state whole, @username once, one-line e-mail with copy | v2.0.5 |
+| Honey-Drop bar, full-screen tabs | No side menu or floating + button: a glass bottom bar (Home, Create, GitHub, Play Store, Community, Settings) with a falling honey drop, waves and a soft sound (silent when the phone is); each tab a full screen, Back on a tab's first page asks before closing it, Back on Home leaves the app; Settings holds the account card and the old menu's items | v2.1.0 |
+| Restore tabs, Paste imports | Restore projects: GitHub \| Demo \| On this phone; demo projects numbered in the Demo tab; compact cards; Paste imports at once | v2.1.0 |
+| Parallel backups, viewer timeout, 401 evidence | Up to three backups at once (two for taps, one automatic) and imports beside them, one shared notification; the repository viewer shows its saved page and waits 10 seconds at most; a 401 is asked twice and the note tells when the sign-in was made and last accepted | v2.1.0 |
+| Play Store and Community | Public apps with the `sketchwareai-playstore` topic: pictures, Download & Install APK, Import .SWB, demo video, reviews (GitHub Discussions); Publish your app (after asking: public, topic, Discussions, pictures, store page); Community = Sketchware AI's GitHub Discussions | v2.1.0 |
+| One phone per account, update gate | The last phone that signed in holds the account (a mark in the private backup repository; another phone signs out at its next check, never on a network error); 3.5 s after start the release file is read: an update downloads in the app, is checked (SHA-256) and installed; a required update hides Later and holds Create; then the sign-in check | v2.1.0 |
 | One GitHub repository per project | Back up to GitHub (and the backup after saving) goes into the project's own private repository `SketchwareAI-<name>`; each app version is a release `v<versionName>-<versionCode>` with the .swb (16 MB parts above that) and the APK built since the last backup; at most 5 versions, the one pinned **★ Standard** never removed; Public / Private is one change on GitHub | v2.0.4 |
 | Publish to GitHub | The Private pill opens a screen filled from the project (title, description, topics, README, "What's New & Fixed" from an on-phone comparison with the previous version); Publish Public writes README.md and CHANGELOG.md and makes the repository public; later backups keep those up to date | v2.0.4 |
 | Restore projects screen | Full screen: a GitHub link, your project repositories with their versions (Latest, ★ Standard), Restore and Set as Standard, the older backups; the .swb files on the phone. Restored projects are linked to their repository again. Shared github.com project links and `sketchwareai://import` open it | v2.0.4 |
@@ -217,8 +222,8 @@ Per-release evidence: `engineering/v<version>-verification.md`; device and API s
 3. Verified repair memory kept on disk.
 4. Dependency and library intelligence beyond the Library Resolver.
 5. Developer-tools controller, Project Brain, Git/GitHub beyond sign-in and project backup (commits of project
-   source, pull requests), extensions, Android Studio import (export exists). A community store on GitHub Discussions
-   and Releases (owner's 12 Nov directive) is not built.
+   source, pull requests), extensions, Android Studio import (export exists). (The community store on GitHub
+   Discussions and Releases shipped in v2.1.0 as the Play Store and Community tabs.)
 6. Google / e-mail sign-in and telemetry: reviewed only (`engineering/auth-telemetry-review.md`). Google One-Tap
    (Credential Manager) needs a Google Cloud OAuth client for `com.sketchware.ai` registered with a private release key
    (never the public test key) and current AndroidX; an e-mail code needs a server that sends mail. GitHub sign-in

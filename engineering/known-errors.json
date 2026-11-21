@@ -966,6 +966,52 @@
       "verifiedOn": [
         "code and review; not run on a phone"
       ]
+    },
+    {
+      "fingerprint": "Repository viewer stays on \"Reading <owner>/<repo> on GitHub…\"",
+      "rootCause": "30 s / 120 s timeouts and three read retries per request on a slow network (no lock): minutes before any answer",
+      "repair": "v2.1.0: GitHubHttp.quick: 10 s connect + read, one try; the page saved on the phone shows first; a timeout says \"GitHub didn't answer within 10 seconds\" with Try again",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "JVM V210ClientTest (quick mode 1 s, one request)",
+        "render V210Test (saved page + timeout line)"
+      ]
+    },
+    {
+      "fingerprint": "\"Sign-in not accepted\" (HTTP 401) once, while GitHub still accepts the sign-in",
+      "rootCause": "a single 401 (a one-off answer) marked the sign-in refused",
+      "repair": "v2.1.0: GET /user asked again after 3 s; refused only on two 401s; the note records when the sign-in was made, with which version, the phone's sign-in count and when GitHub last accepted it",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "JVM V210ClientTest (401 once = accepted, 401 twice = refused)"
+      ]
+    },
+    {
+      "fingerprint": "\"Sign-in not accepted\" drawn over the next line on the account card",
+      "rootCause": "single-line subtitle (setSingleLine) beside the card's other rows",
+      "repair": "v2.1.0: maxLines 1 when connected, 2 when refused (no single-line scrolling text)",
+      "scope": "IDE",
+      "verifiedOn": [
+        "render V210Test (Settings, refused account)"
+      ]
+    },
+    {
+      "fingerprint": "Labels cut at large font sizes: bottom bar \"Play St…\" / \"Comm…\", Restore tab \"On this ph…\"",
+      "rootCause": "fixed text size in a fixed-width slot",
+      "repair": "v2.1.0: GitHubViews.fitOneLine (Android 8+ autosize, 6-9.5sp in the bar, 9-12sp for the tabs)",
+      "scope": "IDE",
+      "verifiedOn": [
+        "render V210LargeFontTest (font scale 1.3, 360 dp)"
+      ]
+    },
+    {
+      "fingerprint": "The phone that just signed in is signed out \"on another device\" (single-device lock race)",
+      "rootCause": "found in review before release: a check could read the other phone's mark before this phone's claim was written",
+      "repair": "v2.1.0: the sign-in is recorded on the phone first (claim_pending); a check writes the mark again instead of comparing while the claim is pending, unless the mark on GitHub is newer",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "JVM V210ClientTest (decide rules, mark time read back)"
+      ]
     }
   ]
 }
