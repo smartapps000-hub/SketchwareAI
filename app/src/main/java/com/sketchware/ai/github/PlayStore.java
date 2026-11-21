@@ -812,6 +812,42 @@ public final class PlayStore {
 
     // ------------------------------------------------------------------ v2.1.1: stats (downloads, likes, views, shares)
 
+    /** 1234 → "1.2K", 2500000 → "2.5M"; -1 → "–" (not known). */
+    public static String count(long n) {
+        if (n < 0) return "–";
+        if (n < 1000) return Long.toString(n);
+        if (n < 1_000_000) return trim(n / 1000.0) + "K";
+        return trim(n / 1_000_000.0) + "M";
+    }
+
+    private static String trim(double d) {
+        String s = d >= 100 ? Long.toString(Math.round(d)) : String.format(Locale.ROOT, "%.1f", d);
+        return s.endsWith(".0") ? s.substring(0, s.length() - 2) : s;
+    }
+
+    /** The phone's filter: the name, the creator ("@name" too) and the description. */
+    static boolean matches(App a, String filter) {
+        if (filter == null || filter.isEmpty()) return true;
+        String f = filter.startsWith("@") ? filter.substring(1) : filter;
+        if (f.isEmpty()) return true;
+        if (a.owner != null && a.owner.toLowerCase(Locale.ROOT).contains(f)) return true;
+        if (filter.startsWith("@")) return false;
+        return a.name().toLowerCase(Locale.ROOT).contains(f)
+                || a.description != null && a.description.toLowerCase(Locale.ROOT).contains(f);
+    }
+
+    /** GitHub's download counts of the versions' APK and .swb files. */
+    static long downloadsOf(List<ProjectRepo.Version> versions) {
+        long total = 0;
+        for (ProjectRepo.Version ver : versions) {
+            for (ProjectRepo.Asset x : ver.assets) {
+                if (x.name != null && (x.name.endsWith(".apk") || x.name.endsWith(".swb"))) total += Math.max(0, x.downloads);
+            }
+        }
+        return total;
+    }
+
+
     /** An app page's numbers; -1 = not known (signed out, no stats discussion yet, no network). */
     public static final class Stats {
         public String subjectId;
@@ -830,13 +866,7 @@ public final class PlayStore {
 
     /** Downloads = GitHub's download counts of the published versions' APK and .swb files (any visitor reads them). */
     public static long downloads(String token, App app) throws IOException, GitHubException {
-        long total = 0;
-        for (ProjectRepo.Version v : ProjectRepo.versions(token, app.owner, app.repo, false)) {
-            for (ProjectRepo.Asset a : v.assets) {
-                if (a.name != null && (a.name.endsWith(".apk") || a.name.endsWith(".swb"))) total += Math.max(0, a.downloads);
-            }
-        }
-        return total;
+        return downloadsOf(ProjectRepo.versions(token, app.owner, app.repo, false));
     }
 
     static final String STATS_QUERY = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,"

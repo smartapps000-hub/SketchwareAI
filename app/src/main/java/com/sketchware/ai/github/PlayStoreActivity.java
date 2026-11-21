@@ -196,19 +196,6 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         return t;
     }
 
-    /** 1234 → "1.2K", 2500000 → "2.5M"; -1 → "–" (not known). */
-    static String count(long n) {
-        if (n < 0) return "–";
-        if (n < 1000) return Long.toString(n);
-        if (n < 1_000_000) return trim(n / 1000.0) + "K";
-        return trim(n / 1_000_000.0) + "M";
-    }
-
-    private static String trim(double d) {
-        String s = d >= 100 ? Long.toString(Math.round(d)) : String.format(Locale.ROOT, "%.1f", d);
-        return s.endsWith(".0") ? s.substring(0, s.length() - 2) : s;
-    }
-
     /**
      * An app's tile: the two letters on the orange tile (the design file's project tiles), covered by the app's own
      * icon ({@link RepoIcons#PATH} on GitHub) once it is read.
@@ -355,7 +342,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         if (retry != null) appsBox.addView(retry);
         int shown = 0;
         for (PlayStore.App a : apps) {
-            if (!matches(a, filter)) continue;
+            if (!PlayStore.matches(a, filter)) continue;
             appsBox.addView(appCard(a), v.full(-1, shown == 0 ? 0 : 8));
             shown++;
         }
@@ -363,17 +350,6 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             appsBox.addView(v.line("No app on this phone matches “" + filter + "”: Search on the keyboard asks GitHub.",
                     false));
         }
-    }
-
-    /** The phone's filter: the name, the creator ("@name" too) and the description. */
-    static boolean matches(PlayStore.App a, String filter) {
-        if (filter == null || filter.isEmpty()) return true;
-        String f = filter.startsWith("@") ? filter.substring(1) : filter;
-        if (f.isEmpty()) return true;
-        if (a.owner != null && a.owner.toLowerCase(Locale.ROOT).contains(f)) return true;
-        if (filter.startsWith("@")) return false;
-        return a.name().toLowerCase(Locale.ROOT).contains(f)
-                || a.description != null && a.description.toLowerCase(Locale.ROOT).contains(f);
     }
 
     /** A compact card: icon, name, @creator · ★ · date, the version line, two lines of description. */
@@ -603,10 +579,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private void showStats() {
         if (statValues == null) return;
         boolean signedIn = signedIn();
-        statValues[0].setText(count(stats.downloads));
-        statValues[1].setText(count(stats.likes));
-        statValues[2].setText(count(stats.shares));
-        statValues[3].setText(count(stats.views));
+        statValues[0].setText(PlayStore.count(stats.downloads));
+        statValues[1].setText(PlayStore.count(stats.likes));
+        statValues[2].setText(PlayStore.count(stats.shares));
+        statValues[3].setText(PlayStore.count(stats.views));
         statLabels[1].setText(stats.liked ? "❤ Liked" : "♡ Like");
         statValues[1].setTextColor(v.color(stats.liked ? R.color.ob_amber : R.color.ob_text));
         statLabels[2].setText("↗ Share");
@@ -614,14 +590,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         boolean likeWorks = !signedIn || stats.subjectId != null;
         statCells[1].setClickable(likeWorks);
         statCells[1].setBackgroundResource(likeWorks ? R.drawable.ob_pill16_state : R.drawable.ob_pill16);
-        statCells[1].setContentDescription(count(stats.likes) + " likes. " + (!signedIn ? "Sign in to like."
+        statCells[1].setContentDescription(PlayStore.count(stats.likes) + " likes. " + (!signedIn ? "Sign in to like."
                 : stats.subjectId == null ? "Likes start with its owner's next publish." : stats.liked ? "Tap to take the like back."
                 : "Tap to like."));
         statCells[2].setClickable(true);
         statCells[2].setBackgroundResource(R.drawable.ob_pill16_state);
-        statCells[2].setContentDescription(count(stats.shares) + " shares. Tap to share.");
-        statCells[0].setContentDescription(count(stats.downloads) + " downloads");
-        statCells[3].setContentDescription(count(stats.views) + " views");
+        statCells[2].setContentDescription(PlayStore.count(stats.shares) + " shares. Tap to share.");
+        statCells[0].setContentDescription(PlayStore.count(stats.downloads) + " downloads");
+        statCells[3].setContentDescription(PlayStore.count(stats.views) + " views");
     }
 
     private void toggleLike() {
@@ -714,7 +690,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
             String why = failure;
             List<ProjectRepo.Version> found = versions;
-            long downloads = found == null ? -1 : downloadsOf(found);
+            long downloads = found == null ? -1 : PlayStore.downloadsOf(found);
             ui(() -> {
                 if (why != null) {
                     appStatus.setText(why);
@@ -727,17 +703,6 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             loadReactions(token, read ? fresh : a);
             loadReviews(token);
         });
-    }
-
-    /** GitHub's download counts of the versions' APK and .swb files. */
-    static long downloadsOf(List<ProjectRepo.Version> versions) {
-        long total = 0;
-        for (ProjectRepo.Version ver : versions) {
-            for (ProjectRepo.Asset x : ver.assets) {
-                if (x.name != null && (x.name.endsWith(".apk") || x.name.endsWith(".swb"))) total += Math.max(0, x.downloads);
-            }
-        }
-        return total;
     }
 
     /** Likes, shares and views of the app's stats post; this account's view counted once. */
@@ -1102,9 +1067,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                     bio.setText(d.bio.trim());
                     bio.setVisibility(View.VISIBLE);
                 }
-                values[0].setText(count(d.apps.size()));
-                values[1].setText(count(d.projects.size()));
-                values[2].setText(count(d.followers));
+                values[0].setText(PlayStore.count(d.apps.size()));
+                values[1].setText(PlayStore.count(d.projects.size()));
+                values[2].setText(PlayStore.count(d.followers));
                 status.setText("");
                 appsList.removeAllViews();
                 appsList.addView(heading("Apps in the Play Store"), v.full(-1, 8));
@@ -1140,7 +1105,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
             long sum = total;
             boolean any = known || d.apps.isEmpty();
-            ui(() -> values[3].setText(any ? count(sum) : "–"));
+            ui(() -> values[3].setText(any ? PlayStore.count(sum) : "–"));
         });
     }
 

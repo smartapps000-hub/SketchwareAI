@@ -353,6 +353,12 @@ public final class CloudSync {
             if (again != null) {
                 progress.restart();
                 sync.enqueue(again, progress::update, ending(sync, progress, key));
+            } else if (sync.findByKey(key) != null) {
+                // v2.1.1: Sign in again already resumed it (resumeAfterSignIn): the sheet follows that run
+                progress.restart();
+                if (!sync.join(key, progress::update, ending(sync, progress, key))) {
+                    progress.failed("That run already ended: its notification says how.", false);
+                }
             }
         }, job.link);
         sync.enqueue(job, progress::update, ending(sync, progress, key));
@@ -615,6 +621,18 @@ public final class CloudSync {
         }
         String other = running == null ? "another job" : running.title() + " (" + running.percent + "%)";
         step(job, 1, "Waiting: " + other + (ahead > 1 ? " and " + (ahead - 1) + " more go first" : " goes first") + "…");
+    }
+
+    /**
+     * v2.1.1: a screen follows a job already waiting or running with {@code key} (its sheet after Sign in again, when
+     * the sign-in itself resumed the job); false when there is none.
+     */
+    synchronized boolean join(String key, Progress progress, Result result) {
+        Job j = findByKey(key);
+        if (j == null || j.finished) return false;
+        if (progress != null) j.watchers.add(progress);
+        if (result != null) j.results.add(result);
+        return true;
     }
 
     synchronized Job findByKey(String key) {
@@ -1745,7 +1763,24 @@ public final class CloudSync {
         step(job, 3, "Opening " + store.repo + " on GitHub…");
         // review (LOW): a backup running meanwhile doesn't write the card back to Private
         if (store.scId != null) visibilityChanged(store.scId);
-        String note = PlayStore.publish(token, login, store.repo, listing, (percent, text) -> step(job, percent, text));
+        String note;
+        try {
+            note = PlayStore.publish(token, login, store.repo, listing, (percent, text) -> step(job, percent, text));
+        } catch (GitHubException e) {
+            if ("http_401".equals(e.code) || "unauthorized".equals(e.code)) {
+                // as a backup: marked refused only when GET /user answers exactly 401; the staged form and pictures
+                // stay, and Sign in again runs the publish again by itself
+                if (!new CloudBackup(token, login).refusesSignIn()) {
+                    throw new GitHubException("http_401_once", e.getMessage() + " GitHub didn't refuse the sign-in "
+                            + "itself: you're still signed in; try again.");
+                }
+                String refused = GitHubSession.refusedNote(app, null);
+                GitHubSession.markRefused(app, refused, session[2]);
+                throw new GitHubException("refused", e.getMessage() + " " + refused + " The publish waits: after Sign "
+                        + "in again it goes on by itself (the pictures stay on this phone).");
+            }
+            throw e;
+        }
         if (store.scId != null) {
             visibilityChanged(store.scId);
             ProjectLinks.visibilityNow(store.scId, login, false);

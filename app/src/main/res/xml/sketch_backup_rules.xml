@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.1.1 (owner's 21 Nov directive "harden the token across updates"): Android's backup (Android 6-11) leaves the
+     GitHub sign-in out. The token is sealed with a key that never leaves this phone's Keystore: a restored copy of its
+     preferences on another phone (or after a reinstall) could only be read as "unreadable". Without it the restored
+     app starts signed out and Sign in works at once. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="sketchware_ai_github.xml" />
+    <exclude domain="sharedpref" path="sketchware_ai_github_signin.xml" />
+    <exclude domain="sharedpref" path="sketchware_ai_github_profile.xml" />
+    <exclude domain="sharedpref" path="sketchware_ai_device.xml" />
+</full-backup-content>
