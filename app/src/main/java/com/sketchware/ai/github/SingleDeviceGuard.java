@@ -146,6 +146,11 @@ public final class SingleDeviceGuard {
      * second review (MEDIUM): {@code time} is when this phone signed in (not when the mark happened to be written:
      * a claim that waited offline must not look newer than a later sign-in on another phone).
      */
+    static void write(String token, String login, String mark, String sha, long signedInAt)
+            throws IOException, GitHubException {
+        write(token, login, mark, sha, signedInAt, null);
+    }
+
     static void write(String token, String login, String mark, String sha, long signedInAt, String deviceKey)
             throws IOException, GitHubException {
         JsonObject file = new JsonObject();

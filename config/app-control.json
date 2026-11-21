@@ -1,12 +1,19 @@
 {
   "app_enabled": true,
-  "min_version_code": 208,
+  "min_version_code": 209,
   "require_login": false,
-  "status_message": "",
-  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.1.apk",
-  "update_sha256": "c623ae929c0221e002839f8030ef355c3e95b8aabcfcd577b6ab031b45018b4f",
+  "status_message": "Sketchware AI v2.1.2 is required: tabs open at once and keep their place, your GitHub sign-in stays across updates, backups show their real speed, and a helper fills GitHub's e-mailed sign-in code. Tap Update: it installs over this version and your projects stay.",
+  "status_message_max_version_code": 208,
+  "update_reason": "This update is required: it fixes problems in the version you have, and that version is no longer supported. It installs over it: your projects, settings and GitHub sign-in stay.",
+  "update_notes": [
+    "Tabs open at once and keep their place; no close questions",
+    "Your GitHub sign-in stays across updates; e-mailed codes fill with one tap",
+    "Backups show their real speed and finish without a silent 90%"
+  ],
+  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.2.apk",
+  "update_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "force_update": true,
-  "latest_version_code": 208,
-  "latest_version_name": "v2.1.1",
+  "latest_version_code": 209,
+  "latest_version_name": "v2.1.2",
   "coming_soon": ""
 }

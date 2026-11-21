@@ -619,7 +619,7 @@ public class GitHubClientTest {
         fake.objectGets = 0;
         call(pr, "download", token, "octo", "SketchwareAI-My_App", prVersions.get(0), bigBack, null);
         check("v2.0.4: download: the parts joined, size and SHA-256 checked, byte for byte", java.util.Arrays.equals(
-                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 4, fake.objectGets);
+                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 5, fake.objectGets);
         check("v2.0.4: the token never went to GitHub's file host (only to the API and upload hosts)",
                 !fake.objectsSawAuthorization, null);
         Fake.FakeAsset part1 = r2.assets.get(1);
@@ -734,7 +734,7 @@ public class GitHubClientTest {
         for (String u : fake.uploadRequests) if (u.endsWith(".swb.part000")) noPart000 = false;
         check("v2.0.5: the next try reuses that draft (same release), skips part000, sends the other parts and the list, "
                         + "and publishes", resumed != null && resumed.id == cutId && !resumed.draft && noPart000
-                        && fake.uploadRequests.size() == 3 && resumed.assets.size() == 4
+                        && fake.uploadRequests.size() == 4 && resumed.assets.size() == 5
                         && Integer.valueOf(1).equals(field(repo, "skippedLast")), fake.uploadRequests);
         @SuppressWarnings("unchecked")
         List<Object> afterResume = (List<Object>) call(repo, "versions", false);

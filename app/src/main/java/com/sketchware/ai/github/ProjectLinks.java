@@ -259,6 +259,8 @@ public final class ProjectLinks {
 
     /** v2.0.3: the projects list should load again (a project was added, e.g. the GitHub sample). */
     public static void listChanged() {
+        // v2.1.2: a restore or an import may have written records behind this class: read them again
+        READ_MEMO.clear();
         notifyChanged();
     }
 
@@ -269,7 +271,10 @@ public final class ProjectLinks {
     }
 
     private static void write(String scId, JsonObject json) {
+        // v2.1.2: the copy in memory goes with every write (two writes in one second can have the same time and size)
+        READ_MEMO.remove(scId);
         FileUtil.writeFile(file(scId).getAbsolutePath(), json.toString());
+        READ_MEMO.remove(scId);
         notifyChanged();
     }
 

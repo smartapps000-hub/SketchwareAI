@@ -266,20 +266,25 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 208, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(208).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 209, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(209).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.1.1 (208) with it: no notice", call(control, "decide", shipped, 208, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 207, false, null);
-        check("an older version (v2.1.0, 207): Update with the v2.1.1 URL, forced (owner, 21 Nov: the live in-app update)",
+        check("v2.1.2 (209) with it: no notice (its status message is for 208 and older)",
+                call(control, "decide", shipped, 209, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 208, false, null);
+        check("an older version (v2.1.1, 208): Update with the v2.1.2 URL, forced, with the file's words in v2.1.1's own "
+                        + "dialog (owner, 21 Nov: the live in-app update)",
                 old198 != null && "update".equals(get(old198, "kind")) && Boolean.TRUE.equals(get(old198, "force"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.1.apk"),
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.2.apk")
+                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.2 is required"),
                 old198 == null ? null : get(old198, "url"));
-        check("v2.1.1: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 208 "
-                        + "\"v2.1.1\", update forced",
+        check("v2.1.2: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 209 "
+                        + "\"v2.1.2\", update forced, the card's reason and three lines of what's new",
                 String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
-                        && Integer.valueOf(208).equals(get(shipped, "latestVersionCode"))
-                        && "v2.1.1".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate")),
+                        && Integer.valueOf(209).equals(get(shipped, "latestVersionCode"))
+                        && "v2.1.2".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
+                        && ((java.util.List<?>) get(shipped, "updateNotes")).size() == 3
+                        && String.valueOf(get(shipped, "updateReason")).startsWith("This update is required"),
                 get(shipped, "updateSha256"));
         Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
                 + "ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"latest_version_code\":301,"
@@ -1274,6 +1279,71 @@ public final class GitHubTest {
         boolean acceptedAgain = Boolean.FALSE.equals(call(sessionClass, "isRefused", CTX));
         check("v2.0.5: a refused sign-in is known at once (backups wait without sending more requests); GitHub accepting "
                 + "it again clears that", refusedNow && acceptedAgain, refusedNow + " " + acceptedAgain);
+        // --- v2.1.2: e-mail code helper, the one-phone rule per phone, the update card's words, one asset up to 25 MiB
+        Class<?> otp = c("com.sketchware.ai.github.OtpAssist");
+        check("v2.1.2: a code is read from what was copied: a code alone, GitHub's e-mail text, \"123 456\"; nothing else",
+                "123456".equals(call(otp, "codeFrom", "123456"))
+                        && "482913".equals(call(otp, "codeFrom", "Hey @x! Your GitHub verification code is: 482913 It expires"))
+                        && "12345678".equals(call(otp, "codeFrom", "code 12345678."))
+                        && "123456".equals(call(otp, "codeFrom", "123 456"))
+                        && call(otp, "codeFrom", "1234567") == null && call(otp, "codeFrom", "phone 98765432101") == null
+                        && call(otp, "codeFrom", (Object) null) == null,
+                call(otp, "codeFrom", "Hey @x! Your GitHub verification code is: 482913 It expires"));
+        check("v2.1.2: the code bar only on GitHub's own verification pages (https github.com)",
+                "email".equals(call(otp, "pageKind", "https", "github.com", "/sessions/verified-device"))
+                        && "two-factor".equals(call(otp, "pageKind", "https", "github.com", "/sessions/two-factor/app"))
+                        && call(otp, "pageKind", "https", "github.com", "/sessions/two-factor/webauthn") == null
+                        && call(otp, "pageKind", "http", "github.com", "/sessions/verified-device") == null
+                        && call(otp, "pageKind", "https", "evil.example", "/sessions/verified-device") == null
+                        && call(otp, "pageKind", "https", "github.com", "/login/device") == null, null);
+        boolean otpRefused = false;
+        try {
+            call(otp, "fillScript", "1');alert(1);//");
+        } catch (RuntimeException e) {
+            otpRefused = true;
+        }
+        check("v2.1.2: the fill script takes 6 or 8 digits only", otpRefused
+                && String.valueOf(call(otp, "fillScript", "123456")).endsWith("('123456')"), null);
+        Class<?> guard2 = c("com.sketchware.ai.github.SingleDeviceGuard");
+        String mineMark = (String) call(guard2, "hash", "install-a", "Owner");
+        String otherInstall = (String) call(guard2, "hash", "install-b", "owner");
+        String phoneKey = (String) call(guard2, "hash", "device:abc", "owner");
+        check("v2.1.2: another install of the app on this same phone (its device phoneKey) never signs this phone out; "
+                        + "another phone still does",
+                "keep".equals(call(guard2, "decide", new String[]{otherInstall, "s", "500", phoneKey, "Xiaomi X", "v2.1.1"}, mineMark,
+                        false, 100L, phoneKey, "Xiaomi X"))
+                        && "claim".equals(call(guard2, "decide", new String[]{otherInstall, "s", "500", phoneKey, "Xiaomi X", "v2.1.1"},
+                        mineMark, true, 100L, phoneKey, "Xiaomi X"))
+                        && "signout".equals(call(guard2, "decide", new String[]{otherInstall, "s", "500", "otherkey", "Pixel 9",
+                        "v2.1.2"}, mineMark, false, 100L, phoneKey, "Xiaomi X"))
+                        && "keep".equals(call(guard2, "decide", new String[]{otherInstall, "s", "500", null, "Xiaomi X", "v2.1.0"},
+                        mineMark, false, 100L, phoneKey, "Xiaomi X"))
+                        && "signout".equals(call(guard2, "decide", new String[]{otherInstall, "s", "500"}, mineMark, false, 100L,
+                        phoneKey, "Xiaomi X")), null);
+        Object cardCfg = call(control, "parse", "{\"update_reason\":\"  Why  \",\"update_notes\":[\"a\",\" \",5,\"b\",\"c\",\"d\"],"
+                + "\"status_message\":\"For old ones\",\"status_message_max_version_code\":208,\"min_version_code\":1}");
+        check("v2.1.2: the update card's words: the reason trimmed, at most three non-empty notes; the status message only "
+                        + "up to its version",
+                "Why".equals(get(cardCfg, "updateReason")) && java.util.Arrays.asList("a", "5", "b").equals(get(cardCfg, "updateNotes"))
+                        && "For old ones".equals(call(cardCfg, "statusMessageFor", 208))
+                        && "".equals(call(cardCfg, "statusMessageFor", 209)), get(cardCfg, "updateNotes"));
+        Class<?> card = c("com.sketchware.ai.github.UpdateCard");
+        check("v2.1.2: the card's version step reads \"v2.1.2\" of \"v2.1.2-491ab6c-minApi26\"",
+                "v2.1.2".equals(call(card, "shortVersion", "v2.1.2-491ab6c-minApi26")) && "v3.0".equals(call(card, "shortVersion", "3.0"))
+                        && "".equals(call(card, "shortVersion", (Object) null)), null);
+        Class<?> repoClass = c("com.sketchware.ai.github.ProjectRepo");
+        check("v2.1.2: a backup up to 25 MiB goes up as one file, a larger one in 8 MiB parts",
+                Integer.valueOf(1).equals(call(repoClass, "partsFor", 6_500_000L))
+                        && Integer.valueOf(1).equals(call(repoClass, "partsFor", 25L * 1024 * 1024))
+                        && Integer.valueOf(4).equals(call(repoClass, "partsFor", 25L * 1024 * 1024 + 1)), null);
+        Object speed = neu("com.sketchware.ai.github.CloudSync$UploadSpeed");
+        call(speed, "add", 1_000L, 0L);
+        call(speed, "add", 5_000L, 400L * 1024);
+        call(speed, "add", 9_000L, 800L * 1024);
+        call(speed, "add", 13_000L, 1200L * 1024);
+        check("v2.1.2: the upload's speed is the last ~8 seconds' (100 KB/s here), not since the job began",
+                Long.valueOf(100L * 1024).equals(call(speed, "bytesPerSecond", 13_000L)), call(speed, "bytesPerSecond", 13_000L));
+
         // --- v2.1.1: a Play Store publish is a job of the queue: a 401 makes it wait for Sign in again, the sign-in runs
         // it again by itself (from its staged files) and the progress sheet follows that run
         java.util.concurrent.atomic.AtomicInteger storeRuns = new java.util.concurrent.atomic.AtomicInteger();
