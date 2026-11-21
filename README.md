@@ -2,6 +2,20 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.2 (versionCode 209, `v2.1.2-2dbb401-minApi26`)
+
+`apk/Sketchware_AI_v2.1.2.apk`, sha256 `ef44b98efd9b1ea538322335748e6b4c77847001f931628729a29ba07566418c` (Git LFS).
+A required update for v2.1.1 (it offers it by itself, downloads it in the app and checks this SHA-256). Tabs stay as they
+were behind Home and Back asks nothing; Home and the cards read the phone off the main thread; a required update shows a
+card and downloads with Hide only (Retry after an error, its own notification); another install on the same phone no
+longer signs the phone out, and the account card says why when it is signed out; Open Gmail / Paste & fill for GitHub's
+e-mailed and two-factor codes; uploads show their recent speed and the "waiting for GitHub to confirm" step; projects
+without an icon show their letters in the app (the round Android icon is the APK's); one slim card shape in Restore; no
+cut bump on the bar. Release notes: `releases/v2.1.2/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.2.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.2.apk
+
 ## v2.1.1 (versionCode 208, `v2.1.1-491ab6c-minApi26`)
 
 `apk/Sketchware_AI_v2.1.1.apk`, sha256 `c623ae929c0221e002839f8030ef355c3e95b8aabcfcd577b6ab031b45018b4f` (Git LFS).
