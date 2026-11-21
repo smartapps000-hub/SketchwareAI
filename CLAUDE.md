@@ -437,7 +437,7 @@ background-slowness note), one asset up to 25 MiB (`SINGLE_MAX_BYTES`, `partsFor
 rows apart, four counters on `ob_pill16` (press foreground), Like always answers; Restore `slimCard` for Demo / phone, no
 Demo paragraph; `HoneyDropBar` corners sampled along their arcs (no step above Home). Renders `setup_v212.sh` +
 `V212Test` / `V212LargeFontTest`; jsdom `otp-script-test.js` (OTPSCRIPT 11/11); GITHUBTEST 124/124, V211CLIENT 13/13,
-V210CLIENT 27/27, GITHUBCLIENT 107/107; three review passes. APK @@CLAUDEAPK@@.
+V210CLIENT 27/27, GITHUBCLIENT 107/107; three review passes. APK v2.1.2-2dbb401, versionCode 209 (next 210), sha256 `ef44b98e...7566418c`, 142,824,153 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
