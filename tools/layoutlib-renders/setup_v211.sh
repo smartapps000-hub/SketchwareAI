@@ -12,8 +12,9 @@ sed -i 's/public static final class Asset { public long id; public String name; 
 sed -i 's/^}$//' $G/CloudSync.java
 cat >> $G/CloudSync.java <<'X'
     static final String STORE = "store";
-    public static final class Store { public String repo; public long number; public String title; public java.io.File staging; public String scId; }
+    public static final class Store { public String login; public String repo; public long number; public String title; public java.io.File staging; public String scId; }
     public static GitHubProgress publishToStore(android.content.Context a, Store s) { return new GitHubProgress(); }
+    public static void publishToStoreQuietly(android.content.Context a, Store s) { }
 }
 X
 w $G/RepoIcons.java <<'X'
