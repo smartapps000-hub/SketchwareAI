@@ -1,7 +1,7 @@
 # Sketchware AI v2.1.1
 
-versionCode 208, `@@VERSIONNAME@@`, @@SIZE@@ bytes, sha256
-`@@SHA256@@`. Installs over v2.1.0 (same test key). v2.1.0 asks for it by itself about 3.5 s after it opens: the
+versionCode 208, `v2.1.1-491ab6c-minApi26`, 142,804,337 bytes, sha256
+`c623ae929c0221e002839f8030ef355c3e95b8aabcfcd577b6ab031b45018b4f`. Installs over v2.1.0 (same test key). v2.1.0 asks for it by itself about 3.5 s after it opens: the
 update is required (no Later), downloads in the app with its progress, is checked by its SHA-256 and opens Android's
 installer (Android asks once to allow installs from Sketchware AI).
 
@@ -10,7 +10,7 @@ installer (Android asks once to allow installs from Sketchware AI).
 - https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.1.apk
 - https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.1.apk
 
-The owner's 21 Nov directive (v2.1.1) and his two corrections the same day (default icon, glass drop). The full record
+The owner's 21 Nov directive (v2.1.1) and his corrections the same day (default icon, glass drop, Play Store page, forced update). The full record
 is `engineering/v2.1.1-verification.md`.
 
 ## The default app icon

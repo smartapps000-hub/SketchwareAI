@@ -396,6 +396,27 @@ JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15; two review passes (HIGH: Publish NPE, the
 just signed in; MEDIUM: shared picture list, publish cut off by leaving, update gate gaps, update APK in shared storage,
 mark time = write time; all fixed). Permissions unchanged. APK v2.1.0-ed691a0, versionCode 207 (next 208), sha256
 `e2330d1c...b0f0b08edb`, 142,693,495 bytes.
+v2.1.1 (owner's 21 Nov "DIRECTIVE (v2.1.1 / versionCode 208)" with 10 v2.1.0 screenshots, then seven corrections the same
+day; record `engineering/v2.1.1-verification.md`): **default APK icon** (only for projects without an own icon; template
+`assets/resource/600/res.zip` → `drawable-xhdpi/app_icon.png`, also the IDE preview `ob_app_icon_placeholder.png`; made by
+`tools/icons/make_default_app_icon.py`): Android Studio's round legacy icon element for element (132 px circle on 144, K =
+132/74 px per unit, grid, 45° long shadow, robot with eye holes, drop shadow) in glass: frosted slate-obsidian #23262E →
+#16181E + faint #FF6D24 tint, interior hairline grid only (0.5 unit, 9 %; no 19/89 edge lines), dark cast shadow #040406
+58 % → 0, robot = light frosted white glass, top gloss, **no border** (owner: "this is final"; a squircle, a rim, an orange
+spotlight and a solid white robot were each rejected). Home cards keep the 2-letter monogram. `RepoIcons` (playstore/icon.png
+per repository, git blob id skip, 7-day refresh, `.none` 24 h, kept without a token). `HoneyDropBar` clear glass (no gold:
+teardrop + micro droplets, crater + icon dip, crown/jet/beads, icon onto a glass crest, full-width waves, 1150 ms, opens at
+0.40; new synthesized `honey_drop.wav`, `tools/sound/make_honey_drop.py`). Play Store: search at the top (phone filter, GitHub
+search, @creator), version lines from `listing.json` ("Re-published vX (c) • Update #N"), app page hero → counters (Downloads
+from asset counts; Likes / Shares / Views = ❤️ 🚀 👀 reactions on a "📊 … · Play Store" discussion; the 👀 is automatic and
+public) → one row of 48 dp capsules (Install APK orange / .SWB / Demo / GitHub) → description, What's new → screenshots →
+reviews; creator page; publish form + pictures staged per repository (`files/publish_staging/<n>`), a publish = `CloudSync`
+STORE job under `Job.login`; Community feed built in the app (no 404 links). 401: store jobs wait and `resumeAfterSignIn`
+reruns them only for the same account; Sign out forgets them; backup rules leave the sign-in prefs out of Android backup /
+transfer. `config/app-control.json`: min 208, latest 208, `force_update` true (v2.1.0 phones must update in-app). Renders
+`setup_v211.sh` + `V211Test` / `V211LargeFontTest` / `V211BarTest`. V211CLIENT 13/13, V210CLIENT 27/27, GITHUBCLIENT 107/107;
+ART suite in the record; three review passes. APK v2.1.1-491ab6c, versionCode 208 (next 209), sha256 `c623ae92...b45018b4f`,
+142,804,337 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
