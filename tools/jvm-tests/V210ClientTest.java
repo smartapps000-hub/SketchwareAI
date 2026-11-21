@@ -357,8 +357,8 @@ public class V210ClientTest {
         check("v2.1.0: Play Store search: public repositories with the topic, newest first, the private one left out, "
                         + "signed out works",
                 apps.size() == 2 && "ann".equals(field(apps.get(0), "owner")) && Long.valueOf(11).equals(field(apps.get(0), "number"))
-                        && "trunk".equals(field(apps.get(1), "branch")) && last("GET /search/repositories").contains(
-                        "q=topic:sketchwareai-playstore") && last("GET /search/repositories").endsWith(" -"),
+                        && "trunk".equals(field(apps.get(1), "branch")) && java.net.URLDecoder.decode(last("GET /search/repositories"),
+                        "UTF-8").contains("q=topic:sketchwareai-playstore") && last("GET /search/repositories").endsWith(" -"),
                 apps.size());
         Object notes = apps.get(0);
         call(store, "readListing", (Object) null, notes);
@@ -437,9 +437,10 @@ public class V210ClientTest {
                         && demoFiles.containsKey("playstore/screenshots/01.jpg") && demoFiles.containsKey("playstore/screenshots/02.jpg")
                         && pageFile != null && "Demo".equals(pageFile.get("title").getAsString()) && !pageFile.has("video"),
                 demoFiles.keySet());
-        check("v2.1.0: publish says when there's no version to offer yet; steps move 5 → 95",
+        // v2.1.1: the steps end at 97 now (the icon, the counters and the version line come before the store page)
+        check("v2.1.0: publish says when there's no version to offer yet; steps move 5 → 97",
                 note != null && note.startsWith("No version yet") && stepTexts.get(0).startsWith("5 ")
-                        && stepTexts.get(stepTexts.size() - 1).startsWith("95 "), note + " " + stepTexts);
+                        && stepTexts.get(stepTexts.size() - 1).startsWith("97 "), note + " " + stepTexts);
 
         // --- GraphQL and Discussions
         Class<?> gql = c("com.sketchware.ai.github.GitHubGraphQL");

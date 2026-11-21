@@ -266,20 +266,20 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 207, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(207).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 208, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(208).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.1.0 (207) with it: no notice", call(control, "decide", shipped, 207, false, null) == null, null);
-        Object old198 = call(control, "decide", shipped, 206, false, null);
-        check("an older version (v2.0.5, 206): Update with the v2.1.0 URL, not forced", old198 != null
+        check("v2.1.1 (208) with it: no notice", call(control, "decide", shipped, 208, false, null) == null, null);
+        Object old198 = call(control, "decide", shipped, 207, false, null);
+        check("an older version (v2.1.0, 207): Update with the v2.1.1 URL, not forced (the live in-app update)", old198 != null
                 && "update".equals(get(old198, "kind")) && Boolean.FALSE.equals(get(old198, "force"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.0.apk"),
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.1.apk"),
                 old198 == null ? null : get(old198, "url"));
-        check("v2.1.0: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 207 "
-                        + "\"v2.1.0\", update not forced",
+        check("v2.1.1: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 208 "
+                        + "\"v2.1.1\", update not forced",
                 String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
-                        && Integer.valueOf(207).equals(get(shipped, "latestVersionCode"))
-                        && "v2.1.0".equals(get(shipped, "latestVersionName")) && Boolean.FALSE.equals(get(shipped, "forceUpdate")),
+                        && Integer.valueOf(208).equals(get(shipped, "latestVersionCode"))
+                        && "v2.1.1".equals(get(shipped, "latestVersionName")) && Boolean.FALSE.equals(get(shipped, "forceUpdate")),
                 get(shipped, "updateSha256"));
         Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
                 + "ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"latest_version_code\":301,"
@@ -371,27 +371,27 @@ public final class GitHubTest {
                 call(storeClass, "statusOf", "4.7.6", "84", "republished", 3));
         Object listing = neu("com.sketchware.ai.github.PlayStore$Listing");
         set(listing, "title", "Notes Pro");
-        Object v1 = neu("com.sketchware.ai.github.ProjectRepo$Version");
-        set(v1, "versionName", "1.0");
-        set(v1, "versionCode", "1");
-        set(v1, "notes", "✨ First version");
-        Object first = call(storeClass, "page", listing, "SketchwareAI-Notes", v1, null, 0, 1000L);
-        Object again = call(storeClass, "page", listing, "SketchwareAI-Notes", v1, first, 7, 2000L);
-        Object v2 = neu("com.sketchware.ai.github.ProjectRepo$Version");
-        set(v2, "versionName", "1.1");
-        set(v2, "versionCode", "2");
-        set(v2, "notes", "🛠 Fixed the list");
-        Object bumped = call(storeClass, "page", listing, "SketchwareAI-Notes", v2, again, 7, 3000L);
+        Object ver1 = neu("com.sketchware.ai.github.ProjectRepo$Version");
+        set(ver1, "versionName", "1.0");
+        set(ver1, "versionCode", "1");
+        set(ver1, "notes", "✨ First version");
+        Object page1 = call(storeClass, "page", listing, "SketchwareAI-Notes", ver1, null, 0, 1000L);
+        Object page2 = call(storeClass, "page", listing, "SketchwareAI-Notes", ver1, page1, 7, 2000L);
+        Object ver2 = neu("com.sketchware.ai.github.ProjectRepo$Version");
+        set(ver2, "versionName", "1.1");
+        set(ver2, "versionCode", "2");
+        set(ver2, "notes", "🛠 Fixed the list");
+        Object page3 = call(storeClass, "page", listing, "SketchwareAI-Notes", ver2, page2, 7, 3000L);
         Class<?> flowClass = c("com.sketchware.ai.github.DeviceFlow");
         check("v2.1.1: the store page counts publishes: first \"published\" #1, the same version code again "
                         + "\"republished\" #2, a new code \"updated\" #3 with its changelog; the stats post kept",
-                "published".equals(call(flowClass, "string", first, "action")) && "republished".equals(call(flowClass, "string", again, "action"))
-                        && "updated".equals(call(flowClass, "string", bumped, "action"))
-                        && Integer.valueOf(3).equals(call(storeClass, "intOf", bumped, "publish_number"))
-                        && "🛠 Fixed the list".equals(call(flowClass, "string", bumped, "changelog"))
-                        && Integer.valueOf(7).equals(call(storeClass, "intOf", bumped, "stats_discussion")), bumped);
+                "published".equals(call(flowClass, "string", page1, "action")) && "republished".equals(call(flowClass, "string", page2, "action"))
+                        && "updated".equals(call(flowClass, "string", page3, "action"))
+                        && Integer.valueOf(3).equals(call(storeClass, "intOf", page3, "publish_number"))
+                        && "🛠 Fixed the list".equals(call(flowClass, "string", page3, "changelog"))
+                        && Integer.valueOf(7).equals(call(storeClass, "intOf", page3, "stats_discussion")), page3);
         Object readBack = neu("com.sketchware.ai.github.PlayStore$App");
-        call(storeClass, "readVersionFields", readBack, bumped);
+        call(storeClass, "readVersionFields", readBack, page3);
         check("v2.1.1: a card reads its version line from the store page", "Updated to v1.1 (2)".equals(call(readBack, "status"))
                 && Integer.valueOf(7).equals(get(readBack, "statsDiscussion")), call(readBack, "status"));
         File staging = (File) call(storeClass, "stagingDir", CTX, 4242L);
@@ -1274,6 +1274,62 @@ public final class GitHubTest {
         boolean acceptedAgain = Boolean.FALSE.equals(call(sessionClass, "isRefused", CTX));
         check("v2.0.5: a refused sign-in is known at once (backups wait without sending more requests); GitHub accepting "
                 + "it again clears that", refusedNow && acceptedAgain, refusedNow + " " + acceptedAgain);
+        // --- v2.1.1: a Play Store publish is a job of the queue: a 401 makes it wait for Sign in again, the sign-in runs
+        // it again by itself (from its staged files) and the progress sheet follows that run
+        java.util.concurrent.atomic.AtomicInteger storeRuns = new java.util.concurrent.atomic.AtomicInteger();
+        Object runner6 = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {
+            if (!m.equals("run")) return null;
+            String kind;
+            try {
+                kind = (String) get(a[0], "kind");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            if (!"store".equals(kind)) return "done";
+            int n = storeRuns.incrementAndGet();
+            if (n == 1) {
+                Object refusal;
+                try {
+                    refusal = neu("com.sketchware.ai.github.GitHubException", "http_401",
+                            "GitHub didn't accept the saved sign-in (HTTP 401).");
+                } catch (Throwable e) {
+                    throw new RuntimeException(e);
+                }
+                GitHubTest.<RuntimeException>sneaky((Throwable) refusal);
+            }
+            try {
+                Thread.sleep(n == 2 ? 1500 : 0);
+            } catch (InterruptedException ignored) {
+            }
+            return "published " + n;
+        });
+        set(syncClass, "runnerForTests", runner6);
+        results.clear();
+        Object storeJob = neu(jobClass, "store-4242", "store", "Timer", autoOptions, true);
+        Object storeSpec = neu("com.sketchware.ai.github.CloudSync$Store");
+        set(storeSpec, "number", 4242L);
+        set(storeSpec, "repo", "SketchwareAI-Timer");
+        set(storeSpec, "title", "Timer");
+        set(storeJob, "store", storeSpec);
+        String storeKey = (String) call(storeJob, "key");
+        String storeTitle = (String) call(storeJob, "title");
+        call(cloudSync, "enqueue", storeJob, null, result.apply("ST"));
+        boolean storeRefused = waitFor(() -> results.stream().anyMatch(r -> r.startsWith("ST:false:")), 5000);
+        boolean storeWaits = Boolean.TRUE.equals(call(cloudSync, "needsSignIn", storeKey))
+                && Boolean.TRUE.equals(call(cloudSync, "canRetry", storeKey));
+        call(cloudSync, "resumeAfterSignIn");
+        boolean storeResumed = waitFor(() -> storeRuns.get() >= 2, 5000);
+        Object storeFollower = result.apply("SJ");
+        boolean storeJoined = Boolean.TRUE.equals(call(cloudSync, "join", storeKey, null, storeFollower));
+        boolean storeEnded = waitFor(() -> results.contains("SJ:true:published 2"), 6000);
+        boolean noJoinAfter = Boolean.FALSE.equals(call(cloudSync, "join", storeKey, null, storeFollower));
+        check("v2.1.1: a Play Store publish (\"Publishing Timer to the Play Store\", key store:4242) refused with 401 waits "
+                        + "for Sign in again; the sign-in runs it again by itself and its sheet follows that run to the end",
+                "store:4242".equals(storeKey) && "Publishing Timer to the Play Store".equals(storeTitle) && storeRefused
+                        && storeWaits && storeResumed && storeJoined && storeEnded && noJoinAfter
+                        && Boolean.FALSE.equals(call(cloudSync, "needsSignIn", storeKey)),
+                storeKey + " " + storeRefused + " " + storeWaits + " " + storeResumed + " " + storeJoined + " " + storeEnded
+                        + " " + noJoinAfter + " " + results);
         set(syncClass, "runnerForTests", null);
         set(syncClass, "mainForTests", null);
         Object cleanup = call(githubPrefs, "edit");
