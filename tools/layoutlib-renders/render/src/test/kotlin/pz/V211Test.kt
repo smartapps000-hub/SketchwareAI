@@ -79,15 +79,21 @@ object V211Shots {
     fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
     fun search(q: String) = "/search/repositories?q=" + enc(q) + "&sort=updated&order=desc&per_page=50"
 
-    /** An app icon: a rounded tile in [color] with a glyph letter, written as PNG. */
+    /** An app's own icon in the app's glass theme: an Obsidian tile with an orange glyph and a soft rim, written as PNG. */
     fun icon(name: String, color: String, glyph: String): java.io.File {
         val f = java.io.File(out, "icons/$name.png"); f.parentFile.mkdirs()
         val b = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
         val cv = Canvas(b)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        p.color = Color.parseColor(color); cv.drawRoundRect(0f, 0f, 192f, 192f, 44f, 44f, p)
-        p.color = Color.WHITE; p.textSize = 96f; p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
-        cv.drawText(glyph, 96f, 128f, p)
+        p.shader = android.graphics.LinearGradient(0f, 0f, 0f, 192f, Color.parseColor("#26262C"), Color.parseColor("#0B0B0D"),
+                android.graphics.Shader.TileMode.CLAMP)
+        cv.drawRoundRect(0f, 0f, 192f, 192f, 46f, 46f, p)
+        p.shader = android.graphics.RadialGradient(96f, 120f, 90f, Color.parseColor("#66FF6D24"), Color.TRANSPARENT,
+                android.graphics.Shader.TileMode.CLAMP)
+        cv.drawRoundRect(0f, 0f, 192f, 192f, 46f, 46f, p)
+        p.shader = null
+        p.color = Color.parseColor(color); p.textSize = 104f; p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
+        cv.drawText(glyph, 96f, 132f, p)
         java.io.FileOutputStream(f).use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
         return f
     }
@@ -112,9 +118,10 @@ object V211Shots {
                 app("cy", "SketchwareAI-Public-Timer", 13, null, null, 3, NOW - 4 * DAY, "1.0", "1", "published", 1),
                 app("ravi-k", "SketchwareAI-Telugu_Calendar", 14, "Telugu Calendar", "Panchangam, festivals and reminders in Telugu.", 128, NOW - 7 * DAY, null, null, null, 0))
         PlayStore.save(V210Shots.files(c), apps)
-        seed(c, apps[0].iconUrl(), icon("notes", "#F4B400", "N"))
-        seed(c, apps[1].iconUrl(), icon("parking", "#3949AB", "P"))
-        seed(c, apps[3].iconUrl(), icon("calendar", "#D81B60", "త"))
+        // Notes Pro has no icon of its own (its APK's default icon shows); the others have theirs
+        java.io.File(V210Shots.files(c).cacheDir, "playstore").listFiles()?.forEach { it.delete() }
+        seed(c, apps[1].iconUrl(), icon("parking", "#FF8A3D", "P"))
+        seed(c, apps[3].iconUrl(), icon("calendar", "#FFB347", "త"))
     }
 
     fun list(c: Context): View {
@@ -152,7 +159,7 @@ object V211Shots {
             {"id":11,"name":"SketchwareAI-Notes","private":false,"owner":{"login":"ann-dev"},"description":"x","stargazers_count":42,"pushed_at":"2026-11-19T10:00:00Z","default_branch":"main"},
             {"id":16,"name":"SketchwareAI-Button_Demo","private":false,"owner":{"login":"ann-dev"},"description":"Material 3 buttons, one of each.","stargazers_count":1,"pushed_at":"2026-11-08T10:00:00Z","default_branch":"main"}]}"""
         ProjectRepo.VIEWER = listOf(V210Shots.version(21, "2.3", "9", NOW - DAY, apk = true).also { it.assets[0].downloads = 1840 })
-        seed(c, "https://avatars.githubusercontent.com/u/90210?v=4", icon("avatar", "#00897B", "A"))
+        seed(c, "https://avatars.githubusercontent.com/u/90210?v=4", icon("avatar", "#FFB347", "A"))
         val i = Intent(); i.putExtra("playstore_developer", "ann-dev")
         return open(c, PlayStoreActivity(), i)
     }
@@ -194,12 +201,12 @@ object V211Shots {
 
     fun restore(c: Context, tab: Int): View {
         V210Shots.sampleData()
-        RepoIcons.ICONS[101L] = icon("parking", "#3949AB", "P").path
-        RepoIcons.ICONS[103L] = icon("notes", "#F4B400", "N").path
-        RepoIcons.LOCAL["651"] = icon("ghdemo", "#24292F", "G").path
+        RepoIcons.ICONS[101L] = icon("parking", "#FF8A3D", "P").path
+        RepoIcons.ICONS[103L] = icon("notes", "#FFB347", "N").path
+        RepoIcons.LOCAL["651"] = icon("ghdemo", "#F5F5F7", "G").path
         val swb = java.io.File(mod.hey.studios.project.backup.BackupFactory.DIR, "Vehicle_Parking_v4.7.6.swb")
         java.util.zip.ZipOutputStream(java.io.FileOutputStream(swb)).use { z ->
-            z.putNextEntry(java.util.zip.ZipEntry("resources/icons/icon.png")); z.write(icon("parking", "#3949AB", "P").readBytes()); z.closeEntry()
+            z.putNextEntry(java.util.zip.ZipEntry("resources/icons/icon.png")); z.write(icon("parking", "#FF8A3D", "P").readBytes()); z.closeEntry()
         }
         java.io.File(mod.hey.studios.project.backup.BackupFactory.DIR, "Notes_v2.3.swb").writeBytes(ByteArray(10))
         return V210Shots.restore(c, tab)

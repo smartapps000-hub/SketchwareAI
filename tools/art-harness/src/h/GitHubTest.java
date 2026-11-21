@@ -271,15 +271,15 @@ public final class GitHubTest {
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
         check("v2.1.1 (208) with it: no notice", call(control, "decide", shipped, 208, false, null) == null, null);
         Object old198 = call(control, "decide", shipped, 207, false, null);
-        check("an older version (v2.1.0, 207): Update with the v2.1.1 URL, not forced (the live in-app update)", old198 != null
-                && "update".equals(get(old198, "kind")) && Boolean.FALSE.equals(get(old198, "force"))
+        check("an older version (v2.1.0, 207): Update with the v2.1.1 URL, forced (owner, 21 Nov: the live in-app update)",
+                old198 != null && "update".equals(get(old198, "kind")) && Boolean.TRUE.equals(get(old198, "force"))
                 && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.1.apk"),
                 old198 == null ? null : get(old198, "url"));
         check("v2.1.1: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 208 "
-                        + "\"v2.1.1\", update not forced",
+                        + "\"v2.1.1\", update forced",
                 String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
                         && Integer.valueOf(208).equals(get(shipped, "latestVersionCode"))
-                        && "v2.1.1".equals(get(shipped, "latestVersionName")) && Boolean.FALSE.equals(get(shipped, "forceUpdate")),
+                        && "v2.1.1".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate")),
                 get(shipped, "updateSha256"));
         Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
                 + "ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"latest_version_code\":301,"

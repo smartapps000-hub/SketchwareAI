@@ -199,21 +199,23 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     }
 
     /**
-     * An app's tile: the two letters on the orange tile (the design file's project tiles), covered by the app's own
-     * icon ({@link RepoIcons#PATH} on GitHub) once it is read.
+     * An app's icon: its own icon ({@link RepoIcons#PATH} on GitHub) once read; until then, and for an app without one,
+     * the icon its APK gets by default (the round Android icon in Obsidian glass, {@code ob_app_icon_placeholder}),
+     * never a coloured letter box (owner, 21 Nov). Rounded corners clip a square icon; the round one is unchanged.
      */
     private FrameLayout appTile(PlayStore.App a, int sizeDp) {
         FrameLayout tile = new FrameLayout(this);
-        tile.setBackgroundResource(R.drawable.ob_tile_orange);
+        float radius = v.dp(sizeDp) * 0.24f;
+        tile.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+            }
+        });
         tile.setClipToOutline(true);
-        TextView letters = new TextView(this, null, 0, R.style.Ob_Text_Button_Cta);
-        letters.setText(GC.monogram(a.name()));
-        letters.setGravity(Gravity.CENTER);
-        letters.setIncludeFontPadding(false);
-        letters.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeDp >= 60 ? 22 : 16);
-        tile.addView(letters, new FrameLayout.LayoutParams(-1, -1));
         ImageView icon = new ImageView(this);
         icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        icon.setImageResource(R.drawable.ob_app_icon_placeholder);
         icon.setContentDescription(null);
         tile.addView(icon, new FrameLayout.LayoutParams(-1, -1));
         if (a.owner != null && a.repo != null) loadPicture(a.iconUrl(), icon, v.dp(sizeDp));
@@ -441,11 +443,6 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         appStatus = v.line("", false);
         appStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(appStatus, v.full(-1, 8));
-        list.addView(heading("Get it"), v.full(-1, 18));
-        actionsBox = new LinearLayout(this);
-        actionsBox.setOrientation(LinearLayout.VERTICAL);
-        actionsBox.addView(v.line("Reading its newest version…", false));
-        list.addView(actionsBox, v.full(-1, 6));
         list.addView(heading("Reviews"), v.full(-1, 22));
         reviewsBox = new LinearLayout(this);
         reviewsBox.setOrientation(LinearLayout.VERTICAL);
@@ -454,18 +451,22 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         loadApp();
     }
 
+    /**
+     * v2.1.1 (owner's 21 Nov architecture directive, "everything to act on the first screen"): 1. the hero (icon, name,
+     * @developer, version pill and publish line), 2. the metrics strip, 3. the actions as one row of capsules right
+     * under it (Install APK, .SWB, Demo, GitHub), 4. the description and What's new, 5. the pictures, then the reviews.
+     */
     private void showPage() {
         PlayStore.App a = current;
         ((TextView) findViewById(R.id.gs_title)).setText(a.name());
         pageBox.removeAllViews();
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundResource(R.drawable.ob_pill16);
-        card.setPadding(v.dp(14), v.dp(12), v.dp(14), v.dp(12));
-        LinearLayout top = new LinearLayout(this);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        top.addView(appTile(a, 64), new LinearLayout.LayoutParams(v.dp(64), v.dp(64)));
+        // 1. hero
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.HORIZONTAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setBackgroundResource(R.drawable.ob_pill16);
+        hero.setPadding(v.dp(14), v.dp(12), v.dp(14), v.dp(12));
+        hero.addView(appTile(a, 72), new LinearLayout.LayoutParams(v.dp(72), v.dp(72)));
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView name = new TextView(this, null, 0, R.style.Ob_Text_Title);
@@ -478,31 +479,59 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         creator.setText("@" + a.owner);
         creator.setTextColor(v.color(R.color.ob_accent));
         creator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        creator.setPadding(0, v.dp(4), v.dp(8), v.dp(4));
+        creator.setPadding(0, v.dp(2), v.dp(8), v.dp(4));
         creator.setBackgroundResource(R.drawable.ob_press_overlay);
         creator.setContentDescription("Developer @" + a.owner + ": open their page");
         GitHubViews.oneLine(creator);
         creator.setOnClickListener(x -> startActivity(developer(this, a.owner)));
         texts.addView(creator, new LinearLayout.LayoutParams(-2, -2));
-        String status = a.status();
-        TextView meta = v.line((status == null ? "" : status + "\n") + "★ " + a.stars
-                + (a.updated > 0 ? " · updated " + CloudBackup.formatTime(a.updated) : ""), false);
+        LinearLayout versionRow = new LinearLayout(this);
+        versionRow.setOrientation(LinearLayout.HORIZONTAL);
+        versionRow.setGravity(Gravity.CENTER_VERTICAL);
+        if (a.versionName != null && !a.versionName.isEmpty()) {
+            TextView pill = new TextView(this, null, 0, R.style.Ob_Text_Label);
+            pill.setText("v" + a.versionName + (a.versionCode == null || a.versionCode.isEmpty() ? "" : " (" + a.versionCode + ")"));
+            pill.setTypeface(v.bold());
+            pill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            pill.setTextColor(v.color(R.color.ob_accent));
+            pill.setGravity(Gravity.CENTER);
+            pill.setBackgroundResource(R.drawable.ob_pill16);
+            pill.setPadding(v.dp(10), v.dp(3), v.dp(10), v.dp(3));
+            GitHubViews.oneLine(pill);
+            versionRow.addView(pill, new LinearLayout.LayoutParams(-2, -2));
+        }
+        TextView meta = v.line(publishLine(a), false);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        texts.addView(meta);
+        GitHubViews.oneLine(meta);
+        LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(0, -2, 1f);
+        mp.leftMargin = versionRow.getChildCount() == 0 ? 0 : v.dp(8);
+        versionRow.addView(meta, mp);
+        texts.addView(versionRow, v.full(-1, 2));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(14);
-        top.addView(texts, tp);
-        card.addView(top);
+        hero.addView(texts, tp);
+        pageBox.addView(hero);
+        // 2. metrics
+        pageBox.addView(statsRow(), v.full(-1, 8));
+        // 3. the actions, one row of capsules
+        actionsBox = new LinearLayout(this);
+        actionsBox.setOrientation(LinearLayout.HORIZONTAL);
+        actionsBox.setGravity(Gravity.CENTER_VERTICAL);
+        pageBox.addView(actionsBox, v.full(-1, 10));
+        actionNote = v.line("", false);
+        actionNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        pageBox.addView(actionNote, v.full(-1, 6));
+        renderActions();
+        // 4. description and What's new
         if (a.description != null && !a.description.isEmpty()) {
             TextView d = v.line(a.description, false);
             d.setTextColor(v.color(R.color.ob_text));
             d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            card.addView(d, v.full(-1, 10));
+            pageBox.addView(d, v.full(-1, 14));
         }
-        pageBox.addView(card);
-        pageBox.addView(statsRow(), v.full(-1, 10));
+        String status = a.status();
         if (a.changelog != null && !a.changelog.trim().isEmpty()) {
-            pageBox.addView(heading("What's new"), v.full(-1, 18));
+            pageBox.addView(heading("What's new"), v.full(-1, 16));
             LinearLayout box = new LinearLayout(this);
             box.setOrientation(LinearLayout.VERTICAL);
             box.setBackgroundResource(R.drawable.ob_pill16);
@@ -521,6 +550,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             box.addView(c, v.full(-1, status == null ? 0 : 6));
             pageBox.addView(box, v.full(-1, 6));
         }
+        // 5. pictures
         if (!a.screenshots.isEmpty()) {
             HorizontalScrollView scroll = new HorizontalScrollView(this);
             scroll.setHorizontalScrollBarEnabled(false);
@@ -541,8 +571,21 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 shotsRow.addView(shot, p);
                 loadPicture(urls.get(i), shot, v.dp(248));
             }
-            pageBox.addView(scroll, v.full(-1, 12));
+            pageBox.addView(scroll, v.full(-1, 14));
         }
+        // review (LOW): the counters are public reactions on GitHub: say so
+        TextView note = v.line("Likes, shares and views are ❤️ 🚀 👀 reactions of GitHub accounts on the app's post (yours "
+                + "shows there under your name); a view counts once.", false);
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        pageBox.addView(note, v.full(-1, 12));
+    }
+
+    /** "Updated · ★ 42 · 19 Nov 2026", "Re-published • Update #3 · ★ 17", "First release · ★ 3". */
+    static String publishLine(PlayStore.App a) {
+        String what = "republished".equals(a.action) ? "Re-published • Update #" + Math.max(2, a.publishNumber)
+                : "updated".equals(a.action) ? "Updated" : "published".equals(a.action) ? "First release" : null;
+        long when = a.publishedAt > 0 ? a.publishedAt : a.updated;
+        return (what == null ? "" : what + " · ") + "★ " + a.stars + (when > 0 ? " · " + CloudBackup.formatTime(when) : "");
     }
 
     /**
@@ -585,15 +628,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         statCells[1].setOnClickListener(x -> toggleLike());
         statCells[2].setOnClickListener(x -> share());
         showStats();
-        // review (LOW): the counters are public reactions on GitHub: say so
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.addView(row);
-        TextView note = v.line("Likes, shares and views are ❤️ 🚀 👀 reactions of GitHub accounts on the app's post (yours "
-                + "shows there under your name); a view counts once.", false);
-        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        box.addView(note, v.full(-1, 6));
-        return box;
+        return row;
     }
 
     private void showStats() {
@@ -765,54 +800,82 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         }
     }
 
+    private TextView actionNote;
+    /** The versions read for the page (null: not yet / not readable) and whether reading them failed. */
+    private List<ProjectRepo.Version> pageVersions;
+    private boolean versionsRead;
+    private boolean versionsFailed;
+
     private void showActions(List<ProjectRepo.Version> versions, boolean failed) {
+        pageVersions = versions;
+        versionsRead = true;
+        versionsFailed = failed;
+        renderActions();
+    }
+
+    /**
+     * The action capsules in one row (owner's 21 Nov directive: no stacked buttons, nothing to scroll for): Install APK
+     * (the orange one; .SWB takes its place when the newest version has no APK), .SWB, Demo, GitHub; the line under them
+     * names the version they get.
+     */
+    private void renderActions() {
+        if (actionsBox == null) return;
         actionsBox.removeAllViews();
         PlayStore.App a = current;
-        if (versions == null || versions.isEmpty()) {
-            actionsBox.addView(v.line(versions == null ? "Its versions couldn't be read now." : "No version yet: its owner "
-                    + "hasn't backed it up with Sketchware AI.", versions == null));
-            if (failed) {
-                TextView retry = v.smallPill("Try again", false, true, x -> {
-                    actionsBox.removeAllViews();
-                    actionsBox.addView(v.line("Reading its newest version…", false));
-                    loadApp();
-                });
-                GitHubViews.oneLine(retry);
-                actionsBox.addView(retry, pill(8));
-            }
-        } else {
-            ProjectRepo.Version front = GitHubBackupsActivity.ordered(versions).get(0);
-            String size = front.size > 0 ? " · .swb " + CloudSync.megabytes(front.size) : "";
-            actionsBox.addView(v.line(front.label() + (front.time > 0 ? " · " + CloudBackup.formatTime(front.time) : "")
-                    + size, false));
-            ProjectRepo.Asset apk = null;
-            if (front.apk != null) for (ProjectRepo.Asset x : front.assets) if (x.name.equals(front.apk)) apk = x;
-            if (apk != null) {
-                ProjectRepo.Asset file = apk;
-                TextView install = v.pill("Download & Install APK  ·  " + CloudSync.megabytes(apk.size), true, true,
-                        x -> RepoViewerActivity.downloadApk(this, a.owner, a.repo, front, file));
-                actionsBox.addView(install, pill(10));
-            } else {
-                actionsBox.addView(v.line("This version has no APK: import the .swb and Run it.", false), v.full(-1, 8));
-            }
-            if (front.swb != null) {
-                TextView swb = v.glassPill("Import .SWB (the project)", true,
-                        x -> RepoViewerActivity.restore(this, a.owner, a.repo, front, a.number, false));
-                actionsBox.addView(swb, pill(8));
-            }
+        ProjectRepo.Version front = pageVersions == null || pageVersions.isEmpty() ? null
+                : GitHubBackupsActivity.ordered(pageVersions).get(0);
+        ProjectRepo.Asset apk = null;
+        if (front != null && front.apk != null) for (ProjectRepo.Asset x : front.assets) if (x.name.equals(front.apk)) apk = x;
+        if (apk != null) {
+            ProjectRepo.Asset file = apk;
+            addAction("Install APK", true, 1.5f, "Download and install the APK, " + CloudSync.megabytes(apk.size),
+                    x -> RepoViewerActivity.downloadApk(this, a.owner, a.repo, front, file));
+        }
+        if (front != null && front.swb != null) {
+            addAction(".SWB", apk == null, apk == null ? 1.4f : 1f, "Import the project (.swb)",
+                    x -> RepoViewerActivity.restore(this, a.owner, a.repo, front, a.number, false));
         }
         if (a.video != null) {
-            TextView video = v.glassPill("Watch demo video", true, x -> {
+            addAction("Demo", false, 1f, "Watch the demo video", x -> {
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(a.video)));
                 } catch (RuntimeException e) {
                     Toast.makeText(this, "No app on this phone opens " + a.video, Toast.LENGTH_LONG).show();
                 }
             });
-            actionsBox.addView(video, pill(8));
         }
-        TextView open = v.glassPill("Open on GitHub", true, x -> startActivity(RepoViewerActivity.intent(this, a.owner, a.repo)));
-        actionsBox.addView(open, pill(8));
+        if (versionsFailed && (pageVersions == null || pageVersions.isEmpty())) {
+            addAction("Try again", false, 1.2f, "Read its versions again", x -> {
+                versionsRead = false;
+                versionsFailed = false;
+                renderActions();
+                loadApp();
+            });
+        }
+        addAction("GitHub", false, 1f, "Open on GitHub", x -> startActivity(RepoViewerActivity.intent(this, a.owner, a.repo)));
+        if (!versionsRead) {
+            actionNote.setText("Reading its newest version…");
+            actionNote.setTextColor(v.color(R.color.ob_text_2));
+        } else if (front == null) {
+            actionNote.setText(pageVersions == null ? "Its versions couldn't be read now." : "No version yet: its owner "
+                    + "hasn't backed it up with Sketchware AI.");
+            actionNote.setTextColor(v.color(pageVersions == null ? R.color.ob_error : R.color.ob_text_2));
+        } else {
+            String size = (apk != null ? " · APK " + CloudSync.megabytes(apk.size) : " · no APK: import the .swb and Run it")
+                    + (front.size > 0 ? " · .swb " + CloudSync.megabytes(front.size) : "");
+            actionNote.setText(front.label() + (front.time > 0 ? " · " + CloudBackup.formatTime(front.time) : "") + size);
+            actionNote.setTextColor(v.color(R.color.ob_text_2));
+        }
+    }
+
+    private void addAction(String text, boolean primary, float weight, String description, View.OnClickListener click) {
+        TextView pill = v.smallPill(text, primary, true, click);
+        GitHubViews.fitOneLine(pill, 9f, 13f);
+        pill.setPadding(v.dp(8), 0, v.dp(8), 0);
+        pill.setContentDescription(description);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v.dp(40), weight);
+        if (actionsBox.getChildCount() > 0) p.leftMargin = v.dp(6);
+        actionsBox.addView(pill, p);
     }
 
     private LinearLayout.LayoutParams pill(int topDp) {
