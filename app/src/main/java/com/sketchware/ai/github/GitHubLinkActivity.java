@@ -38,7 +38,9 @@ public class GitHubLinkActivity extends Activity {
         }
         Intent next = new Intent(this, GitHubBackupsActivity.class);
         if (link != null) next.putExtra(GitHubBackupsActivity.EXTRA_LINK, link);
-        next.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        // v2.1.2 review (MEDIUM): never CLEAR_TOP: the GitHub tab may be kept behind Home, and clearing above it would
+        // close Home (Back then left the app)
+        next.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(next);
         finish();
     }

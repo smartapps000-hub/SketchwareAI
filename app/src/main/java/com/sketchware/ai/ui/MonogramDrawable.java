@@ -34,7 +34,8 @@ public final class MonogramDrawable extends Drawable {
 
     /** The letters of {@code name} (Home's rule); "?" stays out: an empty name shows nothing. */
     public void setName(String name) {
-        letters = a.a.a.GC.monogram(name == null ? "" : name);
+        String m = name == null || name.trim().isEmpty() ? "" : a.a.a.GC.monogram(name);
+        letters = "?".equals(m) ? "" : m;
         invalidateSelf();
     }
 

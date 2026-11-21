@@ -28,10 +28,11 @@ import mod.jbk.util.LogUtil;
  * <p>
  * v2.1.2 (owner's 21 Nov report: signed out after updating v2.1.0 → v2.1.1): nothing in an update removes a sign-in;
  * this rule is the only automatic sign-out, and it compared installs, not phones, so another install of Sketchware AI
- * on the same phone (a reinstall, a cloned / dual app) counted as another phone. The mark now also holds
- * {@code device_key} = SHA-256 of this phone's ANDROID_ID (the same for every install of this app on this phone and
- * Android user) and the login; a mark with this phone's key never signs this phone out. Marks written before v2.1.2 have
- * no key: their phone model stands in for it. Every sign-out is recorded with its reason ({@link SessionLog}), and the
+ * on the same phone (a reinstall) counted as another phone. The mark now also holds {@code device_key} = SHA-256 of
+ * this phone's ANDROID_ID (the same for every install of this app on this phone and Android user; a cloned app in another
+ * user or work profile has its own) and the login; a mark with this phone's key never signs this phone out. Marks written
+ * before v2.1.2 have no key: their phone model stands in for it (review LOW: two phones of one model then both stay
+ * signed in until the older one, required to update, writes its key). Every sign-out is recorded with its reason ({@link SessionLog}), and the
  * signed-out account card says it.
  */
 public final class SingleDeviceGuard {

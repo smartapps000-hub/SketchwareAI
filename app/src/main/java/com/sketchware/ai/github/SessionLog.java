@@ -140,11 +140,15 @@ public final class SessionLog {
             long time = o.has("time") && o.get("time").isJsonPrimitive() ? o.get("time").getAsLong() : 0;
             if ("signed_in".equals(kind)) return null;
             if ("signed_out".equals(kind)) return "Signed out " + when(time) + ": " + text + ".";
+            // review (LOW): the install / update lines only for three days (a phone never signed in isn't told forever)
+            boolean recent = System.currentTimeMillis() - time < 3L * 24 * 3600_000L;
             if ("installed".equals(kind)) {
+                if (!recent) return null;
                 return "Sketchware AI was installed on this phone " + when(time) + ": a new install starts signed out "
                         + "(Android removes an app's sign-in when the app is uninstalled).";
             }
             if ("updated".equals(kind) && text != null && text.contains("no GitHub sign-in")) {
+                if (!recent) return null;
                 return "No sign-in was on this phone when it updated (" + when(time) + "); no sign-out was recorded.";
             }
         }

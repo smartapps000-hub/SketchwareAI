@@ -42,8 +42,10 @@ final class UpdateNotice {
     }
 
     private static PendingIntent openApp(Context context) {
-        Intent open = new Intent(context, com.besome.sketch.MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        // v2.1.2 review (LOW): the app's task as it is (no reordering under kept tabs)
+        Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (open == null) open = new Intent(context, com.besome.sketch.MainActivity.class);
+        open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         return PendingIntent.getActivity(context, ID, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
@@ -61,11 +63,13 @@ final class UpdateNotice {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(openApp(context)));
+        progressShown = true;
     }
 
     /** Downloaded and checked: a tap opens Android's installer. */
     static synchronized void ready(Context context, File apk) {
         lastPercent = -1;
+        progressShown = false;
         Intent install = new Intent(Intent.ACTION_VIEW);
         try {
             Uri uri = androidx.core.content.FileProvider.a(context, context.getPackageName() + ".provider", apk);
@@ -86,6 +90,7 @@ final class UpdateNotice {
     /** The download stopped: a tap opens the app, whose update card offers it again. */
     static synchronized void failed(Context context, String why) {
         lastPercent = -1;
+        progressShown = false;
         post(context, new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ob_ic_export)
                 .setContentTitle("The update didn't download")
@@ -95,7 +100,26 @@ final class UpdateNotice {
                 .setContentIntent(openApp(context)));
     }
 
+    /** A progress notification only ("downloaded" and the error stay until tapped). */
+    private static volatile boolean progressShown;
+
+    static synchronized void cancelProgress(Context context) {
+        if (!progressShown) {
+            // a new process: a progress notification of an earlier one may still be there
+            NotificationManager nm = context.getSystemService(NotificationManager.class);
+            if (nm == null) return;
+            for (android.service.notification.StatusBarNotification n : nm.getActiveNotifications()) {
+                if (n.getId() == ID && (n.getNotification().flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0) {
+                    nm.cancel(ID);
+                }
+            }
+            return;
+        }
+        cancel(context);
+    }
+
     static synchronized void cancel(Context context) {
+        progressShown = false;
         lastPercent = -1;
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm != null) nm.cancel(ID);

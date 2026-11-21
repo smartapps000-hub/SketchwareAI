@@ -112,7 +112,16 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         if (intent != null && intent.getBooleanExtra(com.sketchware.ai.ui.TabScreens.EXTRA_AS_TAB, false)
                 && intent.getStringExtra(EXTRA_LINK) == null) {
             com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent);
+            // review (LOW): a kept tab shows what is true now (another account, new backups on the phone, demos)
+            String login = TokenStore.get(this).login();
+            if (tab != TAB_GITHUB || !java.util.Objects.equals(login, shownLogin)) show(tab);
             return;
+        }
+        // v2.1.2 review (MEDIUM): a shared link arriving on the kept tab keeps the tab marks (Back still goes Home)
+        if (intent != null && com.sketchware.ai.ui.TabScreens.isTab(this)) {
+            intent.putExtra(com.sketchware.ai.ui.TabScreens.EXTRA_AS_TAB, true)
+                    .putExtra(com.sketchware.ai.ui.TabScreens.EXTRA_TAB_NAME,
+                            getIntent().getStringExtra(com.sketchware.ai.ui.TabScreens.EXTRA_TAB_NAME));
         }
         setIntent(intent);
         linkFrom(intent);
@@ -163,8 +172,12 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
      * v2.1.0 (owner's 16 Nov directive): three tabs on one line, [ GitHub ] [ Demo ] [ On this phone ], 12sp, equal
      * widths; GitHub first.
      */
+    /** v2.1.2: the account the screen was last built for (a kept tab is rebuilt when it changed). */
+    private String shownLogin;
+
     private void show(int which) {
         tab = which;
+        shownLogin = TokenStore.get(this).login();
         boolean phone = which == TAB_PHONE;
         phoneTab = phone;
         tabs.removeAllViews();

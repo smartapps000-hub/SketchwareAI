@@ -486,6 +486,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private final PlayStore.Stats stats = new PlayStore.Stats();
     /** v2.1.2: the counters' read from GitHub ended (a Like tap before then says it is still reading). */
     private volatile boolean statsLoaded;
+    private volatile boolean statsFailed;
     private TextView[] statValues;
     private TextView[] statLabels;
     private LinearLayout[] statCells;
@@ -744,7 +745,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         String subject = stats.subjectId;
         if (subject == null) {
             // v2.1.2: a tap always answers
-            Toast.makeText(this, statsLoaded ? "Likes for this app start with its owner's next publish."
+            Toast.makeText(this, statsFailed ? "The counters couldn't be read from GitHub: open the page again."
+                    : statsLoaded ? "Likes for this app start with its owner's next publish."
                     : "Reading the counters from GitHub…", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -859,6 +861,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 return null;
             });
         } catch (Exception e) {
+            statsFailed = true;
             statsLoaded = true;
             return;
         }

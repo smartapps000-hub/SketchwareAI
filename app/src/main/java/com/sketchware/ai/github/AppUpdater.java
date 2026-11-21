@@ -39,6 +39,11 @@ public final class AppUpdater {
         return c != null && c.updateUrl != null && (mine < c.minVersionCode || mine < c.latestVersionCode);
     }
 
+    /** v2.1.2 review (LOW): at start: a download notification left by a stopped process goes. */
+    public static void clearStaleNotice(Context context) {
+        if (!running) UpdateNotice.cancelProgress(context);
+    }
+
     public static void start(Activity activity, AppControl.Config config) {
         if (config == null || config.updateUrl == null) {
             Toast.makeText(activity, "No update link yet: try again in a minute.", Toast.LENGTH_LONG).show();
@@ -118,13 +123,14 @@ public final class AppUpdater {
                     }
                     return;
                 }
-                UpdateNotice.cancel(app);
                 if (!progress.hidden()) progress.done("Checked (SHA-256 matches): Android's installer opens.");
-                if (activity.isFinishing() || activity.isDestroyed()) {
-                    // the screen went meanwhile: the notification opens the installer
+                // v2.1.2 review (MEDIUM): Android refuses to start the installer for an app in the background: then the
+                // notification opens it ("Tap to install")
+                if (activity.isFinishing() || activity.isDestroyed() || !CloudSync.UploadSpeed.inFront()) {
                     UpdateNotice.ready(app, target);
                     return;
                 }
+                UpdateNotice.cancel(app);
                 install(activity, target);
             });
         }, "AppUpdater");

@@ -224,7 +224,7 @@ public class GC extends DA implements View.OnClickListener {
         // v2.1.2 (owner's 21 Nov directive "zero-lag offline-first"): the project files are read off the main thread; the
         // list read last in this process shows at once meanwhile (a new start shows the list as soon as it is read)
         int generation = ++loadGeneration;
-        if (LAST_LIST != null && allProjects.isEmpty()) show(new ArrayList<>(LAST_LIST), isEmpty);
+        if (LAST_LIST != null && allProjects.isEmpty()) show(copyOf(LAST_LIST), isEmpty);
         LIST_READER.execute(() -> {
             ArrayList<HashMap<String, Object>> read;
             try {
@@ -238,10 +238,17 @@ public class GC extends DA implements View.OnClickListener {
             if (activity == null) return;
             activity.runOnUiThread(() -> {
                 if (generation != loadGeneration || getActivity() == null || myProjects == null) return;
-                LAST_LIST = new ArrayList<>(result);
+                LAST_LIST = copyOf(result);
                 show(result, isEmpty);
             });
         });
+    }
+
+    /** v2.1.2 review (LOW): the kept list holds its own maps (cards put expand / confirm marks on theirs). */
+    private static ArrayList<HashMap<String, Object>> copyOf(ArrayList<HashMap<String, Object>> list) {
+        ArrayList<HashMap<String, Object>> out = new ArrayList<>(list.size());
+        for (HashMap<String, Object> m : list) out.add(new HashMap<>(m));
+        return out;
     }
 
     /** v2.1.2: the project list reader (one at a time, in order). */
@@ -541,6 +548,8 @@ public class GC extends DA implements View.OnClickListener {
 
         @Override
         public void a() {
+            // v2.1.2 review (LOW): the kept list is read again rather than shown with the deleted project
+            LAST_LIST = null;
             if (position < projectsList.size()) {
                 allProjects.remove(projectsList.remove(position));
                 projectsAdapter.e(position);

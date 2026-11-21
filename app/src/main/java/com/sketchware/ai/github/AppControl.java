@@ -127,7 +127,11 @@ public final class AppControl {
             String soon = DeviceFlow.string(o, "coming_soon");
             c.comingSoon = soon == null ? "" : soon.trim().length() > 200 ? soon.trim().substring(0, 200) : soon.trim();
             if (o.has("status_message_max_version_code") && o.get("status_message_max_version_code").isJsonPrimitive()) {
-                c.statusMessageMaxVersionCode = o.get("status_message_max_version_code").getAsInt();
+                try {
+                    c.statusMessageMaxVersionCode = o.get("status_message_max_version_code").getAsInt();
+                } catch (RuntimeException ignored) {
+                    // v2.1.2 review (LOW): a bad value: the message goes to every version, the rest of the file stands
+                }
             }
             String reason = DeviceFlow.string(o, "update_reason");
             c.updateReason = reason == null ? "" : reason.trim().length() > 300 ? reason.trim().substring(0, 300) : reason.trim();

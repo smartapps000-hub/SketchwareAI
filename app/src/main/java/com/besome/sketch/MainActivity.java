@@ -173,6 +173,13 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
     public void onBackPressed() {
         // v2.1.0: Back on Home leaves the app. v2.1.2: the app goes to the background as Android 12+ does for a launcher
         // screen (the tab screens kept behind Home would otherwise come up, and the next start is instant)
+        // v2.1.2 review (MEDIUM): a Home opened by another app (a .swb from a file manager) closes and returns to it
+        android.content.Intent start = getIntent();
+        String action = start == null ? null : start.getAction();
+        if (action != null && !android.content.Intent.ACTION_MAIN.equals(action)) {
+            finish();
+            return;
+        }
         if (!moveTaskToBack(true)) finish();
     }
 
@@ -192,6 +199,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         com.sketchware.ai.github.SessionLog.appStarted(this);
         // v2.1.2 (zero-lag): the account card's Keystore read done ahead, off the main thread
         com.sketchware.ai.github.GitHubSession.warmUp(this);
+        // v2.1.2 review (LOW): an update's download notification left by a stopped process goes
+        com.sketchware.ai.github.AppUpdater.clearStaleNotice(this);
 
         u = new DB(getApplicationContext(), "U1");
         int u1I0 = u.a("U1I0", -1);

@@ -966,7 +966,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
             // past the code (confirmation or "you're all set"): check with GitHub now
             status("Checking with GitHub…", false);
             signIn.pollNow();
-        } else if (path.startsWith("/login") || path.startsWith("/session")) {
+        } else if ((path.startsWith("/login") || path.startsWith("/session")) && otpKind == null) {
+            // v2.1.2 review (LOW): GitHub's code pages keep the code bar's hint
             status("Sign in below · the code goes in by itself.", false);
         }
     }
