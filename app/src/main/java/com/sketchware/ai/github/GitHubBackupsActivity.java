@@ -111,10 +111,14 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         // v2.1.2: brought back as a tab: it stays as it was (only a shared link changes what it shows)
         if (intent != null && intent.getBooleanExtra(com.sketchware.ai.ui.TabScreens.EXTRA_AS_TAB, false)
                 && intent.getStringExtra(EXTRA_LINK) == null) {
-            com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent);
-            // review (LOW): a kept tab shows what is true now (another account, new backups on the phone, demos)
+            if (com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent)) return;
+            // review (LOW): a kept tab shows what is true now (another account; a backup added or removed on the phone);
+            // otherwise it stays as it was, scroll included (second review)
             String login = TokenStore.get(this).login();
-            if (tab != TAB_GITHUB || !java.util.Objects.equals(login, shownLogin)) show(tab);
+            if ((tab == TAB_GITHUB && !java.util.Objects.equals(login, shownLogin))
+                    || (tab == TAB_PHONE && backupsStamp() != shownBackups)) {
+                show(tab);
+            }
             return;
         }
         // v2.1.2 review (MEDIUM): a shared link arriving on the kept tab keeps the tab marks (Back still goes Home)
@@ -175,9 +179,21 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     /** v2.1.2: the account the screen was last built for (a kept tab is rebuilt when it changed). */
     private String shownLogin;
 
+    /** v2.1.2: the backups folder's time when the phone tab was built (a change rebuilds a kept tab). */
+    private long shownBackups;
+
+    private static long backupsStamp() {
+        try {
+            return new File(BackupFactory.getBackupDir()).lastModified();
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
     private void show(int which) {
         tab = which;
         shownLogin = TokenStore.get(this).login();
+        shownBackups = backupsStamp();
         boolean phone = which == TAB_PHONE;
         phoneTab = phone;
         tabs.removeAllViews();

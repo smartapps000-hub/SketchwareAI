@@ -160,7 +160,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     public void onNewIntent(android.content.Intent intent) {
         super.onNewIntent(intent);
         // v2.1.2: brought back as a tab (Home's bar): it stays as it was
-        com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent);
+        if (com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent)) return;
     }
 
     @Override

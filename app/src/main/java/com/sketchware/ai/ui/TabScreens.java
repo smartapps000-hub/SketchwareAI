@@ -60,14 +60,29 @@ public final class TabScreens {
         return true;
     }
 
-    /** v2.1.2: a tab brought back to the front with a new intent keeps its state; only the tab marks are taken over. */
-    public static void onNewIntent(Activity activity, Intent intent) {
-        if (intent == null || !intent.getBooleanExtra(EXTRA_AS_TAB, false)) return;
+    /**
+     * v2.1.2: a tab brought back to the front with a new intent keeps its state; only the tab marks are taken over.
+     * Second review (LOW): when the screen brought forward is an inner page of the same kind (a link or a notification
+     * left one above the tab), it closes and the tab is asked for again, so the real tab comes forward; true then (the
+     * caller does nothing else).
+     */
+    public static boolean onNewIntent(Activity activity, Intent intent) {
+        if (intent == null || !intent.getBooleanExtra(EXTRA_AS_TAB, false)) return false;
         Intent current = activity.getIntent();
         if (current == null) {
             activity.setIntent(intent);
-            return;
+            return false;
+        }
+        if (!current.getBooleanExtra(EXTRA_AS_TAB, false)) {
+            activity.finish();
+            try {
+                activity.startActivity(new Intent(intent));
+            } catch (RuntimeException ignored) {
+                // the inner page closed; Home stays
+            }
+            return true;
         }
         current.putExtra(EXTRA_AS_TAB, true).putExtra(EXTRA_TAB_NAME, intent.getStringExtra(EXTRA_TAB_NAME));
+        return false;
     }
 }

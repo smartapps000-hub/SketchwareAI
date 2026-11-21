@@ -550,6 +550,8 @@ public class GC extends DA implements View.OnClickListener {
         public void a() {
             // v2.1.2 review (LOW): the kept list is read again rather than shown with the deleted project
             LAST_LIST = null;
+            // second review (LOW): a list read started before the delete is dropped
+            loadGeneration++;
             if (position < projectsList.size()) {
                 allProjects.remove(projectsList.remove(position));
                 projectsAdapter.e(position);

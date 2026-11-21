@@ -177,10 +177,31 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         android.content.Intent start = getIntent();
         String action = start == null ? null : start.getAction();
         if (action != null && !android.content.Intent.ACTION_MAIN.equals(action)) {
-            finish();
-            return;
+            // second review (LOW): in the app's own task it goes to the background like the launcher's Home; in another
+            // app's task (a file manager started it there) it closes with any tab it opened, back to that app
+            if (!inOwnTask()) {
+                finishAffinity();
+                return;
+            }
         }
         if (!moveTaskToBack(true)) finish();
+    }
+
+    /** v2.1.2: whether this screen is in one of the app's own tasks (not in a file manager's that started it). */
+    private boolean inOwnTask() {
+        try {
+            android.app.ActivityManager am = getSystemService(android.app.ActivityManager.class);
+            if (am == null) return true;
+            for (android.app.ActivityManager.AppTask t : am.getAppTasks()) {
+                android.app.ActivityManager.RecentTaskInfo info = t.getTaskInfo();
+                @SuppressWarnings("deprecation")
+                int id = android.os.Build.VERSION.SDK_INT >= 29 ? info.taskId : info.id;
+                if (id == getTaskId()) return true;
+            }
+            return false;
+        } catch (RuntimeException e) {
+            return true;
+        }
     }
 
     @Override

@@ -106,12 +106,16 @@ final class UpdateNotice {
     static synchronized void cancelProgress(Context context) {
         if (!progressShown) {
             // a new process: a progress notification of an earlier one may still be there
-            NotificationManager nm = context.getSystemService(NotificationManager.class);
-            if (nm == null) return;
-            for (android.service.notification.StatusBarNotification n : nm.getActiveNotifications()) {
-                if (n.getId() == ID && (n.getNotification().flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0) {
-                    nm.cancel(ID);
+            try {
+                NotificationManager nm = context.getSystemService(NotificationManager.class);
+                if (nm == null) return;
+                for (android.service.notification.StatusBarNotification n : nm.getActiveNotifications()) {
+                    if (n.getId() == ID && (n.getNotification().flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0) {
+                        nm.cancel(ID);
+                    }
                 }
+            } catch (RuntimeException ignored) {
+                // second review (LOW): never a crash at start for a notification
             }
             return;
         }
