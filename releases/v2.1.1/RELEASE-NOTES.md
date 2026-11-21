@@ -1,8 +1,9 @@
 # Sketchware AI v2.1.1
 
 versionCode 208, `@@VERSIONNAME@@`, @@SIZE@@ bytes, sha256
-`@@SHA256@@`. Installs over v2.1.0 (same test key); v2.1.0 offers it by itself at start (Update → in-app download →
-SHA-256 check → Android's installer).
+`@@SHA256@@`. Installs over v2.1.0 (same test key). v2.1.0 asks for it by itself about 3.5 s after it opens: the
+update is required (no Later), downloads in the app with its progress, is checked by its SHA-256 and opens Android's
+installer (Android asks once to allow installs from Sketchware AI).
 
 ## Download
 
@@ -14,11 +15,12 @@ is `engineering/v2.1.1-verification.md`.
 
 ## The default app icon
 
-- An app built from a project **without its own icon** now gets the original round Android icon, element for element
-  in the same places (the circle, the grid, the 45° long shadow, the white robot head with its antennae and eyes, the
-  soft shadow under the circle; no border), in Sketchware AI's colours: soft Obsidian glass instead of green, the grid in
-  orange, the long shadow as glassy orange. Existing projects without an icon get it at their next Run or export. New
-  Project and a project's settings show this icon until you pick one.
+- An app built from a project **without its own icon** now gets the original round Android icon with every element in
+  the same place (the circle, the grid lines, the 45° shadow, the robot head with its antennae and eyes, the soft
+  shadow under the circle), in Sketchware AI's glass: a frosted slate-obsidian base, hairline grid lines, the shadow as a
+  real dark cast shadow, the robot as light frosted white glass, a soft top gloss; no border. Existing projects without
+  an icon get it at their next Run or export. New Project and a project's settings show this icon until you pick one,
+  and Play Store cards show it for apps without an icon of their own.
 - In Sketchware AI's own lists such a project keeps its two letters (GO, NV …). A project with its own icon shows that
   icon everywhere and its app gets it, as before.
 
@@ -36,18 +38,19 @@ is `engineering/v2.1.1-verification.md`.
 
 - The search box is at the top. Typing filters the apps on the phone; the keyboard's Search asks GitHub; "@name" opens
   that creator.
-- Cards and app pages show the app's real icon (written to its repository as `playstore/icon.png` at every backup or
-  publish) and its version line: "Updated to v4.7.7 (85)", "Re-published v4.7.6 (84) • Update #3".
-- An app's page: icon, name, **@creator** (tap: the creator's page), a row of **Downloads** (GitHub's download counts),
-  **Likes** (tap to like or take it back), **Shares** (Share opens Android's share sheet) and **Views** (counted once per
-  signed-in account), **What's new** (the version's changelog), pictures, Get it, reviews.
+- Cards show the app's real icon (written to its repository as `playstore/icon.png` at every backup or publish), or the
+  default app icon above; and its version line: "Updated to v4.7.7 (85)", "Re-published v4.7.6 (84) • Update #3".
+- An app's page, everything to act on at the first look: the icon, name, **@creator** (tap: the creator's page) and a
+  version pill; a row of **Downloads**, **Likes** (tap to like or take it back), **Shares** and **Views**; right under
+  it one row of capsules: **Install APK** (orange), **.SWB**, **Demo**, **GitHub**; then the description, **What's new**,
+  the pictures (tap for full screen) and the reviews.
 - A **creator's page**: picture, name, @login, bio, apps / projects / followers / downloads, their store apps and their
   other projects.
 - **Publish**: the project you chose last time is chosen again, and its words and pictures are kept on the phone as you
-  type and pick (`publish_staging`), so a sign-in, a turned screen or leaving the screen loses nothing, and they stay
-  for the next publish (publishing without pictures keeps the store's pictures). Publishing runs
-  in the background with its notification; a refused sign-in pauses it and Sign in again continues it by itself. The
-  question is now "Make it public?" with the repository's name in the text.
+  type and pick, so a sign-in, a turned screen or leaving the screen loses nothing, and they stay for the next publish
+  (publishing without pictures keeps the store's pictures). Publishing runs in the background with its notification; a
+  refused sign-in pauses it and Sign in again continues it by itself. The question is now "Make it public?" with the
+  repository's name in the text.
 
 ## Community
 

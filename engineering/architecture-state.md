@@ -1468,22 +1468,26 @@ gold; 4-stage physics; new honey_drop.wav". Record: `engineering/v2.1.1-verifica
 
 - **Default launcher icon** (`assets/resource/600/res.zip` → `drawable-xhdpi/app_icon.png`, 144 px, drawn by
   `tools/icons/make_default_app_icon.py`): Android Studio's round launcher icon element for element in the stock
-  template's geometry (132 px circle, 108-unit viewport at 132/74 px per unit, centred; the background grid paths with
-  their overlapping inner lines, the 45° long-shadow path and gradient, the robot path with eye holes, the soft drop
-  shadow), recoloured: Obsidian `#09090C`, `#FF6D24 → #C84B11` spotlight behind the head, grid `#FF6D24` at 26 %, long
-  shadow `#030305` → transparent, white robot, a top-arc glass sheen, an amber rim. The same image is the IDE's preview
-  (`res/drawable-xxhdpi|xxxhdpi/ob_app_icon_placeholder.png`, New Project and project settings; the old vector is gone). Every
-  Run build and export extracts the template (`yq.a(Context, wq.e("600"))`), and a project's own icon replaces it
-  (`yq.a(iconPath)` when `custom_icon`), so no build code changed and the IDE's cards keep their monograms. The themed
-  robot written as a project's own icon (first v2.1.1 draft) and an Obsidian squircle version (second) were replaced
-  before the release (owner's corrections, 21 Nov).
+  template's geometry (132 px circle, 108-unit viewport at 132/74 px per unit, centred; the background's interior grid
+  lines 29-79 with their overlapping inner lines (the 19 / 89 lines at the circle's edge left out, owner), the 45° long
+  shadow path, the robot path with eye holes, the soft drop shadow), recoloured: frosted slate-obsidian base
+  (`#23262E → #16181E`, a faint `#FF6D24` ambient tint), hairline grid (0.5 unit, warm white at 9 %), the long shadow as
+  a dark cast shadow (`#040406`, 58 % → clear), the robot as frosted white glass (the layers behind it blurred, a 30 % →
+  18 % white tint, a trace of a brighter edge), a top gloss; no border (owner). The same image is the IDE's preview
+  (`res/drawable-xxhdpi|xxxhdpi/ob_app_icon_placeholder.png`: New Project, project settings, Play Store tiles of apps
+  without their own icon; the old vector is gone). The themed robot written as a project's own icon (first draft), a
+  squircle and two round versions came before (the owner's corrections, 21 Nov).
 - **Project icons everywhere** (`github.RepoIcons`): the phone's `resources/icons/<sc_id>/icon.png` (custom_icon), a
   .swb's `resources/icons/icon.png`, and GitHub's `playstore/icon.png` (contents API; written after every backup by
   `CloudSync` and by Publish; skipped when the git blob id is the same; read with the token for private repositories;
   `files/repo_icons/<number>.png`, a 404 remembered a day as `.none`, a saved icon asked again after a week; one quick
   request per card on the Restore screen's own `iconLoads` worker, none after a network error). Restore cards: the Home monogram tile
   (`GC.monogram`, now public) with the icon laid over it when found (`GitHubBackupsActivity.iconTile`).
-- **Play Store** (`PlayStore`, `PlayStoreActivity`): search box in the header (`gs_tabs`; text filters the phone's list,
+- **Play Store** (`PlayStore`, `PlayStoreActivity`): app page order (owner's architecture directive): hero (`appTile`
+  72 dp, name, @developer, version pill, `publishLine`) → `statsRow` → `actionsBox`, one row of capsules from
+  `renderActions` / `addAction` (Install APK primary when the newest version has an APK, else .SWB; Demo with a video
+  link; Try again after a failed read; GitHub) with `actionNote` under it → description → What's new → pictures →
+  the counters' caption → reviews; `appTile` = the default APK icon under the app's own; search box in the header (`gs_tabs`; text filters the phone's list,
   IME Search = `PlayStore.search(token, text, user)` with an URL-encoded `q`, `@login` opens a creator); `App` version
   fields from `listing.json` (`version_name`, `version_code`, `action` published / republished / updated,
   `publish_number`, `changelog`, `published_at`, `stats_discussion`) → `status()`; app page with the icon
