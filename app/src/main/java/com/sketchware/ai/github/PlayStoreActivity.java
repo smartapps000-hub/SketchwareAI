@@ -75,6 +75,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         t.setDaemon(true);
         return t;
     });
+    /** second review (LOW): reviews, posts and replies don't wait behind a publish's picture uploads. */
+    static final ExecutorService POSTS = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "PlayStorePosts");
+        t.setDaemon(true);
+        return t;
+    });
 
     public static Intent tab(Activity activity) {
         return TabScreens.asTab(new Intent(activity, PlayStoreActivity.class), "Play Store");
@@ -601,7 +607,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         String repositoryId = discussionInfo[0];
         Toast.makeText(this, "Posting the review…", Toast.LENGTH_SHORT).show();
         android.content.Context app = getApplicationContext();
-        WRITES.execute(() -> {
+        POSTS.execute(() -> {
             String token = token();
             try {
                 if (token == null) throw new GitHubException("signed_out", "Sign in to post a review.");
@@ -768,16 +774,28 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         // review (HIGH): nothing saved on this phone yet (signed in before v2.0.4, or offline at sign-in)
         if (kept != null) showRepos(kept);
         else reposBox.addView(v.line("Reading your projects on GitHub…", false));
+        boolean nothingSaved = kept == null;
         work.execute(() -> {
             String token = token();
-            if (token == null) return;
+            if (token == null) {
+                // second review (LOW): a refused sign-in: say so instead of "Reading…" for ever
+                if (nothingSaved) ui(() -> {
+                    reposBox.removeAllViews();
+                    reposBox.addView(v.line("GitHub didn't accept the saved sign-in: sign in again (Settings) to list "
+                            + "your projects.", true));
+                });
+                return;
+            }
             try {
                 List<ProjectRepo.Info> own = GitHubHttp.quick(TIMEOUT_MILLIS, () -> ProjectRepo.listOwn(token));
                 RepoCache.saveRepos(getApplicationContext(), login, own);
                 ui(() -> showRepos(own));
             } catch (Exception e) {
                 String why = RepoViewerActivity.whyFailed(e);
-                ui(() -> reposBox.addView(v.line(why, true), v.full(-1, 6)));
+                ui(() -> {
+                    if (nothingSaved) reposBox.removeAllViews();
+                    reposBox.addView(v.line(why, true), v.full(-1, 6));
+                });
             }
         });
 
@@ -1016,9 +1034,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 String scId = id.toString();
                 if (ProjectLinks.repoNumber(scId, login) == repo.number
                         || repo.name.equalsIgnoreCase(ProjectLinks.repoName(scId, login))) {
-                    ProjectLinks.visibilityNow(scId, login, false);
-                    // review (LOW): a backup running meanwhile doesn't write the card back to Private
+                    // review (LOW): a backup running meanwhile doesn't write the card back to Private (told first)
                     CloudSync.get(app).visibilityChanged(scId);
+                    ProjectLinks.visibilityNow(scId, login, false);
                 }
             }
         } catch (RuntimeException ignored) {

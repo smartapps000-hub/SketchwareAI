@@ -320,6 +320,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
     @Override
     public void onResume() {
         super.onResume();
+        tabOpening = false;
         // v2.1.0: back from a tab: the drop flows back to Home
         if (bar != null && bar.selected() != com.sketchware.ai.ui.HoneyDropBar.HOME) {
             bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
@@ -526,12 +527,18 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
      * full-screen screen (Back on its first page asks to close it; Home's onResume then lets the drop flow back).
      */
     private void openTab(int tab) {
+        // second review (LOW): one tab screen at a time (a second tap before the first screen is in front)
+        if (tabOpening) return;
         Intent intent = null;
         switch (tab) {
             case com.sketchware.ai.ui.HoneyDropBar.CREATE:
-                if (com.sketchware.ai.github.AppControl.updateRequired()) {
-                    com.sketchware.ai.github.AppControl.showUpdateAgain(this);
-                } else if (projectsFragment != null && projectsFragment.openCreate()) {
+                if (com.sketchware.ai.github.AppControl.updateRequired()
+                        && com.sketchware.ai.github.AppControl.showUpdateAgain(this)) {
+                    bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
+                    return;
+                }
+                if (projectsFragment != null && projectsFragment.openCreate()) {
+                    tabOpening = true;
                     return;
                 }
                 bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
@@ -555,10 +562,14 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         }
         try {
             startActivity(intent);
+            tabOpening = true;
         } catch (RuntimeException e) {
             bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
         }
     }
+
+    /** A tab screen was started and Home hasn't come back yet. */
+    private boolean tabOpening;
 
     /** v2.1.0: the projects list scrolled (down: the bar slides away; up: it comes back). */
     public void projectsScrolled(boolean down) {

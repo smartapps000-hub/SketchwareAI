@@ -776,7 +776,8 @@ public final class CloudSync {
                 GitHubHttp.release();
                 GitHubHttp.endJob();
             }
-            if (!ok && (job.cancelled || job.deferred || job.stalled)) {
+            // second review (LOW): a paused job (already back in its lane: its deferred mark cleared) counts as stopped
+            if (!ok && (job.cancelled || requeueNow || job.deferred || job.stalled)) {
                 // review (MEDIUM): a cancel / pause / stop that came out as another error (a wrapped I/O error) is
                 // still that stop
                 message = stoppedMessage(job);

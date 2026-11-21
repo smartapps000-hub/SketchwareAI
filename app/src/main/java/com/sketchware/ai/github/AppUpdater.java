@@ -180,6 +180,14 @@ public final class AppUpdater {
         return new File(context.getApplicationContext().getCacheDir(), "updates");
     }
 
+    /** The downloaded update (after it was installed, or when none is needed any more). */
+    static void deleteDownloaded(Context context) {
+        File[] files = updatesDir(context).listFiles();
+        if (files == null || running) return;
+        //noinspection ResultOfMethodCallIgnored
+        for (File f : files) f.delete();
+    }
+
     /** A file's SHA-256 in lower-case hex. */
     static String sha256(File f) throws Exception {
         MessageDigest sha = MessageDigest.getInstance("SHA-256");

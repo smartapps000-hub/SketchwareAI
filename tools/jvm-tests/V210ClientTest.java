@@ -345,6 +345,10 @@ public class V210ClientTest {
                         && "claim".equals(call(guard, "decide", new String[]{mineMark, "s", "100"}, mineMark, true, 200L)), null);
         check("v2.1.0 review: the mark's time is read back (the newer sign-in decides while a claim waits)",
                 Long.parseLong(((String[]) call(guard, "read", "tok", "octo"))[2]) > 1_700_000_000_000L, null);
+        String[] before = (String[]) call(guard, "read", "tok", "octo");
+        call(guard, "write", "tok", "octo", h3, before[1], 1_795_000_000_123L);
+        check("v2.1.0 second review: the mark records when this phone signed in (not when the write happened)",
+                "1795000000123".equals(((String[]) call(guard, "read", "tok", "octo"))[2]), null);
 
         // --- the Play Store
         Class<?> store = c("com.sketchware.ai.github.PlayStore");

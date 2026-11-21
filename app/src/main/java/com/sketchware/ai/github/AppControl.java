@@ -243,6 +243,8 @@ public final class AppControl {
                         prefs.getString("shown_message", null));
                 Activity a = ref.get();
                 if (notice == null || !"update".equals(notice.kind)) {
+                    // second review (LOW): an installed update's checked APK isn't kept in the cache
+                    AppUpdater.deleteDownloaded(app);
                     // v2.1.0: no update: the sign-in gate next (then a message, if any)
                     passGateLater(a);
                     // the sign-in gate itself asks (passGate): no second sign-in prompt
@@ -373,12 +375,21 @@ public final class AppControl {
      * v2.1.0 review (MEDIUM): the update notice again (Create while an update can't wait: the first notice was used up
      * when it showed).
      */
-    public static void showUpdateAgain(Activity a) {
+    public static boolean showUpdateAgain(Activity a) {
         Context app = a.getApplicationContext();
         Config config = cached(a);
         Notice notice = decide(config, com.sketchware.remod.BuildConfig.VERSION_CODE, TokenStore.get(app).login() != null, null);
-        if (notice == null || !"update".equals(notice.kind)) return;
+        if (notice == null || !"update".equals(notice.kind) || !notice.force || notice.url == null) {
+            // second review (LOW): the file read since no longer requires it: Create goes on
+            updateRequired = false;
+            return false;
+        }
+        synchronized (AppControl.class) {
+            // never two identical update dialogs
+            if (pending != null && "update".equals(pending.kind)) pending = null;
+        }
         show(a, notice, app.getSharedPreferences(PREFS, Context.MODE_PRIVATE));
+        return true;
     }
 
     private static void show(Activity a, Notice notice, SharedPreferences prefs) {

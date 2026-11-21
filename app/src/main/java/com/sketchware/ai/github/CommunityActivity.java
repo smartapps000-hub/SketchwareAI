@@ -251,7 +251,7 @@ public class CommunityActivity extends BaseAppCompatActivity {
         if (!AuthGuard.check(this)) return;
         Toast.makeText(this, "Sending…", Toast.LENGTH_SHORT).show();
         android.content.Context app = getApplicationContext();
-        PlayStoreActivity.WRITES.execute(() -> {
+        PlayStoreActivity.POSTS.execute(() -> {
             String token = token();
             try {
                 if (token == null) throw new GitHubException("signed_out", "Sign in to reply.");
@@ -318,7 +318,7 @@ public class CommunityActivity extends BaseAppCompatActivity {
         String repositoryId = info[0];
         Toast.makeText(this, "Posting…", Toast.LENGTH_SHORT).show();
         android.content.Context app = getApplicationContext();
-        PlayStoreActivity.WRITES.execute(() -> {
+        PlayStoreActivity.POSTS.execute(() -> {
             String token = token();
             try {
                 if (token == null) throw new GitHubException("signed_out", "Sign in to post.");

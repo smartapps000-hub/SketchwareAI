@@ -409,7 +409,7 @@ public class GC extends DA implements View.OnClickListener {
      * while storage access is missing (asked for) or an update is required (the startup gate).
      */
     public boolean openCreate() {
-        if (getActivity() == null || com.sketchware.ai.github.AppControl.updateRequired()) return false;
+        if (getActivity() == null) return false;
         if (!super.a(REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY)) return false;
         toProjectSettingsActivity(true);
         return true;
@@ -470,9 +470,10 @@ public class GC extends DA implements View.OnClickListener {
     public void onClick(View v) {
         int viewId = v.getId();
 
-        if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && com.sketchware.ai.github.AppControl.updateRequired()) {
+        if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && com.sketchware.ai.github.AppControl.updateRequired()
+                && getActivity() != null && com.sketchware.ai.github.AppControl.showUpdateAgain(getActivity())) {
             // v2.1.0 review (MEDIUM): an update that can't wait comes first (the card as the Create tab)
-            if (getActivity() != null) com.sketchware.ai.github.AppControl.showUpdateAgain(getActivity());
+            return;
         } else if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && super.a(REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY)) {
             toProjectSettingsActivity();
         } else if (viewId == R.id.cv_restore_projects && super.a(REQUEST_CODE_RESTORE_PROJECT)) {

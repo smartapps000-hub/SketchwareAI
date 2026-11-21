@@ -43,11 +43,16 @@ public final class SingleDeviceGuard {
      * so Android's backup never restores it onto another phone (two phones with one id would never see each other).
      */
     static synchronized String installId(Context context) {
+        if (idCached != null) return idCached;
         File f = new File(context.getApplicationContext().getNoBackupFilesDir(), "device_install_id");
         try {
             if (f.isFile()) {
                 String id = new String(java.nio.file.Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
-                if (id.matches("[0-9a-f-]{36}")) return id;
+                if (id.matches("[0-9a-f-]{36}")) {
+                    idCached = id;
+                    idSaved = true;
+                    return id;
+                }
             }
         } catch (IOException ignored) {
             // made again below
@@ -56,12 +61,19 @@ public final class SingleDeviceGuard {
         try {
             File tmp = new File(f.getPath() + ".tmp");
             java.nio.file.Files.write(tmp.toPath(), id.getBytes(StandardCharsets.UTF_8));
-            if (!tmp.renameTo(f)) tmp.delete();
+            idSaved = tmp.renameTo(f);
+            if (!idSaved) tmp.delete();
         } catch (IOException ignored) {
-            // this run uses it; the next one makes another (signed out at worst, never locked)
+            // second review (LOW): kept for this run only; checks then change nothing (see check)
+            idSaved = false;
         }
+        idCached = id;
         return id;
     }
+
+    private static String idCached;
+    /** Whether the id is on disk (a full phone: a check could compare against another run's id: it does nothing). */
+    private static volatile boolean idSaved;
 
     /** The mark of this phone for {@code login}. */
     static String hash(String installId, String login) {
@@ -97,11 +109,20 @@ public final class SingleDeviceGuard {
 
     /** Writes this phone's mark (makes the private repository when the account has none). */
     static void write(String token, String login, String mark, String sha) throws IOException, GitHubException {
+        write(token, login, mark, sha, System.currentTimeMillis());
+    }
+
+    /**
+     * second review (MEDIUM): {@code time} is when this phone signed in (not when the mark happened to be written:
+     * a claim that waited offline must not look newer than a later sign-in on another phone).
+     */
+    static void write(String token, String login, String mark, String sha, long signedInAt)
+            throws IOException, GitHubException {
         JsonObject file = new JsonObject();
         file.addProperty("active_device_hash", mark);
         file.addProperty("device", (Build.MANUFACTURER + " " + Build.MODEL).trim());
         file.addProperty("app_version", com.sketchware.remod.BuildConfig.VERSION_NAME);
-        file.addProperty("time", System.currentTimeMillis());
+        file.addProperty("time", signedInAt > 0 ? signedInAt : System.currentTimeMillis());
         JsonObject body = new JsonObject();
         body.addProperty("message", "Sketchware AI: signed in on " + (Build.MANUFACTURER + " " + Build.MODEL).trim());
         body.addProperty("content", android.util.Base64.encodeToString(file.toString().getBytes(StandardCharsets.UTF_8),
@@ -135,8 +156,10 @@ public final class SingleDeviceGuard {
      */
     public static void claim(Context context) {
         Context app = context.getApplicationContext();
-        prefs(app).edit().putBoolean("claim_pending", true).putLong("signed_in_at", System.currentTimeMillis())
-                .putBoolean("claimed", false).remove("checked_at").commit();
+        synchronized (SingleDeviceGuard.class) {
+            prefs(app).edit().putBoolean("claim_pending", true).putLong("signed_in_at", System.currentTimeMillis())
+                    .putBoolean("claimed", false).remove("checked_at").commit();
+        }
         Thread t = new Thread(() -> {
             try {
                 synchronized (LOCK) {
@@ -156,10 +179,24 @@ public final class SingleDeviceGuard {
         String login = store.login();
         String token = store.token();
         if (login == null || token == null) return;
+        long signedInAt = prefs(app).getLong("signed_in_at", 0);
+        String mine = hash(installId(app), login);
         String[] there = read(token, login);
-        write(token, login, hash(installId(app), login), there == null ? null : there[1]);
-        prefs(app).edit().putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true)
-                .putBoolean("claim_pending", false).apply();
+        // second review (MEDIUM): another phone that signed in after this one keeps its mark (the next check signs
+        // this phone out)
+        if ("signout".equals(decide(there, mine, true, signedInAt))) return;
+        write(token, login, mine, there == null ? null : there[1], signedInAt);
+        markClaimed(app, signedInAt);
+    }
+
+    /** second review (LOW): the claim is done only for the sign-in it was made for (not a newer one meanwhile). */
+    private static void markClaimed(Context app, long signedInAt) {
+        SharedPreferences prefs = prefs(app);
+        synchronized (SingleDeviceGuard.class) {
+            if (prefs.getLong("signed_in_at", 0) != signedInAt) return;
+            prefs.edit().putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true)
+                    .putBoolean("claim_pending", false).apply();
+        }
     }
 
     /** At sign-out: nothing claimed any more (the next sign-in claims again). */
@@ -208,10 +245,13 @@ public final class SingleDeviceGuard {
                     String login = store.login();
                     String token = store.token();
                     if (login == null || token == null) return;
+                    long signedInAt = prefs.getLong("signed_in_at", 0);
                     String mine = hash(installId(app), login);
+                    // second review (LOW): an id that couldn't be saved can't be compared with the mark of an earlier
+                    // run: nothing changes
+                    if (!idSaved) return;
                     String[] there = read(token, login);
-                    String what = decide(there, mine, prefs.getBoolean("claim_pending", false),
-                            prefs.getLong("signed_in_at", 0));
+                    String what = decide(there, mine, prefs.getBoolean("claim_pending", false), signedInAt);
                     if ("signout".equals(what)) {
                         // another phone signed in later: this phone signs out (the same sign-in, still)
                         if (!token.equals(TokenStore.get(app).token())) return;
@@ -222,9 +262,8 @@ public final class SingleDeviceGuard {
                         if (a != null) a.runOnUiThread(() -> showSignedOut(a));
                         return;
                     }
-                    if ("claim".equals(what)) write(token, login, mine, there == null ? null : there[1]);
-                    prefs.edit().putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true)
-                            .putBoolean("claim_pending", false).apply();
+                    if ("claim".equals(what)) write(token, login, mine, there == null ? null : there[1], signedInAt);
+                    markClaimed(app, signedInAt);
                 }
             } catch (Exception e) {
                 // no network, a server error, a rate limit: nothing changes
