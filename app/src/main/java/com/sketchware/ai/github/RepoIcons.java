@@ -34,6 +34,8 @@ public final class RepoIcons {
 
     static final String PATH = "playstore/icon.png";
     static final long MISSING_RETRY_MILLIS = 24 * 3600_000L;
+    /** v2.1.1 review (LOW): a saved icon is asked again after a week (a changed icon reaches every phone). */
+    static final long REFRESH_MILLIS = 7 * 24 * 3600_000L;
     static final int MAX_BYTES = 1024 * 1024;
 
     private RepoIcons() {
@@ -166,23 +168,27 @@ public final class RepoIcons {
     }
 
     /**
-     * The icon of a repository card: the linked local project's own icon, else the phone's copy, else (background
-     * threads only) GitHub's {@value #PATH}, kept for next time. Null when there is none.
+     * The icon of a repository card: the linked local project's own icon, else the phone's copy (asked again after a
+     * week), else (background threads only) GitHub's {@value #PATH}, kept for next time. Null when there is none.
+     * v2.1.1 review (MEDIUM): one quick request (10 s, one try); after a network error {@code offline[0]} is set and the
+     * following cards use their saved copies only (a list of 20 repositories doesn't wait 20 times).
      */
     public static Bitmap forRepo(Context context, String token, String owner, String repo, long number, String localScId,
-                                 int px) {
+                                 int px, boolean[] offline) {
         if (localScId != null) {
             File local = localIcon(localScId);
             if (local != null) return decode(local, px);
         }
         File cached = number > 0 ? cacheFile(context, number) : null;
-        if (cached != null && cached.isFile()) return decode(cached, px);
+        boolean have = cached != null && cached.isFile() && cached.length() > 0;
+        if (have && System.currentTimeMillis() - cached.lastModified() < REFRESH_MILLIS) return decode(cached, px);
         File none = number > 0 ? missingMark(context, number) : null;
-        if (none != null && none.isFile() && System.currentTimeMillis() - none.lastModified() < MISSING_RETRY_MILLIS) {
+        if (!have && none != null && none.isFile() && System.currentTimeMillis() - none.lastModified() < MISSING_RETRY_MILLIS) {
             return null;
         }
+        if (offline != null && offline[0]) return have ? decode(cached, px) : null;
         try {
-            byte[] bytes = fetch(token, owner, repo);
+            byte[] bytes = GitHubHttp.quick(10_000, () -> fetch(token, owner, repo));
             if (cached != null) {
                 File dir = cached.getParentFile();
                 if (dir != null && !dir.isDirectory()) //noinspection ResultOfMethodCallIgnored
@@ -191,6 +197,8 @@ public final class RepoIcons {
                     java.nio.file.Files.write(none.toPath(), new byte[0]);
                     //noinspection ResultOfMethodCallIgnored
                     none.setLastModified(System.currentTimeMillis());
+                    //noinspection ResultOfMethodCallIgnored
+                    cached.delete();
                 } else {
                     File tmp = new File(cached.getPath() + ".tmp");
                     java.nio.file.Files.write(tmp.toPath(), bytes);
@@ -201,8 +209,11 @@ public final class RepoIcons {
                 }
             }
             return decode(bytes, px);
+        } catch (IOException e) {
+            if (offline != null) offline[0] = true;
+            return have ? decode(cached, px) : null;
         } catch (Exception e) {
-            return null;
+            return have ? decode(cached, px) : null;
         }
     }
 

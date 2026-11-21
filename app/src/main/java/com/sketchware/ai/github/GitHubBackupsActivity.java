@@ -69,6 +69,12 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         t.setDaemon(true);
         return t;
     });
+    /** v2.1.1 review (MEDIUM): the cards' icons on their own worker (a shared link's lookup never waits for them). */
+    private final ExecutorService iconLoads = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "RestoreIcons");
+        t.setDaemon(true);
+        return t;
+    });
     /** v2.0.5: link lookups on their own worker (never behind the projects list being read). */
     private final ExecutorService lookups = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "RestoreLookups");
@@ -131,6 +137,7 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     public void onDestroy() {
         work.shutdownNow();
         lookups.shutdownNow();
+        iconLoads.shutdownNow();
         super.onDestroy();
     }
 
@@ -421,13 +428,16 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     private void loadIcons(List<ProjectRepo.Info> repos, String login, java.util.Map<Long, ImageView> icons) {
         List<ProjectRepo.Info> list = new ArrayList<>(repos);
         int px = v.dp(40);
-        lookups.execute(() -> {
+        if (isFinishing() || isDestroyed()) return;
+        iconLoads.execute(() -> {
             java.util.Map<Long, String> linked = RepoIcons.linkedProjects(login);
             String token = TokenStore.get(getApplicationContext()).login() == null
                     || GitHubSession.isRefused(getApplicationContext()) ? null : TokenStore.get(getApplicationContext()).token();
+            boolean[] offline = {false};
             for (ProjectRepo.Info info : list) {
+                if (Thread.currentThread().isInterrupted()) return;
                 android.graphics.Bitmap b = RepoIcons.forRepo(getApplicationContext(), token, login, info.name, info.number,
-                        linked.get(info.number), px);
+                        linked.get(info.number), px, offline);
                 if (b == null) continue;
                 ui(() -> {
                     ImageView view = icons.get(info.number);

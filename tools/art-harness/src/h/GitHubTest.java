@@ -1330,6 +1330,47 @@ public final class GitHubTest {
                         && Boolean.FALSE.equals(call(cloudSync, "needsSignIn", storeKey)),
                 storeKey + " " + storeRefused + " " + storeWaits + " " + storeResumed + " " + storeJoined + " " + storeEnded
                         + " " + noJoinAfter + " " + results);
+        // --- v2.1.1 review (HIGH): a job refused for one account never runs under another; Sign out forgets them
+        int runsBefore = storeRuns.get();
+        storeRuns.set(0);
+        results.clear();
+        Object otherJob = neu(jobClass, "store-4343", "store", "Notes", autoOptions, true);
+        Object otherSpec = neu("com.sketchware.ai.github.CloudSync$Store");
+        set(otherSpec, "number", 4343L);
+        set(otherSpec, "repo", "SketchwareAI-Notes");
+        set(otherSpec, "title", "Notes");
+        set(otherJob, "store", otherSpec);
+        String otherKey = (String) call(otherJob, "key");
+        call(cloudSync, "enqueue", otherJob, null, result.apply("SO"));
+        boolean otherRefused = waitFor(() -> results.stream().anyMatch(r -> r.startsWith("SO:false:")), 5000);
+        String jobLogin = (String) get(otherJob, "login");
+        Object switchEdit = call(githubPrefs, "edit");
+        call(switchEdit, "putString", "login", "mallory");
+        call(switchEdit, "commit");
+        call(cloudSync, "resumeAfterSignIn");
+        boolean notResumed = !waitFor(() -> storeRuns.get() >= 2, 1500);
+        Object backEdit = call(githubPrefs, "edit");
+        call(backEdit, "putString", "login", "octo");
+        call(backEdit, "commit");
+        Object thirdJob = neu(jobClass, "store-4444", "store", "Timer", autoOptions, true);
+        Object thirdSpec = neu("com.sketchware.ai.github.CloudSync$Store");
+        set(thirdSpec, "number", 4444L);
+        set(thirdSpec, "repo", "SketchwareAI-Timer");
+        set(thirdSpec, "title", "Timer");
+        set(thirdJob, "store", thirdSpec);
+        storeRuns.set(0);
+        call(cloudSync, "enqueue", thirdJob, null, result.apply("S3"));
+        waitFor(() -> results.stream().anyMatch(r -> r.startsWith("S3:false:")), 5000);
+        String thirdKey = (String) call(thirdJob, "key");
+        boolean waitingBefore = Boolean.TRUE.equals(call(cloudSync, "needsSignIn", thirdKey));
+        call(cloudSync, "signedOut");
+        check("v2.1.1 review (HIGH): a job remembers its account (@octo); refused, then another account signs in: it "
+                        + "doesn't run; Sign out forgets the jobs waiting for a sign-in or a Retry",
+                otherRefused && "octo".equals(jobLogin) && notResumed && waitingBefore
+                        && Boolean.FALSE.equals(call(cloudSync, "needsSignIn", thirdKey))
+                        && Boolean.FALSE.equals(call(cloudSync, "canRetry", thirdKey))
+                        && Boolean.FALSE.equals(call(cloudSync, "canRetry", otherKey)),
+                otherRefused + " " + jobLogin + " " + notResumed + " " + waitingBefore + " " + runsBefore);
         set(syncClass, "runnerForTests", null);
         set(syncClass, "mainForTests", null);
         Object cleanup = call(githubPrefs, "edit");

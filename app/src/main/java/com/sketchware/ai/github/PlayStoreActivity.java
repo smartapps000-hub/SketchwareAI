@@ -68,6 +68,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private static final int PICK_PICTURES = 7421;
     /** A missing picture (an app without an icon on GitHub) is asked again after a day. */
     static final long MISSING_RETRY_MILLIS = 24 * 3600_000L;
+    /** v2.1.1 review (LOW): pictures and icons are asked again after a week (a changed icon reaches every phone). */
+    static final long REFRESH_MILLIS = 7 * 24 * 3600_000L;
 
     private GitHubViews v;
     private LinearLayout list;
@@ -303,7 +305,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 List<PlayStore.App> found = GitHubHttp.quick(TIMEOUT_MILLIS,
                         () -> PlayStore.search(token, searching ? text : null, null));
                 List<PlayStore.App> merged = PlayStore.merge(found, PlayStore.cached(getApplicationContext()));
-                PlayStore.save(getApplicationContext(), merged);
+                // review (LOW): a search shows its results; only the whole store is kept on the phone
+                if (!searching) PlayStore.save(getApplicationContext(), merged);
                 ui(() -> {
                     apps = merged;
                     View retry = appsBox.findViewWithTag("retry");
@@ -573,7 +576,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         statCells[1].setOnClickListener(x -> toggleLike());
         statCells[2].setOnClickListener(x -> share());
         showStats();
-        return row;
+        // review (LOW): the counters are public reactions on GitHub: say so
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(row);
+        TextView note = v.line("Likes, shares and views are ❤️ 🚀 👀 reactions of GitHub accounts on the app's post (yours "
+                + "shows there under your name); a view counts once.", false);
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        box.addView(note, v.full(-1, 6));
+        return box;
     }
 
     private void showStats() {
@@ -1089,7 +1100,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                     appsList.addView(row, v.full(-1, 8));
                 }
             });
-            if (d.avatar != null) loadPicture(d.avatar, avatar, v.dp(72));
+            if (d.avatar != null) ui(() -> loadPicture(d.avatar, avatar, v.dp(72)));
             // the downloads of the store apps (ten at most: one request each)
             long total = 0;
             boolean known = false;
@@ -1113,12 +1124,18 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /** A picture of the store (GitHub's file and avatar hosts only), kept in the app's cache, decoded no larger than needed. */
     private void loadPicture(String url, ImageView into, int heightPx) {
-        images.execute(() -> {
-            Bitmap bitmap = picture(url, heightPx);
-            ui(() -> {
-                if (bitmap != null) into.setImageBitmap(bitmap);
+        // review (HIGH): called from a worker too; after onDestroy the pool is shut down: nothing to load then
+        if (isFinishing() || isDestroyed()) return;
+        try {
+            images.execute(() -> {
+                Bitmap bitmap = picture(url, heightPx);
+                ui(() -> {
+                    if (bitmap != null) into.setImageBitmap(bitmap);
+                });
             });
-        });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // the screen is gone
+        }
     }
 
     Bitmap picture(String url, int heightPx) {
@@ -1129,8 +1146,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         // v2.1.1: an app without an icon on GitHub (404) isn't asked again for a day
         File missing = new File(dir, key + ".none");
         try {
-            if (!file.isFile()) {
-                if (missing.isFile() && System.currentTimeMillis() - missing.lastModified() < MISSING_RETRY_MILLIS) {
+            // review (LOW): a picture (an icon above all) is asked again after a week; the old copy stays meanwhile and
+            // when GitHub doesn't answer
+            boolean stale = file.isFile() && System.currentTimeMillis() - file.lastModified() > REFRESH_MILLIS;
+            if (!file.isFile() || stale) {
+                if (!stale && missing.isFile() && System.currentTimeMillis() - missing.lastModified() < MISSING_RETRY_MILLIS) {
                     return null;
                 }
                 if (!dir.isDirectory() && !dir.mkdirs()) return null;
@@ -1144,9 +1164,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                         java.nio.file.Files.write(missing.toPath(), new byte[0]);
                         //noinspection ResultOfMethodCallIgnored
                         missing.setLastModified(System.currentTimeMillis());
+                        //noinspection ResultOfMethodCallIgnored
+                        file.delete();
                         return null;
                     }
-                    if (code != 200) return null;
+                    if (code != 200) return stale ? decode(file.getPath(), heightPx) : null;
                     File temp = new File(file.getPath() + ".tmp" + Thread.currentThread().getId());
                     long total = 0;
                     try (InputStream in = c.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(temp)) {
@@ -1170,9 +1192,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                     c.disconnect();
                 }
             }
-            return decode(file.getPath(), heightPx);
+            Bitmap b = decode(file.getPath(), heightPx);
+            // a damaged copy is read again next time
+            if (b == null) //noinspection ResultOfMethodCallIgnored
+                file.delete();
+            return b;
         } catch (Exception e) {
-            return null;
+            return file.isFile() ? decode(file.getPath(), heightPx) : null;
         }
     }
 
@@ -1374,7 +1400,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private void fillForm(ProjectRepo.Info info) {
         File dir = staging();
         if (dir == null) return;
-        PlayStore.Listing staged = PlayStore.Listing.load(dir);
+        PlayStore.Listing staged = PlayStore.Listing.loadForm(dir);
         filling = true;
         try {
             String t = staged.title != null ? staged.title : info != null ? PlayStore.displayName(info.name) : "";
@@ -1445,9 +1471,20 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             shot.setScaleType(ImageView.ScaleType.CENTER_CROP);
             shot.setBackgroundResource(R.drawable.ob_pill16);
             shot.setClipToOutline(true);
-            BitmapFactory.Options o = new BitmapFactory.Options();
-            o.inSampleSize = 4;
-            shot.setImageBitmap(BitmapFactory.decodeFile(staged.get(i).getPath(), o));
+            File picture = staged.get(i);
+            // review (LOW): decoded off the main thread
+            try {
+                images.execute(() -> {
+                    BitmapFactory.Options o = new BitmapFactory.Options();
+                    o.inSampleSize = 4;
+                    Bitmap b = BitmapFactory.decodeFile(picture.getPath(), o);
+                    ui(() -> {
+                        if (b != null) shot.setImageBitmap(b);
+                    });
+                });
+            } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                // the screen is gone
+            }
             int index = i;
             shot.setContentDescription("Picture " + (i + 1) + " (long-press to remove)");
             shot.setOnLongClickListener(x -> {
@@ -1587,8 +1624,17 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         store.number = repo.number;
         store.title = title;
         store.staging = PlayStore.stagingDir(this, repo.number);
-        store.scId = linkedProject(login, repo);
-        STAGE.execute(() -> ui(() -> CloudSync.publishToStore(this, store)));
+        String account = login;
+        android.content.Context app = getApplicationContext();
+        // review (LOW): the words are written before the job can read them; the project list is read off the main
+        // thread, and the publish starts even when this screen closed meanwhile (then with its notification only)
+        STAGE.execute(() -> {
+            store.scId = linkedProject(account, repo);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (isFinishing() || isDestroyed()) CloudSync.publishToStoreQuietly(app, store);
+                else CloudSync.publishToStore(this, store);
+            });
+        });
     }
 
     /** The project on this phone linked to that repository (by number, else by name), or null. */

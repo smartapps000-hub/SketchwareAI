@@ -142,6 +142,11 @@ public final class CloudSync {
         PublishDetails details;
         Import source;
         Store store;
+        /**
+         * v2.1.1 review (HIGH): the account the job was started under (set when it is queued); a Play Store publish or a
+         * Publish never runs under another account (making a repository public needs that account's own "yes").
+         */
+        String login;
         /** v2.0.4: the repository page "Open on GitHub" opens, when known. */
         volatile String link;
 
@@ -351,6 +356,13 @@ public final class CloudSync {
         progress.actions(() -> sync.cancel(key), () -> {
             Job again = sync.retryJob(key);
             if (again != null) {
+                if (!sync.sameAccount(again)) {
+                    // review (HIGH): Sign in again with another account: that account didn't ask for this
+                    progress.failed("This was started as @" + again.login + "; this phone is signed in as @"
+                            + TokenStore.get(sync.app).login() + " now, so it didn't run. Start it again from this "
+                            + "account if you want it there.", false);
+                    return;
+                }
                 progress.restart();
                 sync.enqueue(again, progress::update, ending(sync, progress, key));
             } else if (sync.findByKey(key) != null) {
@@ -359,6 +371,9 @@ public final class CloudSync {
                 if (!sync.join(key, progress::update, ending(sync, progress, key))) {
                     progress.failed("That run already ended: its notification says how.", false);
                 }
+            } else {
+                // review (LOW): the run the sign-in started already ended (or there was nothing to run)
+                progress.failed("It ran again after the sign-in: its notification says how it ended.", false);
             }
         }, job.link);
         sync.enqueue(job, progress::update, ending(sync, progress, key));
@@ -466,6 +481,16 @@ public final class CloudSync {
         return follow(activity, sync, job, R.drawable.ob_ic_store, "Publishing " + store.title);
     }
 
+    /** v2.1.1 review (LOW): the same without a screen (it closed meanwhile): the notification follows it, a toast ends it. */
+    public static void publishToStoreQuietly(Context context, Store store) {
+        CloudSync sync = get(context);
+        Job job = new Job(store.scId != null ? store.scId : "store-" + store.number, STORE, store.title,
+                Options.AUTOMATIC, true);
+        job.store = store;
+        job.link = ProjectRepo.link(TokenStore.get(context).login(), store.repo);
+        sync.enqueue(job, null, (ok, message) -> Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show());
+    }
+
     /**
      * v2.1.1: after a new sign-in: every job a refused sign-in stopped runs again by itself (a backup from its
      * checkpoint, a Play Store publish from its staged files), then the backups that wait.
@@ -476,6 +501,8 @@ public final class CloudSync {
             Job again = retryJob(key);
             signInNeeded.remove(key);
             if (again == null) continue;
+            // review (HIGH): another account signed in: that account never said yes to this job
+            if (!sameAccount(again)) continue;
             enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
         }
         lastPendingTry = 0;
@@ -543,6 +570,7 @@ public final class CloudSync {
      * tap's boxes. v2.0.4: imports on their own lane.
      */
     void enqueue(Job job, Progress progress, Result result) {
+        if (job.login == null) job.login = TokenStore.get(app).login();
         Job target;
         int ahead;
         Lane lane;
@@ -742,6 +770,7 @@ public final class CloudSync {
         again.source = old.source;
         again.store = old.store;
         again.link = old.link;
+        again.login = old.login;
         return again;
     }
 
@@ -781,6 +810,8 @@ public final class CloudSync {
                 // deleted meanwhile: nothing to wait for
                 removePending(job.scId);
                 clearResume(job.scId);
+                message = e.getMessage();
+            } catch (OtherAccount e) {
                 message = e.getMessage();
             } catch (GitHubHttp.Cancelled e) {
                 message = stoppedMessage(job);
@@ -1054,6 +1085,11 @@ public final class CloudSync {
         if (test != null) return test.run(job);
         if (IMPORT.equals(job.kind)) return runImport(job);
         signInNeeded.remove(job.key());
+        if ((STORE.equals(job.kind) || PUBLISH.equals(job.kind)) && !sameAccount(job)) {
+            throw new OtherAccount((STORE.equals(job.kind) ? "Not published" : "Not changed") + ": it was started as @"
+                    + job.login + " and this phone is signed in as @" + TokenStore.get(app).login() + " now. Start it "
+                    + "again from this account if you want it there.");
+        }
         if (GitHubSession.isRefused(app)) {
             // v2.0.5: GitHub refused this sign-in: no request until it is renewed (no stream of 401s); it waits
             throw new GitHubException("refused", GitHubSession.problemOf(app) == null
@@ -1232,6 +1268,25 @@ public final class CloudSync {
         MissingProject(String message) {
             super(message);
         }
+    }
+
+    /** v2.1.1 review (HIGH): a job started under another account than the one signed in now: never run, not retried. */
+    static final class OtherAccount extends Exception {
+        OtherAccount(String message) {
+            super(message);
+        }
+    }
+
+    /** Whether {@code job} belongs to the account signed in now (jobs from before v2.1.1 have no account: they do). */
+    boolean sameAccount(Job job) {
+        String now = TokenStore.get(app).login();
+        return job.login == null || job.login.equalsIgnoreCase(now);
+    }
+
+    /** v2.1.1 review (HIGH): Sign out forgets the jobs that waited for a sign-in or a Retry (they were that account's). */
+    public void signedOut() {
+        signInNeeded.clear();
+        failed.clear();
     }
 
     /** Makes the .swb of one project, uploads it and deletes it again; returns the project's name. */
@@ -1786,9 +1841,8 @@ public final class CloudSync {
             ProjectLinks.visibilityNow(store.scId, login, false);
         }
         GitHubSession.clearRefused(app);
-        // published: the staged pictures go (the words stay for the next publish)
-        for (File f : PlayStore.stagedPictures(store.staging)) //noinspection ResultOfMethodCallIgnored
-            f.delete();
+        // review (HIGH): the staged words and pictures stay for the next publish (a republish without them would
+        // have nothing to upload; the store keeps its pictures then anyway)
         return store.title + " is in the Play Store" + (note == null ? "." : ". " + note);
     }
 

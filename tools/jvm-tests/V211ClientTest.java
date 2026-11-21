@@ -357,6 +357,14 @@ public class V211ClientTest {
                         && noSecondPost && "updated".equals(page3.get("action").getAsString())
                         && page3.get("publish_number").getAsInt() == 3 && "2".equals(page3.get("version_code").getAsString())
                         && "🛠 Fixed the list".equals(page3.get("changelog").getAsString()), page2 + " " + page3);
+        pics.clear();
+        requests.clear();
+        call(store, "publish", "tok", "octo", "SketchwareAI-Notes", listing, steps);
+        boolean deleted = false;
+        for (String r : requests) if (r.startsWith("DELETE ")) deleted = true;
+        check("v2.1.1 review (HIGH): a publish without pictures keeps the store's pictures (none removed)",
+                !deleted && files.containsKey("playstore/screenshots/01.jpg") && files.containsKey("playstore/screenshots/02.jpg"),
+                requests.size());
         check("v2.1.1: publish steps run 5 → 97 (icon 18, pictures, version 74, counters 80, page 88)",
                 stepTexts.get(0).startsWith("5 ") && stepTexts.stream().anyMatch(s -> s.startsWith("18 "))
                         && stepTexts.stream().anyMatch(s -> s.startsWith("80 ")) && stepTexts.get(stepTexts.size() - 1).startsWith("97 "),
@@ -366,8 +374,9 @@ public class V211ClientTest {
         set(app, "repo", "SketchwareAI-Notes");
         set(app, "branch", "main");
         call(store, "readListing", "tok", app);
+        // (after the 4th publish above, the same version again: a re-publish, update #4)
         check("v2.1.1: the app page reads the version line and the stats post from the store page",
-                "Updated to v1.1 (2)".equals(call(app, "status")) && Integer.valueOf(77).equals(field(app, "statsDiscussion"))
+                "Re-published v1.1 (2) • Update #4".equals(call(app, "status")) && Integer.valueOf(77).equals(field(app, "statsDiscussion"))
                         && "🛠 Fixed the list".equals(field(app, "changelog")), call(app, "status"));
         check("v2.1.1: Downloads = the versions' APK and .swb download counts (6 + 3 + 4 + 3)",
                 Long.valueOf(16).equals(call(store, "downloads", "tok", app)), call(store, "downloads", "tok", app));

@@ -245,6 +245,8 @@ public final class GitHubSession {
         SingleDeviceGuard.forget(context);
         deleteTree(new java.io.File(context.getApplicationContext().getFilesDir(), "repo_viewer"));
         AuthGuard.reset();
+        // v2.1.1 review (HIGH): the jobs waiting for a sign-in or a Retry were this account's
+        CloudSync.get(context).signedOut();
         // GitHub's web sign-in in the app's sign-in window goes too (its cookies are the only WebView cookies of the app)
         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
             try {

@@ -427,6 +427,19 @@ public final class PlayStore {
          * {@code dir}: {@code form.json} (title, description, video) and the pictures {@code NN.jpg}.
          */
         public static Listing load(File dir) {
+            Listing l = loadForm(dir);
+            for (File f : stagedPictures(dir)) {
+                try {
+                    l.screenshots.add(java.nio.file.Files.readAllBytes(f.toPath()));
+                } catch (IOException ignored) {
+                    // left out
+                }
+            }
+            return l;
+        }
+
+        /** The form's words only (no pictures read): quick enough for the main thread. */
+        public static Listing loadForm(File dir) {
             Listing l = new Listing();
             File form = new File(dir, "form.json");
             if (form.isFile() && form.length() < 64 * 1024) {
@@ -438,13 +451,6 @@ public final class PlayStore {
                     l.video = DeviceFlow.string(o, "video");
                 } catch (IOException | RuntimeException ignored) {
                     // an empty form
-                }
-            }
-            for (File f : stagedPictures(dir)) {
-                try {
-                    l.screenshots.add(java.nio.file.Files.readAllBytes(f.toPath()));
-                } catch (IOException ignored) {
-                    // left out
                 }
             }
             return l;
@@ -568,8 +574,9 @@ public final class PlayStore {
             putBytes(token, base, SHOTS + "/" + String.format(Locale.ROOT, "%02d.jpg", i + 1), listing.screenshots.get(i),
                     "Play Store screenshot " + (i + 1));
         }
-        // review (LOW): a publish with fewer pictures leaves none of the older ones behind
-        removeExtraShots(token, base, shots);
+        // review (LOW): a publish with fewer pictures leaves none of the older ones behind; v2.1.1 review (HIGH): a
+        // publish without any picture keeps the store's pictures as they are (never "remove them all")
+        if (shots > 0) removeExtraShots(token, base, shots);
 
         steps.step(74, "Reading the newest version…");
         List<ProjectRepo.Version> versions = ProjectRepo.versions(token, login, repo, false);
@@ -933,8 +940,10 @@ public final class PlayStore {
         if (existing > 0) {
             JsonObject v2 = vars.deepCopy();
             v2.addProperty("number", existing);
-            JsonObject d = GitHubGraphQL.object(GitHubGraphQL.run(token, "query($owner:String!,$name:String!,$number:Int!)"
-                    + "{repository(owner:$owner,name:$name){discussion(number:$number){id}}}", v2), "repository.discussion");
+            // review (LOW): a deleted post answers with an error next to a null discussion: then a new one is made
+            JsonObject d = GitHubGraphQL.object(GitHubGraphQL.runLenient(token, "query($owner:String!,$name:String!,"
+                    + "$number:Int!){repository(owner:$owner,name:$name){discussion(number:$number){id}}}", v2),
+                    "repository.discussion");
             if (d != null) return existing;
         }
         JsonObject r = GitHubGraphQL.object(GitHubGraphQL.run(token, REPO_INFO_QUERY, vars), "repository");

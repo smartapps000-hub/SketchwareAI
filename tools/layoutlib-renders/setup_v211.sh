@@ -36,7 +36,7 @@ public final class RepoIcons {
     }
     public static Bitmap decode(byte[] b, int px) { return b == null ? null : BitmapFactory.decodeByteArray(b, 0, b.length); }
     public static Bitmap decode(File f, int px) { return f == null ? null : BitmapFactory.decodeFile(f.getPath()); }
-    public static Bitmap forRepo(android.content.Context c, String token, String owner, String repo, long number, String scId, int px) {
+    public static Bitmap forRepo(android.content.Context c, String token, String owner, String repo, long number, String scId, int px, boolean[] offline) {
         String p = ICONS.get(number); return p == null ? null : BitmapFactory.decodeFile(p);
     }
     public static java.util.Map<Long, String> linkedProjects(String login) { return new java.util.HashMap<>(); }
