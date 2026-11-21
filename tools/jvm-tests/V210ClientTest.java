@@ -333,6 +333,19 @@ public class V210ClientTest {
         check("v2.1.0: a write with an old sha is refused (two phones signing in at once: one wins, nothing mixed)",
                 conflict && h3.equals(((String[]) call(guard, "read", "tok", "octo"))[0]), sha);
 
+        String mineMark = "aaa", other = "bbb";
+        check("v2.1.0 review: a check decides: no mark → claim; this phone's → keep; another phone's → sign out; while "
+                        + "this phone's own sign-in isn't on GitHub yet → write it again, unless the other mark is newer",
+                "claim".equals(call(guard, "decide", null, mineMark, false, 0L))
+                        && "keep".equals(call(guard, "decide", new String[]{mineMark, "s", "5"}, mineMark, false, 0L))
+                        && "signout".equals(call(guard, "decide", new String[]{other, "s", "5"}, mineMark, false, 0L))
+                        && "claim".equals(call(guard, "decide", new String[]{other, "s", "100"}, mineMark, true, 200L))
+                        && "signout".equals(call(guard, "decide", new String[]{other, "s", "300"}, mineMark, true, 200L))
+                        && "claim".equals(call(guard, "decide", new String[]{other, "s", "0"}, mineMark, true, 200L))
+                        && "claim".equals(call(guard, "decide", new String[]{mineMark, "s", "100"}, mineMark, true, 200L)), null);
+        check("v2.1.0 review: the mark's time is read back (the newer sign-in decides while a claim waits)",
+                Long.parseLong(((String[]) call(guard, "read", "tok", "octo"))[2]) > 1_700_000_000_000L, null);
+
         // --- the Play Store
         Class<?> store = c("com.sketchware.ai.github.PlayStore");
         @SuppressWarnings("unchecked")

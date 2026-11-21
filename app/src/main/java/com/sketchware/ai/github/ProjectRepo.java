@@ -163,6 +163,9 @@ public final class ProjectRepo {
                     + CloudBackup.enc(candidate), token, null);
             if (r.code == 404) {
                 ProjectRepo made = create(token, login, candidate, projectName, pkg);
+                // v2.1.0 review (LOW): two lanes backing up same-name projects at once: the other one took this
+                // name between the look and the POST (422): the next name
+                if (made == null) continue;
                 ProjectLinks.repoFound(scId, login, made.name, made.number, true);
                 return made;
             }
@@ -174,6 +177,7 @@ public final class ProjectRepo {
                 + "project.");
     }
 
+    /** A new private repository; null when the name was taken meanwhile (GitHub's 422 "name already exists"). */
     private static ProjectRepo create(String token, String login, String repo, String projectName, String pkg)
             throws IOException, GitHubException {
         JsonObject body = new JsonObject();
@@ -185,6 +189,7 @@ public final class ProjectRepo {
         body.addProperty("has_projects", false);
         body.addProperty("description", defaultDescription(projectName, pkg));
         GitHubHttp.Response r = GitHubHttp.api("POST", "/user/repos", token, body.toString());
+        if (r.code == 422 && r.body != null && r.body.contains("name already exists")) return null;
         if (!r.ok()) throw CloudBackup.http("Creating the repository " + repo, r);
         JsonObject a = DeviceFlow.parse(r.body);
         ProjectRepo made = new ProjectRepo(token, login, repo, number(a));

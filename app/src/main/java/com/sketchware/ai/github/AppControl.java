@@ -248,7 +248,8 @@ public final class AppControl {
                     // the sign-in gate itself asks (passGate): no second sign-in prompt
                     if (notice == null || "login".equals(notice.kind)) return;
                 } else {
-                    updateRequired = notice.force;
+                    // review (MEDIUM): forced only with a link to update from (never a Create that stays shut)
+                    updateRequired = notice.force && notice.url != null;
                 }
                 if ("login".equals(notice.kind)) {
                     // v1.9.9: required sign-in is the sign-in screen itself (AuthGuard), not a dialog
@@ -368,6 +369,18 @@ public final class AppControl {
         show(a, notice, prefs);
     }
 
+    /**
+     * v2.1.0 review (MEDIUM): the update notice again (Create while an update can't wait: the first notice was used up
+     * when it showed).
+     */
+    public static void showUpdateAgain(Activity a) {
+        Context app = a.getApplicationContext();
+        Config config = cached(a);
+        Notice notice = decide(config, com.sketchware.remod.BuildConfig.VERSION_CODE, TokenStore.get(app).login() != null, null);
+        if (notice == null || !"update".equals(notice.kind)) return;
+        show(a, notice, app.getSharedPreferences(PREFS, Context.MODE_PRIVATE));
+    }
+
     private static void show(Activity a, Notice notice, SharedPreferences prefs) {
         if (a.isFinishing() || a.isDestroyed()) return;
         if ("message".equals(notice.kind)) prefs.edit().putString("shown_message", notice.text).apply();
@@ -377,8 +390,13 @@ public final class AppControl {
         if ("update".equals(notice.kind)) {
             // v2.1.0: the in-app updater (download, SHA-256 check, Android's installer); Later only when it may wait
             Config config = cached(a);
-            b.setPositiveButton("Update", (d, w) -> AppUpdater.start(a, config));
-            if (!notice.force) {
+            boolean forced = notice.force && notice.url != null;
+            b.setPositiveButton("Update", (d, w) -> {
+                AppUpdater.start(a, config);
+                // review (MEDIUM): an update that may wait doesn't hold the sign-in gate meanwhile
+                if (!forced) passGate(a);
+            });
+            if (!forced) {
                 b.setNegativeButton("Later", (d, w) -> passGate(a));
                 b.setOnCancelListener(d -> passGate(a));
             } else {

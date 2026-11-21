@@ -8,6 +8,7 @@ import android.os.Build;
 import com.google.gson.JsonObject;
 import com.sketchware.remod.R;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -31,17 +32,33 @@ public final class SingleDeviceGuard {
     static final String PREFS = "sketchware_ai_device";
     private static final long RECHECK_MILLIS = 6 * 3600_000L;
     private static volatile boolean checking;
+    /** One read-and-write of the mark at a time (a sign-in's claim and a check never interleave). */
+    private static final Object LOCK = new Object();
 
     private SingleDeviceGuard() {
     }
 
-    /** This install's random id (made once; a reinstall is a new device). */
+    /**
+     * This install's random id (made once; a reinstall is a new device). v2.1.0 review (LOW): in the no-backup folder,
+     * so Android's backup never restores it onto another phone (two phones with one id would never see each other).
+     */
     static synchronized String installId(Context context) {
-        SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String id = prefs.getString("install_id", null);
-        if (id == null) {
-            id = java.util.UUID.randomUUID().toString();
-            prefs.edit().putString("install_id", id).apply();
+        File f = new File(context.getApplicationContext().getNoBackupFilesDir(), "device_install_id");
+        try {
+            if (f.isFile()) {
+                String id = new String(java.nio.file.Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
+                if (id.matches("[0-9a-f-]{36}")) return id;
+            }
+        } catch (IOException ignored) {
+            // made again below
+        }
+        String id = java.util.UUID.randomUUID().toString();
+        try {
+            File tmp = new File(f.getPath() + ".tmp");
+            java.nio.file.Files.write(tmp.toPath(), id.getBytes(StandardCharsets.UTF_8));
+            if (!tmp.renameTo(f)) tmp.delete();
+        } catch (IOException ignored) {
+            // this run uses it; the next one makes another (signed out at worst, never locked)
         }
         return id;
     }
@@ -57,7 +74,7 @@ public final class SingleDeviceGuard {
         }
     }
 
-    /** The file as GitHub has it: {hash, sha}; null when there is none (404). */
+    /** The file as GitHub has it: {hash, sha, time written (ms, "0" when unknown)}; null when there is none (404). */
     static String[] read(String token, String login) throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(login) + "/" + CloudBackup.REPO
                 + "/contents/" + PATH, token, null);
@@ -66,9 +83,16 @@ public final class SingleDeviceGuard {
         JsonObject o = DeviceFlow.parse(r.body);
         String content = DeviceFlow.string(o, "content");
         String sha = DeviceFlow.string(o, "sha");
-        if (content == null) return new String[]{null, sha};
-        String text = new String(android.util.Base64.decode(content, android.util.Base64.DEFAULT), StandardCharsets.UTF_8);
-        return new String[]{DeviceFlow.string(DeviceFlow.parse(text), "active_device_hash"), sha};
+        if (content == null) return new String[]{null, sha, "0"};
+        JsonObject file = DeviceFlow.parse(new String(android.util.Base64.decode(content, android.util.Base64.DEFAULT),
+                StandardCharsets.UTF_8));
+        long time = 0;
+        try {
+            if (file.has("time") && file.get("time").isJsonPrimitive()) time = file.get("time").getAsLong();
+        } catch (RuntimeException ignored) {
+            // no time
+        }
+        return new String[]{DeviceFlow.string(file, "active_device_hash"), sha, String.valueOf(time)};
     }
 
     /** Writes this phone's mark (makes the private repository when the account has none). */
@@ -99,61 +123,109 @@ public final class SingleDeviceGuard {
         if (!r.ok()) throw CloudBackup.http("Writing the device mark", r);
     }
 
-    /** After a sign-in: this phone is the account's phone now (background; a failure is tried at the next check). */
+    private static SharedPreferences prefs(Context context) {
+        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * After a sign-in: this phone is the account's phone now. v2.1.0 review (HIGH): the sign-in is recorded on the
+     * phone first ({@code claim_pending}, {@code signed_in_at}); until its mark is on GitHub a check writes the mark
+     * again instead of comparing (a check right after the sign-in, or a claim that failed offline, never signs out the
+     * phone that signed in last).
+     */
     public static void claim(Context context) {
         Context app = context.getApplicationContext();
+        prefs(app).edit().putBoolean("claim_pending", true).putLong("signed_in_at", System.currentTimeMillis())
+                .putBoolean("claimed", false).remove("checked_at").commit();
         Thread t = new Thread(() -> {
             try {
-                TokenStore store = TokenStore.get(app);
-                String login = store.login();
-                String token = store.token();
-                if (login == null || token == null) return;
-                String[] there = read(token, login);
-                write(token, login, hash(installId(app), login), there == null ? null : there[1]);
-                app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                        .putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true).apply();
+                synchronized (LOCK) {
+                    claimNow(app);
+                }
             } catch (Exception e) {
-                LogUtil.d("SingleDeviceGuard", "Device mark not written now: " + e);
+                LogUtil.d("SingleDeviceGuard", "Device mark not written now (the next check writes it): " + e);
             }
         }, "DeviceClaim");
         t.setDaemon(true);
         t.start();
     }
 
+    /** Writes this phone's mark over whatever is there; marks the claim done. Under {@link #LOCK}. */
+    private static void claimNow(Context app) throws IOException, GitHubException {
+        TokenStore store = TokenStore.get(app);
+        String login = store.login();
+        String token = store.token();
+        if (login == null || token == null) return;
+        String[] there = read(token, login);
+        write(token, login, hash(installId(app), login), there == null ? null : there[1]);
+        prefs(app).edit().putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true)
+                .putBoolean("claim_pending", false).apply();
+    }
+
+    /** At sign-out: nothing claimed any more (the next sign-in claims again). */
+    static void forget(Context context) {
+        prefs(context).edit().remove("claimed").remove("claim_pending").remove("checked_at").remove("signed_in_at").apply();
+    }
+
     /**
-     * The startup gate's (and the six-hourly) check: another phone's mark signs this phone out; no mark: claimed.
-     * {@code activity} shows the message when it is still in front.
+     * What a check does with the mark GitHub has: "claim" (none there, or this phone's sign-in not yet recorded and
+     * newer than the mark), "keep" (this phone's), "signout" (another phone's, written after this phone's own).
+     */
+    static String decide(String[] there, String mine, boolean pending, long signedInAt) {
+        if (there == null || there[0] == null) return "claim";
+        if (there[0].equals(mine)) return pending ? "claim" : "keep";
+        if (pending) {
+            long theirs = 0;
+            try {
+                theirs = Long.parseLong(there[2]);
+            } catch (RuntimeException ignored) {
+                // unknown: this phone's newer sign-in wins
+            }
+            return theirs > signedInAt && signedInAt > 0 ? "signout" : "claim";
+        }
+        return "signout";
+    }
+
+    /**
+     * The startup gate's (and the six-hourly) check: another phone's later mark signs this phone out; no mark, or a
+     * sign-in not yet recorded: claimed. {@code activity} shows the message when it is still in front.
      */
     public static void check(Activity activity) {
         Context app = activity.getApplicationContext();
-        SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = prefs(app);
         if (checking || TokenStore.get(app).login() == null || GitHubSession.isRefused(app)) return;
-        if (System.currentTimeMillis() - prefs.getLong("checked_at", 0) < RECHECK_MILLIS && prefs.getBoolean("claimed", false)) {
+        boolean pendingNow = prefs.getBoolean("claim_pending", false);
+        if (!pendingNow && System.currentTimeMillis() - prefs.getLong("checked_at", 0) < RECHECK_MILLIS
+                && prefs.getBoolean("claimed", false)) {
             return;
         }
         checking = true;
         java.lang.ref.WeakReference<Activity> ref = new java.lang.ref.WeakReference<>(activity);
         Thread t = new Thread(() -> {
             try {
-                TokenStore store = TokenStore.get(app);
-                String login = store.login();
-                String token = store.token();
-                if (login == null || token == null) return;
-                String mine = hash(installId(app), login);
-                String[] there = read(token, login);
-                if (there == null || there[0] == null) {
-                    write(token, login, mine, there == null ? null : there[1]);
-                } else if (!there[0].equals(mine)) {
-                    // another phone signed in later: this phone signs out (the same sign-in, still)
-                    if (!token.equals(TokenStore.get(app).token())) return;
-                    LogUtil.d("SingleDeviceGuard", "Another phone holds the session: signed out here");
-                    GitHubSession.signOut(app);
-                    prefs.edit().putBoolean("signed_out_elsewhere", true).putBoolean("claimed", false).apply();
-                    Activity a = ref.get();
-                    if (a != null) a.runOnUiThread(() -> showSignedOut(a));
-                    return;
+                synchronized (LOCK) {
+                    TokenStore store = TokenStore.get(app);
+                    String login = store.login();
+                    String token = store.token();
+                    if (login == null || token == null) return;
+                    String mine = hash(installId(app), login);
+                    String[] there = read(token, login);
+                    String what = decide(there, mine, prefs.getBoolean("claim_pending", false),
+                            prefs.getLong("signed_in_at", 0));
+                    if ("signout".equals(what)) {
+                        // another phone signed in later: this phone signs out (the same sign-in, still)
+                        if (!token.equals(TokenStore.get(app).token())) return;
+                        LogUtil.d("SingleDeviceGuard", "Another phone holds the session: signed out here");
+                        GitHubSession.signOut(app);
+                        prefs.edit().putBoolean("signed_out_elsewhere", true).apply();
+                        Activity a = ref.get();
+                        if (a != null) a.runOnUiThread(() -> showSignedOut(a));
+                        return;
+                    }
+                    if ("claim".equals(what)) write(token, login, mine, there == null ? null : there[1]);
+                    prefs.edit().putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true)
+                            .putBoolean("claim_pending", false).apply();
                 }
-                prefs.edit().putLong("checked_at", System.currentTimeMillis()).putBoolean("claimed", true).apply();
             } catch (Exception e) {
                 // no network, a server error, a rate limit: nothing changes
                 LogUtil.d("SingleDeviceGuard", "Device check skipped: " + e);

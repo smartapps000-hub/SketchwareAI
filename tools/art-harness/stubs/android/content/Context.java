@@ -7,6 +7,7 @@ public class Context {
     private final File root = new File(System.getProperty("h.root", "/tmp/h"));
     public Context getApplicationContext() { return this; }
     public File getCacheDir() { File f = new File(root, "cache"); f.mkdirs(); return f; }
+    public File getNoBackupFilesDir() { File f = new File(root, "no_backup"); f.mkdirs(); return f; }
     public File getFilesDir() { File f = new File(root, "files"); f.mkdirs(); return f; }
     public File getExternalFilesDir(String type) { File f = new File(root, "ext" + (type == null ? "" : "/" + type)); f.mkdirs(); return f; }
     public File getExternalCacheDir() { File f = new File(root, "extcache"); f.mkdirs(); return f; }

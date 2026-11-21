@@ -66,6 +66,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         t.setDaemon(true);
         return t;
     });
+    /**
+     * review (MEDIUM): publishing and posting outlive the screen (leaving it never cuts a publish off half-way); their
+     * end is a toast when the sheet was hidden or the screen is gone.
+     */
+    static final ExecutorService WRITES = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "PlayStoreWrites");
+        t.setDaemon(true);
+        return t;
+    });
 
     public static Intent tab(Activity activity) {
         return TabScreens.asTab(new Intent(activity, PlayStoreActivity.class), "Play Store");
@@ -337,18 +346,19 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             shotsRow = new LinearLayout(this);
             shotsRow.setOrientation(LinearLayout.HORIZONTAL);
             scroll.addView(shotsRow);
-            for (int i = 0; i < a.screenshots.size(); i++) {
+            List<String> urls = new ArrayList<>(a.screenshots);
+            for (int i = 0; i < urls.size(); i++) {
                 ImageView shot = new ImageView(this);
                 shot.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 shot.setBackgroundResource(R.drawable.ob_pill16);
                 shot.setClipToOutline(true);
-                shot.setContentDescription("Picture " + (i + 1) + " of " + a.screenshots.size());
+                shot.setContentDescription("Picture " + (i + 1) + " of " + urls.size());
                 int index = i;
-                shot.setOnClickListener(x -> showFull(a.screenshots, index));
+                shot.setOnClickListener(x -> showFull(urls, index));
                 LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(v.dp(124), v.dp(232));
                 if (i > 0) p.leftMargin = v.dp(8);
                 shotsRow.addView(shot, p);
-                loadPicture(a.screenshots.get(i), shot, v.dp(248));
+                loadPicture(urls.get(i), shot, v.dp(248));
             }
             pageBox.addView(scroll, v.full(-1, 10));
         }
@@ -358,16 +368,20 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         PlayStore.App a = current;
         appStatus.setText(a.listingRead ? "Saved on this phone · checking GitHub…" : "Reading its store page…");
         appStatus.setTextColor(v.color(R.color.ob_text_2));
+        // review (MEDIUM): the page is read into a copy and shown on the main thread; the pictures on screen keep
+        // their own list meanwhile
+        PlayStore.App fresh = a.copy();
         work.execute(() -> {
             String token = token();
             String failure = null;
             try {
                 GitHubHttp.quick(TIMEOUT_MILLIS, () -> {
-                    PlayStore.readListing(token, a);
+                    PlayStore.readListing(token, fresh);
                     return null;
                 });
-                PlayStore.remember(getApplicationContext(), a);
+                PlayStore.remember(getApplicationContext(), fresh);
                 ui(() -> {
+                    current = fresh;
                     appStatus.setText("");
                     showPage();
                 });
@@ -586,18 +600,16 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private void post(String category, String title, String body) {
         String repositoryId = discussionInfo[0];
         Toast.makeText(this, "Posting the review…", Toast.LENGTH_SHORT).show();
-        work.execute(() -> {
+        android.content.Context app = getApplicationContext();
+        WRITES.execute(() -> {
             String token = token();
             try {
                 if (token == null) throw new GitHubException("signed_out", "Sign in to post a review.");
                 PlayStore.newPost(token, repositoryId, category, title, body + "\n\n— posted from Sketchware AI");
-                ui(() -> {
-                    Toast.makeText(this, "Review posted", Toast.LENGTH_SHORT).show();
-                    work.execute(() -> loadReviews(token()));
-                });
+                toast(app, "Review posted");
+                ui(() -> work.execute(() -> loadReviews(token())));
             } catch (Exception e) {
-                String why = GitHubImportDialog.text(e);
-                ui(() -> Toast.makeText(this, why, Toast.LENGTH_LONG).show());
+                toast(app, GitHubImportDialog.text(e));
             }
         });
     }
@@ -671,6 +683,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /** The pictures full screen: ‹ › and the count, Close (Back closes too). */
     private void showFull(List<String> urls, int start) {
+        if (urls.isEmpty()) return;
+        start = Math.max(0, Math.min(start, urls.size() - 1));
         Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF000000);
@@ -750,7 +764,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         reposBox.setOrientation(LinearLayout.VERTICAL);
         list.addView(reposBox, v.full(-1, 8));
         long[] at = new long[1];
-        showRepos(RepoCache.repos(this, login, at));
+        List<ProjectRepo.Info> kept = RepoCache.repos(this, login, at);
+        // review (HIGH): nothing saved on this phone yet (signed in before v2.0.4, or offline at sign-in)
+        if (kept != null) showRepos(kept);
+        else reposBox.addView(v.line("Reading your projects on GitHub…", false));
         work.execute(() -> {
             String token = token();
             if (token == null) return;
@@ -957,7 +974,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     /** Every step repeats safely (PATCH, topics, files replaced by their sha), so Retry runs it all again. */
     private void runPublish(GitHubProgress progress, ProjectRepo.Info repo, PlayStore.Listing listing) {
         android.content.Context app = getApplicationContext();
-        work.execute(() -> {
+        WRITES.execute(() -> {
             TokenStore store = TokenStore.get(app);
             String login = store.login();
             String token = store.token();
@@ -966,20 +983,32 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 String note = PlayStore.publish(token, login, repo.name, listing,
                         (percent, text) -> ui(() -> progress.update(percent, text)));
                 repo.isPrivate = false;
-                markLocalProjectPublic(login, repo);
+                markLocalProjectPublic(app, login, repo);
+                String done = note == null ? "Published: it is in the Play Store now." : "Published. " + note;
+                if (gone() || progress.hidden()) toast(app, listing.title + ": " + done);
                 ui(() -> {
-                    progress.done(note == null ? "Published: it is in the Play Store now." : "Published. " + note);
+                    progress.done(done);
                     progress.link(ProjectRepo.link(login, repo.name));
                 });
             } catch (Exception e) {
                 String why = GitHubImportDialog.text(e);
+                if (gone() || progress.hidden()) toast(app, "Publishing " + listing.title + " didn't work: " + why);
                 ui(() -> progress.failed(why, true));
             }
         });
     }
 
+    private boolean gone() {
+        return isFinishing() || isDestroyed();
+    }
+
+    /** A toast from any thread, with the app's context (the screen may be gone). */
+    static void toast(android.content.Context app, String text) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(app, text, Toast.LENGTH_LONG).show());
+    }
+
     /** The project on this phone linked to that repository shows Public now. */
-    private static void markLocalProjectPublic(String login, ProjectRepo.Info repo) {
+    private static void markLocalProjectPublic(android.content.Context app, String login, ProjectRepo.Info repo) {
         try {
             for (java.util.HashMap<String, Object> p : lC.a()) {
                 Object id = p.get("sc_id");
@@ -988,6 +1017,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 if (ProjectLinks.repoNumber(scId, login) == repo.number
                         || repo.name.equalsIgnoreCase(ProjectLinks.repoName(scId, login))) {
                     ProjectLinks.visibilityNow(scId, login, false);
+                    // review (LOW): a backup running meanwhile doesn't write the card back to Private
+                    CloudSync.get(app).visibilityChanged(scId);
                 }
             }
         } catch (RuntimeException ignored) {

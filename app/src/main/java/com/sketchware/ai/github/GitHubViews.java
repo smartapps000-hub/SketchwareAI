@@ -238,6 +238,19 @@ public final class GitHubViews {
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
     }
 
+    /**
+     * v2.1.0 (renders at font scale 1.3: "Play St…", "On this ph…"): one line that shrinks to fit its width, from
+     * {@code maxSp} down to {@code minSp} (Android 8+; "…" below that or on older phones). The view needs a fixed width.
+     */
+    public static void fitOneLine(TextView t, float minSp, float maxSp) {
+        oneLine(t);
+        if (android.os.Build.VERSION.SDK_INT < 26) return;
+        android.util.DisplayMetrics dm = t.getResources().getDisplayMetrics();
+        int min = Math.max(1, Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, minSp, dm)));
+        int max = Math.max(min + 1, Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, maxSp, dm)));
+        t.setAutoSizeTextTypeUniformWithConfiguration(min, max, 1, TypedValue.COMPLEX_UNIT_PX);
+    }
+
     /** A small pill on a row (36dp): orange without glow, or glass. */
     public TextView smallPill(String text, boolean orange, boolean enabled, View.OnClickListener click) {
         TextView t = new TextView(c, null, 0, orange ? R.style.Ob_Text_Button_Cta : R.style.Ob_Text_Button);

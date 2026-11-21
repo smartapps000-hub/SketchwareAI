@@ -94,7 +94,7 @@ public final class HoneyDropBar extends LinearLayout {
         setWillNotDraw(false);
         setClipChildren(false);
         setClipToPadding(false);
-        setPadding(dp(6), dp(4), dp(6), dp(4));
+        setPadding(dp(3), dp(4), dp(3), dp(4));
         glass.setColor(0xF2141418);
         rim.setStyle(Paint.Style.STROKE);
         rim.setStrokeWidth(dp(1));
@@ -122,9 +122,9 @@ public final class HoneyDropBar extends LinearLayout {
         TextView label = new TextView(context);
         label.setText(LABELS[index]);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
-        // never setSingleLine on centred text (it scrolls sideways and draws outside: v2.0.1, v2.0.4)
-        label.setMaxLines(1);
-        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        // never setSingleLine on centred text (it scrolls sideways and draws outside: v2.0.1, v2.0.4); at a large
+        // font size the label shrinks to fit its tab ("Community" whole at 1.3)
+        com.sketchware.ai.github.GitHubViews.fitOneLine(label, 6f, 9.5f);
         label.setGravity(Gravity.CENTER);
         label.setIncludeFontPadding(false);
         try {
@@ -151,13 +151,19 @@ public final class HoneyDropBar extends LinearLayout {
 
     /** A tap: the drop, the sound, the pill flows; the listener hears it when the drop lands. */
     void tap(int index) {
+        // review (LOW): one tab at a time (a second tap while the drop falls would open a second screen)
+        if (tapping) return;
+        tapping = true;
         playSound();
         select(index, true);
         Listener l = listener;
         postDelayed(() -> {
+            tapping = false;
             if (l != null) l.onTab(index);
         }, (long) (DURATION * 0.34f));
     }
+
+    private boolean tapping;
 
     /** Moves the active tab to {@code index}, with the drop and the waves when {@code animate}. */
     public void select(int index, boolean animate) {

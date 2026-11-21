@@ -181,7 +181,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         t.setTextColor(on ? 0xFFFFFFFF : v.color(R.color.ob_text_2));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         t.setPadding(v.dp(6), 0, v.dp(6), 0);
-        GitHubViews.oneLine(t);
+        // 12sp, smaller only when the phone's font size needs it ("On this phone" whole at font scale 1.3)
+        GitHubViews.fitOneLine(t, 9, 12);
         return t;
     }
 
@@ -827,8 +828,9 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     String made = null;
                     try {
                         made = com.sketchware.ai.project.GitHubSample.create(getApplicationContext());
-                    } catch (RuntimeException e) {
-                        // shown below
+                    } catch (Throwable e) {
+                        // review (LOW): an Error too (shown below; never a crash on the executor thread)
+                        mod.jbk.util.LogUtil.e("GitHubBackups", "Demo not made", e);
                     }
                     String id = made;
                     ui(() -> {

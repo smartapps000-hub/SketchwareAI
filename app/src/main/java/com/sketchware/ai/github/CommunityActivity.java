@@ -250,18 +250,16 @@ public class CommunityActivity extends BaseAppCompatActivity {
     private void sendReply(String discussionId, String text) {
         if (!AuthGuard.check(this)) return;
         Toast.makeText(this, "Sending…", Toast.LENGTH_SHORT).show();
-        work.execute(() -> {
+        android.content.Context app = getApplicationContext();
+        PlayStoreActivity.WRITES.execute(() -> {
             String token = token();
             try {
                 if (token == null) throw new GitHubException("signed_out", "Sign in to reply.");
                 PlayStore.reply(token, discussionId, text);
-                ui(() -> {
-                    Toast.makeText(this, "Reply posted", Toast.LENGTH_SHORT).show();
-                    load();
-                });
+                PlayStoreActivity.toast(app, "Reply posted");
+                ui(this::load);
             } catch (Exception e) {
-                String why = GitHubImportDialog.text(e);
-                ui(() -> Toast.makeText(this, why, Toast.LENGTH_LONG).show());
+                PlayStoreActivity.toast(app, GitHubImportDialog.text(e));
             }
         });
     }
@@ -319,19 +317,19 @@ public class CommunityActivity extends BaseAppCompatActivity {
     private void post(String categoryId, String title, String body) {
         String repositoryId = info[0];
         Toast.makeText(this, "Posting…", Toast.LENGTH_SHORT).show();
-        work.execute(() -> {
+        android.content.Context app = getApplicationContext();
+        PlayStoreActivity.WRITES.execute(() -> {
             String token = token();
             try {
                 if (token == null) throw new GitHubException("signed_out", "Sign in to post.");
                 int made = PlayStore.newPost(token, repositoryId, categoryId, title, body);
+                PlayStoreActivity.toast(app, "Posted");
                 ui(() -> {
-                    Toast.makeText(this, "Posted", Toast.LENGTH_SHORT).show();
                     if (made > 0) startActivity(thread(this, owner, repo, made, title));
                     load();
                 });
             } catch (Exception e) {
-                String why = GitHubImportDialog.text(e);
-                ui(() -> Toast.makeText(this, why, Toast.LENGTH_LONG).show());
+                PlayStoreActivity.toast(app, GitHubImportDialog.text(e));
             }
         });
     }

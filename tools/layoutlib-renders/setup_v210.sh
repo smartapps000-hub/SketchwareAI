@@ -44,6 +44,7 @@ package com.besome.sketch.lib.base;
  */
 public class BaseAppCompatActivity extends android.view.ContextThemeWrapper {
     public static final java.util.List<Runnable> QUEUE = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    public static final int RESULT_OK = -1, RESULT_CANCELED = 0;
     private android.widget.FrameLayout root;
     private android.content.Intent intent = new android.content.Intent();
 
@@ -146,6 +147,8 @@ public final class CloudSync {
     public static final String PREFS = "cloud_sync";
     public static final String AUTO_BACKUP_KEY = "P12I_github_backup";
     public static boolean autoBackupOn(android.content.Context c) { return true; }
+    public static CloudSync get(android.content.Context c) { return new CloudSync(); }
+    void visibilityChanged(String scId) { }
     public static final class Import {
         public String owner, repo, legacyPath, legacySha, linkPath, title, librariesFrom; public long number, size;
         public boolean repoPrivate, withLibraries; public ProjectRepo.Version version; public GitHubImport.Source link;
@@ -228,7 +231,7 @@ public final class Demos {
 X
 w $P/GitHubSample.java <<'X'
 package com.sketchware.ai.project;
-public final class GitHubSample { public static String create(android.content.Context c) { return null; } }
+public final class GitHubSample { public static final String NAME = "GitHub API Demo"; public static String create(android.content.Context c) { return null; } }
 X
 w $J/com/besome/sketch/design/DesignActivity.java <<'X'
 package com.besome.sketch.design;
@@ -254,6 +257,10 @@ public final class ThemeMode {
     public static int get(android.content.Context c) { return 2; }
     public static boolean set(android.content.Context c, int mode) { return true; }
 }
+X
+w $J/mod/jbk/util/LogUtil.java <<'X'
+package mod.jbk.util;
+public final class LogUtil { public static void e(String t, String m, Throwable e) { } public static void d(String t, String m) { } }
 X
 w $J/mod/SketchwareUtil.java <<'X'
 package mod;

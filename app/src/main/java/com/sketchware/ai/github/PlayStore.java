@@ -52,6 +52,23 @@ public final class PlayStore {
             return title != null && !title.isEmpty() ? title : displayName(repo);
         }
 
+        /** A copy to read the store page into (the one on screen keeps its own lists meanwhile). */
+        public App copy() {
+            App a = new App();
+            a.owner = owner;
+            a.repo = repo;
+            a.number = number;
+            a.title = title;
+            a.description = description;
+            a.stars = stars;
+            a.updated = updated;
+            a.branch = branch;
+            a.video = video;
+            a.screenshots.addAll(screenshots);
+            a.listingRead = listingRead;
+            return a;
+        }
+
         JsonObject toJson() {
             JsonObject o = new JsonObject();
             o.addProperty("owner", owner);

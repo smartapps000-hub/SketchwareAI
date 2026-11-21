@@ -220,9 +220,15 @@ public final class GitHubSession {
     /** Signs out on this phone: token, login, id, Keystore key, profile and picture. Backups on GitHub stay. */
     public static void signOut(Context context) {
         TokenStore.get(context).clear();
-        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply();
+        SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        // v2.1.0 review (LOW): the sign-in history stays (the next refusal's note counts the sign-ins on this phone)
+        int count = prefs.getInt("signin_count", 0);
+        prefs.edit().clear().putInt("signin_count", count).apply();
         //noinspection ResultOfMethodCallIgnored
         avatarFile(context).delete();
+        // v2.1.0: this phone's mark is no longer claimed; the repository viewer's saved pages (private ones too) go
+        SingleDeviceGuard.forget(context);
+        deleteTree(new java.io.File(context.getApplicationContext().getFilesDir(), "repo_viewer"));
         AuthGuard.reset();
         // GitHub's web sign-in in the app's sign-in window goes too (its cookies are the only WebView cookies of the app)
         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
@@ -235,6 +241,13 @@ public final class GitHubSession {
             }
         });
         changed();
+    }
+
+    private static void deleteTree(java.io.File f) {
+        java.io.File[] children = f.listFiles();
+        if (children != null) for (java.io.File c : children) deleteTree(c);
+        //noinspection ResultOfMethodCallIgnored
+        f.delete();
     }
 
     /**

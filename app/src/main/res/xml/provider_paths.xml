@@ -3,4 +3,8 @@
     <external-path
         name="external_files"
         path="." />
+    <!-- v2.1.0: the in-app updater's checked APK (the app's own cache: no other app can change it) -->
+    <cache-path
+        name="updates"
+        path="updates/" />
 </paths>

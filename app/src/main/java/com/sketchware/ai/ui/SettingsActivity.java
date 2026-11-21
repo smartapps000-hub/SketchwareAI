@@ -165,7 +165,9 @@ public class SettingsActivity extends BaseAppCompatActivity {
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
         TextView version = new TextView(this, null, 0, R.style.Ob_Text_Label);
-        version.setText("Sketchware AI " + com.sketchware.remod.BuildConfig.VERSION_NAME.replaceFirst("-minApi\\d+$", ""));
+        // the version without the build's hash and flavour ("v2.1.0"): it fits beside the Update pill
+        version.setText("Sketchware AI " + com.sketchware.remod.BuildConfig.VERSION_NAME.replaceFirst("-minApi\\d+$", "")
+                .replaceFirst("-[0-9a-z]+$", ""));
         version.setTypeface(v.bold());
         GitHubViews.oneLine(version);
         top.addView(version, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -178,8 +180,9 @@ public class SettingsActivity extends BaseAppCompatActivity {
             top.addView(badge(config == null ? "Not checked yet" : "Latest", config != null), new LinearLayout.LayoutParams(-2, v.dp(26)));
         }
         card.addView(top);
-        TextView note = v.line(newer ? "Downloaded in the app and checked (SHA-256) before Android's installer opens."
-                : config == null ? "Checked at the next start with a network." : "You have the newest version.", false);
+        String build = "Build " + com.sketchware.remod.BuildConfig.VERSION_NAME + " (" + com.sketchware.remod.BuildConfig.VERSION_CODE + "). ";
+        TextView note = v.line(build + (newer ? "Downloaded in the app and checked (SHA-256) before Android's installer opens."
+                : config == null ? "Checked at the next start with a network." : "You have the newest version."), false);
         note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         card.addView(note, v.full(-1, 4));
         if (config != null && !config.comingSoon.isEmpty()) {

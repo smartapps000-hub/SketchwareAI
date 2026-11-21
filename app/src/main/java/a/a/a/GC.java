@@ -470,7 +470,10 @@ public class GC extends DA implements View.OnClickListener {
     public void onClick(View v) {
         int viewId = v.getId();
 
-        if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && super.a(REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY)) {
+        if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && com.sketchware.ai.github.AppControl.updateRequired()) {
+            // v2.1.0 review (MEDIUM): an update that can't wait comes first (the card as the Create tab)
+            if (getActivity() != null) com.sketchware.ai.github.AppControl.showUpdateAgain(getActivity());
+        } else if ((viewId == R.id.cv_create_new || viewId == R.id.fab) && super.a(REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY)) {
             toProjectSettingsActivity();
         } else if (viewId == R.id.cv_restore_projects && super.a(REQUEST_CODE_RESTORE_PROJECT)) {
             chooseRestore();

@@ -706,6 +706,7 @@ public final class CloudSync {
             ensureWatchdog();
             boolean ok = false;
             boolean retryable = false;
+            boolean requeueNow = false;
             String message;
             service(job, true);
             try {
@@ -765,6 +766,10 @@ public final class CloudSync {
                         + SyncDoctor.forThrowable(t);
             } finally {
                 synchronized (this) {
+                    // v2.1.0 review (LOW): a paused job goes back into its lane in the same lock that frees the lane,
+                    // so a job of that project enqueued meanwhile can't land in another lane and run beside it
+                    requeueNow = job.deferred && !ok && !job.cancelled && !job.abandoned && lane.worker == me;
+                    if (requeueNow) requeueDeferred(lane, job);
                     if (lane.current == job) lane.current = null;
                     job.thread = null;
                 }
@@ -783,11 +788,9 @@ public final class CloudSync {
             synchronized (this) {
                 // its end was already told by the watchdog, and the lane has another worker now
                 if (job.abandoned || lane.worker != me) return;
-                if (job.deferred && !ok && !job.cancelled) {
-                    // v2.0.5: paused for a tap: back in the queue after the taps' jobs (it resumes from its parts)
-                    requeueDeferred(lane, job);
-                    requeued = true;
-                }
+                // v2.0.5: paused for a tap: back in the queue after the taps' jobs (it resumes from its parts);
+                // v2.1.0: already put back in the finally above
+                requeued = requeueNow;
             }
             if (requeued) {
                 // review (LOW): a screen following the paused job hears it
@@ -806,6 +809,17 @@ public final class CloudSync {
                 job.finished = true;
                 finish(job, ok, message, retryable && followed);
             }
+            // v2.1.0 review (LOW): the shared notification follows the jobs still running in the other lanes
+            Job stillRunning = null;
+            synchronized (this) {
+                for (Lane l : lanes()) {
+                    if (l.current != null && !l.current.finished && l.current != job) {
+                        stillRunning = l.current;
+                        break;
+                    }
+                }
+            }
+            if (stillRunning != null) service(stillRunning, true);
             // the ones still waiting: their place moved up
             java.util.List<Job> waitingJobs;
             synchronized (this) {

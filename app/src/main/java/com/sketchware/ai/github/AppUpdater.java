@@ -72,24 +72,31 @@ public final class AppUpdater {
         Context app = activity.getApplicationContext();
         android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
         worker[0] = new Thread(() -> {
-            File dir = new File(android.os.Environment.getExternalStorageDirectory(), ".sketchware/downloads");
+            // v2.1.0 review (MEDIUM): in the app's own cache folder (shared with the installer through the
+            // FileProvider), so no other app can swap the checked file before the installer reads it
+            File dir = updatesDir(app);
             File target = new File(dir, FILE);
             File part = new File(dir, FILE + ".part");
             String failure = null;
             try {
                 if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Can't create " + dir);
-                String sha = download(config.updateUrl, part, cancelled, (done, total) -> main.post(() -> {
-                    int percent = total > 0 ? 2 + (int) (93 * Math.min(1.0, done / (double) total)) : 50;
-                    progress.update(percent, "Downloading… " + CloudSync.megabytes(done)
-                            + (total > 0 ? " of " + CloudSync.megabytes(total) : ""));
-                }));
-                if (!config.updateSha256.equals(sha)) {
-                    //noinspection ResultOfMethodCallIgnored
-                    part.delete();
-                    throw new IOException("The downloaded file isn't the release (its SHA-256 doesn't match): it was deleted.");
+                // review (LOW): back from "Install unknown apps": the checked file is still there
+                if (target.isFile() && config.updateSha256.equals(sha256(target))) {
+                    main.post(() -> progress.update(96, "Downloaded before and checked again"));
+                } else {
+                    String sha = download(config.updateUrl, part, cancelled, (done, total) -> main.post(() -> {
+                        int percent = total > 0 ? 2 + (int) (93 * Math.min(1.0, done / (double) total)) : 50;
+                        progress.update(percent, "Downloading… " + CloudSync.megabytes(done)
+                                + (total > 0 ? " of " + CloudSync.megabytes(total) : ""));
+                    }));
+                    if (!config.updateSha256.equals(sha)) {
+                        //noinspection ResultOfMethodCallIgnored
+                        part.delete();
+                        throw new IOException("The downloaded file isn't the release (its SHA-256 doesn't match): it was deleted.");
+                    }
+                    if (target.exists() && !target.delete()) throw new IOException("Can't replace " + target);
+                    if (!part.renameTo(target)) throw new IOException("Couldn't save " + target);
                 }
-                if (target.exists() && !target.delete()) throw new IOException("Can't replace " + target);
-                if (!part.renameTo(target)) throw new IOException("Couldn't save " + target);
             } catch (Exception e) {
                 //noinspection ResultOfMethodCallIgnored
                 part.delete();
@@ -168,6 +175,22 @@ public final class AppUpdater {
         throw new IOException("Too many redirects.");
     }
 
+    /** The update's folder: the app's own cache (provider_paths.xml shares it with the installer as "updates"). */
+    static File updatesDir(Context context) {
+        return new File(context.getApplicationContext().getCacheDir(), "updates");
+    }
+
+    /** A file's SHA-256 in lower-case hex. */
+    static String sha256(File f) throws Exception {
+        MessageDigest sha = MessageDigest.getInstance("SHA-256");
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            byte[] buffer = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buffer)) > 0) sha.update(buffer, 0, n);
+        }
+        return SwbParts.hex(sha.digest());
+    }
+
     /** Android's installer for {@code apk} (Android 8+: "Install unknown apps" for Sketchware AI first, once). */
     static void install(Activity activity, File apk) {
         if (activity.isFinishing() || activity.isDestroyed()) return;
@@ -190,7 +213,7 @@ public final class AppUpdater {
             intent.setDataAndType(uri, "application/vnd.android.package-archive");
             activity.startActivity(intent);
         } catch (RuntimeException e) {
-            Toast.makeText(activity, "The update is in .sketchware/downloads/" + FILE + " (no installer could open it)",
+            Toast.makeText(activity, "No installer could open the update: try Settings › App updates again.",
                     Toast.LENGTH_LONG).show();
         }
     }

@@ -324,6 +324,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         if (bar != null && bar.selected() != com.sketchware.ai.ui.HoneyDropBar.HOME) {
             bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);
         }
+        // review (LOW): never left slid away (a list that can't scroll any more can't bring it back)
+        if (bar != null) bar.setScrolledAway(false);
         // v1.9.9: the sign-in screen first when app-control.json requires it (it can't be dismissed); v2.1.0: only once
         // the startup gate (update first) has cleared
         if (com.sketchware.ai.github.AppControl.gatePassed() && !com.sketchware.ai.github.AuthGuard.check(this)) return;
@@ -528,9 +530,7 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         switch (tab) {
             case com.sketchware.ai.ui.HoneyDropBar.CREATE:
                 if (com.sketchware.ai.github.AppControl.updateRequired()) {
-                    Toast.makeText(this, "Update Sketchware AI first: this version can't make new projects any more.",
-                            Toast.LENGTH_LONG).show();
-                    com.sketchware.ai.github.AppControl.showPending(this);
+                    com.sketchware.ai.github.AppControl.showUpdateAgain(this);
                 } else if (projectsFragment != null && projectsFragment.openCreate()) {
                     return;
                 }
