@@ -327,40 +327,48 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     + "Back up to GitHub): each project gets its own repository.", false), v.full(-1, 8));
             return;
         }
+        java.util.Map<Long, ImageView> icons = new java.util.HashMap<>();
         for (ProjectRepo.Info info : repos) {
+            // v2.1.1 (owner's 21 Nov directive "slim cards like Demo and Home"): two rows: the app icon, the name and
+            // one line, Public / Private and Share; then the version selector, Restore and Pin
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setBackgroundResource(R.drawable.ob_pill16);
-            // v2.1.0: compact, the density of the projects list's cards
-            card.setPadding(v.dp(12), v.dp(8), v.dp(8), v.dp(8));
+            card.setPadding(v.dp(10), v.dp(8), v.dp(8), v.dp(8));
             LinearLayout top = new LinearLayout(this);
             top.setOrientation(LinearLayout.HORIZONTAL);
             top.setGravity(Gravity.CENTER_VERTICAL);
+            android.widget.FrameLayout tile = iconTile(displayName(info.name));
+            top.addView(tile, new LinearLayout.LayoutParams(v.dp(40), v.dp(40)));
+            icons.put(info.number, (ImageView) tile.getChildAt(1));
+            LinearLayout texts = new LinearLayout(this);
+            texts.setOrientation(LinearLayout.VERTICAL);
             TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
             name.setText(displayName(info.name));
             name.setTypeface(v.bold());
             name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            name.setSingleLine(true);
-            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            top.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
+            GitHubViews.oneLine(name);
+            texts.addView(name);
+            TextView when = v.line(info.updated > 0 ? "Updated " + CloudBackup.formatTime(info.updated) : info.name, false);
+            when.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            GitHubViews.oneLine(when);
+            texts.addView(when);
+            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
+            tp.leftMargin = v.dp(10);
+            top.addView(texts, tp);
             TextView badge = badge(info.isPrivate ? "Private" : "Public", !info.isPrivate);
             LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(26));
             bp.leftMargin = v.dp(6);
             top.addView(badge, bp);
             ImageView share = v.iconButton(R.drawable.ob_ic_share, "Share " + info.name);
             share.setOnClickListener(x -> ProjectLinks.share(this, displayName(info.name), ProjectRepo.link(login, info.name)));
-            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(v.dp(32), v.dp(32));
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(v.dp(30), v.dp(30));
             sp.leftMargin = v.dp(6);
             top.addView(share, sp);
             card.addView(top);
-            TextView when = v.line((info.updated > 0 ? "Updated " + CloudBackup.formatTime(info.updated) + " · " : "")
-                    + info.name, false);
-            when.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            when.setSingleLine(true);
-            when.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            card.addView(when, v.full(-1, 2));
             LinearLayout body = new LinearLayout(this);
-            body.setOrientation(LinearLayout.VERTICAL);
+            body.setOrientation(LinearLayout.HORIZONTAL);
+            body.setGravity(Gravity.CENTER_VERTICAL);
             card.addView(body, v.full(-1, 6));
             List<ProjectRepo.Version> kept = RepoCache.versions(this, login, info.number);
             cards.put(info.number, body);
@@ -371,6 +379,61 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             }
             projects.addView(card, v.full(-1, 8));
         }
+        loadIcons(repos, login, icons);
+    }
+
+    /** v2.1.1: a row of GitHubViews.row with the project's tile in front of its texts; the tile's icon view. */
+    private ImageView withIcon(LinearLayout row, String name) {
+        android.widget.FrameLayout tile = iconTile(name);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(v.dp(40), v.dp(40));
+        p.rightMargin = v.dp(10);
+        row.addView(tile, 0, p);
+        row.setPadding(v.dp(10), v.dp(8), v.dp(10), v.dp(8));
+        return (ImageView) tile.getChildAt(1);
+    }
+
+    /**
+     * v2.1.1: the Home card's tile at 40dp (the Liquid Glass design file: two letters in Sora bold {@code ob_accent_2}
+     * on {@code ob_avatar}); the project's own icon covers it once found (child 1). A project without an own icon keeps
+     * its letters, as on Home: its app gets the template's icon.
+     */
+    private android.widget.FrameLayout iconTile(String name) {
+        android.widget.FrameLayout tile = new android.widget.FrameLayout(this);
+        tile.setBackgroundResource(R.drawable.ob_avatar);
+        tile.setClipToOutline(true);
+        TextView letters = new TextView(this);
+        letters.setText(a.a.a.GC.monogram(name == null ? "" : name));
+        letters.setTypeface(v.bold());
+        letters.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        letters.setTextColor(v.color(R.color.ob_accent_2));
+        letters.setGravity(Gravity.CENTER);
+        letters.setIncludeFontPadding(false);
+        tile.addView(letters, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        ImageView icon = new ImageView(this);
+        icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        icon.setContentDescription(null);
+        tile.addView(icon, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        return tile;
+    }
+
+    /** v2.1.1: the cards' real icons in the background (the linked project's own icon, else GitHub's copy). */
+    private void loadIcons(List<ProjectRepo.Info> repos, String login, java.util.Map<Long, ImageView> icons) {
+        List<ProjectRepo.Info> list = new ArrayList<>(repos);
+        int px = v.dp(40);
+        lookups.execute(() -> {
+            java.util.Map<Long, String> linked = RepoIcons.linkedProjects(login);
+            String token = TokenStore.get(getApplicationContext()).login() == null
+                    || GitHubSession.isRefused(getApplicationContext()) ? null : TokenStore.get(getApplicationContext()).token();
+            for (ProjectRepo.Info info : list) {
+                android.graphics.Bitmap b = RepoIcons.forRepo(getApplicationContext(), token, login, info.name, info.number,
+                        linked.get(info.number), px);
+                if (b == null) continue;
+                ui(() -> {
+                    ImageView view = icons.get(info.number);
+                    if (view != null && cards.containsKey(info.number)) view.setImageBitmap(b);
+                });
+            }
+        });
     }
 
     private static String displayName(String repo) {
@@ -431,48 +494,30 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             return;
         }
         long newest = newestTime(versions);
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout strip = new LinearLayout(this);
-        strip.setOrientation(LinearLayout.HORIZONTAL);
-        scroll.addView(strip);
-        body.addView(scroll);
-        // v2.1.0: one compact row under the versions: "+N older versions →" left, Restore and Pin right (small pills)
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.setGravity(Gravity.CENTER_VERTICAL);
-        body.addView(actions, v.full(-1, 6));
+        // v2.1.1: one compact row: the version selector (★ Pinned / New, how many more; a tap lists them), Restore, Pin
         ProjectRepo.Version[] selected = {shown.get(0)};
         Runnable[] refresh = new Runnable[1];
         refresh[0] = () -> {
-            strip.removeAllViews();
-            for (int i = 0; i < shown.size(); i++) {
-                ProjectRepo.Version ver = shown.get(i);
-                strip.addView(chip(ver, ver.time == newest, ver == selected[0], x -> {
-                    selected[0] = ver;
-                    refresh[0].run();
-                }), chipParams(i));
-            }
-            actions.removeAllViews();
+            body.removeAllViews();
             ProjectRepo.Version s = selected[0];
-            TextView older = new TextView(this, null, 0, R.style.Ob_Text_Caption);
-            if (shown.size() > 1) {
-                // v2.0.5: how many more sit in the row (swipe; a tap scrolls to them)
-                int more = shown.size() - 1;
-                older.setText("+" + more + (more == 1 ? " older →" : " older →"));
-                older.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-                older.setTypeface(v.bold());
-                older.setTextColor(v.color(R.color.ob_accent));
-                older.setOnClickListener(x -> scroll.smoothScrollTo(strip.getWidth(), 0));
-                older.setContentDescription(more + (more == 1 ? " older version" : " older versions"));
-            }
-            GitHubViews.oneLine(older);
-            actions.addView(older, new LinearLayout.LayoutParams(0, -2, 1f));
+            String mark = badgeOf(s, s.time == newest);
+            int more = shown.size() - 1;
+            TextView selector = v.smallPill(s.label() + (mark.isEmpty() ? "" : " · " + mark)
+                    + (more > 0 ? "  +" + more : "") + "  ▾", false, true, x -> chooseVersion(shown, newest, selected,
+                    refresh[0]));
+            selector.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            selector.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            selector.setPadding(v.dp(12), 0, v.dp(10), 0);
+            GitHubViews.oneLine(selector);
+            selector.setContentDescription("Version " + s.label() + " " + mark + (more > 0 ? ", " + more + " more" : ""));
+            body.addView(selector, new LinearLayout.LayoutParams(0, v.dp(32), 1f));
             TextView restore = v.smallPill("Restore", true, true, x -> restoreVersion(info, login, s));
             restore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             restore.setContentDescription("Restore " + s.label());
             GitHubViews.oneLine(restore);
-            actions.addView(restore, new LinearLayout.LayoutParams(-2, v.dp(32)));
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-2, v.dp(32));
+            rp.leftMargin = v.dp(6);
+            body.addView(restore, rp);
             // v2.0.5: Pin moves the version to the front slot (★ Pinned); Unpin gives it back to New
             TextView pin = v.smallPill(s.standard ? "Unpin" : "★ Pin", false, true,
                     x -> setStandard(info, login, s, !s.standard));
@@ -480,49 +525,31 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             GitHubViews.oneLine(pin);
             LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, v.dp(32));
             pp.leftMargin = v.dp(6);
-            actions.addView(pin, pp);
+            body.addView(pin, pp);
         };
         refresh[0].run();
     }
 
-    private LinearLayout.LayoutParams chipParams(int index) {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
-        if (index > 0) p.leftMargin = v.dp(8);
-        return p;
-    }
-
-    private LinearLayout chip(ProjectRepo.Version ver, boolean newest, boolean selected, View.OnClickListener click) {
-        LinearLayout c = new LinearLayout(this);
-        c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackgroundResource(selected ? R.drawable.ob_seg_pill_on : R.drawable.ob_seg_pill);
-        c.setPadding(v.dp(10), v.dp(6), v.dp(10), v.dp(6));
-        c.setMinimumWidth(v.dp(104));
-        TextView label = new TextView(this, null, 0, R.style.Ob_Text_Label);
-        label.setText(ver.label());
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        label.setTypeface(v.bold());
-        GitHubViews.oneLine(label);
-        label.setTextColor(selected ? 0xFFFFFFFF : v.color(R.color.ob_text));
-        c.addView(label);
-        String tagLine = badgeOf(ver, newest);
-        if (!tagLine.isEmpty()) {
-            TextView t = new TextView(this, null, 0, R.style.Ob_Text_Caption);
-            t.setText(tagLine);
-            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-            t.setTypeface(v.bold());
-            t.setTextColor(selected ? 0xFFFFFFFF : v.color(R.color.ob_accent));
-            c.addView(t);
+    /** The versions of a card to pick from (newest first, ★ Pinned and New marked, with their dates). */
+    private void chooseVersion(List<ProjectRepo.Version> shown, long newest, ProjectRepo.Version[] selected, Runnable refresh) {
+        String[] labels = new String[shown.size()];
+        int at = 0;
+        for (int i = 0; i < shown.size(); i++) {
+            ProjectRepo.Version ver = shown.get(i);
+            String mark = badgeOf(ver, ver.time == newest);
+            labels[i] = ver.label() + (mark.isEmpty() ? "" : " · " + mark)
+                    + (ver.time > 0 ? "\n" + CloudBackup.formatTime(ver.time) : "");
+            if (ver == selected[0]) at = i;
         }
-        TextView time = new TextView(this, null, 0, R.style.Ob_Text_Caption);
-        time.setText(ver.time > 0 ? CloudBackup.formatTime(ver.time) : ver.tag);
-        time.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        time.setSingleLine(true);
-        time.setTextColor(selected ? 0xE6FFFFFF : v.color(R.color.ob_text_2));
-        c.addView(time);
-        c.setClickable(true);
-        c.setOnClickListener(click);
-        c.setContentDescription(ver.label() + " " + tagLine);
-        return c;
+        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Version")
+                .setSingleChoiceItems(labels, at, (d, which) -> {
+                    selected[0] = shown.get(which);
+                    d.dismiss();
+                    refresh.run();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void setStandard(ProjectRepo.Info info, String login, ProjectRepo.Version ver, boolean on) {
@@ -854,6 +881,12 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             open.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             GitHubViews.oneLine(open);
             LinearLayout row = v.row("#" + (i + 1) + "  " + name, detail, open);
+            // v2.1.1: the demo's own icon
+            ImageView demoIcon = withIcon(row, name);
+            work.execute(() -> {
+                android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.localIcon(scId), v.dp(40));
+                if (b != null) ui(() -> demoIcon.setImageBitmap(b));
+            });
             row.setOnLongClickListener(x -> {
                 new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                         .setTitle("Delete " + name + " (#" + scId + ")?")
@@ -962,13 +995,26 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     rows.addView(v.line("No .swb backups in this folder yet (a project's Back up > Save on phone).", false));
                     return;
                 }
+                java.util.Map<File, ImageView> icons = new java.util.HashMap<>();
                 for (File f : files) {
                     String folder = f.getParentFile() == null ? "" : f.getParentFile().getName();
                     String detail = CloudBackup.formatTime(f.lastModified()) + " · " + CloudSync.megabytes(f.length())
                             + (folder.equals(new File(BackupFactory.getBackupDir()).getName()) ? "" : " · " + folder);
-                    rows.addView(v.row(f.getName().replaceAll("(?i)\\.swb$", ""), detail,
-                            v.smallPill("Restore", true, true, x -> restoreLocal(f))), v.full(-1, 8));
+                    TextView restore = v.smallPill("Restore", true, true, x -> restoreLocal(f));
+                    restore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                    GitHubViews.oneLine(restore);
+                    LinearLayout row = v.row(f.getName().replaceAll("(?i)\\.swb$", ""), detail, restore);
+                    icons.put(f, withIcon(row, f.getName().replaceAll("(?i)\\.swb$", "")));
+                    rows.addView(row, v.full(-1, 6));
                 }
+                // v2.1.1: each backup's own app icon (its resources/icons/icon.png)
+                int px = v.dp(40);
+                work.execute(() -> {
+                    for (File f : files) {
+                        android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.fromSwb(f), px);
+                        if (b != null) ui(() -> icons.get(f).setImageBitmap(b));
+                    }
+                });
             });
         });
     }

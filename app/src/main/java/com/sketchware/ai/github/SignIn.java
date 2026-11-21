@@ -362,8 +362,9 @@ public final class SignIn {
             clearSaved();
             changed();
             GitHubSession.changed();
-            // projects made while signed out of GitHub or offline go up now
-            CloudSync.get(app).syncPending();
+            // projects made while signed out of GitHub or offline go up now; v2.1.1: and every job a refused sign-in
+            // stopped goes on by itself (a backup from its checkpoint, a Play Store publish from its staged files)
+            CloudSync.get(app).resumeAfterSignIn();
             // v2.0.4: the account's project repositories into the phone's list, in the background (a fresh phone lists
             // what another one backed up without waiting when Restore projects opens)
             RepoCache.discover(app);

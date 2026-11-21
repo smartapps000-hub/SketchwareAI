@@ -141,6 +141,7 @@ public final class CloudSync {
         volatile Thread thread;
         PublishDetails details;
         Import source;
+        Store store;
         /** v2.0.4: the repository page "Open on GitHub" opens, when known. */
         volatile String link;
 
@@ -154,11 +155,13 @@ public final class CloudSync {
 
         /** What the job is (the notification's id and Retry's key). */
         String key() {
+            if (STORE.equals(kind) && store != null) return STORE + ":" + store.number;
             return IMPORT.equals(kind) && source != null ? source.key() : kind + ":" + scId;
         }
 
         String title() {
             String n = name == null ? "project #" + scId : name;
+            if (STORE.equals(kind)) return "Publishing " + n + " to the Play Store";
             if (IMPORT.equals(kind)) return "Importing " + n;
             if (PUBLISH.equals(kind)) return "Publishing " + n;
             return "Backing up " + n;
@@ -168,6 +171,19 @@ public final class CloudSync {
     static final String BACKUP = "backup";
     static final String PUBLISH = "publish";
     static final String IMPORT = "import";
+    /** v2.1.1: a Play Store publish (its form and pictures staged on the phone). */
+    static final String STORE = "store";
+
+    /** v2.1.1: what a Play Store publish needs. */
+    public static final class Store {
+        public String repo;
+        public long number;
+        public String title;
+        /** The staged form and pictures (PlayStore.stagingDir). */
+        public File staging;
+        /** The local project linked to the repository, or null. */
+        public String scId;
+    }
 
     /** One queue and its worker thread. */
     private static final class Lane {
@@ -430,6 +446,36 @@ public final class CloudSync {
         return follow(activity, sync, job, R.drawable.ob_ic_public, "Publish " + name);
     }
 
+    /**
+     * v2.1.1 (owner's 21 Nov directive): a Play Store publish as a job of the queue: its progress in the sheet and the
+     * notification, a refused sign-in pauses it and it goes on by itself after Sign in again (the form and pictures stay
+     * staged on the phone until it worked).
+     */
+    public static GitHubProgress publishToStore(Activity activity, Store store) {
+        CloudSync sync = get(activity);
+        Job job = new Job(store.scId != null ? store.scId : "store-" + store.number, STORE, store.title,
+                Options.AUTOMATIC, true);
+        job.store = store;
+        job.link = ProjectRepo.link(TokenStore.get(activity).login(), store.repo);
+        return follow(activity, sync, job, R.drawable.ob_ic_store, "Publishing " + store.title);
+    }
+
+    /**
+     * v2.1.1: after a new sign-in: every job a refused sign-in stopped runs again by itself (a backup from its
+     * checkpoint, a Play Store publish from its staged files), then the backups that wait.
+     */
+    public void resumeAfterSignIn() {
+        java.util.List<String> keys = new java.util.ArrayList<>(signInNeeded);
+        for (String key : keys) {
+            Job again = retryJob(key);
+            signInNeeded.remove(key);
+            if (again == null) continue;
+            enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
+        }
+        lastPendingTry = 0;
+        syncPending();
+    }
+
     /** v2.0.4: an import into a new project, with its sheet. */
     public static GitHubProgress importProject(Activity activity, Import source) {
         CloudSync sync = get(activity);
@@ -676,6 +722,7 @@ public final class CloudSync {
         Job again = new Job(old.scId, old.kind, old.name, old.options, true);
         again.details = old.details;
         again.source = old.source;
+        again.store = old.store;
         again.link = old.link;
         return again;
     }
@@ -1006,6 +1053,7 @@ public final class CloudSync {
             }
         }
         if (PUBLISH.equals(job.kind)) return runPublish(job);
+        if (STORE.equals(job.kind)) return runStore(job);
         String name = upload(job, job.options, (percent, text) -> step(job, percent, text));
         removePending(job.scId);
         return name + " backed up to its GitHub repository · the share link is on its card" + job.note;
@@ -1328,6 +1376,8 @@ public final class CloudSync {
                 uploadedAll = true;
                 GitHubSession.clearRefused(app);
                 ProjectLinks.saved(scId, login, stored.tag, options, fingerprint, apk == null ? 0 : apkTime);
+                // v2.1.1: the app's own icon beside the backup (cards on other phones and the Play Store show it)
+                RepoIcons.uploadQuietly(token, login, repo.name(), scId);
                 // review M3: a Switch to Private (or Publish) during this backup wrote the newer visibility
                 if (!visibilityChangedSince(scId, began)) ProjectLinks.visibilityNow(scId, login, repo.isPrivate());
                 // a public project keeps its page up to date (README unless edited, CHANGELOG, description)
@@ -1679,6 +1729,32 @@ public final class CloudSync {
         visibilityChanged(job.scId);
         ProjectLinks.visibilityNow(job.scId, login, false);
         return name + " is public: " + repo.link();
+    }
+
+    /** v2.1.1: a Play Store publish (PlayStore.publish with the staged form). */
+    private String runStore(Job job) throws Exception {
+        Store store = job.store;
+        if (store == null || store.staging == null) throw new MissingProject("The publish form isn't on this phone any more.");
+        String[] session = session();
+        String login = session[0];
+        String token = session[1];
+        PlayStore.Listing listing = PlayStore.Listing.load(store.staging);
+        if (listing.title == null || listing.title.trim().isEmpty()) listing.title = store.title;
+        File icon = store.scId == null ? null : RepoIcons.localIcon(store.scId);
+        if (icon != null) listing.icon = java.nio.file.Files.readAllBytes(icon.toPath());
+        step(job, 3, "Opening " + store.repo + " on GitHub…");
+        // review (LOW): a backup running meanwhile doesn't write the card back to Private
+        if (store.scId != null) visibilityChanged(store.scId);
+        String note = PlayStore.publish(token, login, store.repo, listing, (percent, text) -> step(job, percent, text));
+        if (store.scId != null) {
+            visibilityChanged(store.scId);
+            ProjectLinks.visibilityNow(store.scId, login, false);
+        }
+        GitHubSession.clearRefused(app);
+        // published: the staged pictures go (the words stay for the next publish)
+        for (File f : PlayStore.stagedPictures(store.staging)) //noinspection ResultOfMethodCallIgnored
+            f.delete();
+        return store.title + " is in the Play Store" + (note == null ? "." : ". " + note);
     }
 
     // ------------------------------------------------------------------ v2.0.4: imports

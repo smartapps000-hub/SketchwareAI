@@ -164,10 +164,25 @@ public final class GitHubSession {
     /** v2.0.3: the account card's and the messages' words for a 401. */
     static String refusedNote(String gitHubMessage) {
         String when = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.ENGLISH).format(new java.util.Date());
-        String said = gitHubMessage == null || gitHubMessage.trim().isEmpty() ? "" : " (" + gitHubMessage.trim() + ")";
+        String said = gitHubMessage == null || gitHubMessage.trim().isEmpty() ? "" : " (" + answerOf(gitHubMessage) + ")";
         return "GitHub didn't accept the saved sign-in at " + when + said + ". GitHub keeps 10 sign-ins per app for an "
                 + "account and ends the least used one when there are more (other phones, Sign in again), or when its "
                 + "access is removed in GitHub's settings. You're still signed in here: tap Sign in again to renew it; backups wait.";
+    }
+
+    /**
+     * v2.1.1 (owner's 21 Nov screenshot: "…didn't accept the saved sign-in at 08:33 (GitHub didn't accept the saved
+     * sign-in (HTTP 401: …).)."): only GitHub's answer of a message that already says it ("HTTP 401: Bad credentials,
+     * request …").
+     */
+    static String answerOf(String message) {
+        String m = message.trim();
+        int http = m.indexOf("HTTP 401");
+        if (http >= 0) {
+            int end = m.indexOf(')', http);
+            return (end > http ? m.substring(http, end) : m.substring(http)).trim();
+        }
+        return m.endsWith(".") ? m.substring(0, m.length() - 1) : m;
     }
 
     /**

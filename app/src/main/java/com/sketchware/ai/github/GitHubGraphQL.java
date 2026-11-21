@@ -37,6 +37,23 @@ public final class GitHubGraphQL {
         return data.getAsJsonObject();
     }
 
+    /**
+     * v2.1.1: like {@link #run}, but GitHub's errors next to data are ignored (one aliased repository gone doesn't hide
+     * the others); an answer without data is still an error.
+     */
+    public static JsonObject runLenient(String token, String query, JsonObject variables) throws IOException, GitHubException {
+        if (token == null) throw new GitHubException("signed_out", "Sign in with GitHub first (GitHub's Discussions need it).");
+        JsonObject body = new JsonObject();
+        body.addProperty("query", query);
+        if (variables != null) body.add("variables", variables);
+        GitHubHttp.Response r = GitHubHttp.api("POST", "/graphql", token, body.toString());
+        if (r.code == 401) throw new GitHubException("http_401", "GitHub didn't accept the saved sign-in (HTTP 401).");
+        if (!r.ok()) throw CloudBackup.http("Asking GitHub", r);
+        JsonElement data = DeviceFlow.parse(r.body).get("data");
+        if (data == null || !data.isJsonObject()) throw new GitHubException("bad_answer", "GitHub's answer had no data.");
+        return data.getAsJsonObject();
+    }
+
     /** A nested object or null ("a.b.c"). */
     public static JsonObject object(JsonObject root, String path) {
         JsonObject o = root;

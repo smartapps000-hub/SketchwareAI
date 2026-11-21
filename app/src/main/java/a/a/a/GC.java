@@ -172,7 +172,7 @@ public class GC extends DA implements View.OnClickListener {
     }
 
     /** "Vehicle Parking" -> "VP", "testapk" -> "TE", "my_app" -> "MA". */
-    static String monogram(String name) {
+    public static String monogram(String name) {
         String[] words = name.trim().split("[\\s_\\-.]+|(?<=[a-z])(?=[A-Z])");
         StringBuilder out = new StringBuilder();
         for (String word : words) {

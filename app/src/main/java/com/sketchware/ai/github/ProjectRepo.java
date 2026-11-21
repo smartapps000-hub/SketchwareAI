@@ -337,6 +337,8 @@ public final class ProjectRepo {
         public long id;
         public String name;
         public long size;
+        /** v2.1.1: GitHub's count of this file's downloads (the Play Store's Downloads). */
+        public long downloads;
         public String state;
     }
 
@@ -420,6 +422,7 @@ public final class ProjectRepo {
                 a.id = number(ao);
                 a.name = DeviceFlow.string(ao, "name");
                 a.size = longOf(ao, "size");
+                a.downloads = longOf(ao, "download_count");
                 a.state = DeviceFlow.string(ao, "state");
                 if (a.name != null) v.assets.add(a);
             }
