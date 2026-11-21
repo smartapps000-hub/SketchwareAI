@@ -14,9 +14,11 @@ is `engineering/v2.1.1-verification.md`.
 
 ## The default app icon
 
-- An app built from a project **without its own icon** now gets the original Android robot (the white head of Android
-  Studio's own default icon, unchanged) on an Obsidian glass squircle with a warm #FF6D24 / #FFB347 glow and a glass
-  rim, instead of the green grid icon. Existing projects without an icon get it at their next Run or export.
+- An app built from a project **without its own icon** now gets the original round Android icon, element for element
+  in the same places (the circle, the grid, the 45° long shadow, the white robot head with its antennae and eyes, the
+  soft shadow under the circle; no border), in Sketchware AI's colours: soft Obsidian glass instead of green, the grid in
+  orange, the long shadow as glassy orange. Existing projects without an icon get it at their next Run or export. New
+  Project and a project's settings show this icon until you pick one.
 - In Sketchware AI's own lists such a project keeps its two letters (GO, NV …). A project with its own icon shows that
   icon everywhere and its app gets it, as before.
 
@@ -42,7 +44,8 @@ is `engineering/v2.1.1-verification.md`.
 - A **creator's page**: picture, name, @login, bio, apps / projects / followers / downloads, their store apps and their
   other projects.
 - **Publish**: the project you chose last time is chosen again, and its words and pictures are kept on the phone as you
-  type and pick (`publish_staging`), so a sign-in, a turned screen or leaving the screen loses nothing. Publishing runs
+  type and pick (`publish_staging`), so a sign-in, a turned screen or leaving the screen loses nothing, and they stay
+  for the next publish (publishing without pictures keeps the store's pictures). Publishing runs
   in the background with its notification; a refused sign-in pauses it and Sign in again continues it by itself. The
   question is now "Make it public?" with the repository's name in the text.
 
@@ -63,13 +66,14 @@ is `engineering/v2.1.1-verification.md`.
 
 - "Sign-in not accepted" quotes GitHub's answer once ("HTTP 401 …").
 - A backup or Play Store publish stopped by a refused sign-in runs again by itself after Sign in again, from where it
-  was.
+  was, but only when the same account signs in (a publish never runs under another account); Sign out forgets them.
 - Android's own backup and phone-to-phone transfer leave the GitHub sign-in out (its key never leaves the phone: a copy
   could only arrive unreadable); after such a restore the app simply starts signed out.
 
 ## Known limits
 
-- Likes, Shares and Views need a sign-in to read and count (GitHub shows reactions to signed-in accounts only); an app
+- Likes, Shares and Views are GitHub reactions (❤️ 🚀 👀) on the app's post: a like, a share or a view shows there under
+  the account's name (the app page says so). They need a sign-in to read and count (GitHub shows reactions to signed-in accounts only); an app
   gets its counters at its first publish with v2.1.1. Downloads work signed out.
 - Sketchware AI's own Discussions are still switched off on GitHub; Community shows the other repositories until its
   owner switches them on (Settings › Features › Discussions).

@@ -1480,7 +1480,8 @@ gold; 4-stage physics; new honey_drop.wav". Record: `engineering/v2.1.1-verifica
 - **Project icons everywhere** (`github.RepoIcons`): the phone's `resources/icons/<sc_id>/icon.png` (custom_icon), a
   .swb's `resources/icons/icon.png`, and GitHub's `playstore/icon.png` (contents API; written after every backup by
   `CloudSync` and by Publish; skipped when the git blob id is the same; read with the token for private repositories;
-  `files/repo_icons/<number>.png`, a 404 remembered a day as `.none`). Restore cards: the Home monogram tile
+  `files/repo_icons/<number>.png`, a 404 remembered a day as `.none`, a saved icon asked again after a week; one quick
+  request per card on the Restore screen's own `iconLoads` worker, none after a network error). Restore cards: the Home monogram tile
   (`GC.monogram`, now public) with the icon laid over it when found (`GitHubBackupsActivity.iconTile`).
 - **Play Store** (`PlayStore`, `PlayStoreActivity`): search box in the header (`gs_tabs`; text filters the phone's list,
   IME Search = `PlayStore.search(token, text, user)` with an URL-encoded `q`, `@login` opens a creator); `App` version
