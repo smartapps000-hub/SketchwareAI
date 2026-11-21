@@ -417,6 +417,27 @@ transfer. `config/app-control.json`: min 208, latest 208, `force_update` true (v
 `setup_v211.sh` + `V211Test` / `V211LargeFontTest` / `V211BarTest`. V211CLIENT 13/13, V210CLIENT 27/27, GITHUBCLIENT 107/107;
 ART suite in the record; three review passes. APK v2.1.1-491ab6c, versionCode 208 (next 209), sha256 `c623ae92...b45018b4f`,
 142,804,337 bytes.
+v2.1.2 (owner's 21 Nov "CRITICAL PERFORMANCE, UX & BUG-FIX DIRECTIVE (v2.1.2 / versionCode 209)" with 17 v2.1.1 phone
+screenshots; record `engineering/v2.1.2-verification.md`): **tabs kept behind Home** (`TabScreens`: no close question;
+Back = Home via `FLAG_ACTIVITY_REORDER_TO_FRONT`, Home re-opens tabs with it (`reopen`), `onNewIntent` takes the tab marks
+or, for a stray inner page, finishes it and asks again; Create closes (`EXTRA_CLOSES`); Back on Home = `moveTaskToBack`,
+in another app's task `finishAffinity`; `GitHubLinkActivity` never CLEAR_TOP). Zero-lag: `GC.a` reads the list on an
+executor (generation number, `LAST_LIST` copies), memos in `ProjectLinks.read` (cleared on writes / `listChanged`),
+`PlayStore.cached`, `GitHubSession.profile` (+ `warmUp`), `AppControl.cached`. Update: `UpdateCard` (heading glow, "vA → vB",
+`update_reason`, ≤ 3 `update_notes`; required = no Later, not dismissible), `AppUpdater` without Cancel (Hide; Hide +
+Retry), `UpdateNotice` (progress while hidden, "Tap to install" also when the app is in the background); app-control
+`status_message_max_version_code` (v2.1.1's own dialog gets the text). Sign-in: no update path signs out; the one-phone
+rule compared installs: marks now carry `device_key` (hash of ANDROID_ID | login; legacy marks: the model), a mark of this
+phone never signs it out; `SessionLog` (no_backup, sign-ins / sign-outs with reason / installs / updates) → the signed-out
+card's line. `OtpAssist` code bar on github.com `/sessions/verified-device` (Open Gmail, Paste & fill) and
+`/sessions/two-factor…` (digits only; GitHub's own submit after 0.5 s unless the page sent it). Upload: it already streamed
+fixed-length with 64 KB writes; `UploadSpeed` (last ~8 s, "handed to the network · waiting for GitHub to confirm", a
+background-slowness note), one asset up to 25 MiB (`SINGLE_MAX_BYTES`, `partsFor`). Letters in the app (`MonogramDrawable`,
+`PlayStoreActivity.monogramTile`), the round icon only in APKs. Play Store title without subtitle, slim Publish row, hero
+rows apart, four counters on `ob_pill16` (press foreground), Like always answers; Restore `slimCard` for Demo / phone, no
+Demo paragraph; `HoneyDropBar` corners sampled along their arcs (no step above Home). Renders `setup_v212.sh` +
+`V212Test` / `V212LargeFontTest`; jsdom `otp-script-test.js` (OTPSCRIPT 11/11); GITHUBTEST 124/124, V211CLIENT 13/13,
+V210CLIENT 27/27, GITHUBCLIENT 107/107; three review passes. APK @@CLAUDEAPK@@.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
