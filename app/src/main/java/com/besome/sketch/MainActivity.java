@@ -183,6 +183,18 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
                 finishAffinity();
                 return;
             }
+            // third review (LOW): a second Home (a .swb opened into the app's task) closes, the first comes forward
+            if (!isTaskRoot()) {
+                finish();
+                try {
+                    startActivity(new android.content.Intent(this, MainActivity.class)
+                            .setAction(android.content.Intent.ACTION_MAIN)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+                } catch (RuntimeException ignored) {
+                    // the task shows what is below
+                }
+                return;
+            }
         }
         if (!moveTaskToBack(true)) finish();
     }

@@ -550,8 +550,12 @@ public class GC extends DA implements View.OnClickListener {
         public void a() {
             // v2.1.2 review (LOW): the kept list is read again rather than shown with the deleted project
             LAST_LIST = null;
-            // second review (LOW): a list read started before the delete is dropped
+            // second review (LOW): a list read started before the delete is dropped; third review (LOW): and read again,
+            // so a project a restore added meanwhile still appears
             loadGeneration++;
+            if (getActivity() != null && myProjects != null) myProjects.post(() -> {
+                if (getActivity() != null) GC.this.a(false);
+            });
             if (position < projectsList.size()) {
                 allProjects.remove(projectsList.remove(position));
                 projectsAdapter.e(position);
