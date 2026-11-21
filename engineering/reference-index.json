@@ -339,6 +339,36 @@
       "file": "developer.android.com/reference/androidx/core/content/FileProvider (cache-path shares getCacheDir() subfolders)",
       "purpose": "v2.1.0: AppUpdater's checked APK in cacheDir/updates",
       "available": true
+    },
+    {
+      "id": "github-graphql-reactions",
+      "file": "docs.github.com/en/graphql/reference/mutations#addreaction (addReaction / removeReaction with subjectId and ReactionContent; reactionGroups{content viewerHasReacted reactors{totalCount}})",
+      "purpose": "v2.1.1: PlayStore.reactions / react (Likes, Shares, Views)",
+      "available": true
+    },
+    {
+      "id": "github-rest-release-assets-download-count",
+      "file": "docs.github.com/en/rest/releases/assets (download_count of every asset)",
+      "purpose": "v2.1.1: PlayStore.downloadsOf",
+      "available": true
+    },
+    {
+      "id": "github-rest-users",
+      "file": "docs.github.com/en/rest/users/users#get-a-user (login, name, bio, avatar_url, followers, public_repos)",
+      "purpose": "v2.1.1: PlayStore.developer",
+      "available": true
+    },
+    {
+      "id": "android-data-extraction-rules",
+      "file": "developer.android.com/guide/topics/data/autobackup (fullBackupContent for Android 6-11, dataExtractionRules with cloud-backup / device-transfer for Android 12+, exclude domain=sharedpref)",
+      "purpose": "v2.1.1: the GitHub sign-in left out of Android backups",
+      "available": true
+    },
+    {
+      "id": "android-studio-launcher-icon-template",
+      "file": "Android Studio's default ic_launcher_background / ic_launcher_foreground vectors (108 dp viewport: grid, long shadow gradient, robot path); the Android robot is CC BY 3.0 (Google)",
+      "purpose": "v2.1.1: tools/icons/make_default_app_icon.py (geometry checked against the stock template icon: circle, grid lines, head bounds)",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

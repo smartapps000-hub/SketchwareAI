@@ -320,3 +320,17 @@ Whether a generated APK runs on a given Android version depends on that project'
   in-app updater (download on a phone, "Install unknown apps", Android's installer through the FileProvider's
   cache-path) and the single-device sign-out on a second phone are **not run**.
 
+
+## v2.1.1 (21 Nov 2026)
+
+- The default launcher icon of apps without an own icon (template `assets/resource/600/res.zip`): a 144 px PNG in
+  `drawable-xhdpi`, like the stock one; Android scales it for every density. Checked: the APK's template holds it
+  (byte compare). How launchers on Android 8-17 mask a legacy (non-adaptive) round icon is **not run**.
+- Project icons, publish with icon / pictures / version line / stats post, reactions, search, creator page, the
+  Community feed: JVM 17 against a local fake GitHub (`V211ClientTest`); icons, version lines, staging, the Play Store
+  job's 401 wait, resume and account rule: ART API 31 (GitHubTest). GitHub's real reactions, Discussions and search API
+  are **not run** from here.
+- `android:dataExtractionRules` (read by Android 12+) and `android:fullBackupContent` (Android 6-11): present in the
+  manifest (aapt2); an actual backup / restore or phone transfer is **not run**.
+- The bar's glass drop, crater, splash and waves: layoutlib at 10 moments of a tap; the running animation on a phone,
+  SoundPool with the new 44.1 kHz WAV and the ringer-mode check are **not run**.

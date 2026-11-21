@@ -1012,6 +1012,45 @@
       "verifiedOn": [
         "JVM V210ClientTest (decide rules, mark time read back)"
       ]
+    },
+    {
+      "fingerprint": "Community: \"Open on GitHub\" opens a 404 page",
+      "rootCause": "the official repository's Discussions are off; the screen linked to its Discussions page",
+      "repair": "v2.1.1: a feed built in the app from every repository whose Discussions are on (official one included when switched on); nothing links to a Discussions page that is off",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "JVM V211ClientTest (feed)",
+        "render V211Test (Community)"
+      ]
+    },
+    {
+      "fingerprint": "Play Store publish: the picked screenshots gone after Sign in again / a turned screen",
+      "rootCause": "the publish page kept the pictures in memory; Sign in again re-created the screen",
+      "repair": "v2.1.1: the form and pictures are kept on the phone per repository (files/publish_staging/<number>) as they are typed and picked; the publish is a CloudSync job that waits for Sign in again and goes on by itself",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "ART GitHubTest (staging, the job's 401 wait and resume)",
+        "render V211Test (publish with staged pictures)"
+      ]
+    },
+    {
+      "fingerprint": "\"Sign-in not accepted\" note repeats \"GitHub didn't accept the saved sign-in\" twice",
+      "rootCause": "the note quoted the whole failure message, which already said it",
+      "repair": "v2.1.1: GitHubSession.answerOf quotes GitHub's answer (\"HTTP 401 …\") once",
+      "scope": "IDE",
+      "verifiedOn": [
+        "ART GitHubTest (answerOf)"
+      ]
+    },
+    {
+      "fingerprint": "Play Store apps and Restore cards show letter tiles instead of the app's icon",
+      "rootCause": "no icon was stored with a project's repository",
+      "repair": "v2.1.1: RepoIcons: playstore/icon.png written after every backup and by Publish, read for the cards (the Home monogram stays when a project has no icon)",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "JVM V211ClientTest (upload / skip / read)",
+        "render V211Test"
+      ]
     }
   ]
 }

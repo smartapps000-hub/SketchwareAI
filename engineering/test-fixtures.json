@@ -987,6 +987,30 @@
         "no label cut at 1.0 and 1.3 (images out/v210_*.png)",
         "found and fixed: drop and waves clipped above the bar, three labels cut at 1.3, the version name beside the Update pill"
       ]
+    },
+    {
+      "id": "940 githubtest (v2.1.1)",
+      "kind": "ART h.GitHubTest on a fresh m3 project",
+      "content": "v2.1.0's checks with app-control 208 / v2.1.1 plus: RepoIcons.blobSha = git's blob id, a .swb's icon (and none), PlayStore.statusOf (Re-published … • Update #N / Updated to … / first), page() counting published → republished → updated with changelog and stats post, readVersionFields, the publish form staged per repository (8 pictures max, remove + renumber, words kept), matches / count / downloadsOf / iconUrl, GitHubSession.answerOf, a Play Store job refused with 401 waiting for Sign in again, resumed by the sign-in and joined by its sheet, review: another account never resumes it, a job stamped with another account refused before it runs, Sign out forgets waiting jobs",
+      "checks": [
+        "GITHUBTEST n/n (see v2.1.1-verification.md)"
+      ]
+    },
+    {
+      "id": "V211ClientTest (v2.1.1)",
+      "kind": "JVM 17 against a local fake GitHub (tools/jvm-tests/V211ClientTest.java)",
+      "content": "RepoIcons upload (written, same bytes skipped by blob id, replaced with the sha), fetch (and none); PlayStore.publish with icon, two pictures and the older 03/04 removed, first publish 'published' #1 with the stats post made in General, same version 'republished' #2 (post not made twice), new code 'updated' #3 with changelog, a publish without pictures keeping the store's, steps 5 → 97; readListing version line and stats post; downloads; reactions (❤️ 5 mine, 👀 12, 🚀 2; signed out unknown); react add / remove and only ❤️ 👀 🚀; search query (topic, user, words, encoded); developer (profile, store apps, other projects, 404); feed (aliased query, a repository gone, Discussions off out of New post, stats posts out, newest first)",
+      "checks": [
+        "V211CLIENT 13/13"
+      ]
+    },
+    {
+      "id": "Renders V211Test / V211BarTest",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v211.sh)",
+      "content": "Play Store list with the header search, icons and version lines; an app page with icon, @creator, Downloads / Likes / Shares / Views and their caption, What's new, pictures, Get it, reviews (the stats post left out); a creator page; Publish with the remembered project and three staged pictures; Community feed from the phone's copy; Restore GitHub / Demo / On this phone with icons and monogram tiles; the bar at rest, at ten moments of a tap and settled (4x zoom of the impact)",
+      "checks": [
+        "images out/v211_*.png"
+      ]
     }
   ]
 }
