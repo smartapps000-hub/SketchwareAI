@@ -335,6 +335,124 @@ public final class GitHubTest {
         List<Object> kept2 = (List<Object>) call(storeClass, "cached", CTX);
         check("v2.1.0: an app's page read later replaces its entry (owner and name in any case), nothing doubled",
                 kept2.size() == 2 && "Notes 2".equals(call(kept2.get(0), "name")), kept2.size());
+        // --- v2.1.1: app icons, version lines, the publish form kept on the phone, the store's helpers
+        Class<?> iconsClass = c("com.sketchware.ai.github.RepoIcons");
+        check("v2.1.1: an icon's git blob id is git's own (an unchanged icon isn't uploaded again)",
+                "ce013625030ba8dba906f756967f9e9ca394464a".equals(call(iconsClass, "blobSha", (Object) "hello\n".getBytes("UTF-8"))),
+                call(iconsClass, "blobSha", (Object) "hello\n".getBytes("UTF-8")));
+        File filesDir = (File) call(CTX, "getFilesDir");
+        File iconSwb = new File(filesDir, "v211-icon.swb");
+        File plainSwb = new File(filesDir, "v211-plain.swb");
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 1, 2, 3};
+        try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(iconSwb))) {
+            z.putNextEntry(new java.util.zip.ZipEntry("project"));
+            z.write(1);
+            z.closeEntry();
+            z.putNextEntry(new java.util.zip.ZipEntry("resources/icons/icon.png"));
+            z.write(png);
+            z.closeEntry();
+        }
+        try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(plainSwb))) {
+            z.putNextEntry(new java.util.zip.ZipEntry("project"));
+            z.write(1);
+            z.closeEntry();
+        }
+        check("v2.1.1: a .swb's own icon is read from resources/icons/icon.png (On this phone cards); none: the letters stay",
+                java.util.Arrays.equals(png, (byte[]) call(iconsClass, "fromSwb", iconSwb))
+                        && call(iconsClass, "fromSwb", plainSwb) == null, null);
+        iconSwb.delete();
+        plainSwb.delete();
+        check("v2.1.1: the version line: \"Re-published v4.7.6 (84) • Update #3\", \"Updated to v4.7.7 (85)\", \"v1.0 (1)\"; "
+                        + "none without a version",
+                "Re-published v4.7.6 (84) • Update #3".equals(call(storeClass, "statusOf", "4.7.6", "84", "republished", 3))
+                        && "Updated to v4.7.7 (85)".equals(call(storeClass, "statusOf", "4.7.7", "85", "updated", 4))
+                        && "v1.0 (1)".equals(call(storeClass, "statusOf", "1.0", "1", "published", 1))
+                        && call(storeClass, "statusOf", null, "1", "updated", 2) == null,
+                call(storeClass, "statusOf", "4.7.6", "84", "republished", 3));
+        Object listing = neu("com.sketchware.ai.github.PlayStore$Listing");
+        set(listing, "title", "Notes Pro");
+        Object v1 = neu("com.sketchware.ai.github.ProjectRepo$Version");
+        set(v1, "versionName", "1.0");
+        set(v1, "versionCode", "1");
+        set(v1, "notes", "✨ First version");
+        Object first = call(storeClass, "page", listing, "SketchwareAI-Notes", v1, null, 0, 1000L);
+        Object again = call(storeClass, "page", listing, "SketchwareAI-Notes", v1, first, 7, 2000L);
+        Object v2 = neu("com.sketchware.ai.github.ProjectRepo$Version");
+        set(v2, "versionName", "1.1");
+        set(v2, "versionCode", "2");
+        set(v2, "notes", "🛠 Fixed the list");
+        Object bumped = call(storeClass, "page", listing, "SketchwareAI-Notes", v2, again, 7, 3000L);
+        Class<?> flowClass = c("com.sketchware.ai.github.DeviceFlow");
+        check("v2.1.1: the store page counts publishes: first \"published\" #1, the same version code again "
+                        + "\"republished\" #2, a new code \"updated\" #3 with its changelog; the stats post kept",
+                "published".equals(call(flowClass, "string", first, "action")) && "republished".equals(call(flowClass, "string", again, "action"))
+                        && "updated".equals(call(flowClass, "string", bumped, "action"))
+                        && Integer.valueOf(3).equals(call(storeClass, "intOf", bumped, "publish_number"))
+                        && "🛠 Fixed the list".equals(call(flowClass, "string", bumped, "changelog"))
+                        && Integer.valueOf(7).equals(call(storeClass, "intOf", bumped, "stats_discussion")), bumped);
+        Object readBack = neu("com.sketchware.ai.github.PlayStore$App");
+        call(storeClass, "readVersionFields", readBack, bumped);
+        check("v2.1.1: a card reads its version line from the store page", "Updated to v1.1 (2)".equals(call(readBack, "status"))
+                && Integer.valueOf(7).equals(get(readBack, "statsDiscussion")), call(readBack, "status"));
+        File staging = (File) call(storeClass, "stagingDir", CTX, 4242L);
+        deleteTree(staging);
+        Object form = neu("com.sketchware.ai.github.PlayStore$Listing");
+        set(form, "title", "Timer");
+        set(form, "description", "Counts down.\nTwo lines.");
+        set(form, "video", "https://youtu.be/x");
+        call(form, "saveForm", staging);
+        int accepted = 0;
+        for (int i = 1; i <= 9; i++) {
+            if (Boolean.TRUE.equals(call(storeClass, "stagePicture", staging, new byte[]{(byte) i}))) accepted++;
+        }
+        call(storeClass, "unstagePicture", staging, 1);
+        Object loaded = call(c("com.sketchware.ai.github.PlayStore$Listing"), "load", staging);
+        @SuppressWarnings("unchecked")
+        List<byte[]> shots = (List<byte[]>) get(loaded, "screenshots");
+        StringBuilder order = new StringBuilder();
+        for (byte[] b : shots) order.append(b[0]);
+        @SuppressWarnings("unchecked")
+        List<File> files = (List<File>) call(storeClass, "stagedPictures", staging);
+        check("v2.1.1: the publish form and its pictures are kept on the phone per project (a sign-in or leaving loses "
+                        + "nothing): eight pictures at most, one removed, the rest in order as 01-07.jpg",
+                staging.getPath().endsWith("publish_staging/4242") && "Timer".equals(get(loaded, "title"))
+                        && "Counts down.\nTwo lines.".equals(get(loaded, "description")) && accepted == 8
+                        && "1345678".equals(order.toString()) && files.size() == 7 && files.get(6).getName().equals("07.jpg"),
+                accepted + " " + order + " " + files);
+        deleteTree(staging);
+        Object store1 = neu("com.sketchware.ai.github.PlayStore$App");
+        set(store1, "owner", "ann");
+        set(store1, "repo", "SketchwareAI-Notes");
+        set(store1, "title", "Notes Pro");
+        set(store1, "description", "Quick notes");
+        check("v2.1.1: the search box filters by name, description or creator; \"@an\" by creator only",
+                Boolean.TRUE.equals(call(storeClass, "matches", store1, "notes")) && Boolean.TRUE.equals(call(storeClass, "matches", store1, "quick"))
+                        && Boolean.TRUE.equals(call(storeClass, "matches", store1, "@an")) && Boolean.FALSE.equals(call(storeClass, "matches", store1, "@notes"))
+                        && Boolean.FALSE.equals(call(storeClass, "matches", store1, "timer")), null);
+        check("v2.1.1: the counters read 999, 1.2K, 12K, 2.5M; unknown \"–\"",
+                "999".equals(call(storeClass, "count", 999L)) && "1.2K".equals(call(storeClass, "count", 1234L))
+                        && "12K".equals(call(storeClass, "count", 12000L)) && "2.5M".equals(call(storeClass, "count", 2_500_000L))
+                        && "–".equals(call(storeClass, "count", -1L)), call(storeClass, "count", 1234L));
+        Object dl = neu("com.sketchware.ai.github.ProjectRepo$Version");
+        for (String[] asset : new String[][]{{"Notes.apk", "12"}, {"Notes.swb", "5"}, {"Notes.swb.parts.json", "40"}}) {
+            Object a = neu("com.sketchware.ai.github.ProjectRepo$Asset");
+            set(a, "name", asset[0]);
+            set(a, "downloads", Long.parseLong(asset[1]));
+            @SuppressWarnings("unchecked")
+            List<Object> assets = (List<Object>) get(dl, "assets");
+            assets.add(a);
+        }
+        check("v2.1.1: Downloads = the APK and .swb download counts of the versions (not the parts list)",
+                Long.valueOf(17).equals(call(storeClass, "downloadsOf", java.util.Collections.singletonList(dl))), null);
+        check("v2.1.1: an app's icon is its repository's playstore/icon.png on GitHub's file host",
+                "https://raw.githubusercontent.com/ann/SketchwareAI-Notes/main/playstore/icon.png".equals(call(store1, "iconUrl")),
+                call(store1, "iconUrl"));
+        Class<?> session211 = c("com.sketchware.ai.github.GitHubSession");
+        check("v2.1.1: the refusal note quotes GitHub's answer once (\"HTTP 401 …\", not the whole sentence twice)",
+                "HTTP 401, request 1A2B".equals(call(session211, "answerOf",
+                        "Uploading failed: GitHub didn't accept the saved sign-in (HTTP 401, request 1A2B)."))
+                        && "No connection".equals(call(session211, "answerOf", "No connection.")),
+                call(session211, "answerOf", "Uploading failed: GitHub didn't accept the saved sign-in (HTTP 401, request 1A2B)."));
         Class<?> barClass = c("com.sketchware.ai.ui.HoneyDropBar");
         boolean soundDefault = Boolean.TRUE.equals(call(barClass, "soundOn", CTX));
         call(barClass, "setSoundOn", CTX, false);

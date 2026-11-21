@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
@@ -25,20 +26,30 @@ import android.widget.TextView;
 import com.sketchware.remod.R;
 
 /**
- * v2.1.0 (owner's 16 Nov directive "Honey-Drop & Liquid Waves bottom bar"): the projects screen's dock, six tabs
- * (Home, Create, GitHub, Play Store, Community, Settings) on an Obsidian glass bar (the 22dp glass radius, a 1dp
- * {@code ob_divider} rim). A tap drops a glossy honey drop (#FF6D24 → #FFB347 → #FFD166) onto the tab's icon: it falls,
- * squashes on impact and sends damped liquid waves along the bar's top edge, while the honey pill under the active icon
- * flows to the new tab (its trailing edge follows on a spring, so it stretches like a liquid and settles). A short
- * droplet sound ({@code res/raw/honey_drop.wav}, made for this bar) plays with it unless the phone is on silent or
- * vibrate, or the sound is switched off in Settings ({@link #soundOn}). Each tab is a real view with its name for
- * TalkBack; the drawing is behind (glass, pill) and over (drop, waves) them. {@link #setScrolledAway} slides the bar out
- * of the way while the list scrolls down and back on the way up.
+ * v2.1.0 (owner's 16 Nov directive "Honey-Drop & Liquid Waves bottom bar"), v2.1.1 (owner's 21 Nov correction
+ * "hyper-realistic transparent glass droplet and waves, no gold"): the projects screen's dock, six tabs (Home, Create,
+ * GitHub, Play Store, Community, Settings) on an Obsidian glass bar (the 22dp glass radius, a 1dp {@code ob_divider}
+ * rim). The bar's top edge is liquid: the selected tab sits on a raised glass crest, its icon lifted onto it with a
+ * warm {@code #FF6D24} glow beneath. A tap plays four stages in slow motion, all in clear glass (white specular
+ * highlights and rims over the Obsidian, amber only as a glow, no fill colour of its own):
+ * <ol>
+ * <li>descent: a glass teardrop (tapered neck above, heavy belly below) falls onto the tapped tab with three micro
+ * droplets trailing beside and above it; the old crest sinks;</li>
+ * <li>impact: the bar's top edge curves down into a crater under the drop and the tab's icon dips with the force;</li>
+ * <li>rebound: a crown of glass spikes, then a central jet, throw five glass beads up and out, while the icon rises onto
+ * the new crest;</li>
+ * <li>waves: damped glass waves with white / amber edge highlights run from the impact to both ends of the bar, then
+ * it settles.</li>
+ * </ol>
+ * A short sound ({@code res/raw/honey_drop.wav}: a water-drop chirp, a honey body and a ripple tail, made for this bar)
+ * plays with it unless the phone is on silent or vibrate, or the sound is switched off in Settings ({@link #soundOn}).
+ * Each tab is a real view with its name for TalkBack; the bar and crest are drawn behind them, the drop and splash over
+ * them. {@link #setScrolledAway} slides the bar out of the way while the list scrolls down and back on the way up.
  */
 public final class HoneyDropBar extends LinearLayout {
 
     public interface Listener {
-        /** A tab was tapped: called when the drop lands (about 0.25 s after the tap), for the screen to open. */
+        /** A tab was tapped: called after the impact (about 0.45 s after the tap), for the screen to open. */
         void onTab(int index);
     }
 
@@ -54,28 +65,38 @@ public final class HoneyDropBar extends LinearLayout {
 
     public static final String PREFS = "sketchware_ai_ui";
     public static final String KEY_SOUND = "honey_drop_sound";
-    static final long DURATION = 760;
+    /** The whole tap, slow motion (descent, impact, rebound, waves). */
+    static final long DURATION = 1150;
+    /** Stage boundaries as fractions of {@link #DURATION}. */
+    static final float LAND = 0.26f;
+    static final float CRATER_END = 0.38f;
+    /** The listener hears the tap after the crater (the screen opens over the splash). */
+    static final float OPEN_AT = 0.40f;
 
     private final float density;
     private final Paint glass = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint honey = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint gloss = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint wave = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint dropFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint dropRim = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spec = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint warm = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
-    private final Path path = new Path();
+    private final Path body = new Path();
+    private final Path top = new Path();
+    private final Path shape = new Path();
     private final ImageView[] icons = new ImageView[LABELS.length];
     private final TextView[] labels = new TextView[LABELS.length];
 
     private Listener listener;
     private int selected = HOME;
-    /** The pill's leading and trailing centres (they meet when it rests). */
-    private float headX = Float.NaN;
-    private float tailX = Float.NaN;
+    private int previous = HOME;
+    /** The old crest (where the tap came from) and the impact (the tapped tab). */
     private float fromX;
-    /** The drop's animation, 0..1 (NaN: no drop). */
-    private float t = Float.NaN;
     private float dropX;
+    /** The tap's animation, 0..1 (NaN: at rest). */
+    private float t = Float.NaN;
     private ValueAnimator animator;
     private SoundPool sounds;
     private int soundId;
@@ -99,10 +120,12 @@ public final class HoneyDropBar extends LinearLayout {
         rim.setStyle(Paint.Style.STROKE);
         rim.setStrokeWidth(dp(1));
         rim.setColor(color(R.color.ob_divider));
-        gloss.setColor(0x66FFFFFF);
-        wave.setStyle(Paint.Style.STROKE);
-        wave.setStrokeCap(Paint.Cap.ROUND);
-        wave.setStrokeWidth(dp(2.2f));
+        edge.setStyle(Paint.Style.STROKE);
+        edge.setStrokeCap(Paint.Cap.ROUND);
+        edge.setStrokeJoin(Paint.Join.ROUND);
+        dropRim.setStyle(Paint.Style.STROKE);
+        dropRim.setStrokeWidth(Math.max(1f, density * 0.9f));
+        spec.setColor(0xF2FFFFFF);
         for (int i = 0; i < LABELS.length; i++) addView(tabView(context, i), new LayoutParams(0, -1, 1f));
         refreshTabs();
     }
@@ -113,6 +136,7 @@ public final class HoneyDropBar extends LinearLayout {
         tab.setGravity(Gravity.CENTER);
         tab.setClickable(true);
         tab.setFocusable(true);
+        tab.setClipChildren(false);
         tab.setContentDescription(LABELS[index]);
         ImageView icon = new ImageView(context);
         icon.setImageResource(ICONS[index]);
@@ -149,7 +173,7 @@ public final class HoneyDropBar extends LinearLayout {
         return selected;
     }
 
-    /** A tap: the drop, the sound, the pill flows; the listener hears it when the drop lands. */
+    /** A tap: the drop, the sound, the crest moves; the listener hears it after the impact. */
     void tap(int index) {
         // review (LOW): one tab at a time (a second tap while the drop falls would open a second screen)
         if (tapping) return;
@@ -160,44 +184,40 @@ public final class HoneyDropBar extends LinearLayout {
         postDelayed(() -> {
             tapping = false;
             if (l != null) l.onTab(index);
-        }, (long) (DURATION * 0.34f));
+        }, (long) (DURATION * OPEN_AT));
     }
 
     private boolean tapping;
 
-    /** Moves the active tab to {@code index}, with the drop and the waves when {@code animate}. */
+    /** Moves the active tab to {@code index}, with the drop, the splash and the waves when {@code animate}. */
     public void select(int index, boolean animate) {
         if (index < 0 || index >= LABELS.length) return;
+        previous = selected;
         selected = index;
         refreshTabs();
-        float target = centerOf(index);
-        if (!animate || Float.isNaN(headX) || getWidth() == 0) {
+        if (!animate || getWidth() == 0) {
             if (animator != null) animator.cancel();
-            headX = tailX = target;
             t = Float.NaN;
+            applyIcons();
             invalidate();
             return;
         }
         if (animator != null) animator.cancel();
-        fromX = (headX + tailX) / 2f;
-        dropX = target;
+        fromX = centerOf(previous);
+        dropX = centerOf(index);
         animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(DURATION);
         animator.setInterpolator(null);
         animator.addUpdateListener(a -> {
             t = (float) a.getAnimatedValue();
-            // the pill: its head reaches the tab as the drop lands, its tail follows (a liquid stretch), both settle
-            float head = ease(clamp((t - 0.12f) / 0.36f));
-            float tail = spring(clamp((t - 0.22f) / 0.78f));
-            headX = fromX + (dropX - fromX) * head;
-            tailX = fromX + (dropX - fromX) * tail;
+            applyIcons();
             invalidate();
         });
         animator.addListener(new android.animation.AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(android.animation.Animator animation) {
                 t = Float.NaN;
-                headX = tailX = centerOf(selected);
+                applyIcons();
                 invalidate();
             }
         });
@@ -230,141 +250,356 @@ public final class HoneyDropBar extends LinearLayout {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        honey.setShader(new LinearGradient(0, 0, 0, h, new int[]{0xFFFFD166, 0xFFFFB347, 0xFFFF6D24},
-                new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
-        if (animator == null || !animator.isRunning()) headX = tailX = centerOf(selected);
+        applyIcons();
+    }
+
+    // ------------------------------------------------------------------ the physics (pure functions of t)
+
+    /** How far the selected icon is lifted onto its crest at rest. */
+    private float rise() {
+        return dp(9);
+    }
+
+    /** The new crest's height (0..1 of its rest height): after the rebound, on a spring. */
+    static float newCrest(float t) {
+        if (Float.isNaN(t)) return 1f;
+        return spring(clamp((t - CRATER_END) / 0.42f));
+    }
+
+    /** The old crest's height: it sinks while the drop falls. */
+    static float oldCrest(float t) {
+        if (Float.isNaN(t)) return 0f;
+        float f = clamp(t / LAND);
+        return 1f - f * f * (3 - 2 * f);
+    }
+
+    /** The crater's depth (0..1): it opens under the impact and springs back. */
+    static float crater(float t) {
+        if (Float.isNaN(t) || t < LAND - 0.02f) return 0f;
+        float f = clamp((t - (LAND - 0.02f)) / (CRATER_END - LAND + 0.04f));
+        return (float) Math.sin(Math.PI * f);
+    }
+
+    /** The waves' strength (0..1) and how far they have run (0..1 of the way to the far end). */
+    static float waveAmp(float time) {
+        return (float) Math.exp(-2.4 * time);
+    }
+
+    /** The selected icon's offset (down is +): a dip with the impact, then lifted onto the crest. */
+    private float iconOffset(int index) {
+        if (index == selected) {
+            if (Float.isNaN(t)) return -rise();
+            if (index == previous) return -rise();
+            float dip = dp(3.5f) * crater(t);
+            return dip - rise() * newCrest(t);
+        }
+        if (index == previous && !Float.isNaN(t)) return -rise() * oldCrest(t);
+        return 0f;
+    }
+
+    private void applyIcons() {
+        for (int i = 0; i < icons.length; i++) icons[i].setTranslationY(iconOffset(i));
+    }
+
+    /** The top edge's offset at {@code x} (down is +): crests, the crater and the travelling waves. */
+    private float edgeAt(float x) {
+        int w = getWidth();
+        float slot = (w - getPaddingLeft() - getPaddingRight()) / (float) LABELS.length;
+        float crestH = dp(12);
+        float crestW = Math.min(dp(32), slot * 0.62f);
+        float y = 0;
+        if (Float.isNaN(t)) {
+            y -= crestH * bump(x - centerOf(selected), crestW);
+        } else {
+            if (previous != selected) {
+                y -= crestH * oldCrest(t) * bump(x - fromX, crestW);
+                y -= crestH * newCrest(t) * bump(x - dropX, crestW);
+            } else {
+                y -= crestH * bump(x - dropX, crestW);
+            }
+            // the crater: a smooth depression under the impact
+            float c = crater(t);
+            if (c > 0) {
+                float d = (x - dropX) / dp(16);
+                y += dp(8) * c * (float) Math.exp(-d * d);
+            }
+            // the waves: they start at the rebound and run to both ends, several crests, damped
+            float start = CRATER_END - 0.06f;
+            if (t > start) {
+                float time = (t - start) / (1f - start);
+                float far = Math.max(dropX, w - dropX);
+                float front = time * far * 1.35f + dp(10);
+                float d = Math.abs(x - dropX);
+                if (d < front) {
+                    float k = (float) (2 * Math.PI / dp(36));
+                    float lead = 1f - (float) Math.exp(-(front - d) / dp(10));
+                    float spread = 0.5f + 0.5f * (float) Math.exp(-d / (w * 0.7f));
+                    y += dp(4.2f) * waveAmp(time) * spread * lead * (float) Math.sin(k * (front - d));
+                }
+            }
+        }
+        // the rounded corners stay where they are
+        float r = dp(22);
+        float win = smooth((x - r * 0.45f) / r) * smooth((w - x - r * 0.45f) / r);
+        return y * win;
+    }
+
+    private static float bump(float dx, float half) {
+        if (Math.abs(dx) >= half) return 0f;
+        float c = (float) Math.cos(Math.PI * dx / half);
+        return 0.5f * (1f + c);
+    }
+
+    private static float smooth(float f) {
+        f = clamp(f);
+        return f * f * (3 - 2 * f);
     }
 
     // ------------------------------------------------------------------ drawing
 
     @Override
     protected void onDraw(Canvas canvas) {
+        int w = getWidth();
+        int h = getHeight();
         float r = dp(22);
-        rect.set(0, 0, getWidth(), getHeight());
-        canvas.drawRoundRect(rect, r, r, glass);
-        rect.inset(dp(0.5f), dp(0.5f));
-        canvas.drawRoundRect(rect, r, r, rim);
-        drawPill(canvas);
+        float step = Math.max(1f, dp(2));
+        body.reset();
+        top.reset();
+        body.moveTo(0, h - r);
+        body.lineTo(0, r);
+        rect.set(0, 0, 2 * r, 2 * r);
+        body.arcTo(rect, 180, 90);
+        boolean first = true;
+        for (float x = r; x <= w - r; x += step) {
+            float y = edgeAt(x);
+            body.lineTo(x, y);
+            if (first) {
+                top.moveTo(x, y);
+                first = false;
+            } else {
+                top.lineTo(x, y);
+            }
+        }
+        body.lineTo(w - r, edgeAt(w - r));
+        top.lineTo(w - r, edgeAt(w - r));
+        rect.set(w - 2 * r, 0, w, 2 * r);
+        body.arcTo(rect, 270, 90);
+        body.lineTo(w, h - r);
+        rect.set(w - 2 * r, h - 2 * r, w, h);
+        body.arcTo(rect, 0, 90);
+        body.lineTo(r, h);
+        rect.set(0, h - 2 * r, 2 * r, h);
+        body.arcTo(rect, 90, 90);
+        body.close();
+        canvas.drawPath(body, glass);
+        drawGlowUnderIcon(canvas);
+        canvas.drawPath(body, rim);
+        drawEdgeHighlight(canvas);
         super.onDraw(canvas);
     }
 
-    /** The honey pill behind the active icon: from the tail to the head while it flows, a rounded pill at rest. */
-    private void drawPill(Canvas canvas) {
-        if (Float.isNaN(headX)) return;
+    /** The warm glow under the lifted icon (its crest catches the light). */
+    private void drawGlowUnderIcon(Canvas canvas) {
+        if (getWidth() == 0) return;
+        float strength = Float.isNaN(t) || previous == selected ? 1f : newCrest(t);
+        float x = Float.isNaN(t) ? centerOf(selected) : dropX;
         View icon = icons[selected];
         View tab = (View) icon.getParent();
-        float cy = tab.getTop() + icon.getTop() + icon.getHeight() / 2f;
-        float half = dp(20);
-        float halfH = dp(15);
-        float left = Math.min(headX, tailX) - half;
-        float right = Math.max(headX, tailX) + half;
-        // stretched: a little thinner in the middle of its run, like a pulled liquid
-        float stretch = Math.abs(headX - tailX) / Math.max(1f, getWidth() / 3f);
-        float h = halfH * (1f - 0.22f * Math.min(1f, stretch));
-        rect.set(left, cy - h, right, cy + h);
-        canvas.drawRoundRect(rect, h, h, honey);
-        // its gloss
-        rect.set(left + dp(6), cy - h + dp(3), right - dp(6), cy - h + dp(7));
-        canvas.drawRoundRect(rect, dp(2), dp(2), gloss);
+        float cy = tab.getTop() + icon.getTop() + icon.getHeight() / 2f + icon.getTranslationY();
+        drawGlowAt(canvas, x, cy, strength);
+        if (!Float.isNaN(t) && previous != selected) {
+            View old = icons[previous];
+            float oy = tab.getTop() + old.getTop() + old.getHeight() / 2f + old.getTranslationY();
+            drawGlowAt(canvas, fromX, oy, oldCrest(t));
+        }
+    }
+
+    /** A soft warm pool of light under the lifted icon (below it, so the icon's own shape stays clean). */
+    private void drawGlowAt(Canvas canvas, float x, float y, float strength) {
+        if (strength <= 0.02f) return;
+        float radius = dp(24);
+        float cy = y + dp(15);
+        int a = (int) (0x40 * Math.min(1f, strength));
+        glow.setShader(new RadialGradient(x, cy, radius, new int[]{(a << 24) | 0xFF6D24, ((a / 3) << 24) | 0xFFB347,
+                0x00FF6D24}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        canvas.drawCircle(x, cy, radius, glow);
+    }
+
+    /** The glass top edge's specular line: white, brightest over the crest, amber where the waves run. */
+    private void drawEdgeHighlight(Canvas canvas) {
+        int w = getWidth();
+        if (w == 0) return;
+        float cx = Float.isNaN(t) ? centerOf(selected) : dropX;
+        float energy = Float.isNaN(t) || t < CRATER_END - 0.06f ? 0f
+                : waveAmp((t - (CRATER_END - 0.06f)) / (1f - CRATER_END + 0.06f));
+        int amber = (int) (0x99 * energy);
+        float p = clamp(cx / w);
+        edge.setShader(new LinearGradient(0, 0, w, 0,
+                new int[]{0x26FFFFFF, (amber << 24) | 0xFFB347, 0xB3FFFFFF, (amber << 24) | 0xFF6D24, 0x26FFFFFF},
+                new float[]{0f, Math.max(0.01f, p - 0.18f), p, Math.min(0.99f, p + 0.18f), 1f}, Shader.TileMode.CLAMP));
+        edge.setStrokeWidth(dp(1.2f) + dp(1.4f) * energy);
+        canvas.drawPath(top, edge);
     }
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
         if (Float.isNaN(t)) return;
-        drawWaves(canvas);
-        drawDrop(canvas);
+        drawSplash(canvas);
+        drawDrops(canvas);
     }
 
-    /** The drop: falls (0..0.34), squashes on impact (0.34..0.46), then melts into the pill. */
-    private void drawDrop(Canvas canvas) {
-        View icon = icons[selected];
-        View tab = (View) icon.getParent();
-        float landY = tab.getTop() + icon.getTop() + icon.getHeight() / 2f;
-        float startY = -dp(26);
-        float r = dp(7);
-        float y;
-        float sx = 1f;
-        float sy = 1f;
-        int alpha = 255;
-        if (t < 0.34f) {
-            float f = t / 0.34f;
-            y = startY + (landY - startY) * f * f; // gravity
-            sy = 1f + 0.25f * f; // stretched while falling
-            sx = 1f - 0.12f * f;
-        } else if (t < 0.46f) {
-            float f = (t - 0.34f) / 0.12f;
-            y = landY;
-            sy = 1.25f - 0.6f * (float) Math.sin(f * Math.PI); // squash
-            sx = 0.88f + 0.5f * (float) Math.sin(f * Math.PI);
-            alpha = (int) (255 * (1f - 0.4f * f));
-        } else {
-            float f = Math.min(1f, (t - 0.46f) / 0.2f);
-            y = landY;
-            sx = sy = 1f - 0.7f * f;
-            alpha = (int) (155 * (1f - f));
-            if (alpha <= 0) return;
+    /** The surface height at the impact point before the crater (where the drop lands and the splash starts). */
+    private float impactY() {
+        return -dp(12) * (previous == selected ? 1f : 0.15f);
+    }
+
+    /** Stage 1: the teardrop and its micro droplets fall; at the impact they sink into the crater and are gone. */
+    private void drawDrops(Canvas canvas) {
+        float land = impactY();
+        float start = -dp(44);
+        float r = dp(6.5f);
+        if (t < LAND + 0.06f) {
+            float f = clamp(t / LAND);
+            float y = start + (land - start) * f * f;
+            float sx = 1f - 0.12f * f;
+            float sy = 1f + 0.22f * f;
+            float alpha = 1f;
+            if (t > LAND) {
+                // sinking into the crater: squashed, then gone
+                float g = clamp((t - LAND) / 0.06f);
+                y = land + dp(5) * g;
+                sx = 0.88f + 0.45f * g;
+                sy = 1.22f - 0.8f * g;
+                alpha = 1f - g;
+            }
+            drawTeardrop(canvas, dropX, y - r * 0.2f, r, sx, sy, alpha);
         }
-        canvas.save();
-        canvas.translate(dropX, y);
-        canvas.scale(sx, sy);
-        // a teardrop: round below, a tapered tip above (two cubic curves)
-        path.reset();
-        path.moveTo(0, -r * 2.3f);
-        path.cubicTo(r * 0.55f, -r * 1.35f, r * 1.05f, -r * 0.55f, r, 0);
-        path.cubicTo(r * 0.98f, r * 0.62f, r * 0.55f, r, 0, r);
-        path.cubicTo(-r * 0.55f, r, -r * 0.98f, r * 0.62f, -r, 0);
-        path.cubicTo(-r * 1.05f, -r * 0.55f, -r * 0.55f, -r * 1.35f, 0, -r * 2.3f);
-        path.close();
-        honey.setAlpha(alpha);
-        canvas.drawPath(path, honey);
-        honey.setAlpha(255);
-        gloss.setAlpha(Math.min(160, alpha));
-        canvas.drawCircle(-r * 0.35f, -r * 0.3f, r * 0.28f, gloss);
-        gloss.setAlpha(0x66);
-        canvas.restore();
+        // three micro droplets falling beside and above it (each a little later, smaller)
+        float[][] micro = {{-dp(7), 0.07f, dp(2.1f)}, {dp(6), 0.13f, dp(1.6f)}, {-dp(2.5f), 0.2f, dp(1.2f)}};
+        for (float[] m : micro) {
+            float lag = m[1];
+            float f = clamp((t - lag) / (LAND));
+            if (t < lag) continue;
+            float y = start - dp(6) + (land - start + dp(6)) * f * f;
+            float alpha = t > LAND + lag ? 1f - clamp((t - LAND - lag) / 0.05f) : 1f;
+            if (alpha <= 0) continue;
+            drawBead(canvas, dropX + m[0] * (1f - 0.4f * f), y, m[2], alpha, 1f + 0.25f * f);
+        }
+    }
+
+    /** Stage 3: the crown, the central jet and the beads it throws. */
+    private void drawSplash(Canvas canvas) {
+        float base = impactY() + dp(2);
+        // the crown: four glass spikes from the crater's rim, leaning out
+        if (t > CRATER_END - 0.04f && t < CRATER_END + 0.16f) {
+            float f = clamp((t - (CRATER_END - 0.04f)) / 0.2f);
+            float hgt = (float) Math.sin(Math.PI * f);
+            float[][] spikes = {{-dp(10), -dp(5), dp(12)}, {-dp(4), -dp(2), dp(16)}, {dp(4), dp(2), dp(16)},
+                    {dp(10), dp(5), dp(12)}};
+            for (float[] s : spikes) {
+                float bx = dropX + s[0];
+                float tipX = bx + s[1] * (0.5f + f);
+                float tipY = base - s[2] * hgt;
+                drawSpike(canvas, bx, base, tipX, tipY, dp(1.7f), 0.9f * (1f - 0.5f * f));
+            }
+        }
+        // the central jet (it rises as the crown falls back)
+        if (t > CRATER_END + 0.06f && t < CRATER_END + 0.32f) {
+            float f = clamp((t - (CRATER_END + 0.06f)) / 0.26f);
+            float hgt = dp(22) * (float) Math.sin(Math.PI * f);
+            if (hgt > dp(1)) {
+                drawSpike(canvas, dropX, base, dropX, base - hgt, dp(2.6f), 0.95f);
+                drawBead(canvas, dropX, base - hgt - dp(2.2f), dp(2.6f), 1f - 0.6f * f, 1f);
+            }
+        }
+        // five beads thrown up and out, falling back on a parabola
+        if (t > CRATER_END - 0.02f && t < CRATER_END + 0.4f) {
+            float s = clamp((t - (CRATER_END - 0.02f)) / 0.4f);
+            float[][] beads = {{-dp(30), dp(34), dp(2.2f)}, {-dp(14), dp(44), dp(1.6f)}, {dp(5), dp(50), dp(1.9f)},
+                    {dp(18), dp(40), dp(1.4f)}, {dp(32), dp(30), dp(2.0f)}};
+            for (float[] b : beads) {
+                float x = dropX + b[0] * s;
+                float y = base - (b[1] * 2.2f * s - dp(70) * s * s);
+                float alpha = 1f - smooth((s - 0.6f) / 0.4f);
+                drawBead(canvas, x, y, b[2], alpha, 1f);
+            }
+        }
     }
 
     /**
-     * The waves: from the impact (t 0.34) a damped sine travels both ways along the bar's top edge, fading with
-     * distance and time.
+     * A clear glass teardrop: tapered neck above, heavy belly below; brighter at its rim (Fresnel), a white specular
+     * highlight, a warm amber caustic in its belly.
      */
-    private void drawWaves(Canvas canvas) {
-        if (t < 0.34f) return;
-        float time = (t - 0.34f) / 0.66f;
-        float amplitude = dp(4.5f) * (float) Math.exp(-3.2f * time);
-        if (amplitude < dp(0.3f)) return;
-        float top = dp(1.2f);
-        float k = (float) (2 * Math.PI / dp(26));
-        float travel = time * getWidth() * 0.9f;
-        path.reset();
-        boolean started = false;
-        float step = dp(2);
-        for (float x = dp(14); x <= getWidth() - dp(14); x += step) {
-            float d = Math.abs(x - dropX);
-            if (d > travel + dp(10)) {
-                if (started) {
-                    canvas.drawPath(path, wave);
-                    path.reset();
-                    started = false;
-                }
-                continue;
-            }
-            float fade = (float) Math.exp(-d / (getWidth() * 0.35f));
-            float y = top - amplitude * fade * (float) Math.cos(k * (d - travel));
-            if (!started) {
-                path.moveTo(x, y);
-                started = true;
-            } else {
-                path.lineTo(x, y);
-            }
-        }
-        if (started) {
-            wave.setShader(null);
-            wave.setColor(0xFFFFB347);
-            wave.setAlpha((int) (230 * Math.max(0f, 1f - time)));
-            canvas.drawPath(path, wave);
-        }
+    private void drawTeardrop(Canvas canvas, float cx, float cy, float r, float sx, float sy, float alpha) {
+        if (alpha <= 0) return;
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.scale(sx, sy);
+        shape.reset();
+        shape.moveTo(0, -r * 2.6f);
+        shape.cubicTo(r * 0.12f, -r * 2.05f, r * 1.02f, -r * 1.0f, r, 0);
+        shape.cubicTo(r * 0.98f, r * 0.6f, r * 0.56f, r, 0, r);
+        shape.cubicTo(-r * 0.56f, r, -r * 0.98f, r * 0.6f, -r, 0);
+        shape.cubicTo(-r * 1.02f, -r * 1.0f, -r * 0.12f, -r * 2.05f, 0, -r * 2.6f);
+        shape.close();
+        glassFill(r, alpha, -r * 0.3f, -r * 0.15f, r * 1.5f);
+        canvas.drawPath(shape, dropFill);
+        warm.setShader(new RadialGradient(r * 0.15f, r * 0.62f, r * 0.55f, new int[]{a(0x3A, alpha) | 0xFF6D24,
+                0x00FF6D24}, null, Shader.TileMode.CLAMP));
+        canvas.drawPath(shape, warm);
+        dropRim.setShader(new LinearGradient(-r, -r * 2.6f, r, r, new int[]{a(0xE6, alpha) | 0xFFFFFF,
+                a(0x55, alpha) | 0xFFFFFF, a(0x99, alpha) | 0xFFB347}, null, Shader.TileMode.CLAMP));
+        canvas.drawPath(shape, dropRim);
+        spec.setAlpha((int) (0xF2 * alpha));
+        rect.set(-r * 0.62f, -r * 0.72f, -r * 0.18f, -r * 0.2f);
+        canvas.drawOval(rect, spec);
+        spec.setAlpha((int) (0x99 * alpha));
+        canvas.drawCircle(r * 0.42f, r * 0.45f, r * 0.12f, spec);
+        canvas.restore();
+    }
+
+    /** A small glass bead (a micro droplet or a splash bead). */
+    private void drawBead(Canvas canvas, float cx, float cy, float r, float alpha, float stretch) {
+        if (alpha <= 0) return;
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.scale(1f / (float) Math.sqrt(stretch), stretch);
+        shape.reset();
+        shape.addCircle(0, 0, r, Path.Direction.CW);
+        glassFill(r, alpha, -r * 0.3f, -r * 0.3f, r * 1.3f);
+        canvas.drawPath(shape, dropFill);
+        dropRim.setShader(null);
+        dropRim.setColor(a(0xCC, alpha) | 0xFFFFFF);
+        canvas.drawPath(shape, dropRim);
+        spec.setAlpha((int) (0xF2 * alpha));
+        canvas.drawCircle(-r * 0.35f, -r * 0.35f, Math.max(dp(0.6f), r * 0.32f), spec);
+        canvas.restore();
+    }
+
+    /** A tapered glass spike from the surface (a crown spike or the central jet). */
+    private void drawSpike(Canvas canvas, float bx, float by, float tx, float ty, float halfWidth, float alpha) {
+        shape.reset();
+        shape.moveTo(bx - halfWidth, by);
+        shape.quadTo(bx - halfWidth * 0.4f, (by + ty) / 2f, tx, ty);
+        shape.quadTo(bx + halfWidth * 0.4f, (by + ty) / 2f, bx + halfWidth, by);
+        shape.close();
+        dropFill.setShader(new LinearGradient(bx, by, tx, ty, new int[]{a(0x18, alpha) | 0xFFFFFF,
+                a(0x5A, alpha) | 0xFFFFFF}, null, Shader.TileMode.CLAMP));
+        canvas.drawPath(shape, dropFill);
+        dropRim.setShader(new LinearGradient(bx, by, tx, ty, new int[]{a(0x40, alpha) | 0xFFFFFF,
+                a(0xE6, alpha) | 0xFFFFFF}, null, Shader.TileMode.CLAMP));
+        canvas.drawPath(shape, dropRim);
+    }
+
+    /** Glass: nearly clear in the middle, brighter towards the rim. */
+    private void glassFill(float r, float alpha, float cx, float cy, float radius) {
+        dropFill.setShader(new RadialGradient(cx, cy, radius, new int[]{a(0x10, alpha) | 0xFFFFFF,
+                a(0x24, alpha) | 0xFFFFFF, a(0x5E, alpha) | 0xFFFFFF}, new float[]{0f, 0.62f, 1f}, Shader.TileMode.CLAMP));
+    }
+
+    private static int a(int max, float alpha) {
+        return ((int) (max * clamp(alpha)) & 0xFF) << 24;
     }
 
     // ------------------------------------------------------------------ the sound
@@ -418,24 +653,18 @@ public final class HoneyDropBar extends LinearLayout {
 
     /** For the renders: the animation at fraction {@code fraction} of a tap from {@code from} to {@code to}. */
     public void frameForTests(int from, int to, float fraction) {
+        previous = from;
         selected = to;
         refreshTabs();
         fromX = centerOf(from);
         dropX = centerOf(to);
         t = fraction;
-        float head = ease(clamp((t - 0.12f) / 0.36f));
-        float tail = spring(clamp((t - 0.22f) / 0.78f));
-        headX = fromX + (dropX - fromX) * head;
-        tailX = fromX + (dropX - fromX) * tail;
+        applyIcons();
         invalidate();
     }
 
     private static float clamp(float f) {
         return f < 0 ? 0 : f > 1 ? 1 : f;
-    }
-
-    private static float ease(float f) {
-        return 1f - (1f - f) * (1f - f) * (1f - f);
     }
 
     /** An underdamped spring from 0 to 1 (a small overshoot, then rest). */
