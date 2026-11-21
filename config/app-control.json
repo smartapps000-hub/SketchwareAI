@@ -11,7 +11,7 @@
     "Backups show their real speed and finish without a silent 90%"
   ],
   "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.2.apk",
-  "update_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "update_sha256": "ef44b98efd9b1ea538322335748e6b4c77847001f931628729a29ba07566418c",
   "force_update": true,
   "latest_version_code": 209,
   "latest_version_name": "v2.1.2",
