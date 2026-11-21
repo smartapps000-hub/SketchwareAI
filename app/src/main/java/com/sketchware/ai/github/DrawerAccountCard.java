@@ -64,7 +64,10 @@ public final class DrawerAccountCard {
             subtitle.setSingleLine(false);
             subtitle.setMaxLines(2);
             title.setText("Sign in with GitHub");
-            subtitle.setText("Sync & back up projects");
+            // v2.1.2 (owner's 21 Nov report: signed out after an update): why this phone is signed out, when it is known
+            String why = SessionLog.signedOutLine();
+            subtitle.setMaxLines(why == null ? 2 : 4);
+            subtitle.setText(why == null ? "Sync & back up projects" : "Sync & back up projects. " + why);
             subtitle.setTextColor(v.color(R.color.ob_text_2));
             action.setVisibility(View.GONE);
             details.setVisibility(View.GONE);

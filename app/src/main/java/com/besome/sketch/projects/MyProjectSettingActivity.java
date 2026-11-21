@@ -72,6 +72,8 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
     private ImageView colorGuide;
     private LinearLayout advancedSettingsContainer;
     private ImageView appIcon;
+    /** v2.1.2: the tile's letters while the project has no icon of its own. */
+    private com.sketchware.ai.ui.MonogramDrawable monogram;
     private UB projectPackageNameValidator;
     private com.sketchware.ai.project.ProjectNameValidator projectNameValidator;
     private LB projectAppNameValidator;
@@ -186,6 +188,8 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         appIcon = findViewById(R.id.app_icon);
         // Custom icons show inside the rounded glass tile.
         findViewById(R.id.app_icon_layout).setClipToOutline(true);
+        // v2.1.2: without an own icon the tile shows the app's two letters (the round Android icon is the APK's)
+        appIcon.setImageDrawable(monogram = new com.sketchware.ai.ui.MonogramDrawable(this, ""));
 
         projectAppNameValidator = new LB(getApplicationContext(), appName);
         projectPackageNameValidator = new UB(getApplicationContext(), packageName);
@@ -239,6 +243,7 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
             projectPackageName.setText(yB.c(metadata, "my_sc_pkg_name"));
             this.projectName.setText(yB.c(metadata, "my_ws_name"));
             projectAppName.setText(yB.c(metadata, "my_app_name"));
+            if (monogram != null) monogram.setName(yB.c(metadata, "my_app_name"));
             projectVersionCode = parseInt(yB.c(metadata, "sc_ver_code"), 1);
             parseVersion(yB.c(metadata, "sc_ver_name"));
             projectVersionCodeView.setText(yB.c(metadata, "sc_ver_code"));
@@ -273,6 +278,10 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
             projectPackageName.setText(newProjectPackageName);
             this.projectName.setText(newProjectName);
             projectAppName.setText(getIntent().getStringExtra("my_app_name"));
+            if (monogram != null) {
+                String label = getIntent().getStringExtra("my_app_name");
+                monogram.setName(label == null || label.trim().isEmpty() ? newProjectName : label);
+            }
 
             String newProjectVersionCode = getIntent().getStringExtra("sc_ver_code");
             String newProjectVersionName = getIntent().getStringExtra("sc_ver_name");
@@ -466,7 +475,10 @@ public class MyProjectSettingActivity extends BaseDialogActivity implements View
         dialog.a(R.drawable.ob_app_icon_placeholder);
         dialog.a(Helper.getResString(R.string.myprojects_settings_confirm_reset_icon));
         dialog.b(Helper.getResString(R.string.common_word_reset), v -> {
-            appIcon.setImageResource(R.drawable.ob_app_icon_placeholder);
+            // v2.1.2: back to the two letters in the app (the APK gets the round Android icon)
+            if (monogram == null) monogram = new com.sketchware.ai.ui.MonogramDrawable(this, "");
+            monogram.setName(projectAppName.getText().toString());
+            appIcon.setImageDrawable(monogram);
             projectHasCustomIcon = false;
             dialog.dismiss();
         });

@@ -167,6 +167,10 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         });
 
         icon = findViewById(R.id.np_icon);
+        // v2.1.2: no icon chosen yet: the app's two letters (the round Android icon is what its APK gets, not this tile)
+        monogram = new MonogramDrawable(this, appName.getText().toString().trim().isEmpty()
+                ? projectName.getText().toString() : appName.getText().toString());
+        icon.setImageDrawable(monogram);
         View iconTile = findViewById(R.id.np_icon_tile);
         iconTile.setClipToOutline(true);
         iconTile.setOnClickListener(v -> pickIcon());
@@ -435,7 +439,17 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         refreshPreview();
     }
 
+    /** v2.1.2: the tile's letters while no icon is chosen. */
+    private MonogramDrawable monogram;
+
+    private void refreshMonogram() {
+        if (monogram == null || choices.customIcon) return;
+        String name = appName.getText().toString().trim();
+        monogram.setName(name.isEmpty() ? projectName.getText().toString() : name);
+    }
+
     private void refreshPreview() {
+        refreshMonogram();
         if (preview == null) return;
         preview.set(choices.colors, choices.material3, choices.darkTheme, appName.getText().toString());
         String caption;

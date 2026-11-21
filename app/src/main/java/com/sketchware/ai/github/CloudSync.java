@@ -1274,6 +1274,56 @@ public final class CloudSync {
         if (progress != null) progress.step(percent, text);
     }
 
+    /**
+     * v2.1.2 (owner's 21 Nov report: 6.2 MB took 10 minutes at "15 KB/s", 90% for minutes): the upload's speed over the
+     * last ~8 seconds (not since the job began, which counted the release set-up), and a note when it stays very slow
+     * while Sketchware AI isn't on screen (some phones' battery managers slow a background app's network even with its
+     * notification).
+     */
+    static final class UploadSpeed {
+        private final java.util.ArrayDeque<long[]> samples = new java.util.ArrayDeque<>();
+        private long firstAt;
+
+        synchronized void add(long now, long bytes) {
+            if (firstAt == 0) firstAt = now;
+            samples.addLast(new long[]{now, bytes});
+            while (samples.size() > 2 && now - samples.peekFirst()[0] > 8000) samples.removeFirst();
+        }
+
+        /** Bytes per second over the window, or -1 when not known yet. */
+        synchronized long bytesPerSecond(long now) {
+            if (samples.size() < 2) return -1;
+            long[] a = samples.peekFirst();
+            long[] b = samples.peekLast();
+            long ms = Math.max(1, b[0] - a[0]);
+            if (ms < 1000) return -1;
+            return (b[1] - a[1]) * 1000 / ms;
+        }
+
+        String rate(long now) {
+            long bps = bytesPerSecond(now);
+            return bps < 0 ? "" : " · " + megabytes(bps) + "/s";
+        }
+
+        /** Said after 20 s below 30 KB/s while no screen of the app is in front. */
+        String slowNote(long now) {
+            long bps = bytesPerSecond(now);
+            if (bps < 0 || bps >= 30 * 1024 || now - firstAt < 20_000 || inFront()) return "";
+            return " · slow: Android may be holding back Sketchware AI's network in the background (open the app, or "
+                    + "allow it in the phone's battery settings)";
+        }
+
+        static boolean inFront() {
+            android.app.ActivityManager.RunningAppProcessInfo info = new android.app.ActivityManager.RunningAppProcessInfo();
+            try {
+                android.app.ActivityManager.getMyMemoryState(info);
+            } catch (RuntimeException e) {
+                return true;
+            }
+            return info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+        }
+    }
+
     static String megabytes(long bytes) {
         if (bytes < 1024 * 1024) return Math.max(1, bytes / 1024) + " KB";
         return String.format(java.util.Locale.ENGLISH, "%.1f MB", bytes / (1024.0 * 1024.0));
@@ -1442,7 +1492,7 @@ public final class CloudSync {
                 long apkTime = apk == null ? 0 : apk.lastModified();
                 if (apk != null && apkTime <= ProjectLinks.lastApkTime(scId, login)) apk = null; // already up
                 long size = swb.length() + (apk == null ? 0 : apk.length());
-                int parts = (int) Math.max(1, (swb.length() + ProjectRepo.PART_BYTES - 1) / ProjectRepo.PART_BYTES);
+                int parts = ProjectRepo.partsFor(swb.length());
                 step(progress, 15, "Packed " + megabytes(size) + (apk != null ? " (with the APK)" : "")
                         + (parts > 1 ? " · uploading in " + parts + " parts…" : " · uploading to " + repo.name() + "…"));
                 ProjectRepo.Backup backup = new ProjectRepo.Backup();
@@ -1454,17 +1504,24 @@ public final class CloudSync {
                 backup.notes = notes;
                 backup.title = ProjectDiffAnalyzer.title(snapshot) + " v" + ProjectDiffAnalyzer.version(snapshot);
                 int[] last = {15};
-                long started = android.os.SystemClock.elapsedRealtime();
+                UploadSpeed speed = new UploadSpeed();
                 ProjectRepo.Version stored = repo.upload(backup, new CloudBackup.UploadProgress() {
                     @Override
                     public void uploading(long sent, long total) {
-                        job.lastActivity = android.os.SystemClock.elapsedRealtime();
+                        long now = android.os.SystemClock.elapsedRealtime();
+                        job.lastActivity = now;
+                        speed.add(now, sent);
                         int percent = 15 + (int) (75 * Math.min(1.0, sent / (double) Math.max(1, total)));
-                        if (percent > last[0]) {
+                        if (sent >= total && total > 0) {
+                            // v2.1.2 (owner's 21 Nov report: "stalled at 90%"): every byte is handed to the network;
+                            // what is left is the phone sending its buffered part and GitHub's answer
+                            last[0] = Math.max(last[0], percent);
+                            step(progress, percent, "All " + megabytes(total) + " handed to the network · waiting for "
+                                    + "GitHub to confirm" + speed.slowNote(now) + "…");
+                        } else if (percent > last[0]) {
                             last[0] = percent;
-                            long seconds = Math.max(1, (android.os.SystemClock.elapsedRealtime() - started) / 1000);
                             step(progress, percent, "Uploading… " + megabytes(sent) + " of " + megabytes(total)
-                                    + " · " + megabytes(sent / seconds) + "/s");
+                                    + speed.rate(now) + speed.slowNote(now));
                         }
                     }
 

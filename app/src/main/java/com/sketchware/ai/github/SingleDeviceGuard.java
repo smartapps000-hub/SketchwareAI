@@ -25,6 +25,14 @@ import mod.jbk.util.LogUtil;
  * answered decides: no network, a server error, a rate limit or a refused sign-in change nothing. An account without the
  * file (an upgrade from v2.0.x) is claimed by the first phone that checks. The projects on the phone stay; the sign-out
  * is this phone's alone (GitHub's token isn't revoked).
+ * <p>
+ * v2.1.2 (owner's 21 Nov report: signed out after updating v2.1.0 → v2.1.1): nothing in an update removes a sign-in;
+ * this rule is the only automatic sign-out, and it compared installs, not phones, so another install of Sketchware AI
+ * on the same phone (a reinstall, a cloned / dual app) counted as another phone. The mark now also holds
+ * {@code device_key} = SHA-256 of this phone's ANDROID_ID (the same for every install of this app on this phone and
+ * Android user) and the login; a mark with this phone's key never signs this phone out. Marks written before v2.1.2 have
+ * no key: their phone model stands in for it. Every sign-out is recorded with its reason ({@link SessionLog}), and the
+ * signed-out account card says it.
  */
 public final class SingleDeviceGuard {
 
@@ -86,7 +94,28 @@ public final class SingleDeviceGuard {
         }
     }
 
-    /** The file as GitHub has it: {hash, sha, time written (ms, "0" when unknown)}; null when there is none (404). */
+    /** v2.1.2: this phone's key for {@code login}: SHA-256 of ANDROID_ID | login (null when ANDROID_ID can't be read). */
+    static String deviceKey(Context context, String login) {
+        String androidId = null;
+        try {
+            androidId = android.provider.Settings.Secure.getString(context.getContentResolver(),
+                    android.provider.Settings.Secure.ANDROID_ID);
+        } catch (RuntimeException ignored) {
+            // no key: the model stands in
+        }
+        if (androidId == null || androidId.isEmpty() || login == null) return null;
+        return hash("device:" + androidId, login);
+    }
+
+    /** v2.1.2: this phone's model as the mark names it. */
+    static String model() {
+        return (Build.MANUFACTURER + " " + Build.MODEL).trim();
+    }
+
+    /**
+     * The file as GitHub has it: {hash, sha, time written (ms, "0" when unknown), device key (v2.1.2, else null), phone
+     * model (else null), app version (else null)}; null when there is none (404).
+     */
     static String[] read(String token, String login) throws IOException, GitHubException {
         GitHubHttp.Response r = GitHubHttp.api("GET", "/repos/" + CloudBackup.enc(login) + "/" + CloudBackup.REPO
                 + "/contents/" + PATH, token, null);
@@ -95,7 +124,7 @@ public final class SingleDeviceGuard {
         JsonObject o = DeviceFlow.parse(r.body);
         String content = DeviceFlow.string(o, "content");
         String sha = DeviceFlow.string(o, "sha");
-        if (content == null) return new String[]{null, sha, "0"};
+        if (content == null) return new String[]{null, sha, "0", null, null, null};
         JsonObject file = DeviceFlow.parse(new String(android.util.Base64.decode(content, android.util.Base64.DEFAULT),
                 StandardCharsets.UTF_8));
         long time = 0;
@@ -104,22 +133,24 @@ public final class SingleDeviceGuard {
         } catch (RuntimeException ignored) {
             // no time
         }
-        return new String[]{DeviceFlow.string(file, "active_device_hash"), sha, String.valueOf(time)};
+        return new String[]{DeviceFlow.string(file, "active_device_hash"), sha, String.valueOf(time),
+                DeviceFlow.string(file, "device_key"), DeviceFlow.string(file, "device"), DeviceFlow.string(file, "app_version")};
     }
 
     /** Writes this phone's mark (makes the private repository when the account has none). */
     static void write(String token, String login, String mark, String sha) throws IOException, GitHubException {
-        write(token, login, mark, sha, System.currentTimeMillis());
+        write(token, login, mark, sha, System.currentTimeMillis(), null);
     }
 
     /**
      * second review (MEDIUM): {@code time} is when this phone signed in (not when the mark happened to be written:
      * a claim that waited offline must not look newer than a later sign-in on another phone).
      */
-    static void write(String token, String login, String mark, String sha, long signedInAt)
+    static void write(String token, String login, String mark, String sha, long signedInAt, String deviceKey)
             throws IOException, GitHubException {
         JsonObject file = new JsonObject();
         file.addProperty("active_device_hash", mark);
+        if (deviceKey != null) file.addProperty("device_key", deviceKey);
         file.addProperty("device", (Build.MANUFACTURER + " " + Build.MODEL).trim());
         file.addProperty("app_version", com.sketchware.remod.BuildConfig.VERSION_NAME);
         file.addProperty("time", signedInAt > 0 ? signedInAt : System.currentTimeMillis());
@@ -181,11 +212,12 @@ public final class SingleDeviceGuard {
         if (login == null || token == null) return;
         long signedInAt = prefs(app).getLong("signed_in_at", 0);
         String mine = hash(installId(app), login);
+        String key = deviceKey(app, login);
         String[] there = read(token, login);
         // second review (MEDIUM): another phone that signed in after this one keeps its mark (the next check signs
         // this phone out)
-        if ("signout".equals(decide(there, mine, true, signedInAt))) return;
-        write(token, login, mine, there == null ? null : there[1], signedInAt);
+        if ("signout".equals(decide(there, mine, true, signedInAt, key, model()))) return;
+        write(token, login, mine, there == null ? null : there[1], signedInAt, key);
         markClaimed(app, signedInAt);
     }
 
@@ -209,8 +241,18 @@ public final class SingleDeviceGuard {
      * newer than the mark), "keep" (this phone's), "signout" (another phone's, written after this phone's own).
      */
     static String decide(String[] there, String mine, boolean pending, long signedInAt) {
+        return decide(there, mine, pending, signedInAt, null, null);
+    }
+
+    /**
+     * v2.1.2: as above, and a mark of this same phone (its {@code device_key}; a mark from before v2.1.2: its phone
+     * model) is never another phone: "claim" when this phone's sign-in is the newer one waiting to be recorded, else
+     * "keep".
+     */
+    static String decide(String[] there, String mine, boolean pending, long signedInAt, String myKey, String myModel) {
         if (there == null || there[0] == null) return "claim";
         if (there[0].equals(mine)) return pending ? "claim" : "keep";
+        if (samePhone(there, myKey, myModel)) return pending ? "claim" : "keep";
         if (pending) {
             long theirs = 0;
             try {
@@ -221,6 +263,16 @@ public final class SingleDeviceGuard {
             return theirs > signedInAt && signedInAt > 0 ? "signout" : "claim";
         }
         return "signout";
+    }
+
+    /** v2.1.2: the mark was written on this phone (another install of the app here: a reinstall, a cloned app). */
+    static boolean samePhone(String[] there, String myKey, String myModel) {
+        if (there == null || there.length < 5) return false;
+        String key = there[3];
+        if (key != null) return myKey != null && key.equals(myKey);
+        // written before v2.1.2 (no key): its phone model stands in
+        String model = there[4];
+        return model != null && myModel != null && !model.trim().isEmpty() && model.trim().equalsIgnoreCase(myModel.trim());
     }
 
     /**
@@ -251,18 +303,26 @@ public final class SingleDeviceGuard {
                     // run: nothing changes
                     if (!idSaved) return;
                     String[] there = read(token, login);
-                    String what = decide(there, mine, prefs.getBoolean("claim_pending", false), signedInAt);
+                    String key = deviceKey(app, login);
+                    String what = decide(there, mine, prefs.getBoolean("claim_pending", false), signedInAt, key, model());
                     if ("signout".equals(what)) {
                         // another phone signed in later: this phone signs out (the same sign-in, still)
                         if (!token.equals(TokenStore.get(app).token())) return;
                         LogUtil.d("SingleDeviceGuard", "Another phone holds the session: signed out here");
-                        GitHubSession.signOut(app);
+                        String other = there == null || there.length < 5 || there[4] == null ? "another phone" : there[4];
+                        String version = there == null || there.length < 6 || there[5] == null ? "" : " · " + there[5];
+                        GitHubSession.signOut(app, "the account signed in on another phone (" + other + version + ")");
                         prefs.edit().putBoolean("signed_out_elsewhere", true).apply();
                         Activity a = ref.get();
                         if (a != null) a.runOnUiThread(() -> showSignedOut(a));
                         return;
                     }
-                    if ("claim".equals(what)) write(token, login, mine, there == null ? null : there[1], signedInAt);
+                    if ("claim".equals(what)) write(token, login, mine, there == null ? null : there[1], signedInAt, key);
+                    // v2.1.2: a mark of this phone without its key (written before v2.1.2) gets it
+                    else if ("keep".equals(what) && key != null && there != null && there.length > 3 && there[3] == null
+                            && mine.equals(there[0])) {
+                        write(token, login, mine, there[1], signedInAt, key);
+                    }
                     markClaimed(app, signedInAt);
                 }
             } catch (Exception e) {

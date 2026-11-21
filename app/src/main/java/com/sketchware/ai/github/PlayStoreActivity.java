@@ -157,6 +157,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     }
 
     @Override
+    public void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        // v2.1.2: brought back as a tab (Home's bar): it stays as it was
+        com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent);
+    }
+
+    @Override
     public void onBackPressed() {
         if (TabScreens.onBack(this)) return;
         super.onBackPressed();
@@ -171,7 +178,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     private void title(String title, String subtitle) {
         ((TextView) findViewById(R.id.gs_title)).setText(title);
-        ((TextView) findViewById(R.id.gs_subtitle)).setText(subtitle);
+        TextView sub = findViewById(R.id.gs_subtitle);
+        sub.setText(subtitle);
+        // v2.1.2 (owner's 21 Nov screenshot: "Apps made with Sketchware AI, shared on G…" crossed out): no cut line
+        sub.setVisibility(subtitle == null || subtitle.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private String token() {
@@ -199,12 +209,24 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     }
 
     /**
-     * An app's icon: its own icon ({@link RepoIcons#PATH} on GitHub) once read; until then, and for an app without one,
-     * the icon its APK gets by default (the round Android icon in Obsidian glass, {@code ob_app_icon_placeholder}),
-     * never a coloured letter box (owner, 21 Nov). Rounded corners clip a square icon; the round one is unchanged.
+     * An app's icon: its own icon ({@link RepoIcons#PATH} on GitHub) once read, over its two letters. v2.1.2 (owner's 21
+     * Nov directive "the default icon is the APK's only"): an app without an icon of its own shows its two letters like
+     * the Home cards (GH, AK, SD), never the round Android icon its APK gets.
      */
     private FrameLayout appTile(PlayStore.App a, int sizeDp) {
-        FrameLayout tile = new FrameLayout(this);
+        FrameLayout tile = monogramTile(this, v, a.name(), sizeDp);
+        ImageView icon = (ImageView) tile.getChildAt(1);
+        if (a.owner != null && a.repo != null) loadPicture(a.iconUrl(), icon, v.dp(sizeDp));
+        return tile;
+    }
+
+    /**
+     * v2.1.2: the two letters of {@code name} on the glass tile (Home's look), with an empty picture over them that a
+     * real icon fills (child 0: the letters, child 1: the picture).
+     */
+    static FrameLayout monogramTile(android.content.Context c, GitHubViews v, String name, int sizeDp) {
+        FrameLayout tile = new FrameLayout(c);
+        tile.setBackgroundResource(R.drawable.ob_avatar);
         float radius = v.dp(sizeDp) * 0.24f;
         tile.setOutlineProvider(new android.view.ViewOutlineProvider() {
             @Override
@@ -213,12 +235,18 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
         });
         tile.setClipToOutline(true);
-        ImageView icon = new ImageView(this);
+        TextView letters = new TextView(c);
+        letters.setText(GC.monogram(name == null ? "" : name));
+        letters.setTypeface(v.bold());
+        letters.setTextSize(TypedValue.COMPLEX_UNIT_SP, Math.max(14, sizeDp / 3f));
+        letters.setTextColor(v.color(R.color.ob_accent_2));
+        letters.setGravity(Gravity.CENTER);
+        letters.setIncludeFontPadding(false);
+        tile.addView(letters, new FrameLayout.LayoutParams(-1, -1));
+        ImageView icon = new ImageView(c);
         icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        icon.setImageResource(R.drawable.ob_app_icon_placeholder);
         icon.setContentDescription(null);
         tile.addView(icon, new FrameLayout.LayoutParams(-1, -1));
-        if (a.owner != null && a.repo != null) loadPicture(a.iconUrl(), icon, v.dp(sizeDp));
         return tile;
     }
 
@@ -232,7 +260,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private boolean searched;
 
     private void buildList() {
-        title("Play Store", "Apps made with Sketchware AI, shared on GitHub");
+        title("Play Store", "");
         // v2.1.1 (owner's 21 Nov directive "search bar at the top"): the search box in the header
         LinearLayout header = findViewById(R.id.gs_tabs);
         header.setVisibility(View.VISIBLE);
@@ -279,11 +307,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         });
         header.addView(search, new LinearLayout.LayoutParams(-1, v.dp(44)));
         list.removeAllViews();
-        list.addView(v.actionCard(R.drawable.ob_ic_store, "Publish your app",
-                "A project backed up to GitHub: its APK, .swb, pictures and reviews", x -> {
-                    if (!AuthGuard.check(this)) return;
-                    startActivity(new Intent(this, PlayStoreActivity.class).putExtra(EXTRA_PUBLISH, true));
-                }), v.full(-1, 4));
+        // v2.1.2 (owner's 21 Nov screenshot: the tall Publish card circled): one slim row
+        list.addView(publishRow(), v.full(52, 4));
         listStatus = v.line("", false);
         listStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(listStatus, v.full(-1, 10));
@@ -293,6 +318,43 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         apps = PlayStore.cached(this);
         showApps();
         refreshList(null);
+    }
+
+    /** v2.1.2: "Publish your app" as one slim glass row (icon, title, an arrow). */
+    private View publishRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.ob_pill16_state);
+        row.setPadding(v.dp(10), 0, v.dp(14), 0);
+        ImageView tile = new ImageView(this);
+        tile.setBackgroundResource(R.drawable.ob_tile);
+        tile.setImageResource(R.drawable.ob_ic_store);
+        tile.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        tile.setPadding(v.dp(7), v.dp(7), v.dp(7), v.dp(7));
+        row.addView(tile, new LinearLayout.LayoutParams(v.dp(34), v.dp(34)));
+        TextView t = new TextView(this, null, 0, R.style.Ob_Text);
+        t.setText("Publish your app");
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        t.setTypeface(v.bold());
+        GitHubViews.oneLine(t);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
+        tp.leftMargin = v.dp(12);
+        row.addView(t, tp);
+        TextView go = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        go.setText("›");
+        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        go.setTextColor(v.color(R.color.ob_accent));
+        row.addView(go, new LinearLayout.LayoutParams(-2, -2));
+        row.setContentDescription("Publish your app: a project backed up to GitHub, with its APK, .swb and pictures");
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.sw_press));
+        row.setOnClickListener(x -> {
+            if (!AuthGuard.check(this)) return;
+            startActivity(new Intent(this, PlayStoreActivity.class).putExtra(EXTRA_PUBLISH, true));
+        });
+        return row;
     }
 
     private void searchGitHub(String text) {
@@ -422,6 +484,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private TextView appStatus;
     private String[] discussionInfo;
     private final PlayStore.Stats stats = new PlayStore.Stats();
+    /** v2.1.2: the counters' read from GitHub ended (a Like tap before then says it is still reading). */
+    private volatile boolean statsLoaded;
     private TextView[] statValues;
     private TextView[] statLabels;
     private LinearLayout[] statCells;
@@ -475,17 +539,20 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         name.setMaxLines(2);
         name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         texts.addView(name);
-        // v2.1.1: the creator opens their page
+        // v2.1.1: the creator opens their page. v2.1.2 (owner's 21 Nov screenshot: @username and the version pill drawn
+        // into each other): @username on its own row, the pill on the next with clear space between
         TextView creator = new TextView(this, null, 0, R.style.Ob_Text_Label);
         creator.setText("@" + a.owner);
         creator.setTextColor(v.color(R.color.ob_accent));
         creator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        creator.setPadding(0, v.dp(2), v.dp(8), v.dp(4));
-        creator.setBackgroundResource(R.drawable.ob_press_overlay);
+        creator.setIncludeFontPadding(true);
+        creator.setPadding(0, v.dp(4), v.dp(8), v.dp(4));
+        creator.setMinHeight(v.dp(32));
+        creator.setGravity(Gravity.CENTER_VERTICAL);
         creator.setContentDescription("Developer @" + a.owner + ": open their page");
         GitHubViews.oneLine(creator);
         creator.setOnClickListener(x -> startActivity(developer(this, a.owner)));
-        texts.addView(creator, new LinearLayout.LayoutParams(-2, -2));
+        texts.addView(creator, new LinearLayout.LayoutParams(-1, -2));
         LinearLayout versionRow = new LinearLayout(this);
         versionRow.setOrientation(LinearLayout.HORIZONTAL);
         versionRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -501,12 +568,16 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             GitHubViews.oneLine(pill);
             versionRow.addView(pill, new LinearLayout.LayoutParams(-2, -2));
         }
-        if (versionRow.getChildCount() > 0) texts.addView(versionRow, new LinearLayout.LayoutParams(-2, -2));
+        if (versionRow.getChildCount() > 0) {
+            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, -2);
+            vp.topMargin = v.dp(4);
+            texts.addView(versionRow, vp);
+        }
         // third review (MEDIUM): its own row, two lines at most, never cut short
         TextView meta = v.line(publishLine(a), false);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         meta.setMaxLines(2);
-        texts.addView(meta, v.full(-1, 4));
+        texts.addView(meta, v.full(-1, 8));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(14);
         hero.addView(texts, tp);
@@ -631,6 +702,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             statLabels[i] = label;
             statCells[i] = cell;
         }
+        // v2.1.2 (owner's 21 Nov screenshot: the Like tile drawn without its glass): the four tiles keep one glass
+        // background; Like and Share show a press with a foreground layer instead of swapping their background
+        for (int i = 1; i <= 2; i++) {
+            statCells[i].setForeground(getDrawable(R.drawable.ob_press_overlay));
+            statCells[i].setClickable(true);
+            statCells[i].setFocusable(true);
+            statCells[i].setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.sw_press));
+        }
         statCells[1].setOnClickListener(x -> toggleLike());
         statCells[2].setOnClickListener(x -> share());
         showStats();
@@ -647,15 +726,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         statLabels[1].setText(stats.liked ? "❤ Liked" : "♡ Like");
         statValues[1].setTextColor(v.color(stats.liked ? R.color.ob_amber : R.color.ob_text));
         statLabels[2].setText("↗ Share");
-        // Like works when the counter is known, or signs in first; Share always opens the share sheet
-        boolean likeWorks = !signedIn || stats.subjectId != null;
-        statCells[1].setClickable(likeWorks);
-        statCells[1].setBackgroundResource(likeWorks ? R.drawable.ob_pill16_state : R.drawable.ob_pill16);
+        // Like signs in first, or says why it can't count yet; Share always opens the share sheet (v2.1.2: the tiles
+        // keep their glass; nothing here changes a background)
         statCells[1].setContentDescription(PlayStore.count(stats.likes) + " likes. " + (!signedIn ? "Sign in to like."
                 : stats.subjectId == null ? "Likes start with its owner's next publish." : stats.liked ? "Tap to take the like back."
                 : "Tap to like."));
-        statCells[2].setClickable(true);
-        statCells[2].setBackgroundResource(R.drawable.ob_pill16_state);
         statCells[2].setContentDescription(PlayStore.count(stats.shares) + " shares. Tap to share.");
         statCells[0].setContentDescription(PlayStore.count(stats.downloads) + " downloads");
         statCells[3].setContentDescription(PlayStore.count(stats.views) + " views");
@@ -667,7 +742,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             return;
         }
         String subject = stats.subjectId;
-        if (subject == null) return;
+        if (subject == null) {
+            // v2.1.2: a tap always answers
+            Toast.makeText(this, statsLoaded ? "Likes for this app start with its owner's next publish."
+                    : "Reading the counters from GitHub…", Toast.LENGTH_SHORT).show();
+            return;
+        }
         boolean add = !stats.liked;
         stats.liked = add;
         stats.likes = Math.max(0, stats.likes + (add ? 1 : -1));
@@ -768,7 +848,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /** Likes, shares and views of the app's stats post; this account's view counted once. */
     private void loadReactions(String token, PlayStore.App a) {
-        if (token == null || a.statsDiscussion <= 0) return;
+        if (token == null || a.statsDiscussion <= 0) {
+            statsLoaded = true;
+            return;
+        }
         PlayStore.Stats got = new PlayStore.Stats();
         try {
             GitHubHttp.quick(TIMEOUT_MILLIS, () -> {
@@ -776,6 +859,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 return null;
             });
         } catch (Exception e) {
+            statsLoaded = true;
             return;
         }
         boolean countView = got.subjectId != null && !got.viewed;
@@ -793,6 +877,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             stats.views = got.views;
             stats.viewed = got.viewed;
             stats.downloads = downloads;
+            statsLoaded = true;
             showStats();
         });
         if (countView) {

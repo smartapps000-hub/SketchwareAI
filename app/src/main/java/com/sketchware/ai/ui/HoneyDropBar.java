@@ -338,10 +338,24 @@ public final class HoneyDropBar extends LinearLayout {
                 }
             }
         }
-        // the rounded corners stay where they are
+        // v2.1.2 (owner's 21 Nov phone screenshot: a cut bump above Home at the bar's left end): the edge is one curve with
+        // the rounded corners (see onDraw), so the window only has to be 0 at the bar's very ends; before, it was still
+        // half open where the corner arc ended and Home's crest rose there in a 4-5dp vertical step
         float r = dp(22);
-        float win = smooth((x - r * 0.45f) / r) * smooth((w - x - r * 0.45f) / r);
+        float win = smooth(x / (r * 1.1f)) * smooth((w - x) / (r * 1.1f));
         return y * win;
+    }
+
+    /** One point of the top edge: the body always, the highlight from a little into the corners. */
+    private void edgePoint(float x, float y, boolean highlight, boolean[] first) {
+        body.lineTo(x, y);
+        if (!highlight) return;
+        if (first[0]) {
+            top.moveTo(x, y);
+            first[0] = false;
+        } else {
+            top.lineTo(x, y);
+        }
     }
 
     private static float bump(float dx, float half) {
@@ -367,23 +381,21 @@ public final class HoneyDropBar extends LinearLayout {
         top.reset();
         body.moveTo(0, h - r);
         body.lineTo(0, r);
-        rect.set(0, 0, 2 * r, 2 * r);
-        body.arcTo(rect, 180, 90);
-        boolean first = true;
-        for (float x = r; x <= w - r; x += step) {
-            float y = edgeAt(x);
-            body.lineTo(x, y);
-            if (first) {
-                top.moveTo(x, y);
-                first = false;
-            } else {
-                top.lineTo(x, y);
-            }
+        // v2.1.2: the top corners are sampled along their arcs with the edge's offset added, so an edge tab's crest grows
+        // out of the corner (no step where the arc ends); the highlight starts a little into each corner
+        boolean[] first = {true};
+        int samples = 24;
+        for (int i = 1; i <= samples; i++) {
+            double a = Math.PI + (Math.PI / 2) * i / samples;
+            float x = r + r * (float) Math.cos(a);
+            edgePoint(x, r + r * (float) Math.sin(a) + edgeAt(x), x >= r * 0.3f, first);
         }
-        body.lineTo(w - r, edgeAt(w - r));
-        top.lineTo(w - r, edgeAt(w - r));
-        rect.set(w - 2 * r, 0, w, 2 * r);
-        body.arcTo(rect, 270, 90);
+        for (float x = r + step; x < w - r; x += step) edgePoint(x, edgeAt(x), true, first);
+        for (int i = 0; i <= samples; i++) {
+            double a = 1.5 * Math.PI + (Math.PI / 2) * i / samples;
+            float x = w - r + r * (float) Math.cos(a);
+            edgePoint(x, r + r * (float) Math.sin(a) + edgeAt(x), x <= w - r * 0.3f, first);
+        }
         body.lineTo(w, h - r);
         rect.set(w - 2 * r, h - 2 * r, w, h);
         body.arcTo(rect, 0, 90);

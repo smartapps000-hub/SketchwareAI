@@ -50,6 +50,16 @@ public final class ProjectRepo {
     /** Release assets up to this size go up in one request; larger backups in parts of this size. */
     /** v2.0.5: 8 MiB (16 MiB in v2.0.4): a retry resumes from the last finished part, so smaller parts lose less. */
     public static final long PART_BYTES = 8L * 1024 * 1024;
+    /**
+     * v2.1.2 (owner's 21 Nov directive "under 25 MB: one release asset"): a backup up to this size goes up as one file
+     * (one request, fixed length, 64 KB writes); a larger one in {@link #PART_BYTES} parts with a parts list.
+     */
+    public static final long SINGLE_MAX_BYTES = 25L * 1024 * 1024;
+
+    /** How many files a backup of {@code size} bytes goes up as (1 = one .swb). */
+    public static int partsFor(long size) {
+        return size <= SINGLE_MAX_BYTES ? 1 : (int) ((size + PART_BYTES - 1) / PART_BYTES);
+    }
     /** What a backup may weigh (release assets go up to 2 GB each; a phone's patience is the real limit). */
     public static final long MAX_BYTES = 1024L * 1024 * 1024;
     static final String MARKER_START = "<!-- sketchware-ai ";
@@ -574,7 +584,7 @@ public final class ProjectRepo {
         Set<String> uploaded = new HashSet<>();
         long apkSize = backup.apk != null && backup.apk.isFile() ? backup.apk.length() : 0;
         long total = size + apkSize;
-        if (size <= PART_BYTES) {
+        if (size <= SINGLE_MAX_BYTES) {
             String asset = base + ".swb";
             uploadAsset(releaseId, asset, swb, 0, size, "application/zip", 0, total, progress, "the backup");
             facts.addProperty("swb", asset);

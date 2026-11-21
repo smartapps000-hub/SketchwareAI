@@ -108,6 +108,12 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     @Override
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        // v2.1.2: brought back as a tab: it stays as it was (only a shared link changes what it shows)
+        if (intent != null && intent.getBooleanExtra(com.sketchware.ai.ui.TabScreens.EXTRA_AS_TAB, false)
+                && intent.getStringExtra(EXTRA_LINK) == null) {
+            com.sketchware.ai.ui.TabScreens.onNewIntent(this, intent);
+            return;
+        }
         setIntent(intent);
         linkFrom(intent);
     }
@@ -390,14 +396,62 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         loadIcons(repos, login, icons);
     }
 
-    /** v2.1.1: a row of GitHubViews.row with the project's tile in front of its texts; the tile's icon view. */
-    private ImageView withIcon(LinearLayout row, String name) {
-        android.widget.FrameLayout tile = iconTile(name);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(v.dp(40), v.dp(40));
-        p.rightMargin = v.dp(10);
-        row.addView(tile, 0, p);
-        row.setPadding(v.dp(10), v.dp(8), v.dp(10), v.dp(8));
-        return (ImageView) tile.getChildAt(1);
+    /**
+     * v2.1.2 (owner's 21 Nov directive "unified slim cards across GitHub | Demo | On this phone"): the GitHub cards' shape
+     * for every tab: a top row (the icon tile, the name in bold and one line under it, small badges) and a row of 32dp
+     * pills (the first takes the free width). Returns the card; {@code icon[0]} gets the tile's picture view.
+     */
+    private LinearLayout slimCard(String tileName, String title, String line, View[] badges, View[] actions,
+                                  ImageView[] icon) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundResource(R.drawable.ob_pill16);
+        card.setPadding(v.dp(10), v.dp(8), v.dp(8), v.dp(8));
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        android.widget.FrameLayout tile = iconTile(tileName);
+        top.addView(tile, new LinearLayout.LayoutParams(v.dp(40), v.dp(40)));
+        if (icon != null && icon.length > 0) icon[0] = (ImageView) tile.getChildAt(1);
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        name.setText(title);
+        name.setTypeface(v.bold());
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        GitHubViews.oneLine(name);
+        texts.addView(name);
+        TextView when = v.line(line, false);
+        when.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        GitHubViews.oneLine(when);
+        texts.addView(when);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
+        tp.leftMargin = v.dp(10);
+        top.addView(texts, tp);
+        if (badges != null) {
+            for (View b : badges) {
+                if (b == null) continue;
+                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(26));
+                bp.leftMargin = v.dp(6);
+                top.addView(b, bp);
+            }
+        }
+        card.addView(top);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.HORIZONTAL);
+        body.setGravity(Gravity.CENTER_VERTICAL);
+        boolean first = true;
+        for (View a : actions) {
+            if (a == null) continue;
+            LinearLayout.LayoutParams ap = first ? new LinearLayout.LayoutParams(0, v.dp(32), 1f)
+                    : new LinearLayout.LayoutParams(-2, v.dp(32));
+            if (!first) ap.leftMargin = v.dp(6);
+            body.addView(a, ap);
+            first = false;
+        }
+        card.addView(body, v.full(-1, 6));
+        card.setContentDescription(title + ". " + line);
+        return card;
     }
 
     /**
@@ -825,11 +879,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
      * opens one, a long press offers Delete. None yet: a button makes the GitHub API Demo.
      */
     private void buildDemo() {
+        // v2.1.2 (owner's 21 Nov directive): no paragraph under the title
         list.addView(title("Demo projects"), v.full(-1, 4));
-        TextView note = v.line("Ready-made projects that show what Sketchware AI can do: open one to look at its screens and "
-                + "blocks, or run it.", false);
-        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        list.addView(note, v.full(-1, 4));
         LinearLayout rows = new LinearLayout(this);
         rows.setOrientation(LinearLayout.VERTICAL);
         rows.addView(v.line("Reading the projects…", false));
@@ -886,19 +937,24 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             String scId = yB.c(p, "sc_id");
             String app = yB.c(p, "my_app_name");
             String name = app.isEmpty() ? yB.c(p, "my_ws_name").replace('_', ' ') : app;
-            String detail = "Project #" + scId + " · v" + yB.c(p, "sc_ver_name") + " ("
-                    + yB.c(p, "sc_ver_code") + ")" + (i == 0 ? " · Latest demo" : "");
+            String detail = "Project #" + scId + " · v" + yB.c(p, "sc_ver_name") + " (" + yB.c(p, "sc_ver_code") + ")";
             TextView open = v.smallPill("Open", true, true, x -> openProject(scId));
             open.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             GitHubViews.oneLine(open);
-            LinearLayout row = v.row("#" + (i + 1) + "  " + name, detail, open);
+            // v2.1.2: the GitHub cards' shape; #1, #2 … and Latest as badges, Delete beside Open (a long press too)
+            TextView delete = v.smallPill("Delete", false, true, null);
+            delete.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            GitHubViews.oneLine(delete);
+            ImageView[] iconOut = new ImageView[1];
+            LinearLayout row = slimCard(name, name, detail, new View[]{i == 0 ? badge("Latest", true) : null,
+                    badge("#" + (i + 1), false)}, new View[]{open, delete}, iconOut);
             // v2.1.1: the demo's own icon
-            ImageView demoIcon = withIcon(row, name);
+            ImageView demoIcon = iconOut[0];
             work.execute(() -> {
                 android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.localIcon(scId), v.dp(40));
                 if (b != null) ui(() -> demoIcon.setImageBitmap(b));
             });
-            row.setOnLongClickListener(x -> {
+            View.OnLongClickListener askDelete = x -> {
                 new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                         .setTitle("Delete " + name + " (#" + scId + ")?")
                         .setMessage("The demo project is removed from this phone (its GitHub backups stay).")
@@ -911,8 +967,10 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
                 return true;
-            });
-            rows.addView(row, v.full(-1, i == 0 ? 0 : 6));
+            };
+            row.setOnLongClickListener(askDelete);
+            delete.setOnClickListener(askDelete::onLongClick);
+            rows.addView(row, v.full(-1, i == 0 ? 0 : 8));
         }
     }
 
@@ -1014,9 +1072,13 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     TextView restore = v.smallPill("Restore", true, true, x -> restoreLocal(f));
                     restore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                     GitHubViews.oneLine(restore);
-                    LinearLayout row = v.row(f.getName().replaceAll("(?i)\\.swb$", ""), detail, restore);
-                    icons.put(f, withIcon(row, f.getName().replaceAll("(?i)\\.swb$", "").replaceAll("(?i)_v\\d.*$", "")));
-                    rows.addView(row, v.full(-1, 6));
+                    // v2.1.2: the GitHub cards' shape (name, date · size, Restore across the card)
+                    String shown = f.getName().replaceAll("(?i)\\.swb$", "");
+                    ImageView[] iconOut = new ImageView[1];
+                    LinearLayout row = slimCard(shown.replaceAll("(?i)_v\\d.*$", ""), shown, detail, null,
+                            new View[]{restore}, iconOut);
+                    icons.put(f, iconOut[0]);
+                    rows.addView(row, v.full(-1, 8));
                 }
                 // v2.1.1: each backup's own app icon (its resources/icons/icon.png)
                 int px = v.dp(40);

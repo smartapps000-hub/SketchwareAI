@@ -98,11 +98,43 @@ public final class GitHubSession {
         String refused = prefs.getString("refused", null);
         if (refused != null && refused.equals(store.sealedKey())) {
             p.problem = prefs.getString("refused_note", "GitHub didn't accept the saved sign-in.");
-        } else if (store.token() == null && store.problem() != null) {
-            // a quick Keystore read: the card says why this phone can't use the saved sign-in (it stays saved)
-            p.problem = "This phone can't read the saved sign-in: " + store.problem() + ". Tap Sign in again.";
+        } else {
+            // v2.1.2 (zero-lag): the Keystore read once per saved sign-in (the card is drawn on the main thread; the
+            // answer is kept until the saved sign-in changes)
+            String why = readProblem(store);
+            if (why != null) p.problem = "This phone can't read the saved sign-in: " + why + ". Tap Sign in again.";
         }
         return p;
+    }
+
+    /** {sealed key, problem or ""}: the last Keystore read's answer. */
+    private static volatile String[] readMemo;
+
+    private static String readProblem(TokenStore store) {
+        String sealed = store.sealedKey();
+        String[] memo = readMemo;
+        if (memo != null && sealed != null && sealed.equals(memo[0])) return memo[1].isEmpty() ? null : memo[1];
+        String problem = store.token() == null ? store.problem() : null;
+        // a passing Keystore hiccup isn't kept: the next card asks again
+        if (problem == null || !problem.startsWith("the Android Keystore didn't answer")) {
+            readMemo = new String[]{sealed, problem == null ? "" : problem};
+        }
+        return problem;
+    }
+
+    /** v2.1.2: at start, off the main thread: the Keystore read the account card needs, done ahead. */
+    public static void warmUp(Context context) {
+        Context app = context.getApplicationContext();
+        Thread t = new Thread(() -> {
+            try {
+                TokenStore store = TokenStore.get(app);
+                if (store.login() != null) readProblem(store);
+            } catch (RuntimeException ignored) {
+                // the card reads it then
+            }
+        }, "SessionWarmUp");
+        t.setDaemon(true);
+        t.start();
     }
 
     /**
@@ -234,6 +266,13 @@ public final class GitHubSession {
 
     /** Signs out on this phone: token, login, id, Keystore key, profile and picture. Backups on GitHub stay. */
     public static void signOut(Context context) {
+        signOut(context, "you tapped Sign out");
+    }
+
+    /** v2.1.2: as {@link #signOut(Context)}, with the reason recorded ({@link SessionLog}; the signed-out card says it). */
+    public static void signOut(Context context, String reason) {
+        String login = TokenStore.get(context).login();
+        SessionLog.record(context, "signed_out", (login == null ? "" : "@" + login + ": ") + reason);
         TokenStore.get(context).clear();
         SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         // v2.1.0 review (LOW): the sign-in history stays (the next refusal's note counts the sign-ins on this phone)

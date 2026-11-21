@@ -388,6 +388,14 @@ public final class GitHubViews {
         public FrameLayout page;
         /** "Sign in via browser" (Google, Apple, passkey: GitHub's page in the browser, the code copied). */
         public LinearLayout browser;
+        /**
+         * v2.1.2: the verification-code bar (GitHub's e-mailed device code or a two-factor code page): its title, "Open
+         * Gmail" and "Paste & fill"; hidden on every other page.
+         */
+        public LinearLayout otp;
+        public TextView otpTitle;
+        public TextView openMail;
+        public TextView pasteFill;
     }
 
     /**
@@ -487,6 +495,43 @@ public final class GitHubViews {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         r2.topMargin = dp(6);
         top.addView(row2, r2);
+
+        // v2.1.2 (owner's 21 Nov directive "Email Verification Code helper bar"): under the code row, only on GitHub's
+        // verification pages
+        LinearLayout otp = new LinearLayout(c);
+        otp.setOrientation(LinearLayout.VERTICAL);
+        otp.setBackgroundResource(R.drawable.ob_pill16);
+        otp.setPadding(dp(12), dp(10), dp(12), dp(10));
+        otp.setVisibility(View.GONE);
+        TextView otpTitle = new TextView(c, null, 0, R.style.Ob_Text_Label);
+        otpTitle.setText("Email verification code");
+        otpTitle.setTypeface(bold());
+        otpTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        otpTitle.setTextColor(color(R.color.ob_text));
+        otp.addView(otpTitle, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout otpButtons = new LinearLayout(c);
+        otpButtons.setOrientation(LinearLayout.HORIZONTAL);
+        TextView openMail = smallPill("Open Gmail", false, true, null);
+        oneLine(openMail);
+        openMail.setContentDescription("Open Gmail: GitHub's e-mail has the code");
+        TextView pasteFill = smallPill("Paste & fill", true, true, null);
+        oneLine(pasteFill);
+        pasteFill.setContentDescription("Paste and fill: puts the code you copied into GitHub's field and verifies it");
+        LinearLayout.LayoutParams ob = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        otpButtons.addView(openMail, ob);
+        LinearLayout.LayoutParams pf = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        pf.leftMargin = dp(8);
+        otpButtons.addView(pasteFill, pf);
+        LinearLayout.LayoutParams obp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        obp.topMargin = dp(8);
+        otp.addView(otpButtons, obp);
+        LinearLayout.LayoutParams op = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        op.topMargin = dp(8);
+        top.addView(otp, op);
+
         root.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -519,6 +564,10 @@ public final class GitHubViews {
         a.status = status;
         a.page = page;
         a.browser = browser;
+        a.otp = otp;
+        a.otpTitle = otpTitle;
+        a.openMail = openMail;
+        a.pasteFill = pasteFill;
         return a;
     }
 

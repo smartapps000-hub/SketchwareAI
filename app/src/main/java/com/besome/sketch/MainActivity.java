@@ -171,8 +171,9 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
     @Override
     public void onBackPressed() {
-        // v2.1.0: Back on Home leaves the app (the tabs ask before they close, Home doesn't)
-        finish();
+        // v2.1.0: Back on Home leaves the app. v2.1.2: the app goes to the background as Android 12+ does for a launcher
+        // screen (the tab screens kept behind Home would otherwise come up, and the next start is instant)
+        if (!moveTaskToBack(true)) finish();
     }
 
     @Override
@@ -186,6 +187,11 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
 
         tryLoadingCustomizedAppStrings();
         setContentView(R.layout.main);
+        // v2.1.2: the sign-in's record on this phone (read off the main thread; an update since the last start noted)
+        com.sketchware.ai.github.SessionLog.load(this);
+        com.sketchware.ai.github.SessionLog.appStarted(this);
+        // v2.1.2 (zero-lag): the account card's Keystore read done ahead, off the main thread
+        com.sketchware.ai.github.GitHubSession.warmUp(this);
 
         u = new DB(getApplicationContext(), "U1");
         int u1I0 = u.a("U1I0", -1);
@@ -561,7 +567,9 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
                 return;
         }
         try {
-            startActivity(intent);
+            // v2.1.2 (owner's 21 Nov directive "keep each tab's scroll position and navigation state"): a tab still open
+            // behind Home comes back as it was
+            startActivity(com.sketchware.ai.ui.TabScreens.reopen(intent));
             tabOpening = true;
         } catch (RuntimeException e) {
             bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);

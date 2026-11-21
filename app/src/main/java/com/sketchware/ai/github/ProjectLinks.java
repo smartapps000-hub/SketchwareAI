@@ -43,15 +43,28 @@ public final class ProjectLinks {
     private static JsonObject read(String scId) {
         if (scId == null || !scId.matches("\\d+")) return null;
         File f = file(scId);
-        if (!f.isFile() || f.length() > 16384) return null;
-        try {
-            JsonObject json = DeviceFlow.parse(FileUtil.readFile(f.getAbsolutePath()));
-            if (!scId.equals(DeviceFlow.string(json, "sc_id"))) return null;
-            return json;
-        } catch (RuntimeException e) {
-            return null;
+        // v2.1.2 (zero-lag): Home's cards ask while they are drawn; a record is read once per version of its file
+        long stamp = f.lastModified();
+        long size = f.length();
+        Object[] memo = READ_MEMO.get(scId);
+        if (memo != null && (Long) memo[0] == stamp && (Long) memo[1] == size) {
+            return memo[2] == null ? null : ((JsonObject) memo[2]).deepCopy();
         }
+        JsonObject json = null;
+        if (f.isFile() && size <= 16384) {
+            try {
+                JsonObject parsed = DeviceFlow.parse(FileUtil.readFile(f.getAbsolutePath()));
+                if (scId.equals(DeviceFlow.string(parsed, "sc_id"))) json = parsed;
+            } catch (RuntimeException ignored) {
+                // not a record
+            }
+        }
+        READ_MEMO.put(scId, new Object[]{stamp, size, json});
+        return json == null ? null : json.deepCopy();
     }
+
+    private static final java.util.concurrent.ConcurrentHashMap<String, Object[]> READ_MEMO =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     private static boolean ownedBy(JsonObject json, String signedInLogin) {
         String owner = DeviceFlow.string(json, "login");

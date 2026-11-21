@@ -200,6 +200,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
         chrome.code.setOnClickListener(v -> copyCode(true));
         chrome.reload.setOnClickListener(v -> reload());
         chrome.browser.setOnClickListener(v -> openBrowser());
+        // v2.1.2: the verification-code bar
+        chrome.openMail.setOnClickListener(v -> openMail());
+        chrome.pasteFill.setOnClickListener(v -> pasteAndFill());
         setOnDismissListener(d -> close());
         if (!TokenStore.supported()) {
             status("GitHub sign-in needs Android 6.0 or newer.", true);
@@ -610,6 +613,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 }
                 if (!url.equals(backUrl)) backUrl = null;
                 toDevicePageIfSignedIn(Uri.parse(url));
+                otpBar(Uri.parse(url));
             }
 
             @Override
@@ -955,6 +959,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
             web.evaluateJavascript(SOCIAL_SCRIPT, null);
         }
         toDevicePageIfSignedIn(uri);
+        otpBar(uri);
         if (path.equals("/login/device") || path.equals("/login/device/")) {
             fill();
         } else if (path.startsWith("/login/device/")) {
@@ -964,6 +969,81 @@ public final class GitHubInAppAuthDialog extends Dialog {
         } else if (path.startsWith("/login") || path.startsWith("/session")) {
             status("Sign in below · the code goes in by itself.", false);
         }
+    }
+
+    /** v2.1.2: what the verification-code bar is for on the page shown now ("email", "two-factor"), else null. */
+    private String otpKind;
+
+    /** v2.1.2: the bar shows on GitHub's verification pages only (an e-mailed code: with Open Gmail). */
+    private void otpBar(Uri uri) {
+        if (chrome == null || chrome.otp == null) return;
+        String kind = uri == null ? null : OtpAssist.pageKind(uri.getScheme(), uri.getHost(), uri.getPath());
+        otpKind = kind;
+        if (kind == null) {
+            chrome.otp.setVisibility(View.GONE);
+            return;
+        }
+        boolean email = "email".equals(kind);
+        chrome.otpTitle.setText(email ? "Email verification code" : "Two-factor code");
+        chrome.openMail.setVisibility(email ? View.VISIBLE : View.GONE);
+        chrome.otp.setVisibility(View.VISIBLE);
+        status(email ? "GitHub e-mailed you a code: copy it, then tap Paste & fill." : "Copy the code from your "
+                + "authenticator app, then tap Paste & fill.", false);
+    }
+
+    /** v2.1.2: Gmail (else the phone's e-mail app); the sign-in window stays as it is. */
+    private void openMail() {
+        Context context = getContext();
+        Intent gmail = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                .setPackage("com.google.android.gm").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(gmail);
+            return;
+        } catch (RuntimeException ignored) {
+            // no Gmail: any e-mail app
+        }
+        try {
+            context.startActivity(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_EMAIL)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            status("No e-mail app on this phone: open GitHub's e-mail where you read it and copy the code.", true);
+        }
+    }
+
+    /** v2.1.2: the code the user copied into GitHub's field on this page (GitHub's own Verify is then pressed). */
+    private void pasteAndFill() {
+        if (web == null || otpKind == null) return;
+        Uri now = web.getUrl() == null ? null : Uri.parse(web.getUrl());
+        if (now == null || OtpAssist.pageKind(now.getScheme(), now.getHost(), now.getPath()) == null) {
+            otpBar(now);
+            return;
+        }
+        CharSequence copied = null;
+        try {
+            android.content.ClipboardManager clip = (android.content.ClipboardManager) getContext()
+                    .getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clip != null && clip.hasPrimaryClip() && clip.getPrimaryClip() != null
+                    && clip.getPrimaryClip().getItemCount() > 0) {
+                copied = clip.getPrimaryClip().getItemAt(0).coerceToText(getContext());
+            }
+        } catch (RuntimeException ignored) {
+            // nothing to read
+        }
+        String code = OtpAssist.codeFrom(copied);
+        if (code == null) {
+            status("No 6- or 8-digit code was copied. Copy the code" + ("email".equals(otpKind) ? " from GitHub's e-mail"
+                    : "") + ", then tap Paste & fill.", true);
+            return;
+        }
+        web.evaluateJavascript(OtpAssist.fillScript(code), result -> {
+            if (closed) return;
+            String r = result == null ? "" : result.replace("\"", "");
+            if ("none".equals(r)) {
+                status("This GitHub page has no code field yet: wait for it to load, then tap Paste & fill again.", true);
+            } else {
+                status("Code " + code + " filled in: GitHub is checking it…", false);
+            }
+        });
     }
 
     private void pageSlow() {

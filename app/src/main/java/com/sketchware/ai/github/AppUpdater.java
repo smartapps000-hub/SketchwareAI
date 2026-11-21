@@ -62,11 +62,11 @@ public final class AppUpdater {
         progress.update(1, "Connecting to GitHub…");
         boolean[] cancelled = {false};
         Thread[] worker = new Thread[1];
-        progress.actions(() -> {
-            cancelled[0] = true;
-            if (worker[0] != null) worker[0].interrupt();
-        }, () -> {
+        // v2.1.2 (owner's 21 Nov directive): no Cancel while it downloads, only Hide (the notification goes on showing
+        // it); after a failure Hide and Retry
+        progress.actions(null, () -> {
             running = false;
+            UpdateNotice.cancel(activity.getApplicationContext());
             start(activity, config);
         }, null);
         Context app = activity.getApplicationContext();
@@ -86,8 +86,11 @@ public final class AppUpdater {
                 } else {
                     String sha = download(config.updateUrl, part, cancelled, (done, total) -> main.post(() -> {
                         int percent = total > 0 ? 2 + (int) (93 * Math.min(1.0, done / (double) total)) : 50;
-                        progress.update(percent, "Downloading… " + CloudSync.megabytes(done)
-                                + (total > 0 ? " of " + CloudSync.megabytes(total) : ""));
+                        String text = "Downloading… " + CloudSync.megabytes(done)
+                                + (total > 0 ? " of " + CloudSync.megabytes(total) : "");
+                        progress.update(percent, text);
+                        // v2.1.2: hidden, the download shows in the notification
+                        if (progress.hidden()) UpdateNotice.progress(app, percent, text);
                     }));
                     if (!config.updateSha256.equals(sha)) {
                         //noinspection ResultOfMethodCallIgnored
@@ -107,11 +110,21 @@ public final class AppUpdater {
             String why = failure;
             main.post(() -> {
                 if (why != null) {
-                    if (progress.hidden()) Toast.makeText(app, "The update didn't download: " + why, Toast.LENGTH_LONG).show();
-                    else progress.failed(why, !cancelled[0]);
+                    if (progress.hidden()) {
+                        UpdateNotice.failed(app, why);
+                        Toast.makeText(app, "The update didn't download: " + why, Toast.LENGTH_LONG).show();
+                    } else {
+                        progress.failedHideRetry(why);
+                    }
                     return;
                 }
+                UpdateNotice.cancel(app);
                 if (!progress.hidden()) progress.done("Checked (SHA-256 matches): Android's installer opens.");
+                if (activity.isFinishing() || activity.isDestroyed()) {
+                    // the screen went meanwhile: the notification opens the installer
+                    UpdateNotice.ready(app, target);
+                    return;
+                }
                 install(activity, target);
             });
         }, "AppUpdater");

@@ -221,7 +221,43 @@ public class GC extends DA implements View.OnClickListener {
             return;
         }
 
-        allProjects = lC.a();
+        // v2.1.2 (owner's 21 Nov directive "zero-lag offline-first"): the project files are read off the main thread; the
+        // list read last in this process shows at once meanwhile (a new start shows the list as soon as it is read)
+        int generation = ++loadGeneration;
+        if (LAST_LIST != null && allProjects.isEmpty()) show(new ArrayList<>(LAST_LIST), isEmpty);
+        LIST_READER.execute(() -> {
+            ArrayList<HashMap<String, Object>> read;
+            try {
+                read = lC.a();
+            } catch (RuntimeException e) {
+                read = new ArrayList<>();
+            }
+            if (read == null) read = new ArrayList<>();
+            ArrayList<HashMap<String, Object>> result = read;
+            android.app.Activity activity = getActivity();
+            if (activity == null) return;
+            activity.runOnUiThread(() -> {
+                if (generation != loadGeneration || getActivity() == null || myProjects == null) return;
+                LAST_LIST = new ArrayList<>(result);
+                show(result, isEmpty);
+            });
+        });
+    }
+
+    /** v2.1.2: the project list reader (one at a time, in order). */
+    private static final java.util.concurrent.ExecutorService LIST_READER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "ProjectsList");
+                t.setDaemon(true);
+                return t;
+            });
+    /** v2.1.2: the list as last read in this process (shown at once while it is read again). */
+    private static volatile ArrayList<HashMap<String, Object>> LAST_LIST;
+    private int loadGeneration;
+
+    /** v2.1.2: what a(boolean) did after reading the list, on the main thread with the list read. */
+    private void show(ArrayList<HashMap<String, Object>> list, boolean isEmpty) {
+        allProjects = list;
         if (allProjects.size() > 0) {
             //noinspection Java8ListSort
             Collections.sort(allProjects, new ProjectComparator());
@@ -400,7 +436,9 @@ public class GC extends DA implements View.OnClickListener {
         // setting dialog (MyProjectSettingActivity) stays for the settings of existing projects.
         Intent intent = new Intent(getActivity(), com.sketchware.ai.ui.NewProjectActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        if (asTab) com.sketchware.ai.ui.TabScreens.asTab(intent, "Create");
+        // v2.1.2: Create is a form: Back closes it (no question), the other tabs stay behind Home
+        if (asTab) com.sketchware.ai.ui.TabScreens.asTab(intent, "Create")
+                .putExtra(com.sketchware.ai.ui.TabScreens.EXTRA_CLOSES, true);
         startActivityForResult(intent, REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY);
     }
 

@@ -208,6 +208,21 @@ public final class GitHubProgress {
     }
 
     /**
+     * v2.1.2 (owner's 21 Nov directive: the update download has no Cancel; "on an error, Retry in its place"): the
+     * error with Hide and Retry.
+     */
+    public void failedHideRetry(String text) {
+        if (!alive()) return;
+        finished = true;
+        sheet.status.setText(text);
+        sheet.status.setMaxLines(8);
+        sheet.status.setTextColor(v.color(R.color.ob_error));
+        sheet.percent.setTextColor(v.color(R.color.ob_error));
+        buttons(pill("Hide", false, x -> hide()), retry == null ? null : pill("Retry", true, x -> retry.run()));
+        buttons2.removeAllViews();
+    }
+
+    /**
      * v2.0.5: GitHub refused the saved sign-in (HTTP 401): "Sign in again" renews it in one tap and the job runs again
      * (Retry), else Close.
      */

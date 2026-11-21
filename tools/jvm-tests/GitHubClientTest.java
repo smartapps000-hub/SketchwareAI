@@ -594,20 +594,22 @@ public class GitHubClientTest {
                 fake.assetsById.containsKey(apkId) && again1.assets.get(0).name.equals(apkName)
                         && again1.body.contains("\"apk\":\"" + apkName + "\""), again1.body);
 
-        // a backup over 8 MiB (16 MiB before v2.0.5): parts and a parts list, downloaded and joined through GitHub's file host
+        // a backup over 25 MiB (v2.1.2; 8 MiB in v2.0.5, 16 MiB before): parts of 8 MiB and a parts list, downloaded and
+        // joined through GitHub's file host
         File bigSwb = File.createTempFile("big", ".swb");
-        byte[] bigBytes = new byte[17 * 1024 * 1024 + 321];
+        byte[] bigBytes = new byte[25 * 1024 * 1024 + 321];
         new java.util.Random(14).nextBytes(bigBytes);
         java.nio.file.Files.write(bigSwb.toPath(), bigBytes);
         call(repo, "upload", backup(bigSwb, null, "My App", "2.0", "2", "Big"), null);
         Fake.FakeRelease r2 = myRepo.releases.get(1);
         List<String> r2Names = new ArrayList<>();
         for (Fake.FakeAsset a : r2.assets) r2Names.add(a.name);
-        check("v2.0.5: a 17 MiB backup goes as three parts (8 MiB, 8 MiB, the rest) and a parts list",
-                r2.assets.size() == 4 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
-                        && r2Names.get(2).endsWith(".swb.part002") && r2Names.get(3).endsWith(".swb.parts.json")
+        check("v2.1.2: a backup just over 25 MiB goes as four parts (8, 8, 8 MiB, the rest) and a parts list",
+                r2.assets.size() == 5 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
+                        && r2Names.get(2).endsWith(".swb.part002") && r2Names.get(3).endsWith(".swb.part003")
+                        && r2Names.get(4).endsWith(".swb.parts.json")
                         && r2.assets.get(0).bytes.length == 8 * 1024 * 1024 && r2.assets.get(1).bytes.length == 8 * 1024 * 1024
-                        && r2.assets.get(2).bytes.length == 1024 * 1024 + 321, r2Names);
+                        && r2.assets.get(3).bytes.length == 1024 * 1024 + 321, r2Names);
         @SuppressWarnings("unchecked")
         List<Object> prVersions = (List<Object>) call(repo, "versions", false);
         check("v2.0.4: versions newest first, read back from the releases (facts line)",

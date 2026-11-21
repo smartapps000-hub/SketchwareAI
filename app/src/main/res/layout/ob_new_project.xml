@@ -93,8 +93,7 @@
                             android:layout_height="48dp"
                             android:layout_gravity="center"
                             android:contentDescription="@null"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/ob_app_icon_placeholder" />
+                            android:scaleType="centerCrop" />
                     </FrameLayout>
 
                     <LinearLayout

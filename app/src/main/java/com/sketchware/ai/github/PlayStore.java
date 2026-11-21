@@ -337,8 +337,27 @@ public final class PlayStore {
     }
 
     public static List<App> cached(Context context) {
-        List<App> out = new ArrayList<>();
         File f = cacheFile(context);
+        // v2.1.2 (zero-lag): the Play Store tab opens from memory; the file is parsed once per version of it
+        long stamp = f.lastModified();
+        long size = f.length();
+        Object[] memo = cachedMemo;
+        if (memo != null && (Long) memo[0] == stamp && (Long) memo[1] == size) {
+            List<App> copy = new ArrayList<>();
+            for (Object o : (List<?>) memo[2]) copy.add(((App) o).copy());
+            return copy;
+        }
+        List<App> out = readCached(f);
+        List<App> kept = new ArrayList<>();
+        for (App a : out) kept.add(a.copy());
+        cachedMemo = new Object[]{stamp, size, kept};
+        return out;
+    }
+
+    private static volatile Object[] cachedMemo;
+
+    private static List<App> readCached(File f) {
+        List<App> out = new ArrayList<>();
         if (!f.isFile() || f.length() > 4L * 1024 * 1024) return out;
         try {
             JsonElement e = JsonParser.parseString(new String(java.nio.file.Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));

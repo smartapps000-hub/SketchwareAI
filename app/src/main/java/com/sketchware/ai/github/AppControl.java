@@ -60,6 +60,20 @@ public final class AppControl {
         public String latestVersionName;
         /** v2.1.0: a line about what comes next (Settings > App updates, a badge; empty: none). */
         public String comingSoon = "";
+        /**
+         * v2.1.2: the status message is for versions up to this code only (0: all). Lets the file give older versions'
+         * plain update dialog its text ("A newer Sketchware AI is ready." otherwise) without the updated version showing it
+         * again as a message.
+         */
+        public int statusMessageMaxVersionCode;
+        /** v2.1.2: the update card's words: why it is needed (empty: the card's own) and up to three lines of what's new. */
+        public String updateReason = "";
+        public final java.util.List<String> updateNotes = new java.util.ArrayList<>();
+
+        /** The status message as {@code versionCode} sees it (v2.1.2: empty above its last version). */
+        public String statusMessageFor(int versionCode) {
+            return statusMessageMaxVersionCode > 0 && versionCode > statusMessageMaxVersionCode ? "" : statusMessage;
+        }
     }
 
     /** Links only into the owner's repository: whoever can change the file can't send users anywhere else. */
@@ -112,6 +126,20 @@ public final class AppControl {
             c.latestVersionName = latestName == null || latestName.length() > 40 ? null : latestName.trim();
             String soon = DeviceFlow.string(o, "coming_soon");
             c.comingSoon = soon == null ? "" : soon.trim().length() > 200 ? soon.trim().substring(0, 200) : soon.trim();
+            if (o.has("status_message_max_version_code") && o.get("status_message_max_version_code").isJsonPrimitive()) {
+                c.statusMessageMaxVersionCode = o.get("status_message_max_version_code").getAsInt();
+            }
+            String reason = DeviceFlow.string(o, "update_reason");
+            c.updateReason = reason == null ? "" : reason.trim().length() > 300 ? reason.trim().substring(0, 300) : reason.trim();
+            if (o.has("update_notes") && o.get("update_notes").isJsonArray()) {
+                for (JsonElement e : o.getAsJsonArray("update_notes")) {
+                    if (c.updateNotes.size() >= 3) break;
+                    if (!e.isJsonPrimitive()) continue;
+                    String line = e.getAsString().trim();
+                    if (line.isEmpty()) continue;
+                    c.updateNotes.add(line.length() > 120 ? line.substring(0, 120) : line);
+                }
+            }
             return c;
         } catch (RuntimeException e) {
             return null;
@@ -125,19 +153,20 @@ public final class AppControl {
     public static Notice decide(Config c, int versionCode, boolean signedIn, String lastMessage) {
         if (c == null) return null;
         Notice n = new Notice();
+        String message = c.statusMessageFor(versionCode);
         if (versionCode < c.minVersionCode) {
             n.kind = "update";
             n.title = "Update available";
-            n.text = c.statusMessage.isEmpty() ? "A newer Sketchware AI is ready." : c.statusMessage;
+            n.text = message.isEmpty() ? "A newer Sketchware AI is ready." : message;
             n.url = c.updateUrl;
             n.force = c.forceUpdate;
             return n;
         }
-        if (!c.appEnabled || (!c.statusMessage.isEmpty() && !c.statusMessage.equals(lastMessage))) {
-            if (c.statusMessage.isEmpty()) return null;
+        if (!c.appEnabled || (!message.isEmpty() && !message.equals(lastMessage))) {
+            if (message.isEmpty()) return null;
             n.kind = "message";
             n.title = "Sketchware AI";
-            n.text = c.statusMessage;
+            n.text = message;
             n.url = c.messageUrl;
             return n;
         }
@@ -158,8 +187,16 @@ public final class AppControl {
     /** v1.9.9: the file as last read on this phone (offline starts use it), or null when it was never read. */
     public static Config cached(Context context) {
         String json = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("last", null);
-        return json == null ? null : parse(json);
+        if (json == null) return null;
+        // v2.1.2 (zero-lag): parsed once per text (screens ask for it on the main thread)
+        Object[] memo = parsedMemo;
+        if (memo != null && json.equals(memo[0])) return (Config) memo[1];
+        Config c = parse(json);
+        parsedMemo = new Object[]{json, c};
+        return c;
     }
+
+    private static volatile Object[] parsedMemo;
 
     // ------------------------------------------------------------------ v2.1.0: the startup gate
 
@@ -395,27 +432,21 @@ public final class AppControl {
     private static void show(Activity a, Notice notice, SharedPreferences prefs) {
         if (a.isFinishing() || a.isDestroyed()) return;
         if ("message".equals(notice.kind)) prefs.edit().putString("shown_message", notice.text).apply();
-        com.sketchware.ai.ui.ObAlertBuilder b = new com.sketchware.ai.ui.ObAlertBuilder(a,
-                com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
-        b.setTitle(notice.title).setMessage(notice.text);
         if ("update".equals(notice.kind)) {
-            // v2.1.0: the in-app updater (download, SHA-256 check, Android's installer); Later only when it may wait
+            // v2.1.0: the in-app updater (download, SHA-256 check, Android's installer); Later only when it may wait.
+            // v2.1.2 (owner's 21 Nov directive "premium Obsidian glass update card"): the card (UpdateCard)
             Config config = cached(a);
             boolean forced = notice.force && notice.url != null;
-            b.setPositiveButton("Update", (d, w) -> {
+            UpdateCard.show(a, config, forced, () -> {
                 AppUpdater.start(a, config);
                 // review (MEDIUM): an update that may wait doesn't hold the sign-in gate meanwhile
                 if (!forced) passGate(a);
-            });
-            if (!forced) {
-                b.setNegativeButton("Later", (d, w) -> passGate(a));
-                b.setOnCancelListener(d -> passGate(a));
-            } else {
-                b.setCancelable(false);
-            }
-            b.show();
+            }, forced ? null : () -> passGate(a));
             return;
         }
+        com.sketchware.ai.ui.ObAlertBuilder b = new com.sketchware.ai.ui.ObAlertBuilder(a,
+                com.sketchware.remod.R.style.SketchwareAI_GlassAlertDialog);
+        b.setTitle(notice.title).setMessage(notice.text);
         if ("login".equals(notice.kind)) {
             b.setPositiveButton("Sign in", (d, w) -> a.startActivity(new Intent(a, GitHubActivity.class)));
             b.setNegativeButton("Later", null);
