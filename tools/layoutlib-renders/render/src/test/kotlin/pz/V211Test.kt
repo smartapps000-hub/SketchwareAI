@@ -228,3 +228,15 @@ class V211Test {
                 V210Shots.shot(c, V211Shots.restore(c, 1), 393, 851), V210Shots.shot(c, V211Shots.restore(c, 2), 393, 851)))
     }
 }
+
+/** v2.1.1 third review: the app page's hero and capsule row at 360 dp with font scale 1.3 (out/v211_large_store.png). */
+class V211LargeFontTest {
+    @get:Rule val paparazzi = Paparazzi(
+            deviceConfig = DeviceConfig.PIXEL_5.copy(nightMode = NightMode.NIGHT, fontScale = 1.3f), theme = "android:Theme.Material.NoActionBar")
+
+    @Test fun v211Large() {
+        val c = paparazzi.context
+        V210Shots.save(c, "v211_large_store.png", listOf(V210Shots.shot(c, V211Shots.page(c), 360, 760),
+                V210Shots.shot(c, V211Shots.list(c), 360, 760)))
+    }
+}

@@ -393,7 +393,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             TextView s = v.line(status, false);
             s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             s.setTextColor(v.color(R.color.ob_accent));
-            GitHubViews.oneLine(s);
+            // the version line wraps to a second line instead of losing "Update #N"
+            s.setMaxLines(2);
             texts.addView(s);
         }
         if (a.description != null && !a.description.isEmpty()) {
@@ -500,13 +501,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             GitHubViews.oneLine(pill);
             versionRow.addView(pill, new LinearLayout.LayoutParams(-2, -2));
         }
+        if (versionRow.getChildCount() > 0) texts.addView(versionRow, new LinearLayout.LayoutParams(-2, -2));
+        // third review (MEDIUM): its own row, two lines at most, never cut short
         TextView meta = v.line(publishLine(a), false);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        GitHubViews.oneLine(meta);
-        LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(0, -2, 1f);
-        mp.leftMargin = versionRow.getChildCount() == 0 ? 0 : v.dp(8);
-        versionRow.addView(meta, mp);
-        texts.addView(versionRow, v.full(-1, 2));
+        meta.setMaxLines(2);
+        texts.addView(meta, v.full(-1, 4));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(14);
         hero.addView(texts, tp);
@@ -580,12 +580,17 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         pageBox.addView(note, v.full(-1, 12));
     }
 
-    /** "Updated · ★ 42 · 19 Nov 2026", "Re-published • Update #3 · ★ 17", "First release · ★ 3". */
+    /** "Updated · ★ 42 · 19 Nov 2026", "Re-published • Update #3 · ★ 17 · 18 Nov 2026", "First release · ★ 3". */
     static String publishLine(PlayStore.App a) {
         String what = "republished".equals(a.action) ? "Re-published • Update #" + Math.max(2, a.publishNumber)
                 : "updated".equals(a.action) ? "Updated" : "published".equals(a.action) ? "First release" : null;
         long when = a.publishedAt > 0 ? a.publishedAt : a.updated;
-        return (what == null ? "" : what + " · ") + "★ " + a.stars + (when > 0 ? " · " + CloudBackup.formatTime(when) : "");
+        String date = "";
+        if (when > 0) {
+            java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("d MMM yyyy", Locale.ENGLISH);
+            date = " · " + f.format(new java.util.Date(when));
+        }
+        return (what == null ? "" : what + " · ") + "★ " + a.stars + date;
     }
 
     /**
@@ -616,7 +621,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             TextView label = v.line(labels[i], false);
             label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             label.setGravity(Gravity.CENTER);
-            GitHubViews.oneLine(label);
+            // third review: "Downloads" whole at a large font size (shrinks to 8sp at most)
+            GitHubViews.fitOneLine(label, 8f, 11f);
             cell.addView(label, new LinearLayout.LayoutParams(-1, -2));
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
             if (i > 0) p.leftMargin = v.dp(6);
@@ -815,8 +821,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /**
      * The action capsules in one row (owner's 21 Nov directive: no stacked buttons, nothing to scroll for): Install APK
-     * (the orange one; .SWB takes its place when the newest version has no APK), .SWB, Demo, GitHub; the line under them
-     * names the version they get.
+     * (the orange one; .SWB takes its place when the front version, the ★ pinned one else the newest, has no APK), .SWB,
+     * Demo, GitHub; the line under them names the version they get.
      */
     private void renderActions() {
         if (actionsBox == null) return;
@@ -828,15 +834,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         if (front != null && front.apk != null) for (ProjectRepo.Asset x : front.assets) if (x.name.equals(front.apk)) apk = x;
         if (apk != null) {
             ProjectRepo.Asset file = apk;
-            addAction("Install APK", true, 1.5f, "Download and install the APK, " + CloudSync.megabytes(apk.size),
+            addAction("Install APK", true, 1.5f, "Install APK: download and install, " + CloudSync.megabytes(apk.size),
                     x -> RepoViewerActivity.downloadApk(this, a.owner, a.repo, front, file));
         }
         if (front != null && front.swb != null) {
-            addAction(".SWB", apk == null, apk == null ? 1.4f : 1f, "Import the project (.swb)",
+            addAction(".SWB", apk == null, apk == null ? 1.4f : 1f, ".SWB: import the project",
                     x -> RepoViewerActivity.restore(this, a.owner, a.repo, front, a.number, false));
         }
         if (a.video != null) {
-            addAction("Demo", false, 1f, "Watch the demo video", x -> {
+            addAction("Demo", false, 1f, "Demo: watch the demo video", x -> {
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(a.video)));
                 } catch (RuntimeException e) {
@@ -845,14 +851,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             });
         }
         if (versionsFailed && (pageVersions == null || pageVersions.isEmpty())) {
-            addAction("Try again", false, 1.2f, "Read its versions again", x -> {
+            addAction("Try again", false, 1.2f, "Try again: read its versions again", x -> {
                 versionsRead = false;
                 versionsFailed = false;
                 renderActions();
                 loadApp();
             });
         }
-        addAction("GitHub", false, 1f, "Open on GitHub", x -> startActivity(RepoViewerActivity.intent(this, a.owner, a.repo)));
+        addAction("GitHub", false, 1f, "GitHub: open on GitHub", x -> startActivity(RepoViewerActivity.intent(this, a.owner, a.repo)));
         if (!versionsRead) {
             actionNote.setText("Reading its newest version…");
             actionNote.setTextColor(v.color(R.color.ob_text_2));
@@ -873,15 +879,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         GitHubViews.fitOneLine(pill, 9f, 13f);
         pill.setPadding(v.dp(8), 0, v.dp(8), 0);
         pill.setContentDescription(description);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v.dp(40), weight);
+        // third review (LOW): the full 48dp touch target
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v.dp(48), weight);
         if (actionsBox.getChildCount() > 0) p.leftMargin = v.dp(6);
         actionsBox.addView(pill, p);
-    }
-
-    private LinearLayout.LayoutParams pill(int topDp) {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, v.dp(46));
-        p.topMargin = v.dp(topDp);
-        return p;
     }
 
     private void loadReviews(String token) {
@@ -1104,7 +1105,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             TextView label = v.line(labels[i], false);
             label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             label.setGravity(Gravity.CENTER);
-            GitHubViews.oneLine(label);
+            // third review: "Downloads" whole at a large font size (shrinks to 8sp at most)
+            GitHubViews.fitOneLine(label, 8f, 11f);
             cell.addView(label, new LinearLayout.LayoutParams(-1, -2));
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
             if (i > 0) p.leftMargin = v.dp(6);
