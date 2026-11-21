@@ -182,6 +182,9 @@ public final class RepoIcons {
         File cached = number > 0 ? cacheFile(context, number) : null;
         boolean have = cached != null && cached.isFile() && cached.length() > 0;
         if (have && System.currentTimeMillis() - cached.lastModified() < REFRESH_MILLIS) return decode(cached, px);
+        // second review (MEDIUM): without a usable sign-in a private repository answers 404: a saved icon isn't
+        // asked again then (never replaced by "no icon")
+        if (have && token == null) return decode(cached, px);
         File none = number > 0 ? missingMark(context, number) : null;
         if (!have && none != null && none.isFile() && System.currentTimeMillis() - none.lastModified() < MISSING_RETRY_MILLIS) {
             return null;

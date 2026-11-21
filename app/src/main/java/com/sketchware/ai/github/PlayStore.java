@@ -957,6 +957,14 @@ public final class PlayStore {
         }
         String category = generalCategory(categories.toString());
         if (category == null) return 0;
+        // second review (LOW): a stats post already there (one GitHub answered for with another error) is used again
+        try {
+            for (Post p : posts(token, owner, repo, new String[3])) {
+                if (p.title != null && p.title.startsWith("📊 ") && p.number > 0) return p.number;
+            }
+        } catch (IOException | GitHubException ignored) {
+            // a new one then
+        }
         return newPost(token, DeviceFlow.string(r, "id"), category, "📊 " + clip(title, 120) + " · Play Store",
                 "Reactions on this post are the app's counters in Sketchware AI's Play Store: ❤️ likes, 👀 views, 🚀 "
                         + "shares (one per GitHub account). Please keep this post.");

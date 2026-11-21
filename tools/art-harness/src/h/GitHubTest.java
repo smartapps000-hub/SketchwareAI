@@ -1364,6 +1364,20 @@ public final class GitHubTest {
         String thirdKey = (String) call(thirdJob, "key");
         boolean waitingBefore = Boolean.TRUE.equals(call(cloudSync, "needsSignIn", thirdKey));
         call(cloudSync, "signedOut");
+        Object foreignJob = neu(jobClass, "store-4545", "store", "Foreign", autoOptions, true);
+        Object foreignSpec = neu("com.sketchware.ai.github.CloudSync$Store");
+        set(foreignSpec, "number", 4545L);
+        set(foreignSpec, "repo", "SketchwareAI-Foreign");
+        set(foreignSpec, "title", "Foreign");
+        set(foreignJob, "store", foreignSpec);
+        set(foreignJob, "login", "mallory");
+        int runsBeforeForeign = storeRuns.get();
+        call(cloudSync, "enqueue", foreignJob, null, result.apply("SF"));
+        boolean foreignRefused = waitFor(() -> results.stream().anyMatch(r -> r.startsWith("SF:false:Not published: it was "
+                + "started as @mallory and this phone is signed in as @octo now")), 5000);
+        check("v2.1.1 second review: a Play Store job of another account is refused before it runs (no request, no retry)",
+                foreignRefused && storeRuns.get() == runsBeforeForeign
+                        && Boolean.FALSE.equals(call(cloudSync, "canRetry", call(foreignJob, "key"))), results);
         check("v2.1.1 review (HIGH): a job remembers its account (@octo); refused, then another account signs in: it "
                         + "doesn't run; Sign out forgets the jobs waiting for a sign-in or a Retry",
                 otherRefused && "octo".equals(jobLogin) && notResumed && waitingBefore

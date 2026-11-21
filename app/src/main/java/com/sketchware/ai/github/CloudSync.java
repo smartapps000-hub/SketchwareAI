@@ -181,6 +181,8 @@ public final class CloudSync {
 
     /** v2.1.1: what a Play Store publish needs. */
     public static final class Store {
+        /** Second review (LOW): the account the publish screen showed (the job runs only under it). */
+        public String login;
         public String repo;
         public long number;
         public String title;
@@ -356,11 +358,10 @@ public final class CloudSync {
         progress.actions(() -> sync.cancel(key), () -> {
             Job again = sync.retryJob(key);
             if (again != null) {
-                if (!sync.sameAccount(again)) {
+                if (sync.blocked(again)) {
                     // review (HIGH): Sign in again with another account: that account didn't ask for this
-                    progress.failed("This was started as @" + again.login + "; this phone is signed in as @"
-                            + TokenStore.get(sync.app).login() + " now, so it didn't run. Start it again from this "
-                            + "account if you want it there.", false);
+                    sync.failed.put(key, again);
+                    progress.failed(sync.blockedText(again), false);
                     return;
                 }
                 progress.restart();
@@ -371,8 +372,13 @@ public final class CloudSync {
                 if (!sync.join(key, progress::update, ending(sync, progress, key))) {
                     progress.failed("That run already ended: its notification says how.", false);
                 }
+            } else if (TokenStore.get(sync.app).login() == null) {
+                // second review (MEDIUM): signed out meanwhile (Sign out forgets the waiting jobs)
+                progress.failed("You signed out, so it didn't run. Sign in and start it again.", false);
+            } else if (sync.blocked(job)) {
+                progress.failed(sync.blockedText(job), false);
             } else {
-                // review (LOW): the run the sign-in started already ended (or there was nothing to run)
+                // review (LOW): the run the sign-in started already ended
                 progress.failed("It ran again after the sign-in: its notification says how it ended.", false);
             }
         }, job.link);
@@ -477,7 +483,8 @@ public final class CloudSync {
         Job job = new Job(store.scId != null ? store.scId : "store-" + store.number, STORE, store.title,
                 Options.AUTOMATIC, true);
         job.store = store;
-        job.link = ProjectRepo.link(TokenStore.get(activity).login(), store.repo);
+        job.login = store.login;
+        job.link = ProjectRepo.link(store.login != null ? store.login : TokenStore.get(activity).login(), store.repo);
         return follow(activity, sync, job, R.drawable.ob_ic_store, "Publishing " + store.title);
     }
 
@@ -487,7 +494,8 @@ public final class CloudSync {
         Job job = new Job(store.scId != null ? store.scId : "store-" + store.number, STORE, store.title,
                 Options.AUTOMATIC, true);
         job.store = store;
-        job.link = ProjectRepo.link(TokenStore.get(context).login(), store.repo);
+        job.login = store.login;
+        job.link = ProjectRepo.link(store.login != null ? store.login : TokenStore.get(context).login(), store.repo);
         sync.enqueue(job, null, (ok, message) -> Toast.makeText(sync.app, message, Toast.LENGTH_LONG).show());
     }
 
@@ -501,8 +509,12 @@ public final class CloudSync {
             Job again = retryJob(key);
             signInNeeded.remove(key);
             if (again == null) continue;
-            // review (HIGH): another account signed in: that account never said yes to this job
-            if (!sameAccount(again)) continue;
+            // review (HIGH): another account signed in: that account never said yes to this job; it stays for its own
+            // account's Retry (second review: the sheet then says why it didn't run)
+            if (blocked(again)) {
+                failed.put(key, again);
+                continue;
+            }
             enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
         }
         lastPendingTry = 0;
@@ -729,6 +741,12 @@ public final class CloudSync {
     public void retry(String key) {
         Job again = retryJob(key);
         if (again == null) return;
+        if (blocked(again)) {
+            // second review (LOW): the notification's Retry follows the same account rule as the sheet
+            failed.put(key, again);
+            Toast.makeText(app, blockedText(again), Toast.LENGTH_LONG).show();
+            return;
+        }
         enqueue(again, null, (ok, message) -> Toast.makeText(app, message, Toast.LENGTH_LONG).show());
     }
 
@@ -1081,15 +1099,12 @@ public final class CloudSync {
     /** One job's work on the worker thread; the line shown when it worked. */
     private String run(Job job) throws Exception {
         if (job.cancelled) throw new GitHubHttp.Cancelled();
+        // v2.1.1 review (HIGH): never under another account (checked before the test runner: the suite covers it)
+        if (blocked(job)) throw new OtherAccount(blockedText(job));
         Runner test = runnerForTests;
         if (test != null) return test.run(job);
         if (IMPORT.equals(job.kind)) return runImport(job);
         signInNeeded.remove(job.key());
-        if ((STORE.equals(job.kind) || PUBLISH.equals(job.kind)) && !sameAccount(job)) {
-            throw new OtherAccount((STORE.equals(job.kind) ? "Not published" : "Not changed") + ": it was started as @"
-                    + job.login + " and this phone is signed in as @" + TokenStore.get(app).login() + " now. Start it "
-                    + "again from this account if you want it there.");
-        }
         if (GitHubSession.isRefused(app)) {
             // v2.0.5: GitHub refused this sign-in: no request until it is renewed (no stream of 401s); it waits
             throw new GitHubException("refused", GitHubSession.problemOf(app) == null
@@ -1281,6 +1296,24 @@ public final class CloudSync {
     boolean sameAccount(Job job) {
         String now = TokenStore.get(app).login();
         return job.login == null || job.login.equalsIgnoreCase(now);
+    }
+
+    /**
+     * Second review: the account rule applies to what makes a repository public (a Play Store publish, Publish); a
+     * backup or an import of a public project needs no particular account.
+     */
+    boolean blocked(Job job) {
+        return (STORE.equals(job.kind) || PUBLISH.equals(job.kind)) && !sameAccount(job);
+    }
+
+    /** Why a blocked job didn't run ("you signed out" when nobody is signed in: never "@null"). */
+    String blockedText(Job job) {
+        String now = TokenStore.get(app).login();
+        String what = STORE.equals(job.kind) ? "Not published" : "Not changed";
+        if (now == null) return what + ": it was started as @" + job.login + " and you signed out. Sign in as @" + job.login
+                + " and start it again.";
+        return what + ": it was started as @" + job.login + " and this phone is signed in as @" + now + " now. Start it "
+                + "again from this account if you want it there.";
     }
 
     /** v2.1.1 review (HIGH): Sign out forgets the jobs that waited for a sign-in or a Retry (they were that account's). */
@@ -1811,6 +1844,8 @@ public final class CloudSync {
         String[] session = session();
         String login = session[0];
         String token = session[1];
+        // second review (LOW): the account read for the requests is the job's own
+        if (job.login != null && !job.login.equalsIgnoreCase(login)) throw new OtherAccount(blockedText(job));
         PlayStore.Listing listing = PlayStore.Listing.load(store.staging);
         if (listing.title == null || listing.title.trim().isEmpty()) listing.title = store.title;
         File icon = store.scId == null ? null : RepoIcons.localIcon(store.scId);

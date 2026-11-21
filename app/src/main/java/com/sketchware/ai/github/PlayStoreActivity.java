@@ -146,7 +146,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-        // a publish that finished meanwhile removed the staged pictures
+        // pictures picked or removed meanwhile (another screen of the same form)
         if (picturesRow != null) showPictures();
     }
 
@@ -226,6 +226,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private TextView listStatus;
     private List<PlayStore.App> apps = new ArrayList<>();
     private String filter = "";
+    /** The list on screen is a GitHub search's (not the whole store). */
+    private boolean searched;
 
     private void buildList() {
         title("Play Store", "Apps made with Sketchware AI, shared on GitHub");
@@ -255,6 +257,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {
                 filter = s.toString().trim().toLowerCase(Locale.ROOT);
+                // second review (LOW): the search box emptied after a GitHub search: the whole store again
+                if (filter.isEmpty() && searched) {
+                    searched = false;
+                    apps = PlayStore.cached(PlayStoreActivity.this);
+                    listStatus.setText("");
+                }
                 showApps();
             }
         });
@@ -309,6 +317,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 if (!searching) PlayStore.save(getApplicationContext(), merged);
                 ui(() -> {
                     apps = merged;
+                    searched = searching;
                     View retry = appsBox.findViewWithTag("retry");
                     if (retry != null) appsBox.removeView(retry);
                     if (searching) {
@@ -1128,21 +1137,30 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         if (isFinishing() || isDestroyed()) return;
         try {
             images.execute(() -> {
+                // second review (LOW): the saved copy at once, a week-old one refreshed behind it
+                File saved = pictureFile(url);
+                Bitmap first = saved != null && saved.isFile() ? decode(saved.getPath(), heightPx) : null;
+                if (first != null) ui(() -> into.setImageBitmap(first));
+                if (first != null && System.currentTimeMillis() - saved.lastModified() < REFRESH_MILLIS) return;
                 Bitmap bitmap = picture(url, heightPx);
-                ui(() -> {
-                    if (bitmap != null) into.setImageBitmap(bitmap);
-                });
+                if (bitmap != null && bitmap != first) ui(() -> into.setImageBitmap(bitmap));
             });
         } catch (java.util.concurrent.RejectedExecutionException ignored) {
             // the screen is gone
         }
     }
 
-    Bitmap picture(String url, int heightPx) {
+    /** Where the picture of {@code url} is kept (GitHub's file and avatar hosts only), or null. */
+    File pictureFile(String url) {
         if (PlayStore.safeImage(url) == null && PlayStore.safeAvatar(url) == null) return null;
-        File dir = new File(getCacheDir(), "playstore");
-        String key = Integer.toHexString(url.hashCode()) + "_" + url.length();
-        File file = new File(dir, key + ".img");
+        return new File(new File(getCacheDir(), "playstore"), Integer.toHexString(url.hashCode()) + "_" + url.length() + ".img");
+    }
+
+    Bitmap picture(String url, int heightPx) {
+        File file = pictureFile(url);
+        if (file == null) return null;
+        File dir = file.getParentFile();
+        String key = file.getName().substring(0, file.getName().length() - 4);
         // v2.1.1: an app without an icon on GitHub (404) isn't asked again for a day
         File missing = new File(dir, key + ".none");
         try {
@@ -1168,7 +1186,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                         file.delete();
                         return null;
                     }
-                    if (code != 200) return stale ? decode(file.getPath(), heightPx) : null;
+                    if (code != 200) {
+                        // not now: the old copy stays and is asked again after a week (no retry on every list)
+                        if (stale) //noinspection ResultOfMethodCallIgnored
+                            file.setLastModified(System.currentTimeMillis());
+                        return stale ? decode(file.getPath(), heightPx) : null;
+                    }
                     File temp = new File(file.getPath() + ".tmp" + Thread.currentThread().getId());
                     long total = 0;
                     try (InputStream in = c.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(temp)) {
@@ -1184,6 +1207,16 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                         temp.delete();
                         throw e;
                     }
+                    // second review (LOW): only a picture replaces the saved one (a Wi-Fi login page doesn't)
+                    if (decode(temp.getPath(), 16) == null) {
+                        //noinspection ResultOfMethodCallIgnored
+                        temp.delete();
+                        if (stale) //noinspection ResultOfMethodCallIgnored
+                            file.setLastModified(System.currentTimeMillis());
+                        return stale ? decode(file.getPath(), heightPx) : null;
+                    }
+                    if (file.exists()) //noinspection ResultOfMethodCallIgnored
+                        file.delete();
                     if (!temp.renameTo(file)) //noinspection ResultOfMethodCallIgnored
                         temp.delete();
                     //noinspection ResultOfMethodCallIgnored
@@ -1198,6 +1231,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 file.delete();
             return b;
         } catch (Exception e) {
+            if (file.isFile()) //noinspection ResultOfMethodCallIgnored
+                file.setLastModified(System.currentTimeMillis());
             return file.isFile() ? decode(file.getPath(), heightPx) : null;
         }
     }
@@ -1344,8 +1379,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         videoField.addTextChangedListener(save);
 
         list.addView(heading("3 · Pictures"), v.full(-1, 22));
-        list.addView(v.line("Up to " + PlayStore.MAX_SHOTS + " screenshots, kept on this phone until the app is published "
-                + "(long-press one to remove it).", false), v.full(-1, 4));
+        list.addView(v.line("Up to " + PlayStore.MAX_SHOTS + " screenshots, kept on this phone for this and later publishes "
+                + "(long-press one to remove it; publishing without any keeps the store's pictures).", false), v.full(-1, 4));
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
         picturesRow = new LinearLayout(this);
@@ -1624,6 +1659,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         store.number = repo.number;
         store.title = title;
         store.staging = PlayStore.stagingDir(this, repo.number);
+        store.login = login;
         String account = login;
         android.content.Context app = getApplicationContext();
         // review (LOW): the words are written before the job can read them; the project list is read off the main
