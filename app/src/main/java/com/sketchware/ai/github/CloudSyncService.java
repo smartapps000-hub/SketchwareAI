@@ -79,19 +79,48 @@ public class CloudSyncService extends Service {
         notify(context, ID_RUNNING, n);
     }
 
+    /**
+     * v2.1.3: the end notice's id of {@code key}: its own range, apart from the app update's (7410) and the running
+     * notification (v2.0.4-v2.1.2: 7341 + 12 bits of the key's hash, which could meet 7410).
+     */
+    static int finishedId(String key) {
+        return 21000 + (key.hashCode() & 0xfff);
+    }
+
+    /**
+     * v2.1.3 (owner's 22 Nov report: after Retry the backup ran, but "Didn't work: Vehicle_Parking" stayed and invited a
+     * second tap): the end notice of {@code key}'s earlier run goes when the job runs again (also one an earlier version
+     * posted under the old id).
+     */
+    static void clearFinished(Context context, String key) {
+        if (key == null) return;
+        NotificationManager nm = context.getSystemService(NotificationManager.class);
+        if (nm == null) return;
+        try {
+            nm.cancel(finishedId(key));
+            nm.cancel(ID_RUNNING + 1 + (key.hashCode() & 0xfff));
+        } catch (RuntimeException ignored) {
+            // nothing to take away
+        }
+    }
+
     /** A job ended: its own notification (done, or failed with Retry). */
     static void finished(Context context, String key, String title, boolean ok, String message, boolean retryable,
                          String link) {
         channel(context);
-        int id = ID_RUNNING + 1 + (key.hashCode() & 0xfff);
+        clearFinished(context, key);
+        int id = finishedId(key);
+        String heading = (ok ? "Done: " : "Didn't work: ") + title.replaceFirst("^(Backing up|Importing|Publishing) ", "");
         Notification.Builder b = new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ob_ic_github)
-                .setContentTitle((ok ? "Done: " : "Didn't work: ") + title.replaceFirst("^(Backing up|Importing|Publishing) ", ""))
+                .setContentTitle(heading)
                 .setContentText(message)
-                .setStyle(new Notification.BigTextStyle().bigText(message))
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(openApp(context));
+        // v2.1.3: the app's glass card
+        GlassNotice.apply(context, b, ok ? R.drawable.ob_ic_check : R.drawable.ob_ic_github, heading, message, -1, false,
+                ok ? GlassNotice.DONE : GlassNotice.FAILED);
         if (!ok && retryable) {
             b.addAction(new Notification.Action.Builder(null, "Retry", action(context, ACTION_RETRY, key, id)).build());
         }
@@ -125,11 +154,13 @@ public class CloudSyncService extends Service {
 
     private static Notification build(Context context, String key, String title, int percent, String text, String link) {
         channel(context);
+        int shown = Math.max(0, Math.min(100, percent));
+        String heading = title + " · " + shown + "%";
         Notification.Builder b = new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ob_ic_github)
-                .setContentTitle(title + " · " + Math.max(0, Math.min(100, percent)) + "%")
+                .setContentTitle(heading)
                 .setContentText(text)
-                .setProgress(100, Math.max(0, Math.min(100, percent)), percent <= 1)
+                .setProgress(100, shown, percent <= 1)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
@@ -138,9 +169,9 @@ public class CloudSyncService extends Service {
         if (key != null) {
             b.addAction(new Notification.Action.Builder(null, "Cancel", action(context, ACTION_CANCEL, key, ID_RUNNING))
                     .build());
-        } else if (text != null) {
-            b.setStyle(new Notification.BigTextStyle().bigText(text));
         }
+        // v2.1.3: the app's glass card (a line per job when several share it)
+        GlassNotice.apply(context, b, R.drawable.ob_ic_github, heading, text, shown, percent <= 1, GlassNotice.RUNNING);
         if (link != null && link.startsWith("https://github.com/")) {
             b.addAction(new Notification.Action.Builder(null, "Open on GitHub", PendingIntent.getActivity(context, 1,
                     viewer(context, link), PendingIntent.FLAG_IMMUTABLE

@@ -660,9 +660,17 @@ public final class GitHubHttp {
     /** v2.0.4: stops {@code worker}'s transfer: interrupted, and its open connection closed. */
     static void cancel(Thread worker) {
         if (worker == null) return;
-        CANCELLED.add(worker);
-        worker.interrupt();
-        HttpURLConnection c = ACTIVE.get(worker);
+        stop(worker);
+        // v2.1.3: the job's helper threads (parts sent side by side) stop with it
+        for (java.util.Map.Entry<Thread, Thread> e : PARENT.entrySet()) {
+            if (e.getValue() == worker) stop(e.getKey());
+        }
+    }
+
+    private static void stop(Thread thread) {
+        CANCELLED.add(thread);
+        thread.interrupt();
+        HttpURLConnection c = ACTIVE.get(thread);
         if (c != null) {
             try {
                 c.disconnect();
@@ -672,10 +680,39 @@ public final class GitHubHttp {
         }
     }
 
+    /**
+     * v2.1.3 (owner's 22 Nov report: uploads slow while downloads are fast): a helper thread of a job's thread (one part
+     * of a backup sent beside the others). A cancel, pause or stop of the job reaches it ({@link #cancel}), and it counts
+     * as cancelled whenever its job does.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<Thread, Thread> PARENT =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The current thread works for {@code parent}'s job from now on (until {@link #disown}). */
+    static void adopt(Thread parent) {
+        Thread me = Thread.currentThread();
+        if (parent == null || parent == me) return;
+        CANCELLED.remove(me);
+        PARENT.put(me, parent);
+        // a cancel that came before this thread was known
+        if (CANCELLED.contains(parent)) CANCELLED.add(me);
+    }
+
+    /** The current helper thread's work for its job is done (a pool thread may serve another job next). */
+    static void disown() {
+        Thread me = Thread.currentThread();
+        PARENT.remove(me);
+        CANCELLED.remove(me);
+        ACTIVE.remove(me);
+        Thread.interrupted();
+    }
+
     /** Whether the current thread's job was cancelled (its interrupt flag, or the record a cleared flag can't lose). */
     static boolean isCancelled() {
         Thread t = Thread.currentThread();
-        return t.isInterrupted() || CANCELLED.contains(t);
+        if (t.isInterrupted() || CANCELLED.contains(t)) return true;
+        Thread parent = PARENT.get(t);
+        return parent != null && CANCELLED.contains(parent);
     }
 
     /** Throws {@link Cancelled} when the current thread was cancelled. */

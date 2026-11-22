@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.1.3 (owner's 22 Nov: "show the notification in our glassmorphism theme"): the dark glass card of the app's
+     notifications. A plain shape (Android's notification shade inflates it in its own process: no custom drawable
+     classes there), the obsidian slate of the glass surfaces with a faint orange rim. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient android:angle="315" android:startColor="#FF262A33" android:endColor="#FF15171C" />
+    <stroke android:width="1dp" android:color="#66FF7A29" />
+    <corners android:radius="14dp" />
+</shape>

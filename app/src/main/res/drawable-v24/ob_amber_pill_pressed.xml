@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Liquid glass surface, see com.sketchware.ai.ui.GlassDrawable (v2.1.3: the amber glass pill while pressed). -->
+<drawable xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.sketchware.ai.ui.GlassDrawable"
+    app:swRadius="14dp"
+    app:swFillTop="#4DFF7A29"
+    app:swFillBottom="#3DFF7A29"
+    app:swRimTop="#CCFF7A29"
+    app:swRimBottom="#99FF7A29" />

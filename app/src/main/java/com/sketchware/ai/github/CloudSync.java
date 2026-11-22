@@ -583,6 +583,14 @@ public final class CloudSync {
      */
     void enqueue(Job job, Progress progress, Result result) {
         if (job.login == null) job.login = TokenStore.get(app).login();
+        if (job.user && runnerForTests == null) {
+            // v2.1.3: a tap (Retry, Back up again) takes the job's earlier "Didn't work" notice away at once
+            try {
+                CloudSyncService.clearFinished(app, job.key());
+            } catch (Throwable t) {
+                LogUtil.d("CloudSync", "No notification: " + t);
+            }
+        }
         Job target;
         int ahead;
         Lane lane;
@@ -821,8 +829,17 @@ public final class CloudSync {
             boolean requeueNow = false;
             String message;
             service(job, true);
+            // v2.1.3 (owner's 22 Nov report: Retry ran but "Didn't work: Vehicle_Parking" stayed): the end notice of
+            // this job's earlier run goes as soon as it runs again; only a new end is shown
+            if (runnerForTests == null) {
+                try {
+                    CloudSyncService.clearFinished(app, job.key());
+                } catch (Throwable t) {
+                    LogUtil.d("CloudSync", "No notification: " + t);
+                }
+            }
             try {
-                message = run(job);
+                message = runWithRetries(job);
                 ok = true;
             } catch (MissingProject e) {
                 // deleted meanwhile: nothing to wait for
@@ -1096,6 +1113,77 @@ public final class CloudSync {
         }
     }
 
+    /**
+     * v2.1.3 (owner's 22 Nov report: a backup failed with UnknownHostException "uploads.github.com" and needed a Retry
+     * tap): after a lost connection a backup or an import runs again by itself, up to three times, after these pauses
+     * and once a network is back (up to two minutes each). A backup goes on from where it stopped: the packed file is
+     * kept and the parts already on GitHub aren't sent again (checkpoint resume). Only then does it end with Retry.
+     */
+    static long[] AUTO_RETRY_MS = {5_000L, 15_000L, 30_000L};
+    static long NETWORK_WAIT_MS = 120_000L;
+    /** Tests: the automatic tries also with the test runner. */
+    static boolean autoRetryInTests;
+
+    private String runWithRetries(Job job) throws Exception {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return run(job);
+            } catch (IOException e) {
+                if (attempt >= AUTO_RETRY_MS.length || !autoRetry(job, e)) throw e;
+                waitToRetry(job, e, attempt);
+                job.lastActivity = android.os.SystemClock.elapsedRealtime();
+            }
+        }
+    }
+
+    private boolean autoRetry(Job job, IOException e) {
+        if (runnerForTests != null && !autoRetryInTests) return false;
+        if (!BACKUP.equals(job.kind) && !IMPORT.equals(job.kind)) return false;
+        if (job.cancelled || job.deferred || job.stalled || GitHubHttp.isCancelled()) return false;
+        return !(e instanceof GitHubHttp.NoRetry) && !SyncDoctor.isStorageFull(e);
+    }
+
+    private void waitToRetry(Job job, IOException e, int attempt) throws GitHubHttp.Cancelled {
+        String why = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+        if (why.length() > 90) why = why.substring(0, 90) + "…";
+        long start = android.os.SystemClock.elapsedRealtime();
+        long until = start + AUTO_RETRY_MS[attempt];
+        long networkUntil = until + NETWORK_WAIT_MS;
+        String what = BACKUP.equals(job.kind) ? "the backup goes on from where it stopped" : "the download starts again";
+        while (true) {
+            if (job.cancelled || job.deferred || job.stalled || GitHubHttp.isCancelled()) throw new GitHubHttp.Cancelled();
+            long now = android.os.SystemClock.elapsedRealtime();
+            boolean online = online();
+            if (now >= until && (online || now >= networkUntil)) return;
+            int seconds = (int) Math.max(1, (until - now + 999) / 1000);
+            step(job, Math.max(1, job.percent), online || now < until
+                    ? "Connection lost (" + why + "). Trying again in " + seconds + " s (" + (attempt + 1) + " of "
+                    + AUTO_RETRY_MS.length + "); " + what + "…"
+                    : "Waiting for the network to come back (" + why + "); " + what + "…");
+            try {
+                Thread.sleep(Math.min(1000L, Math.max(10L, AUTO_RETRY_MS[attempt])));
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new GitHubHttp.Cancelled();
+            }
+        }
+    }
+
+    /** Whether Android has a network with internet now (unknown: yes). */
+    private boolean online() {
+        if (android.os.Build.VERSION.SDK_INT < 23) return true;
+        try {
+            android.net.ConnectivityManager cm = app.getSystemService(android.net.ConnectivityManager.class);
+            if (cm == null) return true;
+            android.net.Network n = cm.getActiveNetwork();
+            if (n == null) return false;
+            android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(n);
+            return caps == null || caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
     /** One job's work on the worker thread; the line shown when it worked. */
     private String run(Job job) throws Exception {
         if (job.cancelled) throw new GitHubHttp.Cancelled();
@@ -1324,9 +1412,14 @@ public final class CloudSync {
         }
     }
 
+    /**
+     * v2.1.3 (owner's 22 Nov question: "the APK was 142 MB, the update showed 136.2 MB: was something removed?"): sizes
+     * in decimal units, as Android's own screens (Files, downloads, app info) count them: 142,824,153 bytes = 142.8 MB.
+     * Up to v2.1.2 the app divided by 1024 × 1024 (136.2 "MB" for the same file).
+     */
     static String megabytes(long bytes) {
-        if (bytes < 1024 * 1024) return Math.max(1, bytes / 1024) + " KB";
-        return String.format(java.util.Locale.ENGLISH, "%.1f MB", bytes / (1024.0 * 1024.0));
+        if (bytes < 1_000_000) return Math.max(1, bytes / 1000) + " KB";
+        return String.format(java.util.Locale.ENGLISH, "%.1f MB", bytes / 1_000_000.0);
     }
 
     static final class MissingProject extends Exception {
@@ -1494,7 +1587,8 @@ public final class CloudSync {
                 long size = swb.length() + (apk == null ? 0 : apk.length());
                 int parts = ProjectRepo.partsFor(swb.length());
                 step(progress, 15, "Packed " + megabytes(size) + (apk != null ? " (with the APK)" : "")
-                        + (parts > 1 ? " · uploading in " + parts + " parts…" : " · uploading to " + repo.name() + "…"));
+                        + (parts > 1 ? " · uploading in " + parts + " parts, " + Math.min(ProjectRepo.PARALLEL, parts)
+                        + " at a time…" : " · uploading to " + repo.name() + "…"));
                 ProjectRepo.Backup backup = new ProjectRepo.Backup();
                 backup.swb = swb;
                 backup.apk = apk;

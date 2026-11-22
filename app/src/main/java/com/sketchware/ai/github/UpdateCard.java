@@ -19,6 +19,11 @@ import com.sketchware.remod.R;
  * ({@code update_notes}) and the orange Update button with a white label. A required update has no Later and the card
  * can't be dismissed; the download sheet that follows has Hide only (Retry after a failure, see {@link AppUpdater}).
  * Plain views on the glass dialog style, so layoutlib draws this code (V212Test).
+ * <p>
+ * v2.1.3 (owner's 22 Nov phone review, 11 screenshots): "UPDATE AVAILABLE" in capitals in #FF8A65, the version step and a
+ * "REQUIRED" tag, then "KEY FEATURES" with a short line and numbered points ({@code update_notes}), "BUGS FIXED · MORE
+ * EFFICIENT" with ticks ({@code update_fixes}), and glass pills like the projects' Public / Private pills: Later (glass)
+ * and Update (amber glass with a download icon, white label). V213Test draws it.
  */
 public final class UpdateCard {
 
@@ -49,81 +54,94 @@ public final class UpdateCard {
         GitHubViews v = new GitHubViews(activity);
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(v.dp(22), v.dp(18), v.dp(22), v.dp(16));
+        root.setPadding(v.dp(22), v.dp(20), v.dp(22), v.dp(18));
 
-        // the heading with an orange glow behind it
+        // v2.1.3 (owner's 22 Nov: "UPDATE AVAILABLE in capital letters, bigger, in the colour the failed 15% had"): the
+        // heading in ob_error (#FF8A65) with a soft glow of the same colour
         TextView title = new TextView(activity, null, 0, R.style.Ob_Text_Title);
-        title.setText(forced ? "Update required" : "Update available");
+        title.setText("UPDATE AVAILABLE");
         title.setTypeface(v.bold());
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
-        title.setTextColor(v.color(R.color.ob_text));
-        title.setShadowLayer(v.dp(14), 0, 0, 0xCCFF6D24);
-        title.setPadding(0, v.dp(4), 0, v.dp(4));
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        title.setLetterSpacing(0.04f);
+        title.setTextColor(v.color(R.color.ob_error));
+        title.setShadowLayer(v.dp(12), 0, 0, 0x99FF8A65);
+        title.setPadding(0, v.dp(2), 0, v.dp(2));
+        title.setContentDescription(forced ? "Update available, required" : "Update available");
         root.addView(title, v.full(-1, 0));
 
-        // the version step
+        // the version step, and "Required" beside it when it can't wait
         String from = shortVersion(com.sketchware.remod.BuildConfig.VERSION_NAME);
         String to = config == null || config.latestVersionName == null || config.latestVersionName.isEmpty()
                 ? "the newest version" : shortVersion(config.latestVersionName);
-        TextView step = new TextView(activity, null, 0, R.style.Ob_Text_Label);
-        step.setText(from + "  →  " + to);
-        step.setTypeface(v.bold());
-        step.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        step.setTextColor(v.color(R.color.ob_accent));
-        step.setGravity(Gravity.CENTER);
-        step.setBackgroundResource(R.drawable.ob_pill16);
-        step.setPadding(v.dp(14), v.dp(6), v.dp(14), v.dp(6));
-        GitHubViews.oneLine(step);
+        LinearLayout tags = new LinearLayout(activity);
+        tags.setOrientation(LinearLayout.HORIZONTAL);
+        tags.setGravity(Gravity.CENTER_VERTICAL);
+        TextView step = tag(activity, v, from + "  →  " + to, R.drawable.ob_pill16, R.color.ob_accent);
         step.setContentDescription("From " + from + " to " + to);
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-2, -2);
-        sp.topMargin = v.dp(10);
-        root.addView(step, sp);
+        tags.addView(step, new LinearLayout.LayoutParams(-2, v.dp(30)));
+        if (forced) {
+            TextView required = tag(activity, v, "REQUIRED", R.drawable.ob_amber_pill, R.color.ob_text);
+            required.setLetterSpacing(0.08f);
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-2, v.dp(30));
+            rp.leftMargin = v.dp(8);
+            tags.addView(required, rp);
+        }
+        root.addView(tags, v.full(-1, 12));
 
         TextView why = new TextView(activity, null, 0, R.style.Ob_Text_Body);
         why.setText(reason(config, forced));
-        why.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        why.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         why.setTextColor(v.color(R.color.ob_text_2));
         why.setLineSpacing(v.dp(2), 1f);
-        root.addView(why, v.full(-1, 14));
+        root.addView(why, v.full(-1, 12));
 
-        // what is new: up to three lines with an orange dot
+        // "Key features" with a short line under it and numbered points; then what it fixes
         if (config != null && !config.updateNotes.isEmpty()) {
-            TextView head = new TextView(activity, null, 0, R.style.Ob_Text_Label);
-            head.setText("What's new");
-            head.setTypeface(v.bold());
-            head.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            head.setTextColor(v.color(R.color.ob_text));
-            root.addView(head, v.full(-1, 16));
-            for (String line : config.updateNotes) {
-                LinearLayout row = new LinearLayout(activity);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                View dot = new View(activity);
-                GradientDrawable d = new GradientDrawable();
-                d.setShape(GradientDrawable.OVAL);
-                d.setColor(v.color(R.color.ob_amber));
-                dot.setBackground(d);
-                LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(v.dp(7), v.dp(7));
-                dp.topMargin = v.dp(7);
-                dp.rightMargin = v.dp(10);
-                row.addView(dot, dp);
-                TextView text = new TextView(activity, null, 0, R.style.Ob_Text_Body);
-                text.setText(line);
-                text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-                text.setTextColor(v.color(R.color.ob_text));
-                row.addView(text, new LinearLayout.LayoutParams(0, -2, 1f));
-                root.addView(row, v.full(-1, 8));
-            }
+            section(activity, v, root, "KEY FEATURES");
+            int n = 1;
+            for (String line : config.updateNotes) root.addView(point(activity, v, String.valueOf(n++), line), v.full(-1, 8));
+        }
+        if (config != null && !config.updateFixes.isEmpty()) {
+            section(activity, v, root, "BUGS FIXED · MORE EFFICIENT");
+            for (String line : config.updateFixes) root.addView(point(activity, v, null, line), v.full(-1, 8));
         }
 
-        // Update (orange, white label); Later only when it may wait
-        TextView go = v.pill(forced ? "Update now" : "Update", false, true, x -> update.run());
-        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        go.setContentDescription((forced ? "Update now" : "Update") + ": download " + to + " in the app and install it");
-        root.addView(go, v.full(50, 20));
+        // glass pills like the projects' Public / Private pills: Later (glass) beside Update (amber glass, icon)
+        LinearLayout buttons = new LinearLayout(activity);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
         if (later != null) {
             TextView not = v.glassPill("Later", true, x -> later.run());
-            root.addView(not, v.full(44, 8));
-        } else {
+            not.setTextColor(v.color(R.color.ob_text_2));
+            not.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            GitHubViews.oneLine(not);
+            buttons.addView(not, new LinearLayout.LayoutParams(0, v.dp(48), 1f));
+        }
+        TextView go = new TextView(activity, null, 0, R.style.Ob_Text_Button);
+        go.setText(forced ? "Update now" : "Update");
+        go.setTypeface(v.bold());
+        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        go.setTextColor(0xFFFFFFFF);
+        go.setGravity(Gravity.CENTER);
+        go.setBackgroundResource(R.drawable.ob_amber_pill_state);
+        go.setPadding(v.dp(16), 0, v.dp(16), 0);
+        android.graphics.drawable.Drawable icon = activity.getDrawable(R.drawable.ob_ic_download);
+        if (icon != null) {
+            icon = icon.mutate();
+            icon.setTint(0xFFFFFFFF);
+            icon.setBounds(0, 0, v.dp(18), v.dp(18));
+            go.setCompoundDrawables(icon, null, null, null);
+            go.setCompoundDrawablePadding(v.dp(8));
+        }
+        GitHubViews.oneLine(go);
+        go.setClickable(true);
+        go.setFocusable(true);
+        go.setOnClickListener(x -> update.run());
+        go.setContentDescription((forced ? "Update now" : "Update") + ": download " + to + " in the app and install it");
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(0, v.dp(48), later != null ? 1.4f : 1f);
+        if (later != null) gp.leftMargin = v.dp(10);
+        buttons.addView(go, gp);
+        root.addView(buttons, v.full(-1, 22));
+        if (later == null) {
             TextView note = new TextView(activity, null, 0, R.style.Ob_Text_Caption);
             note.setText("Sketchware AI opens again after Android's installer has updated it.");
             note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -131,6 +149,81 @@ public final class UpdateCard {
             root.addView(note, v.full(-1, 10));
         }
         return root;
+    }
+
+    /** A small one-line glass tag (the version step, "REQUIRED"). */
+    private static TextView tag(Activity activity, GitHubViews v, String text, int background, int color) {
+        TextView t = new TextView(activity, null, 0, R.style.Ob_Text_Label);
+        t.setText(text);
+        t.setTypeface(v.bold());
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        t.setTextColor(v.color(color));
+        t.setGravity(Gravity.CENTER);
+        t.setBackgroundResource(background);
+        t.setPadding(v.dp(14), 0, v.dp(14), 0);
+        GitHubViews.oneLine(t);
+        return t;
+    }
+
+    /** A section heading in capitals with a short amber line under it. */
+    private static void section(Activity activity, GitHubViews v, LinearLayout root, String text) {
+        TextView head = new TextView(activity, null, 0, R.style.Ob_Text_Label);
+        head.setText(text);
+        head.setTypeface(v.bold());
+        head.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        head.setLetterSpacing(0.1f);
+        head.setTextColor(v.color(R.color.ob_text));
+        root.addView(head, v.full(-1, 18));
+        View line = new View(activity);
+        GradientDrawable d = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{v.color(R.color.ob_amber), 0x00FF7A29});
+        d.setCornerRadius(v.dp(1));
+        line.setBackground(d);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(v.dp(44), v.dp(2));
+        lp.topMargin = v.dp(6);
+        lp.bottomMargin = v.dp(2);
+        root.addView(line, lp);
+    }
+
+    /** One point: a small glass circle with its number (or a tick for a fix) and the line beside it. */
+    private static LinearLayout point(Activity activity, GitHubViews v, String number, String text) {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView badge = new TextView(activity, null, 0, R.style.Ob_Text_Label);
+        GradientDrawable circle = new GradientDrawable();
+        circle.setShape(GradientDrawable.OVAL);
+        circle.setColor(0x1AFFFFFF);
+        circle.setStroke(Math.max(1, v.dp(1)), 0x66FF8A65);
+        badge.setBackground(circle);
+        badge.setGravity(Gravity.CENTER);
+        badge.setIncludeFontPadding(false);
+        if (number != null) {
+            badge.setText(number);
+            badge.setTypeface(v.bold());
+            badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            badge.setTextColor(v.color(R.color.ob_accent));
+        } else {
+            android.graphics.drawable.Drawable tick = activity.getDrawable(R.drawable.ob_ic_check);
+            if (tick != null) {
+                tick = tick.mutate();
+                tick.setTint(v.color(R.color.ob_accent));
+                tick.setBounds(0, 0, v.dp(12), v.dp(12));
+                badge.setCompoundDrawables(tick, null, null, null);
+                badge.setPadding(v.dp(5), 0, 0, 0);
+                badge.setGravity(Gravity.CENTER_VERTICAL);
+            }
+        }
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(v.dp(22), v.dp(22));
+        bp.rightMargin = v.dp(10);
+        row.addView(badge, bp);
+        TextView line = new TextView(activity, null, 0, R.style.Ob_Text_Body);
+        line.setText(text);
+        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        line.setTextColor(v.color(R.color.ob_text));
+        line.setLineSpacing(v.dp(1), 1f);
+        line.setPadding(0, v.dp(1), 0, 0);
+        row.addView(line, new LinearLayout.LayoutParams(0, -2, 1f));
+        return row;
     }
 
     /** The card on the glass dialog; a required one can't be dismissed. */

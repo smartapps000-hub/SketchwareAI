@@ -55,14 +55,18 @@ final class UpdateNotice {
         if (percent == lastPercent || (now - lastPost < 1000 && percent < 95)) return;
         lastPost = now;
         lastPercent = percent;
-        post(context, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ob_ic_export)
+        Notification.Builder b = new Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ob_ic_download)
                 .setContentTitle("Updating Sketchware AI · " + percent + "%")
                 .setContentText(text)
                 .setProgress(100, Math.max(0, Math.min(100, percent)), false)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-                .setContentIntent(openApp(context)));
+                .setContentIntent(openApp(context));
+        // v2.1.3: the app's glass card
+        GlassNotice.apply(context, b, R.drawable.ob_ic_download, "Updating Sketchware AI · " + percent + "%", text, percent,
+                false, GlassNotice.RUNNING);
+        post(context, b);
         progressShown = true;
     }
 
@@ -78,26 +82,31 @@ final class UpdateNotice {
         } catch (RuntimeException e) {
             install = null;
         }
-        post(context, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ob_ic_export)
+        Notification.Builder b = new Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ob_ic_download)
                 .setContentTitle("Sketchware AI update downloaded")
                 .setContentText("Checked (SHA-256 matches). Tap to install.")
                 .setAutoCancel(true)
                 .setContentIntent(install == null ? openApp(context) : PendingIntent.getActivity(context, ID + 1, install,
-                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT)));
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        GlassNotice.apply(context, b, R.drawable.ob_ic_check, "Sketchware AI update downloaded",
+                "Checked (SHA-256 matches). Tap to install.", -1, false, GlassNotice.DONE);
+        post(context, b);
     }
 
     /** The download stopped: a tap opens the app, whose update card offers it again. */
     static synchronized void failed(Context context, String why) {
         lastPercent = -1;
         progressShown = false;
-        post(context, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ob_ic_export)
+        Notification.Builder b = new Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ob_ic_download)
                 .setContentTitle("The update didn't download")
                 .setContentText(why + " Open Sketchware AI to try again.")
-                .setStyle(new Notification.BigTextStyle().bigText(why + " Open Sketchware AI to try again."))
                 .setAutoCancel(true)
-                .setContentIntent(openApp(context)));
+                .setContentIntent(openApp(context));
+        GlassNotice.apply(context, b, R.drawable.ob_ic_download, "The update didn't download",
+                why + " Open Sketchware AI to try again.", -1, false, GlassNotice.FAILED);
+        post(context, b);
     }
 
     /** A progress notification only ("downloaded" and the error stay until tapped). */

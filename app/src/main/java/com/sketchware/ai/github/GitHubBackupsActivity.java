@@ -426,64 +426,6 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     }
 
     /**
-     * v2.1.2 (owner's 21 Nov directive "unified slim cards across GitHub | Demo | On this phone"): the GitHub cards' shape
-     * for every tab: a top row (the icon tile, the name in bold and one line under it, small badges) and a row of 32dp
-     * pills (the first takes the free width). Returns the card; {@code icon[0]} gets the tile's picture view.
-     */
-    private LinearLayout slimCard(String tileName, String title, String line, View[] badges, View[] actions,
-                                  ImageView[] icon) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundResource(R.drawable.ob_pill16);
-        card.setPadding(v.dp(10), v.dp(8), v.dp(8), v.dp(8));
-        LinearLayout top = new LinearLayout(this);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        android.widget.FrameLayout tile = iconTile(tileName);
-        top.addView(tile, new LinearLayout.LayoutParams(v.dp(40), v.dp(40)));
-        if (icon != null && icon.length > 0) icon[0] = (ImageView) tile.getChildAt(1);
-        LinearLayout texts = new LinearLayout(this);
-        texts.setOrientation(LinearLayout.VERTICAL);
-        TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
-        name.setText(title);
-        name.setTypeface(v.bold());
-        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        GitHubViews.oneLine(name);
-        texts.addView(name);
-        TextView when = v.line(line, false);
-        when.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        GitHubViews.oneLine(when);
-        texts.addView(when);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
-        tp.leftMargin = v.dp(10);
-        top.addView(texts, tp);
-        if (badges != null) {
-            for (View b : badges) {
-                if (b == null) continue;
-                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(26));
-                bp.leftMargin = v.dp(6);
-                top.addView(b, bp);
-            }
-        }
-        card.addView(top);
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.HORIZONTAL);
-        body.setGravity(Gravity.CENTER_VERTICAL);
-        boolean first = true;
-        for (View a : actions) {
-            if (a == null) continue;
-            LinearLayout.LayoutParams ap = first ? new LinearLayout.LayoutParams(0, v.dp(32), 1f)
-                    : new LinearLayout.LayoutParams(-2, v.dp(32));
-            if (!first) ap.leftMargin = v.dp(6);
-            body.addView(a, ap);
-            first = false;
-        }
-        card.addView(body, v.full(-1, 6));
-        card.setContentDescription(title + ". " + line);
-        return card;
-    }
-
-    /**
      * v2.1.1: the Home card's tile at 40dp (the Liquid Glass design file: two letters in Sora bold {@code ob_accent_2}
      * on {@code ob_avatar}); the project's own icon covers it once found (child 1). A project without an own icon keeps
      * its letters, as on Home: its app gets the template's icon.
@@ -961,46 +903,284 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
             }), pillAt(8));
             return;
         }
+        // v2.1.3 (owner's 22 Nov directive: "the two GitHub API Demos should be one card, versions inside, like the
+        // GitHub backups"): one card per demo (its name), its projects as versions: the newest demo version first, a
+        // pinned one in front; Open in the title row; Pin, the Public / Private pill and Share (once backed up to
+        // GitHub), Delete
+        String login = TokenStore.get(this).login();
+        java.util.LinkedHashMap<String, List<Item>> groups = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String> titles = new java.util.HashMap<>();
         for (int i = 0; i < demos.size(); i++) {
             java.util.HashMap<String, Object> p = demos.get(i);
             String scId = yB.c(p, "sc_id");
             String app = yB.c(p, "my_app_name");
             String name = app.isEmpty() ? yB.c(p, "my_ws_name").replace('_', ' ') : app;
-            String detail = "Project #" + scId + " · v" + yB.c(p, "sc_ver_name") + " (" + yB.c(p, "sc_ver_code") + ")";
-            TextView open = v.smallPill("Open", true, true, x -> openProject(scId));
-            open.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            GitHubViews.oneLine(open);
-            // v2.1.2: the GitHub cards' shape; #1, #2 … and Latest as badges, Delete beside Open (a long press too)
-            TextView delete = v.smallPill("Delete", false, true, null);
-            delete.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            GitHubViews.oneLine(delete);
+            String key = name.trim().toLowerCase(Locale.ROOT);
+            Item item = new Item();
+            item.key = scId;
+            item.label = "#" + scId + " · v" + yB.c(p, "sc_ver_name") + " (" + yB.c(p, "sc_ver_code") + ")";
+            item.detail = "Project #" + scId + " · v" + yB.c(p, "sc_ver_name") + " (" + yB.c(p, "sc_ver_code") + ")";
+            // the demos' own order (newest demo version first): a falling time keeps it
+            item.time = demos.size() - i;
+            item.value = scId;
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+            titles.putIfAbsent(key, name);
+        }
+        int at = 0;
+        for (java.util.Map.Entry<String, List<Item>> g : groups.entrySet()) {
+            String name = titles.get(g.getKey());
             ImageView[] iconOut = new ImageView[1];
-            LinearLayout row = slimCard(name, name, detail, new View[]{i == 0 ? badge("Latest", true) : null,
-                    badge("#" + (i + 1), false)}, new View[]{open, delete}, iconOut);
-            // v2.1.1: the demo's own icon
-            ImageView demoIcon = iconOut[0];
-            work.execute(() -> {
-                android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.localIcon(scId), v.dp(40));
-                if (b != null) ui(() -> demoIcon.setImageBitmap(b));
-            });
+            LinearLayout card = groupCard(name, name, g.getValue(), "demo:" + g.getKey(), "Open",
+                    item -> openProject((String) item.value), item -> demoActions(item, name, login), iconOut);
             View.OnLongClickListener askDelete = x -> {
-                new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
-                        .setTitle("Delete " + name + " (#" + scId + ")?")
-                        .setMessage("The demo project is removed from this phone (its GitHub backups stay).")
-                        .setPositiveButton("Delete", (d, w) -> work.execute(() -> {
-                            lC.a(getApplicationContext(), scId);
-                            ui(() -> {
-                                if (tab == TAB_DEMO) show(TAB_DEMO);
-                            });
-                        }))
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show();
+                Item selected = (Item) card.getTag();
+                if (selected != null) deleteDemo(name, (String) selected.value);
                 return true;
             };
-            row.setOnLongClickListener(askDelete);
-            delete.setOnClickListener(askDelete::onLongClick);
-            rows.addView(row, v.full(-1, i == 0 ? 0 : 8));
+            card.setOnLongClickListener(askDelete);
+            // the demo's own icon (the first version that has one)
+            ImageView demoIcon = iconOut[0];
+            List<Item> items = new ArrayList<>(g.getValue());
+            work.execute(() -> {
+                for (Item item : items) {
+                    android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.localIcon((String) item.value), v.dp(40));
+                    if (b != null) {
+                        ui(() -> demoIcon.setImageBitmap(b));
+                        return;
+                    }
+                }
+            });
+            rows.addView(card, v.full(-1, at++ == 0 ? 0 : 8));
         }
+    }
+
+    /**
+     * v2.1.3: the demo card's extra pills for the version shown: once it is backed up to GitHub under this account, its
+     * Public / Private pill (Private opens Publish, Public its public details) and Share; Delete otherwise.
+     */
+    private View[] demoActions(Item item, String name, String login) {
+        String scId = (String) item.value;
+        String shown = login == null ? null : ProjectLinks.visibility(scId, login);
+        if (shown != null) {
+            boolean isPublic = "public".equals(shown);
+            TextView visibility = badge(isPublic ? "Public" : "Private", isPublic);
+            visibility.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            visibility.setClickable(true);
+            visibility.setFocusable(true);
+            visibility.setContentDescription(isPublic ? "Public: edit its public details" : "Private: tap to make it public");
+            visibility.setOnClickListener(x -> PublishActivity.open(this, scId, isPublic));
+            String url = ProjectLinks.get(scId, login);
+            ImageView share = url == null ? null : v.iconButton(R.drawable.ob_ic_share, "Share " + name);
+            if (share != null) share.setOnClickListener(x -> ProjectLinks.share(this, name, url));
+            return new View[]{visibility, share};
+        }
+        TextView delete = v.smallPill("Delete", false, true, x -> deleteDemo(name, scId));
+        delete.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        GitHubViews.oneLine(delete);
+        return new View[]{delete};
+    }
+
+    private void deleteDemo(String name, String scId) {
+        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Delete " + name + " (#" + scId + ")?")
+                .setMessage("The demo project is removed from this phone (its GitHub backups stay).")
+                .setPositiveButton("Delete", (d, w) -> work.execute(() -> {
+                    lC.a(getApplicationContext(), scId);
+                    ui(() -> {
+                        if (tab == TAB_DEMO) show(TAB_DEMO);
+                    });
+                }))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    // ------------------------------------------------------------------ v2.1.3: one card per project, versions inside
+
+    /** One version of a grouped card: a .swb on this phone, or a demo project. */
+    static final class Item {
+        /** What a pin remembers (the file's path, the project's id). */
+        String key;
+        /** The selector's words ("v1.0 (1)", "#669 · v1 (1)"). */
+        String label;
+        /** The card's line for it (date · size, project id). */
+        String detail;
+        /** Newer = larger. */
+        long time;
+        Object value;
+    }
+
+    /** The pinned item in front when there is one, else the newest; then the rest newest first. */
+    static List<Item> orderedItems(List<Item> items, String pinnedKey) {
+        List<Item> out = new ArrayList<>(items);
+        java.util.Collections.sort(out, (a, b) -> Long.compare(b.time, a.time));
+        if (pinnedKey != null) {
+            for (int i = 0; i < out.size(); i++) {
+                if (pinnedKey.equals(out.get(i).key)) {
+                    out.add(0, out.remove(i));
+                    break;
+                }
+            }
+        }
+        return out;
+    }
+
+    /** "★ Pinned", "New", both, or nothing. */
+    static String markOf(Item item, String pinnedKey, long newest, int count) {
+        boolean pinned = pinnedKey != null && pinnedKey.equals(item.key);
+        boolean isNew = count > 1 && item.time == newest;
+        if (pinned && isNew) return "★ Pinned · New";
+        if (pinned) return "★ Pinned";
+        return isNew ? "New" : "";
+    }
+
+    private android.content.SharedPreferences pins() {
+        return getSharedPreferences("sketchware_ai_restore_pins", MODE_PRIVATE);
+    }
+
+    interface ItemAction {
+        void run(Item item);
+    }
+
+    interface ItemViews {
+        View[] views(Item item);
+    }
+
+    /**
+     * v2.1.3 (owner's 22 Nov directive: "one card per project, its versions inside like the GitHub cards; a small
+     * Restore where I circled, so the card is shorter"): the slim card of a group: the icon tile, the name and the
+     * shown version's line, the {@code primary} pill (Restore / Open) at the right of the title row; under it, when
+     * there is more than one version, the version selector (★ Pinned / New, "+N", a tap lists them) and Pin, then the
+     * {@code extras} of the shown version. One version and no extras: one row. The card's tag is the shown item.
+     */
+    private LinearLayout groupCard(String tileName, String title, List<Item> items, String pinKey, String primaryText,
+                                   ItemAction primary, ItemViews extras, ImageView[] icon) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundResource(R.drawable.ob_pill16);
+        card.setPadding(v.dp(10), v.dp(8), v.dp(8), v.dp(8));
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        android.widget.FrameLayout tile = iconTile(tileName);
+        top.addView(tile, new LinearLayout.LayoutParams(v.dp(40), v.dp(40)));
+        if (icon != null && icon.length > 0) icon[0] = (ImageView) tile.getChildAt(1);
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        name.setText(title);
+        name.setTypeface(v.bold());
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        GitHubViews.oneLine(name);
+        texts.addView(name);
+        TextView line = v.line("", false);
+        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        GitHubViews.oneLine(line);
+        texts.addView(line);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
+        tp.leftMargin = v.dp(10);
+        top.addView(texts, tp);
+        Item[] selected = {null};
+        TextView go = v.smallPill(primaryText, true, true, x -> {
+            if (selected[0] != null) primary.run(selected[0]);
+        });
+        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        go.setPadding(v.dp(14), 0, v.dp(14), 0);
+        GitHubViews.oneLine(go);
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-2, v.dp(32));
+        gp.leftMargin = v.dp(8);
+        top.addView(go, gp);
+        card.addView(top);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.HORIZONTAL);
+        body.setGravity(Gravity.CENTER_VERTICAL);
+        card.addView(body, v.full(-1, 6));
+        Runnable[] render = new Runnable[1];
+        render[0] = () -> {
+            String pinned = pins().getString(pinKey, null);
+            List<Item> shown = orderedItems(items, pinned);
+            if (shown.isEmpty()) return;
+            if (selected[0] == null || !shown.contains(selected[0])) selected[0] = shown.get(0);
+            Item s = selected[0];
+            card.setTag(s);
+            long newest = Long.MIN_VALUE;
+            for (Item it : shown) newest = Math.max(newest, it.time);
+            String mark = markOf(s, pinned, newest, shown.size());
+            line.setText(shown.size() > 1 ? s.detail : s.label + " · " + s.detail);
+            go.setContentDescription(primaryText + " " + title + " " + s.label);
+            card.setContentDescription(title + ". " + s.label + ". " + s.detail);
+            body.removeAllViews();
+            if (shown.size() > 1) {
+                int more = shown.size() - 1;
+                long newestTime = newest;
+                TextView selector = v.smallPill(s.label + (mark.isEmpty() ? "" : " · " + mark) + "  +" + more + "  ▾", false,
+                        true, x -> chooseItem(shown, pinned, newestTime, selected, render[0]));
+                selector.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                selector.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+                selector.setPadding(v.dp(12), 0, v.dp(10), 0);
+                GitHubViews.oneLine(selector);
+                selector.setContentDescription("Version " + s.label + " " + mark + ", " + more + " more");
+                body.addView(selector, new LinearLayout.LayoutParams(0, v.dp(32), 1f));
+                boolean isPinned = s.key.equals(pinned);
+                TextView pin = v.smallPill(isPinned ? "Unpin" : "★ Pin", false, true, x -> {
+                    if (isPinned) {
+                        pins().edit().remove(pinKey).apply();
+                    } else {
+                        pins().edit().putString(pinKey, s.key).apply();
+                        android.widget.Toast.makeText(this, s.label + " is pinned: it stays in front",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                    render[0].run();
+                });
+                pin.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                GitHubViews.oneLine(pin);
+                LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, v.dp(32));
+                pp.leftMargin = v.dp(6);
+                body.addView(pin, pp);
+            }
+            View[] more = extras == null ? null : extras.views(s);
+            boolean spacer = body.getChildCount() == 0;
+            if (more != null) {
+                if (spacer) {
+                    // the extras at the right, as on the GitHub cards
+                    body.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+                }
+                for (View m : more) {
+                    if (m == null) continue;
+                    boolean square = m instanceof ImageView;
+                    LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(square ? v.dp(32) : -2, v.dp(32));
+                    mp.leftMargin = v.dp(6);
+                    body.addView(m, mp);
+                }
+            }
+            boolean any = false;
+            for (int i = 0; i < body.getChildCount(); i++) {
+                if (body.getChildAt(i).getClass() != View.class) any = true;
+            }
+            body.setVisibility(any ? View.VISIBLE : View.GONE);
+        };
+        render[0].run();
+        return card;
+    }
+
+    /** The versions of a grouped card to pick from (★ Pinned and New marked, with their lines). */
+    private void chooseItem(List<Item> shown, String pinned, long newest, Item[] selected, Runnable refresh) {
+        String[] labels = new String[shown.size()];
+        int at = 0;
+        for (int i = 0; i < shown.size(); i++) {
+            Item it = shown.get(i);
+            String mark = markOf(it, pinned, newest, shown.size());
+            labels[i] = it.label + (mark.isEmpty() ? "" : " · " + mark) + "\n" + it.detail;
+            if (it == selected[0]) at = i;
+        }
+        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Version")
+                .setSingleChoiceItems(labels, at, (d, which) -> {
+                    selected[0] = shown.get(which);
+                    d.dismiss();
+                    refresh.run();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /** Opens a project in the editor (as the projects list does). */
@@ -1093,32 +1273,75 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     rows.addView(v.line("No .swb backups in this folder yet (a project's Back up > Save on phone).", false));
                     return;
                 }
-                java.util.Map<File, ImageView> icons = new java.util.HashMap<>();
-                for (File f : files) {
-                    String folder = f.getParentFile() == null ? "" : f.getParentFile().getName();
-                    String detail = CloudBackup.formatTime(f.lastModified()) + " · " + CloudSync.megabytes(f.length())
-                            + (folder.equals(new File(BackupFactory.getBackupDir()).getName()) ? "" : " · " + folder);
-                    TextView restore = v.smallPill("Restore", true, true, x -> restoreLocal(f));
-                    restore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                    GitHubViews.oneLine(restore);
-                    // v2.1.2: the GitHub cards' shape (name, date · size, Restore across the card)
-                    String shown = f.getName().replaceAll("(?i)\\.swb$", "");
-                    ImageView[] iconOut = new ImageView[1];
-                    LinearLayout row = slimCard(shown.replaceAll("(?i)_v\\d.*$", ""), shown, detail, null,
-                            new View[]{restore}, iconOut);
-                    icons.put(f, iconOut[0]);
-                    rows.addView(row, v.full(-1, 8));
-                }
-                // v2.1.1: each backup's own app icon (its resources/icons/icon.png)
+                // v2.1.3 (owner's 22 Nov directive): one card per project (its folder), its backups as versions inside:
+                // the newest first, a pinned one in front; a small Restore in the title row
+                java.util.LinkedHashMap<String, List<Item>> groups = phoneGroups(files);
                 int px = v.dp(40);
-                work.execute(() -> {
-                    for (File f : files) {
-                        android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.fromSwb(f), px);
-                        if (b != null) ui(() -> icons.get(f).setImageBitmap(b));
-                    }
-                });
+                for (java.util.Map.Entry<String, List<Item>> g : groups.entrySet()) {
+                    List<Item> items = g.getValue();
+                    String name = groupTitle(g.getKey());
+                    ImageView[] iconOut = new ImageView[1];
+                    LinearLayout card = groupCard(name, name, items, "phone:" + g.getKey(), "Restore",
+                            item -> restoreLocal((File) item.value), null, iconOut);
+                    rows.addView(card, v.full(-1, 8));
+                    // v2.1.1: the backup's own app icon (its resources/icons/icon.png): the newest one that has one
+                    ImageView icon = iconOut[0];
+                    List<Item> ordered = orderedItems(items, null);
+                    work.execute(() -> {
+                        for (Item item : ordered) {
+                            android.graphics.Bitmap b = RepoIcons.decode(RepoIcons.fromSwb((File) item.value), px);
+                            if (b != null) {
+                                ui(() -> icon.setImageBitmap(b));
+                                return;
+                            }
+                        }
+                    });
+                }
             });
         });
+    }
+
+    /**
+     * v2.1.3: the phone's .swb files by project: the folder Back up writes them to ({@code backups/<project>/}), or for
+     * a file straight in the backups folder its name without the version part. Groups newest first.
+     */
+    static java.util.LinkedHashMap<String, List<Item>> phoneGroups(List<File> files) {
+        java.util.LinkedHashMap<String, List<Item>> groups = new java.util.LinkedHashMap<>();
+        File root = new File(BackupFactory.getBackupDir());
+        List<File> sorted = new ArrayList<>(files);
+        java.util.Collections.sort(sorted, (x, y) -> Long.compare(y.lastModified(), x.lastModified()));
+        for (File f : sorted) {
+            String base = f.getName().replaceAll("(?i)\\.swb$", "");
+            File parent = f.getParentFile();
+            String key = parent != null && !parent.getAbsolutePath().equals(root.getAbsolutePath())
+                    ? parent.getName() : projectPart(base);
+            Item item = new Item();
+            item.key = f.getAbsolutePath();
+            item.label = versionPart(base);
+            item.detail = CloudBackup.formatTime(f.lastModified()) + " · " + CloudSync.megabytes(f.length());
+            item.time = f.lastModified();
+            item.value = f;
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+        }
+        return groups;
+    }
+
+    /** "My App v1.0 (com.my.app, 1) 2026-11-22T101500" → "My App" (other names: up to "_v1…" / " v1…"). */
+    static String projectPart(String base) {
+        String n = base.replaceAll("(?i)[ _]v\\d.*$", "");
+        return n.isEmpty() ? base : n;
+    }
+
+    /** "My App v1.0 (com.my.app, 1) 2026-11-22T101500" → "v1.0 (1)"; other names: the name itself. */
+    static String versionPart(String base) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[ _]v(\\S+) \\([^,()]*, *(\\d+)\\)").matcher(base);
+        if (m.find()) return "v" + m.group(1) + " (" + m.group(2) + ")";
+        java.util.regex.Matcher simple = java.util.regex.Pattern.compile("(?i)[ _]v(\\d[\\w.]*)").matcher(base);
+        return simple.find() ? "v" + simple.group(1) : base;
+    }
+
+    private static String groupTitle(String key) {
+        return key.replace('_', ' ');
     }
 
     private static void collectBackups(File dir, List<File> out, int depth) {

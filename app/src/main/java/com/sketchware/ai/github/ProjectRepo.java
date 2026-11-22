@@ -47,18 +47,21 @@ public final class ProjectRepo {
      */
     public static final String TOPIC = "sketchware-ai";
     public static final int MAX_VERSIONS = 5;
-    /** Release assets up to this size go up in one request; larger backups in parts of this size. */
-    /** v2.0.5: 8 MiB (16 MiB in v2.0.4): a retry resumes from the last finished part, so smaller parts lose less. */
-    public static final long PART_BYTES = 8L * 1024 * 1024;
     /**
-     * v2.1.2 (owner's 21 Nov directive "under 25 MB: one release asset"): a backup up to this size goes up as one file
-     * (one request, fixed length, 64 KB writes); a larger one in {@link #PART_BYTES} parts with a parts list.
+     * v2.1.3 (owner's 22 Nov report: "uploads are slow while downloads are fast; projects are up to 20-30 MB"): a backup
+     * from {@link #PARALLEL_MIN_BYTES} goes up in parts of this size, {@link #PARALLEL} at a time (one connection to
+     * GitHub's upload host can't fill a phone's uplink over a long, lossy route; several can), and a retry resumes from
+     * the parts already there. v2.0.5-v2.1.2: 8 MiB parts one after the other, one file up to 25 MiB (v2.1.2). Every
+     * version since v2.0.4 restores parts of any size up to 16 MiB from the parts list.
      */
-    public static final long SINGLE_MAX_BYTES = 25L * 1024 * 1024;
+    public static final long PART_BYTES = 2L * 1024 * 1024;
+    public static final long PARALLEL_MIN_BYTES = 3L * 1024 * 1024;
+    /** Parts (and the APK) sent at the same time. */
+    static int PARALLEL = 4;
 
     /** How many files a backup of {@code size} bytes goes up as (1 = one .swb). */
     public static int partsFor(long size) {
-        return size <= SINGLE_MAX_BYTES ? 1 : (int) ((size + PART_BYTES - 1) / PART_BYTES);
+        return size < PARALLEL_MIN_BYTES ? 1 : (int) ((size + PART_BYTES - 1) / PART_BYTES);
     }
     /** What a backup may weigh (release assets go up to 2 GB each; a phone's patience is the real limit). */
     public static final long MAX_BYTES = 1024L * 1024 * 1024;
@@ -578,35 +581,47 @@ public final class ProjectRepo {
             releaseId = number(DeviceFlow.parse(r.body));
         }
 
-        // the files: one .swb, or parts with their list
-        this.present = present;
+        // the files: one .swb, or parts with their list; the parts and the APK go up side by side (v2.1.3)
+        this.present = new java.util.concurrent.ConcurrentHashMap<>(present);
         skippedLast = 0;
         Set<String> uploaded = new HashSet<>();
         long apkSize = backup.apk != null && backup.apk.isFile() ? backup.apk.length() : 0;
         long total = size + apkSize;
-        if (size <= SINGLE_MAX_BYTES) {
+        List<Upload> work = new ArrayList<>();
+        SwbParts.Manifest manifest = null;
+        if (partsFor(size) == 1) {
             String asset = base + ".swb";
-            uploadAsset(releaseId, asset, swb, 0, size, "application/zip", 0, total, progress, "the backup");
+            work.add(new Upload(asset, swb, 0, size, "application/zip", "the backup"));
             facts.addProperty("swb", asset);
-            uploaded.add(asset);
         } else {
-            SwbParts.Manifest manifest = new SwbParts.Manifest();
+            manifest = new SwbParts.Manifest();
             manifest.name = base + ".swb";
             manifest.size = size;
             manifest.sha256 = sha256;
             manifest.partBytes = PART_BYTES;
-            int count = (int) ((size + PART_BYTES - 1) / PART_BYTES);
-            long done = 0;
+            int count = partsFor(size);
             for (int i = 0; i < count; i++) {
                 long offset = i * PART_BYTES;
                 long length = Math.min(PART_BYTES, size - offset);
                 String asset = base + ".swb.part" + String.format(Locale.ENGLISH, "%03d", i);
-                uploadAsset(releaseId, asset, swb, offset, length, "application/octet-stream", done, total, progress,
-                        "part " + (i + 1) + " of " + count);
+                work.add(new Upload(asset, swb, offset, length, "application/octet-stream",
+                        "part " + (i + 1) + " of " + count));
                 manifest.parts.add(new SwbParts.Part(asset, length, SwbParts.gitBlobSha(swb, offset, length)));
-                uploaded.add(asset);
-                done += length;
             }
+        }
+        if (apkSize == 0 && existing != null && existing.apk != null && existing.asset(existing.apk) != null) {
+            // review M1: no newer APK: the version keeps the one it has (it isn't deleted below)
+            facts.addProperty("apk", existing.apk);
+            uploaded.add(existing.apk);
+        }
+        if (apkSize > 0) {
+            String asset = safeFileName(backup.projectName) + "_" + tag + "_" + stamp + ".apk";
+            work.add(new Upload(asset, backup.apk, 0, apkSize, "application/vnd.android.package-archive", "the APK"));
+            facts.addProperty("apk", asset);
+        }
+        sendAll(releaseId, work, progress, total);
+        for (Upload u : work) uploaded.add(u.asset);
+        if (manifest != null) {
             File list = File.createTempFile("parts", ".json", swb.getParentFile());
             try {
                 writeText(list, manifest.toJson());
@@ -619,18 +634,6 @@ public final class ProjectRepo {
                 //noinspection ResultOfMethodCallIgnored
                 list.delete();
             }
-        }
-        if (apkSize == 0 && existing != null && existing.apk != null && existing.asset(existing.apk) != null) {
-            // review M1: no newer APK: the version keeps the one it has (it isn't deleted below)
-            facts.addProperty("apk", existing.apk);
-            uploaded.add(existing.apk);
-        }
-        if (apkSize > 0) {
-            String asset = safeFileName(backup.projectName) + "_" + tag + "_" + stamp + ".apk";
-            uploadAsset(releaseId, asset, backup.apk, 0, apkSize, "application/vnd.android.package-archive", size, total,
-                    progress, "the APK");
-            facts.addProperty("apk", asset);
-            uploaded.add(asset);
         }
         if (progress != null) progress.saving();
 
@@ -662,9 +665,142 @@ public final class ProjectRepo {
      * 401 while GET /user still accepts the sign-in. A half-uploaded asset of that name is removed before a new try.
      */
     /** v2.0.5: the files already on the release being written (checkpoint resume); set by upload. */
-    private java.util.Map<String, Asset> present = new java.util.HashMap<>();
+    private java.util.Map<String, Asset> present = new java.util.concurrent.ConcurrentHashMap<>();
     /** v2.0.5 tests: how many files the last upload didn't send again. */
     int skippedLast;
+
+    /** v2.1.3: one file of a backup to send (a part, the whole .swb, or the APK). */
+    private static final class Upload {
+        final String asset;
+        final File file;
+        final long offset;
+        final long length;
+        final String type;
+        final String what;
+
+        Upload(String asset, File file, long offset, long length, String type, String what) {
+            this.asset = asset;
+            this.file = file;
+            this.offset = offset;
+            this.length = length;
+            this.type = type;
+            this.what = what;
+        }
+    }
+
+    /** v2.1.3: the bytes of all files on their way, told as one sum (helper threads report into it). */
+    private static final class Sent {
+        private final long[] slots;
+        private final CloudBackup.UploadProgress out;
+        private final long total;
+
+        Sent(int count, CloudBackup.UploadProgress out, long total) {
+            this.slots = new long[count];
+            this.out = out;
+            this.total = total;
+        }
+
+        CloudBackup.UploadProgress slot(int index) {
+            if (out == null) return null;
+            return new CloudBackup.UploadProgress() {
+                @Override
+                public void uploading(long sent, long all) {
+                    set(index, sent);
+                }
+
+                @Override
+                public void saving() {
+                }
+
+                @Override
+                public void retrying(String text) {
+                    synchronized (Sent.this) {
+                        out.retrying(text);
+                    }
+                }
+            };
+        }
+
+        private synchronized void set(int index, long sent) {
+            slots[index] = sent;
+            long sum = 0;
+            for (long s : slots) sum += s;
+            out.uploading(Math.min(total, sum), total);
+        }
+    }
+
+    /**
+     * v2.1.3: sends {@code work}, {@link #PARALLEL} files at a time on helper threads of this job (a Cancel, a pause or
+     * the watchdog stops them with it: {@link GitHubHttp#adopt}). When one fails for good, the files not started stay
+     * unsent and the ones on their way finish (they count for the next try's resume); the first error is thrown.
+     */
+    private void sendAll(long releaseId, List<Upload> work, CloudBackup.UploadProgress progress, long total)
+            throws IOException, GitHubException {
+        Sent sent = new Sent(work.size(), progress, total);
+        if (work.size() <= 1 || PARALLEL <= 1) {
+            for (int i = 0; i < work.size(); i++) {
+                Upload u = work.get(i);
+                uploadAsset(releaseId, u.asset, u.file, u.offset, u.length, u.type, 0, u.length, sent.slot(i), u.what);
+            }
+            return;
+        }
+        Thread parent = Thread.currentThread();
+        java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(
+                Math.min(PARALLEL, work.size()), r -> {
+                    Thread t = new Thread(r, "BackupPart");
+                    t.setDaemon(true);
+                    return t;
+                });
+        List<java.util.concurrent.Future<?>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < work.size(); i++) {
+                Upload u = work.get(i);
+                int index = i;
+                futures.add(pool.submit((java.util.concurrent.Callable<Void>) () -> {
+                    GitHubHttp.adopt(parent);
+                    try {
+                        if (failed.get()) return null;
+                        GitHubHttp.stopIfCancelled();
+                        uploadAsset(releaseId, u.asset, u.file, u.offset, u.length, u.type, 0, u.length,
+                                sent.slot(index), u.what);
+                        return null;
+                    } catch (Exception | Error e) {
+                        failed.set(true);
+                        throw e;
+                    } finally {
+                        GitHubHttp.disown();
+                    }
+                }));
+            }
+            Throwable first = null;
+            for (java.util.concurrent.Future<?> f : futures) {
+                try {
+                    f.get();
+                } catch (java.util.concurrent.ExecutionException e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    // a cancel of one helper is the job's cancel; otherwise the first real error is the one told
+                    if (first == null || first instanceof GitHubHttp.Cancelled && !(cause instanceof GitHubHttp.Cancelled)) {
+                        first = cause;
+                    }
+                } catch (InterruptedException e) {
+                    // the job was cancelled, paused or stopped: its helpers were stopped with it
+                    Thread.currentThread().interrupt();
+                    throw new GitHubHttp.Cancelled();
+                }
+            }
+            if (first != null) {
+                if (GitHubHttp.isCancelled()) throw new GitHubHttp.Cancelled();
+                if (first instanceof IOException) throw (IOException) first;
+                if (first instanceof GitHubException) throw (GitHubException) first;
+                if (first instanceof RuntimeException) throw (RuntimeException) first;
+                if (first instanceof Error) throw (Error) first;
+                throw new IOException(first);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
 
     private void uploadAsset(long releaseId, String assetName, File file, long offset, long length, String type,
                              long before, long total, CloudBackup.UploadProgress progress, String what)
@@ -673,7 +809,9 @@ public final class ProjectRepo {
         if (there != null) {
             if (there.size == length && (there.state == null || "uploaded".equals(there.state))) {
                 // already on GitHub from an earlier try: resumed after it
-                skippedLast++;
+                synchronized (this) {
+                    skippedLast++;
+                }
                 if (progress != null) progress.uploading(before + length, total);
                 return;
             }

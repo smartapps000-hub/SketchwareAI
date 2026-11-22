@@ -574,8 +574,9 @@ public class RepoViewerActivity extends BaseAppCompatActivity {
 
     /** v2.0.5 render: "66 B", "1.8 KB", "2.3 MB" (a small file never shows as "0.0 MB"). */
     static String fileSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        if (bytes < 1024 * 1024) return String.format(java.util.Locale.ENGLISH, "%.1f KB", bytes / 1024.0);
+        if (bytes < 1000) return bytes + " B";
+        // v2.1.3: decimal units, as Android's own screens count them (CloudSync.megabytes)
+        if (bytes < 1_000_000) return String.format(java.util.Locale.ENGLISH, "%.1f KB", bytes / 1000.0);
         return CloudSync.megabytes(bytes);
     }
 

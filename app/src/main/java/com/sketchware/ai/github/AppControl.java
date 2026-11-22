@@ -69,6 +69,8 @@ public final class AppControl {
         /** v2.1.2: the update card's words: why it is needed (empty: the card's own) and up to three lines of what's new. */
         public String updateReason = "";
         public final java.util.List<String> updateNotes = new java.util.ArrayList<>();
+        /** v2.1.3: up to three lines of what the update fixes or makes faster (the card's "Bugs fixed" section). */
+        public final java.util.List<String> updateFixes = new java.util.ArrayList<>();
 
         /** The status message as {@code versionCode} sees it (v2.1.2: empty above its last version). */
         public String statusMessageFor(int versionCode) {
@@ -135,18 +137,23 @@ public final class AppControl {
             }
             String reason = DeviceFlow.string(o, "update_reason");
             c.updateReason = reason == null ? "" : reason.trim().length() > 300 ? reason.trim().substring(0, 300) : reason.trim();
-            if (o.has("update_notes") && o.get("update_notes").isJsonArray()) {
-                for (JsonElement e : o.getAsJsonArray("update_notes")) {
-                    if (c.updateNotes.size() >= 3) break;
-                    if (!e.isJsonPrimitive()) continue;
-                    String line = e.getAsString().trim();
-                    if (line.isEmpty()) continue;
-                    c.updateNotes.add(line.length() > 120 ? line.substring(0, 120) : line);
-                }
-            }
+            lines(o, "update_notes", c.updateNotes);
+            lines(o, "update_fixes", c.updateFixes);
             return c;
         } catch (RuntimeException e) {
             return null;
+        }
+    }
+
+    /** Up to three non-empty lines of a string array (120 characters each); anything else is left out. */
+    private static void lines(JsonObject o, String key, java.util.List<String> out) {
+        if (!o.has(key) || !o.get(key).isJsonArray()) return;
+        for (JsonElement e : o.getAsJsonArray(key)) {
+            if (out.size() >= 3) break;
+            if (!e.isJsonPrimitive()) continue;
+            String line = e.getAsString().trim();
+            if (line.isEmpty()) continue;
+            out.add(line.length() > 120 ? line.substring(0, 120) : line);
         }
     }
 
