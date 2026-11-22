@@ -1,19 +1,24 @@
 {
   "app_enabled": true,
-  "min_version_code": 209,
+  "min_version_code": 210,
   "require_login": false,
-  "status_message": "Sketchware AI v2.1.2 is required: tabs open at once and keep their place, your GitHub sign-in stays across updates, backups show their real speed, and a helper fills GitHub's e-mailed sign-in code. Tap Update: it installs over this version and your projects stay.",
+  "status_message": "Sketchware AI v2.1.3 is required: backups upload in parallel and resume by themselves after a lost connection, Restore shows one card per project, the Play Store page fits on one screen, and tabs open faster. Tap Update: it installs over this version and your projects stay.",
   "status_message_max_version_code": 208,
   "update_reason": "This update is required: it fixes problems in the version you have, and that version is no longer supported. It installs over it: your projects, settings and GitHub sign-in stay.",
   "update_notes": [
-    "Tabs open at once and keep their place; no close questions",
-    "Your GitHub sign-in stays across updates; e-mailed codes fill with one tap",
-    "Backups show their real speed and finish without a silent 90%"
+    "Backups upload in parallel parts and resume by themselves",
+    "Restore: one card per project with its versions; Pin keeps one in front",
+    "Play Store: Follow creators, Review, Publish from the header"
   ],
-  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.2.apk",
-  "update_sha256": "ef44b98efd9b1ea538322335748e6b4c77847001f931628729a29ba07566418c",
+  "update_fixes": [
+    "A finished Retry no longer leaves the old \"Didn't work\" notice",
+    "Tabs open faster; sizes in MB as Android counts them",
+    "The e-mailed sign-in code helper shows on GitHub's sign-in pages"
+  ],
+  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.3.apk",
+  "update_sha256": "SET-AFTER-THE-FINAL-BUILD",
   "force_update": true,
-  "latest_version_code": 209,
-  "latest_version_name": "v2.1.2",
+  "latest_version_code": 210,
+  "latest_version_name": "v2.1.3",
   "coming_soon": ""
 }

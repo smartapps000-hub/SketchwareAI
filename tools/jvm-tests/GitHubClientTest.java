@@ -537,6 +537,11 @@ public class GitHubClientTest {
         check("v2.0.4: a project named Projects never lands in the backup repository",
                 "SketchwareAI-Projects-App".equals(call(projectsRepo, "name")), call(projectsRepo, "name"));
 
+        // v2.1.3: the checks below send one file at a time (their order is part of what they check); the parallel
+        // sending has its own section after them
+        java.lang.reflect.Field parallelField = Class.forName("com.sketchware.ai.github.ProjectRepo").getDeclaredField("PARALLEL");
+        parallelField.setAccessible(true);
+        parallelField.setInt(null, 1);
         // version 1.0 (1): the .swb and the built APK as raw assets on the upload host
         File swb1 = File.createTempFile("ver1", ".swb");
         byte[] swb1Bytes = new byte[120_001];
@@ -594,8 +599,8 @@ public class GitHubClientTest {
                 fake.assetsById.containsKey(apkId) && again1.assets.get(0).name.equals(apkName)
                         && again1.body.contains("\"apk\":\"" + apkName + "\""), again1.body);
 
-        // a backup over 25 MiB (v2.1.2; 8 MiB in v2.0.5, 16 MiB before): parts of 8 MiB and a parts list, downloaded and
-        // joined through GitHub's file host
+        // a backup from 3 MiB (v2.1.3; 25 MiB in v2.1.2, 8 MiB in v2.0.5, 16 MiB before): parts of 2 MiB and a parts
+        // list, downloaded and joined through GitHub's file host
         File bigSwb = File.createTempFile("big", ".swb");
         byte[] bigBytes = new byte[25 * 1024 * 1024 + 321];
         new java.util.Random(14).nextBytes(bigBytes);
@@ -604,12 +609,11 @@ public class GitHubClientTest {
         Fake.FakeRelease r2 = myRepo.releases.get(1);
         List<String> r2Names = new ArrayList<>();
         for (Fake.FakeAsset a : r2.assets) r2Names.add(a.name);
-        check("v2.1.2: a backup just over 25 MiB goes as four parts (8, 8, 8 MiB, the rest) and a parts list",
-                r2.assets.size() == 5 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
-                        && r2Names.get(2).endsWith(".swb.part002") && r2Names.get(3).endsWith(".swb.part003")
-                        && r2Names.get(4).endsWith(".swb.parts.json")
-                        && r2.assets.get(0).bytes.length == 8 * 1024 * 1024 && r2.assets.get(1).bytes.length == 8 * 1024 * 1024
-                        && r2.assets.get(3).bytes.length == 1024 * 1024 + 321, r2Names);
+        check("v2.1.3: a backup of 25 MiB + 321 bytes goes as 13 parts (twelve of 2 MiB, the rest) and a parts list",
+                r2.assets.size() == 14 && r2Names.get(0).endsWith(".swb.part000") && r2Names.get(1).endsWith(".swb.part001")
+                        && r2Names.get(12).endsWith(".swb.part012") && r2Names.get(13).endsWith(".swb.parts.json")
+                        && r2.assets.get(0).bytes.length == 2 * 1024 * 1024 && r2.assets.get(11).bytes.length == 2 * 1024 * 1024
+                        && r2.assets.get(12).bytes.length == 1024 * 1024 + 321, r2Names);
         @SuppressWarnings("unchecked")
         List<Object> prVersions = (List<Object>) call(repo, "versions", false);
         check("v2.0.4: versions newest first, read back from the releases (facts line)",
@@ -619,7 +623,7 @@ public class GitHubClientTest {
         fake.objectGets = 0;
         call(pr, "download", token, "octo", "SketchwareAI-My_App", prVersions.get(0), bigBack, null);
         check("v2.0.4: download: the parts joined, size and SHA-256 checked, byte for byte", java.util.Arrays.equals(
-                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 5, fake.objectGets);
+                java.nio.file.Files.readAllBytes(bigBack.toPath()), bigBytes) && fake.objectGets == 14, fake.objectGets);
         check("v2.0.4: the token never went to GitHub's file host (only to the API and upload hosts)",
                 !fake.objectsSawAuthorization, null);
         Fake.FakeAsset part1 = r2.assets.get(1);
@@ -734,7 +738,7 @@ public class GitHubClientTest {
         for (String u : fake.uploadRequests) if (u.endsWith(".swb.part000")) noPart000 = false;
         check("v2.0.5: the next try reuses that draft (same release), skips part000, sends the other parts and the list, "
                         + "and publishes", resumed != null && resumed.id == cutId && !resumed.draft && noPart000
-                        && fake.uploadRequests.size() == 4 && resumed.assets.size() == 5
+                        && fake.uploadRequests.size() == 13 && resumed.assets.size() == 14
                         && Integer.valueOf(1).equals(field(repo, "skippedLast")), fake.uploadRequests);
         @SuppressWarnings("unchecked")
         List<Object> afterResume = (List<Object>) call(repo, "versions", false);
@@ -745,6 +749,99 @@ public class GitHubClientTest {
         check("v2.0.5: the resumed backup downloads byte for byte", v11 != null
                 && java.util.Arrays.equals(java.nio.file.Files.readAllBytes(resumedBack.toPath()), bigBytes), v11);
         fake.mode = "";
+
+        // v2.1.3 (owner's 22 Nov report: uploads slow): the parts and the APK go up side by side, 4 at a time, on helper
+        // threads of the job; one sum of bytes; a failure keeps the parts already sent for the next try; Cancel reaches
+        // the helpers
+        parallelField.setInt(null, 4);
+        File midSwb = File.createTempFile("mid", ".swb");
+        byte[] midBytes = new byte[9 * 1024 * 1024 + 5];
+        new java.util.Random(21).nextBytes(midBytes);
+        java.nio.file.Files.write(midSwb.toPath(), midBytes);
+        java.util.Set<String> senders = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        long[] lastSum = {0};
+        CloudBackup.UploadProgress parallelProgress = new CloudBackup.UploadProgress() {
+            public void uploading(long sent, long all) {
+                senders.add(Thread.currentThread().getName());
+                if (sent < lastSum[0]) lastSum[0] = -1;
+                else if (lastSum[0] >= 0) lastSum[0] = sent;
+            }
+            public void saving() { }
+        };
+        fake.uploadRequests.clear();
+        call(repo, "upload", backup(midSwb, apk, "My App", "12.0", "12", "Parallel"), parallelProgress);
+        Fake.FakeRelease r12 = fake.releaseFor(myRepo, "v12.0-12");
+        int parts12 = 0;
+        boolean apk12 = false;
+        if (r12 != null) for (Fake.FakeAsset a : r12.assets) {
+            if (a.name.contains(".swb.part0")) parts12++;
+            if (a.name.endsWith(".apk")) apk12 = java.util.Arrays.equals(a.bytes, apkBytes);
+        }
+        long senders12 = senders.stream().filter(n -> n.startsWith("BackupPart")).count();
+        check("v2.1.3: 9 MiB + 5 bytes and the APK: 5 parts, the APK and the parts list, sent by helper threads (" + senders12
+                        + "), the bytes told as one rising sum up to the total", r12 != null && !r12.draft && parts12 == 5 && apk12
+                        && r12.assets.size() == 7 && senders12 >= 2 && lastSum[0] == midBytes.length + apkBytes.length,
+                senders + " " + lastSum[0] + " " + fake.uploadRequests);
+        @SuppressWarnings("unchecked")
+        List<Object> list12 = (List<Object>) call(repo, "versions", false);
+        Object v12 = null;
+        for (Object v : list12) if ("v12.0-12".equals(field(v, "tag"))) v12 = v;
+        File back12 = File.createTempFile("back12", ".swb");
+        if (v12 != null) call(pr, "download", token, "octo", "SketchwareAI-My_App", v12, back12, null);
+        check("v2.1.3: the parallel backup downloads byte for byte", v12 != null
+                && java.util.Arrays.equals(java.nio.file.Files.readAllBytes(back12.toPath()), midBytes), v12);
+
+        // a failure: the first part lands, the others are refused; the next try sends only what is missing
+        Thread.sleep(1100); // other file names
+        java.nio.file.Files.write(midSwb.toPath(), midBytes);
+        fake.mode = "failAfterFirstUpload";
+        fake.uploadRequests.clear();
+        String code13 = null;
+        try {
+            call(repo, "upload", backup(midSwb, null, "My App", "13.0", "13", "Parallel cut"), null);
+        } catch (GitHubException e) {
+            code13 = e.code;
+        }
+        Fake.FakeRelease cut13 = null;
+        for (Fake.FakeRelease rel : myRepo.releases) if (rel.draft) cut13 = rel;
+        int kept13 = cut13 == null ? -1 : cut13.assets.size();
+        check("v2.1.3: parts refused (HTTP 403) side by side: the backup stops with the error, a draft keeps the part that "
+                + "landed", "http_403".equals(code13) && kept13 >= 1, code13 + " " + kept13 + " " + fake.uploadRequests);
+        fake.mode = "";
+        fake.uploadRequests.clear();
+        call(repo, "upload", backup(midSwb, null, "My App", "13.0", "13", "Parallel resumed"), null);
+        Fake.FakeRelease r13 = fake.releaseFor(myRepo, "v13.0-13");
+        int skipped13 = (Integer) field(repo, "skippedLast");
+        check("v2.1.3: the next try reuses the draft, skips the parts already there (" + skipped13 + ") and publishes",
+                r13 != null && cut13 != null && r13.id == cut13.id && !r13.draft && skipped13 == kept13
+                        && fake.uploadRequests.size() == 5 - kept13 + 1 && r13.assets.size() == 6, fake.uploadRequests);
+
+        // Cancel while the helpers send: the job's thread and every helper stop
+        fake.mode = "slowUpload";
+        fake.uploadHeld = false;
+        fake.releaseUpload = false;
+        Throwable[] cut14 = new Throwable[1];
+        Thread worker14 = new Thread(() -> {
+            try {
+                call(repo, "upload", backup(midSwb, null, "My App", "14.0", "14", "Parallel cancel"), null);
+            } catch (Throwable t) {
+                cut14[0] = t;
+            }
+        });
+        worker14.start();
+        for (int i = 0; i < 500 && !fake.uploadHeld; i++) Thread.sleep(10);
+        Thread.sleep(200);
+        cancel.invoke(null, worker14);
+        fake.releaseUpload = true;
+        worker14.join(20_000);
+        Thread.sleep(500);
+        long helpersLeft = Thread.getAllStackTraces().keySet().stream()
+                .filter(t -> t.getName().startsWith("BackupPart") && t.isAlive()).count();
+        fake.mode = "";
+        check("v2.1.3: Cancel stops the job and its helper threads", cut14[0] != null
+                && cut14[0].getClass().getSimpleName().equals("Cancelled") && !worker14.isAlive() && helpersLeft == 0,
+                cut14[0] + " helpers " + helpersLeft);
+        parallelField.setInt(null, 1);
 
         // Public / Private: one PATCH, nothing uploaded; the backup repository refused
         int patchesBefore = fake.patches.size();
@@ -983,7 +1080,7 @@ public class GitHubClientTest {
                     if ("codeDrop".equals(mode) && codeRequests == 1) return new Object[]{-1, ""};
                     if ("disabled".equals(mode)) return new Object[]{400, "{\"error\":\"device_flow_disabled\"}"};
                     if ("code429".equals(mode)) return new Object[]{429, "<html>Too many requests</html>", "Retry-After: 60\r\n"};
-                    if (!"repo user:email".equals(form.get("scope"))) formProblems.add("scope " + form.get("scope"));
+                    if (!"repo user:email user:follow".equals(form.get("scope"))) formProblems.add("scope " + form.get("scope"));
                     return new Object[]{200, "{\"device_code\":\"dc-1\",\"user_code\":\"WDJB-MJHT\",\"verification_uri\":"
                             + "\"https://github.com/login/device\",\"expires_in\":900,\"interval\":5}"};
                 }

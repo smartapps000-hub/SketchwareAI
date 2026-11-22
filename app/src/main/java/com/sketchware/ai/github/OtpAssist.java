@@ -20,12 +20,21 @@ public final class OtpAssist {
     private OtpAssist() {
     }
 
-    /** "email" on GitHub's e-mailed device code page, "two-factor" on a two-factor code page, else null. */
+    /**
+     * "email" on GitHub's e-mailed device code page, "two-factor" on a two-factor code page, "login" on GitHub's other
+     * sign-in pages (v2.1.3, owner's 22 Nov report "the Gmail code helper didn't show": the bar is there from the first
+     * sign-in page on, for the code GitHub may e-mail after the password), else null (the device-code page, which the
+     * window fills by itself, passkey and recovery pages, any other site).
+     */
     public static String pageKind(String scheme, String host, String path) {
         if (!"https".equals(scheme) || !"github.com".equals(host) || path == null) return null;
         if (path.equals("/sessions/verified-device") || path.startsWith("/sessions/verified-device/")) return "email";
-        if (path.startsWith("/sessions/two-factor") && !path.contains("webauthn") && !path.contains("recovery")) {
-            return "two-factor";
+        if (path.startsWith("/sessions/two-factor")) {
+            return path.contains("webauthn") || path.contains("recovery") ? null : "two-factor";
+        }
+        if (path.startsWith("/login/device") || path.startsWith("/login/oauth")) return null;
+        if (path.equals("/login") || path.startsWith("/login/") || path.equals("/session") || path.startsWith("/sessions")) {
+            return path.contains("webauthn") || path.contains("recovery") ? null : "login";
         }
         return null;
     }

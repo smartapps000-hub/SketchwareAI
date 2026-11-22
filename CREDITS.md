@@ -44,7 +44,7 @@ licence but this fork found no licence file in the copy it ships. This is a reco
 |---|---|---|---|
 | sora-editor (code editor) | 0.17.2 | LGPL-2.1 | Maven POM |
 | Guava | 31.1-jre | Apache-2.0 | Maven parent POM |
-| Gson | 2.9.0 | Apache-2.0 | Maven POM |
+| Gson | 2.15.0 (v2.1.3; 2.9.0 before) | Apache-2.0 | Maven POM |
 | OkHttp / Okio | 4.10.0 / 3.1.0 | Apache-2.0 | Maven POMs |
 | libsu (topjohnwu) | 5.0.2 | Apache-2.0 | Maven POM |
 | sdklib (Android tools) | 25.3.0 | Apache-2.0 | Maven POM |

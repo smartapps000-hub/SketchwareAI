@@ -984,8 +984,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
             chrome.otp.setVisibility(View.GONE);
             return;
         }
-        boolean email = "email".equals(kind);
-        chrome.otpTitle.setText(email ? "Email verification code" : "Two-factor code");
+        boolean login = "login".equals(kind);
+        boolean email = "email".equals(kind) || login;
+        // v2.1.3: on GitHub's sign-in page too, for the code it may e-mail after the password
+        chrome.otpTitle.setText(login ? "Code by e-mail?" : email ? "Email verification code"
+                : "Two-factor code");
         chrome.openMail.setVisibility(email ? View.VISIBLE : View.GONE);
         // alone, Paste & fill takes the row without the gap it keeps beside Open Gmail
         android.view.ViewGroup.LayoutParams lp = chrome.pasteFill.getLayoutParams();
@@ -995,6 +998,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
             chrome.pasteFill.setLayoutParams(lp);
         }
         chrome.otp.setVisibility(View.VISIBLE);
+        if (login) {
+            status("Sign in below · the code goes in by itself. If GitHub e-mails you a code: Open Gmail, copy it, "
+                    + "Paste & fill.", false);
+            return;
+        }
         status(email ? "GitHub e-mailed you a code: copy it, then tap Paste & fill." : "Copy the code from your "
                 + "authenticator app, then tap Paste & fill.", false);
     }
@@ -1047,7 +1055,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
             if (closed) return;
             String r = result == null ? "" : result.replace("\"", "");
             if ("none".equals(r)) {
-                status("This GitHub page has no code field yet: wait for it to load, then tap Paste & fill again.", true);
+                status("login".equals(otpKind) ? "No code field on this page: GitHub asks for an e-mailed code after "
+                        + "your password. Sign in first." : "This GitHub page has no code field yet: wait for it to load, "
+                        + "then tap Paste & fill again.", true);
             } else {
                 status("Code " + code + " filled in: GitHub is checking it…", false);
             }

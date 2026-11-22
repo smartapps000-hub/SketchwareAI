@@ -447,6 +447,8 @@ public class GC extends DA implements View.OnClickListener {
         if (asTab) com.sketchware.ai.ui.TabScreens.asTab(intent, "Create")
                 .putExtra(com.sketchware.ai.ui.TabScreens.EXTRA_CLOSES, true);
         startActivityForResult(intent, REQUEST_CODE_PROJECT_SETTINGS_ACTIVITY);
+        // v2.1.3: the tabs' 150 ms fade (owner's 22 Nov report: lag opening Create)
+        if (asTab && getActivity() != null) getActivity().overridePendingTransition(R.anim.ob_tab_in, R.anim.ob_tab_hold);
     }
 
     /**

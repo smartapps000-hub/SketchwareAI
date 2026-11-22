@@ -70,8 +70,12 @@ public final class HoneyDropBar extends LinearLayout {
     /** Stage boundaries as fractions of {@link #DURATION}. */
     static final float LAND = 0.26f;
     static final float CRATER_END = 0.38f;
-    /** The listener hears the tap after the crater (the screen opens over the splash). */
-    static final float OPEN_AT = 0.40f;
+    /**
+     * The listener hears the tap this far into the drop. v2.1.0-v2.1.2: 0.40 (460 ms after the tap, after the crater);
+     * v2.1.3 (owner's 22 Nov report: "lag switching Home, Create, Play Store, Community"): 0.14 (about 160 ms: the drop
+     * and the sound start, then the screen fades in over 150 ms).
+     */
+    static final float OPEN_AT = 0.14f;
 
     private final float density;
     private final Paint glass = new Paint(Paint.ANTI_ALIAS_FLAG);

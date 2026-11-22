@@ -47,13 +47,15 @@ public final class TabScreens {
         if (!isTab(activity)) return false;
         if (activity.getIntent().getBooleanExtra(EXTRA_CLOSES, false)) {
             activity.finish();
+            activity.overridePendingTransition(com.sketchware.remod.R.anim.ob_tab_hold, com.sketchware.remod.R.anim.ob_tab_out);
             return true;
         }
         try {
             Intent home = new Intent(activity, com.besome.sketch.MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             activity.startActivity(home);
-            activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            // v2.1.3: 150 ms (Android's fade_in / fade_out take 500 ms)
+            activity.overridePendingTransition(com.sketchware.remod.R.anim.ob_tab_in, com.sketchware.remod.R.anim.ob_tab_hold);
         } catch (RuntimeException e) {
             activity.finish();
         }

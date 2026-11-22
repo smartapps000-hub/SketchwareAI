@@ -612,6 +612,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
             // v2.1.2 (owner's 21 Nov directive "keep each tab's scroll position and navigation state"): a tab still open
             // behind Home comes back as it was
             startActivity(com.sketchware.ai.ui.TabScreens.reopen(intent));
+            // v2.1.3: a 150 ms fade instead of Android's ~400 ms screen animation
+            overridePendingTransition(R.anim.ob_tab_in, R.anim.ob_tab_hold);
             tabOpening = true;
         } catch (RuntimeException e) {
             bar.select(com.sketchware.ai.ui.HoneyDropBar.HOME, true);

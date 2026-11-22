@@ -128,10 +128,40 @@ public class NewProjectActivity extends BaseAppCompatActivity {
             return;
         }
 
-        // v1.9.8: never an id that still has folders (a project whose list file is damaged would lose its data)
-        scId = com.sketchware.ai.project.ProjectIds.free(lC.b());
-        String defaultName = lC.c();
-        ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
+        // v1.9.8: never an id that still has folders (a project whose list file is damaged would lose its data).
+        // v2.1.3 (owner's 22 Nov report: lag opening Create): lC.b() and lC.c() each read and decrypt every project's
+        // list file: on a thread of their own; the screen shows at once, Create waits for the id
+        ((TextView) findViewById(R.id.np_subtitle)).setText("Project #…");
+        Thread ids = new Thread(() -> {
+            String id;
+            String name;
+            try {
+                id = com.sketchware.ai.project.ProjectIds.free(lC.b());
+                name = lC.c();
+            } catch (RuntimeException e) {
+                id = null;
+                name = null;
+            }
+            String freeId = id;
+            String freeName = name;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (freeId == null) {
+                    ((TextView) findViewById(R.id.np_subtitle)).setText("The project list couldn't be read");
+                    return;
+                }
+                scId = freeId;
+                ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
+                // what the user typed meanwhile stays
+                if (packageName.getText().length() == 0) {
+                    packageName.setText("com.my." + freeName.toLowerCase());
+                }
+                if (projectName.getText().length() == 0) projectName.setText(freeName);
+                makeFolders();
+            });
+        }, "NewProjectId");
+        ids.setDaemon(true);
+        ids.start();
         findViewById(R.id.np_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.np_cancel).setOnClickListener(v -> finish());
         findViewById(R.id.np_create).setOnClickListener(v -> create());
@@ -147,8 +177,6 @@ public class NewProjectActivity extends BaseAppCompatActivity {
                 (TextInputLayout) findViewById(R.id.np_ti_project));
         packageName.setPrivateImeOptions("defaultInputmode=english;");
         projectName.setPrivateImeOptions("defaultInputmode=english;");
-        packageName.setText("com.my." + defaultName.toLowerCase());
-        projectName.setText(defaultName);
         versionCode.setText("1");
         versionName.setText("1.0");
         appName.addTextChangedListener(new TextWatcher() {
@@ -240,7 +268,12 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-        // as MyProjectSettingActivity: the project's folders and the icon file the icon picker writes to
+        makeFolders();
+    }
+
+    /** As MyProjectSettingActivity: the project's folders and the icon file the icon picker writes to. */
+    private void makeFolders() {
+        if (scId == null) return;
         oB folders = new oB();
         folders.f(wq.e() + File.separator + scId);
         folders.f(wq.g() + File.separator + scId);
@@ -275,6 +308,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     }
 
     private void pickIcon() {
+        if (scId == null) return;
         File iconFile = iconFile();
         try {
             iconFile.getParentFile().mkdirs();
@@ -589,6 +623,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     // ---- create
 
     private void create() {
+        // v2.1.3: the project's id is read on its own thread (a moment after the screen opens)
+        if (scId == null) return;
         if (creating || mB.a()) return;
         if (!(packageValidator.b() & projectNameValidator.b() & appNameValidator.b())) {
             return;

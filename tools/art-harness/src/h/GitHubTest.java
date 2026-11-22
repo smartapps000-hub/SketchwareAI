@@ -266,24 +266,30 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 209, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(209).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 210, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(210).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.1.2 (209) with it: no notice (its status message is for 208 and older)",
-                call(control, "decide", shipped, 209, false, null) == null, null);
+        check("v2.1.3 (210) with it: no notice (its status message is for 208 and older)",
+                call(control, "decide", shipped, 210, false, null) == null, null);
+        Object old209 = call(control, "decide", shipped, 209, false, null);
+        check("v2.1.2 (209): Update with the v2.1.3 URL, forced (v2.1.2's own card shows the reason and the lines)",
+                old209 != null && "update".equals(get(old209, "kind")) && Boolean.TRUE.equals(get(old209, "force"))
+                        && String.valueOf(get(old209, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.3.apk"),
+                old209 == null ? null : get(old209, "url"));
         Object old198 = call(control, "decide", shipped, 208, false, null);
-        check("an older version (v2.1.1, 208): Update with the v2.1.2 URL, forced, with the file's words in v2.1.1's own "
+        check("an older version (v2.1.1, 208): Update with the v2.1.3 URL, forced, with the file's words in v2.1.1's own "
                         + "dialog (owner, 21 Nov: the live in-app update)",
                 old198 != null && "update".equals(get(old198, "kind")) && Boolean.TRUE.equals(get(old198, "force"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.2.apk")
-                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.2 is required"),
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.3.apk")
+                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.3 is required"),
                 old198 == null ? null : get(old198, "url"));
-        check("v2.1.2: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 209 "
-                        + "\"v2.1.2\", update forced, the card's reason and three lines of what's new",
+        check("v2.1.3: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 210 "
+                        + "\"v2.1.3\", update forced, the card's reason, three key features and three fixes",
                 String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
-                        && Integer.valueOf(209).equals(get(shipped, "latestVersionCode"))
-                        && "v2.1.2".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
+                        && Integer.valueOf(210).equals(get(shipped, "latestVersionCode"))
+                        && "v2.1.3".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
                         && ((java.util.List<?>) get(shipped, "updateNotes")).size() == 3
+                        && ((java.util.List<?>) get(shipped, "updateFixes")).size() == 3
                         && String.valueOf(get(shipped, "updateReason")).startsWith("This update is required"),
                 get(shipped, "updateSha256"));
         Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
@@ -1295,7 +1301,14 @@ public final class GitHubTest {
                         && call(otp, "pageKind", "https", "github.com", "/sessions/two-factor/webauthn") == null
                         && call(otp, "pageKind", "http", "github.com", "/sessions/verified-device") == null
                         && call(otp, "pageKind", "https", "evil.example", "/sessions/verified-device") == null
-                        && call(otp, "pageKind", "https", "github.com", "/login/device") == null, null);
+                        && call(otp, "pageKind", "https", "github.com", "/login/device") == null
+                        // v2.1.3: also GitHub's sign-in pages (the code GitHub may e-mail after the password)
+                        && "login".equals(call(otp, "pageKind", "https", "github.com", "/login"))
+                        && "login".equals(call(otp, "pageKind", "https", "github.com", "/session"))
+                        && "login".equals(call(otp, "pageKind", "https", "github.com", "/sessions/sudo"))
+                        && call(otp, "pageKind", "https", "github.com", "/login/oauth/authorize") == null
+                        && call(otp, "pageKind", "https", "github.com", "/sessions/recovery") == null
+                        && call(otp, "pageKind", "https", "github.com", "/settings") == null, null);
         boolean otpRefused = false;
         try {
             call(otp, "fillScript", "1');alert(1);//");
@@ -1332,10 +1345,11 @@ public final class GitHubTest {
                 "v2.1.2".equals(call(card, "shortVersion", "v2.1.2-491ab6c-minApi26")) && "v3.0".equals(call(card, "shortVersion", "3.0"))
                         && "".equals(call(card, "shortVersion", (Object) null)), null);
         Class<?> repoClass = c("com.sketchware.ai.github.ProjectRepo");
-        check("v2.1.2: a backup up to 25 MiB goes up as one file, a larger one in 8 MiB parts",
-                Integer.valueOf(1).equals(call(repoClass, "partsFor", 6_500_000L))
-                        && Integer.valueOf(1).equals(call(repoClass, "partsFor", 25L * 1024 * 1024))
-                        && Integer.valueOf(4).equals(call(repoClass, "partsFor", 25L * 1024 * 1024 + 1)), null);
+        check("v2.1.3: a backup under 3 MiB goes up as one file, from 3 MiB in 2 MiB parts (sent 4 at a time)",
+                Integer.valueOf(1).equals(call(repoClass, "partsFor", 3L * 1024 * 1024 - 1))
+                        && Integer.valueOf(2).equals(call(repoClass, "partsFor", 3L * 1024 * 1024))
+                        && Integer.valueOf(4).equals(call(repoClass, "partsFor", 6_500_000L))
+                        && Integer.valueOf(13).equals(call(repoClass, "partsFor", 25L * 1024 * 1024 + 1)), null);
         Object speed = neu("com.sketchware.ai.github.CloudSync$UploadSpeed");
         call(speed, "add", 1_000L, 0L);
         call(speed, "add", 5_000L, 400L * 1024);
@@ -1343,6 +1357,137 @@ public final class GitHubTest {
         call(speed, "add", 13_000L, 1200L * 1024);
         check("v2.1.2: the upload's speed is the last ~8 seconds' (100 KB/s here), not since the job began",
                 Long.valueOf(100L * 1024).equals(call(speed, "bytesPerSecond", 13_000L)), call(speed, "bytesPerSecond", 13_000L));
+
+        // --- v2.1.3 (owner's 22 Nov phone review)
+        Object fixesCfg = call(control, "parse", "{\"update_notes\":[\"One\",\"Two\"],\"update_fixes\":[\" Fix A \",\"\","
+                + "\"Fix B\",\"Fix C\",\"Fix D\"]}");
+        check("v2.1.3: the update card's \"Bugs fixed\" lines: update_fixes trimmed, empty ones left out, at most three",
+                java.util.Arrays.asList("Fix A", "Fix B", "Fix C").equals(get(fixesCfg, "updateFixes"))
+                        && java.util.Arrays.asList("One", "Two").equals(get(fixesCfg, "updateNotes")), get(fixesCfg, "updateFixes"));
+        check("v2.1.3: sizes in decimal units as Android's screens show them (142,824,153 bytes = 142.8 MB)",
+                "142.8 MB".equals(call(syncClass, "megabytes", 142_824_153L)) && "999 KB".equals(call(syncClass, "megabytes", 999_999L))
+                        && "6.2 MB".equals(call(syncClass, "megabytes", 6_200_000L)), call(syncClass, "megabytes", 142_824_153L));
+        Class<?> store = c("com.sketchware.ai.github.PlayStore");
+        Class<?> responseClass = c("com.sketchware.ai.github.GitHubHttp$Response");
+        java.lang.reflect.Constructor<?> responseMake = responseClass.getDeclaredConstructor(int.class, String.class);
+        responseMake.setAccessible(true);
+        Object noScope = responseMake.newInstance(404, "{}");
+        set(noScope, "scopes", "repo, user:email");
+        Object withScope = responseMake.newInstance(404, "{}");
+        set(withScope, "scopes", "repo, user:email, user:follow");
+        Object unknownScope = responseMake.newInstance(403, "{}");
+        check("v2.1.3: Follow refused for a sign-in without user:follow (from before v2.1.3) asks for Sign in again; "
+                        + "with it, a 404 is a real error", Boolean.TRUE.equals(call(store, "lacksFollowScope", noScope))
+                        && Boolean.FALSE.equals(call(store, "lacksFollowScope", withScope))
+                        && Boolean.FALSE.equals(call(store, "lacksFollowScope", unknownScope)), null);
+        check("v2.1.3: new sign-ins ask GitHub for repo, user:email and user:follow",
+                "repo user:email user:follow".equals(get(c("com.sketchware.ai.github.DeviceFlow"), "SCOPE")), null);
+        // grouped Restore cards: pinned in front, else the newest; the marks
+        Class<?> backups = c("com.sketchware.ai.github.GitHubBackupsActivity");
+        Object i1 = neu("com.sketchware.ai.github.GitHubBackupsActivity$Item");
+        set(i1, "key", "a");
+        set(i1, "time", 100L);
+        Object i2 = neu("com.sketchware.ai.github.GitHubBackupsActivity$Item");
+        set(i2, "key", "b");
+        set(i2, "time", 300L);
+        Object i3 = neu("com.sketchware.ai.github.GitHubBackupsActivity$Item");
+        set(i3, "key", "c");
+        set(i3, "time", 200L);
+        @SuppressWarnings("unchecked")
+        List<Object> plain = (List<Object>) call(backups, "orderedItems", java.util.Arrays.asList(i1, i2, i3), null);
+        @SuppressWarnings("unchecked")
+        List<Object> pinnedOrder = (List<Object>) call(backups, "orderedItems", java.util.Arrays.asList(i1, i2, i3), "a");
+        check("v2.1.3: a group's versions: newest first; a pinned one in front, then the rest newest first; marks",
+                plain.get(0) == i2 && plain.get(1) == i3 && plain.get(2) == i1
+                        && pinnedOrder.get(0) == i1 && pinnedOrder.get(1) == i2 && pinnedOrder.get(2) == i3
+                        && "★ Pinned".equals(call(backups, "markOf", i1, "a", 300L, 3))
+                        && "New".equals(call(backups, "markOf", i2, "a", 300L, 3))
+                        && "★ Pinned · New".equals(call(backups, "markOf", i2, "b", 300L, 3))
+                        && "".equals(call(backups, "markOf", i2, null, 300L, 1)), null);
+        check("v2.1.3: a phone backup's name gives its project and version (Back up's own naming; other names as they are)",
+                "My App".equals(call(backups, "projectPart", "My App v1.0 (com.my.app, 3) 2026-11-22T101500"))
+                        && "v1.0 (3)".equals(call(backups, "versionPart", "My App v1.0 (com.my.app, 3) 2026-11-22T101500"))
+                        && "Vehicle_Parking".equals(call(backups, "projectPart", "Vehicle_Parking_v2.4"))
+                        && "v2.4".equals(call(backups, "versionPart", "Vehicle_Parking_v2.4"))
+                        && "notes".equals(call(backups, "versionPart", "notes")), call(backups, "versionPart",
+                "My App v1.0 (com.my.app, 3) 2026-11-22T101500"));
+        // a cancel reaches the job's helper threads (parts sent side by side)
+        Class<?> http = c("com.sketchware.ai.github.GitHubHttp");
+        java.util.concurrent.CountDownLatch adopted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch cancelledSeen = new java.util.concurrent.CountDownLatch(1);
+        boolean[] helperSaw = {false, false};
+        Thread jobThread = new Thread(() -> {
+            Thread parent = Thread.currentThread();
+            Thread helper = new Thread(() -> {
+                try {
+                    call(http, "adopt", parent);
+                    helperSaw[0] = (Boolean) call(http, "isCancelled");
+                    adopted.countDown();
+                    for (int i = 0; i < 200 && !(Boolean) call(http, "isCancelled"); i++) Thread.sleep(10);
+                    helperSaw[1] = (Boolean) call(http, "isCancelled");
+                    call(http, "disown");
+                    cancelledSeen.countDown();
+                } catch (Throwable t) {
+                    cancelledSeen.countDown();
+                }
+            }, "BackupPartTest");
+            helper.start();
+            try {
+                helper.join(5000);
+            } catch (InterruptedException ignored) {
+            }
+        }, "JobThreadTest");
+        jobThread.start();
+        adopted.await(5, java.util.concurrent.TimeUnit.SECONDS);
+        call(http, "cancel", jobThread);
+        cancelledSeen.await(5, java.util.concurrent.TimeUnit.SECONDS);
+        jobThread.join(5000);
+        check("v2.1.3: a helper thread of a job counts as cancelled once its job is (Cancel reaches every part)",
+                !helperSaw[0] && helperSaw[1], helperSaw[0] + " " + helperSaw[1]);
+        // a lost connection: the job runs again by itself (a backup from where it stopped), then ends well
+        java.util.concurrent.atomic.AtomicInteger tries = new java.util.concurrent.atomic.AtomicInteger();
+        Object retryRunner = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {
+            if (!m.equals("run")) return null;
+            if (tries.incrementAndGet() <= 2) sneaky(new java.net.UnknownHostException("uploads.github.com"));
+            return "done after " + tries.get();
+        });
+        Object savedRunner = get(syncClass, "runnerForTests");
+        Object savedPauses = get(syncClass, "AUTO_RETRY_MS");
+        set(syncClass, "runnerForTests", retryRunner);
+        set(syncClass, "autoRetryInTests", true);
+        set(syncClass, "AUTO_RETRY_MS", new long[]{20L, 20L, 20L});
+        List<String> retrySteps = java.util.Collections.synchronizedList(new ArrayList<>());
+        List<String> retryResults = java.util.Collections.synchronizedList(new ArrayList<>());
+        Object retryWatcher = proxy("com.sketchware.ai.github.CloudSync$Progress", (m, a) -> {
+            if (m.equals("step")) retrySteps.add(a[0] + " " + a[1]);
+            return null;
+        });
+        Object retryResult = proxy("com.sketchware.ai.github.CloudSync$Result", (m, a) -> {
+            if (m.equals("done")) retryResults.add(a[0] + ":" + a[1]);
+            return null;
+        });
+        call(cloudSync, "enqueue", neu("com.sketchware.ai.github.CloudSync$Job", "9301", "backup", "Retry me", autoOptions,
+                true), retryWatcher, retryResult);
+        boolean retried = waitFor(() -> !retryResults.isEmpty(), 10_000);
+        boolean toldRetry = false;
+        synchronized (retrySteps) {
+            for (String st : retrySteps) if (st.contains("Connection lost (UnknownHostException: uploads.github.com)")) toldRetry = true;
+        }
+        check("v2.1.3: UnknownHostException \"uploads.github.com\": tried again by itself (twice here), then done, without "
+                + "a Retry tap", retried && retryResults.get(0).equals("true:done after 3") && toldRetry && tries.get() == 3,
+                retryResults + " " + tries.get());
+        tries.set(-10);
+        retryResults.clear();
+        call(cloudSync, "enqueue", neu("com.sketchware.ai.github.CloudSync$Job", "9302", "backup", "Never online",
+                autoOptions, true), null, retryResult);
+        boolean ended = waitFor(() -> !retryResults.isEmpty(), 10_000);
+        check("v2.1.3: still no connection after three more tries: the job ends with the error and Retry",
+                ended && retryResults.get(0).startsWith("false:No connection to GitHub (UnknownHostException")
+                        && Boolean.TRUE.equals(call(cloudSync, "canRetry", "backup:9302")) && tries.get() == -6,
+                retryResults + " " + tries.get());
+        set(syncClass, "autoRetryInTests", false);
+        set(syncClass, "AUTO_RETRY_MS", savedPauses);
+        set(syncClass, "runnerForTests", savedRunner);
 
         // --- v2.1.1: a Play Store publish is a job of the queue: a 401 makes it wait for Sign in again, the sign-in runs
         // it again by itself (from its staged files) and the progress sheet follows that run
