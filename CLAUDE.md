@@ -438,6 +438,25 @@ rows apart, four counters on `ob_pill16` (press foreground), Like always answers
 Demo paragraph; `HoneyDropBar` corners sampled along their arcs (no step above Home). Renders `setup_v212.sh` +
 `V212Test` / `V212LargeFontTest`; jsdom `otp-script-test.js` (OTPSCRIPT 11/11); GITHUBTEST 124/124, V211CLIENT 13/13,
 V210CLIENT 27/27, GITHUBCLIENT 107/107; three review passes. APK v2.1.2-2dbb401, versionCode 209 (next 210), sha256 `ef44b98e...7566418c`, 142,824,153 bytes.
+v2.1.3 (owner's 22 Nov phone review of v2.1.2, 11 screenshots, Telugu; record `engineering/v2.1.3-verification.md`):
+`UpdateCard` "UPDATE AVAILABLE" 26sp in `ob_error`, REQUIRED tag, KEY FEATURES numbered (`update_notes`), BUGS FIXED · MORE
+EFFICIENT with ticks (new app-control `update_fixes`), Later / Update as glass pills (`ob_amber_pill_state`, icon + label
+centred; the v2.1.2 → v2.1.3 step still shows v2.1.2's card). Backups: `ProjectRepo.sendAll` sends parts and the APK 4 at a
+time on helper threads (`GitHubHttp.adopt` / `disown`, a job's cancel reaches them; a cancel that closed the socket is
+`Cancelled`), parts from 3 MiB of `partBytesFor` (2 MiB up to 96 MiB, then about 48 parts, 16 MiB at most: GitHub's write
+limits; every version since v2.0.4 restores any part up to 16 MiB), resumed drafts keep only this backup's files;
+`CloudSync.runWithRetries` (BACKUP / IMPORT, network failures only `isNetwork`: 5 / 15 / 30 s and up to 2 min for a
+network each, then Retry); `CloudSyncService.clearFinished` (the old "Didn't work" notice goes at a tap and when the job
+starts; end notices `finishedId` 21000 + 12 bits); `GlassNotice` (RemoteViews card, `ob_notification_glass(_big)`, plain
+shapes only: checked with `RemoteViews.apply` in layoutlib); decimal MB. Restore: `groupCard` (phone .swb by
+`backups/<project>/`, demos by name; Restore / Open in the title row; selector + ★ Pin in `sketchware_ai_restore_pins`;
+demos' Public / Private + Share when linked, else Delete). Play Store: Publish in the header, slim hero (orange one-line
+title, @creator / version / Follow pills, counters inside), Install APK · .SWB · GitHub · Review, "About this app" two lines;
+Follow = PUT / DELETE /user/following (scope `user:follow` added to `DeviceFlow.SCOPE`; older tokens: "Sign in again to
+follow"). Speed: `HoneyDropBar.OPEN_AT` 0.14, 150 ms tab fades (`ob_tab_in/hold/out`), New Project reads `lC.b()/c()` (each
+decrypts every list file) off the main thread under `ProjectIds.RESTORE_LOCK` with the folders, id kept in
+`onSaveInstanceState`. `OtpAssist.pageKind` "login" (code bar on GitHub's sign-in pages). Gson 2.15.0. Renders
+`setup_v213.sh` + `V213Test`. RELEASE_FACTS
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
