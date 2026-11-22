@@ -469,17 +469,23 @@ public final class GitHubHttp {
             c.setRequestProperty("Content-Type", contentType);
             c.setDoOutput(true);
             c.setFixedLengthStreamingMode(length);
-            try (OutputStream raw = c.getOutputStream(); InputStream source = new FileInputStream(file)) {
-                skipFully(source, offset);
-                InputStream in = new Limited(source, length);
-                OutputStream out = new CountingStream(raw, length, progress);
-                byte[] buffer = new byte[64 * 1024];
-                int n;
-                while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+            try {
+                try (OutputStream raw = c.getOutputStream(); InputStream source = new FileInputStream(file)) {
+                    skipFully(source, offset);
+                    InputStream in = new Limited(source, length);
+                    OutputStream out = new CountingStream(raw, length, progress);
+                    byte[] buffer = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+                }
+                Response r = read(c);
+                note(r, token);
+                return r;
+            } catch (IOException e) {
+                // v2.1.3: a cancel that closed the connection (while it sent, or waited for GitHub's answer) is a cancel
+                if (isCancelled() && !(e instanceof Cancelled)) throw new Cancelled();
+                throw e;
             }
-            Response r = read(c);
-            note(r, token);
-            return r;
         } finally {
             release();
         }

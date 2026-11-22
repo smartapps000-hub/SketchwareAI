@@ -746,9 +746,10 @@ public final class ProjectRepo {
         }
         Thread parent = Thread.currentThread();
         java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicInteger helpers = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(
                 Math.min(PARALLEL, work.size()), r -> {
-                    Thread t = new Thread(r, "BackupPart");
+                    Thread t = new Thread(r, "BackupPart-" + helpers.incrementAndGet());
                     t.setDaemon(true);
                     return t;
                 });

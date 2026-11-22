@@ -64,7 +64,7 @@ public final class UpdateCard {
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
         title.setLetterSpacing(0.04f);
         title.setTextColor(v.color(R.color.ob_error));
-        title.setShadowLayer(v.dp(12), 0, 0, 0x99FF8A65);
+        title.setShadowLayer(v.dp(8), 0, 0, 0x66FF8A65);
         title.setPadding(0, v.dp(2), 0, v.dp(2));
         title.setContentDescription(forced ? "Update available, required" : "Update available");
         root.addView(title, v.full(-1, 0));
@@ -116,23 +116,27 @@ public final class UpdateCard {
             GitHubViews.oneLine(not);
             buttons.addView(not, new LinearLayout.LayoutParams(0, v.dp(48), 1f));
         }
-        TextView go = new TextView(activity, null, 0, R.style.Ob_Text_Button);
-        go.setText(forced ? "Update now" : "Update");
-        go.setTypeface(v.bold());
-        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        go.setTextColor(0xFFFFFFFF);
+        // built like the Public / Private pill: the icon and the label centred together on the glass
+        LinearLayout go = new LinearLayout(activity);
+        go.setOrientation(LinearLayout.HORIZONTAL);
         go.setGravity(Gravity.CENTER);
         go.setBackgroundResource(R.drawable.ob_amber_pill_state);
-        go.setPadding(v.dp(16), 0, v.dp(16), 0);
-        android.graphics.drawable.Drawable icon = activity.getDrawable(R.drawable.ob_ic_download);
-        if (icon != null) {
-            icon = icon.mutate();
-            icon.setTint(0xFFFFFFFF);
-            icon.setBounds(0, 0, v.dp(18), v.dp(18));
-            go.setCompoundDrawables(icon, null, null, null);
-            go.setCompoundDrawablePadding(v.dp(8));
-        }
-        GitHubViews.oneLine(go);
+        go.setPadding(v.dp(14), 0, v.dp(14), 0);
+        android.widget.ImageView icon = new android.widget.ImageView(activity);
+        icon.setImageResource(R.drawable.ob_ic_download);
+        icon.setColorFilter(0xFFFFFFFF);
+        icon.setContentDescription(null);
+        go.addView(icon, new LinearLayout.LayoutParams(v.dp(18), v.dp(18)));
+        TextView label = new TextView(activity, null, 0, R.style.Ob_Text_Button);
+        label.setText(forced ? "Update now" : "Update");
+        label.setTypeface(v.bold());
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        label.setTextColor(0xFFFFFFFF);
+        label.setIncludeFontPadding(false);
+        GitHubViews.oneLine(label);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.leftMargin = v.dp(8);
+        go.addView(label, lp);
         go.setClickable(true);
         go.setFocusable(true);
         go.setOnClickListener(x -> update.run());
