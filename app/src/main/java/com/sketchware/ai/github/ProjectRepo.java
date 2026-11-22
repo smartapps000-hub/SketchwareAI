@@ -658,11 +658,6 @@ public final class ProjectRepo {
         if (progress != null) progress.saving();
 
         // publish (a new version) or update (the same version again), then the old files of that version go
-        if (resume != null) {
-            // v2.1.3 review (LOW): a resumed draft keeps only this backup's files (a draft of an earlier version of the
-            // app may hold a single .swb of the same packed file), removed while it is still a draft
-            cleanUp(resume.assets, uploaded);
-        }
         JsonObject patch = new JsonObject();
         patch.addProperty("body", body(backup.notes, facts));
         if (backup.title != null) patch.addProperty("name", backup.title);
@@ -670,8 +665,19 @@ public final class ProjectRepo {
         GitHubHttp.Response p = GitHubHttp.api("PATCH", path("/releases/" + releaseId), token, patch.toString());
         if (!p.ok()) throw CloudBackup.http("Saving the release " + tag, p);
         Version stored = parse(DeviceFlow.parse(p.body));
+        // v2.1.3 review (LOW): the files this backup doesn't name go after publishing, best effort (a stray file in a
+        // published release is harmless; a write limit there must not fail a stored backup): the release's old files,
+        // and a resumed draft's (a draft of an earlier version of the app may hold a single .swb of the same packed file)
         if (existing != null) cleanUp(existing.assets, uploaded);
-        prune();
+        if (resume != null) cleanUp(resume.assets, uploaded);
+        try {
+            prune();
+        } catch (GitHubHttp.Cancelled e) {
+            throw e;
+        } catch (IOException | GitHubException e) {
+            // v2.1.3 review (LOW): the version is stored; older versions are trimmed by the next backup
+            LogUtil.d("ProjectRepo", "Old versions left for the next backup: " + e.getMessage());
+        }
         if (stored == null) {
             stored = new Version();
             stored.id = releaseId;

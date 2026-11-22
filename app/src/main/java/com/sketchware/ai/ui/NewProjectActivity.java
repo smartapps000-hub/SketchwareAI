@@ -163,6 +163,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     if (freeId == null) {
+                        idFailed = true;
                         ((TextView) findViewById(R.id.np_subtitle)).setText("The project list couldn't be read");
                         return;
                     }
@@ -186,7 +187,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
             ids.start();
             // review (LOW): a restore or import holding the project list makes the id wait: say so after a moment
             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                if (scId == null && !isFinishing() && !isDestroyed()) {
+                if (scId == null && !idFailed && !isFinishing() && !isDestroyed()) {
                     ((TextView) findViewById(R.id.np_subtitle)).setText(idLockTaken
                             ? "Project #… · reading the project list" : "Project #… · waiting for a restore to finish");
                 }
@@ -318,6 +319,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     private static final String STATE_SC_ID = "np_sc_id";
     /** v2.1.3 review: the id's thread holds the restores' lock (else a restore or import holds it). */
     private volatile boolean idLockTaken;
+    /** Third review (LOW): the project list couldn't be read (Create says so instead of "reading"). */
+    private boolean idFailed;
     /** v2.1.3: an icon picked while the id is still being read (saved when it arrives). */
     private Bitmap pendingIcon;
 
@@ -337,8 +340,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
     /** v2.1.3: a tap on Create or the icon before the id is read says so. */
     private boolean idReady() {
         if (scId != null) return true;
-        android.widget.Toast.makeText(this, "Reading the project list (a restore in progress finishes first)…",
-                android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, idFailed ? "The project list couldn't be read: close Create and open it again."
+                : "Reading the project list (a restore in progress finishes first)…", android.widget.Toast.LENGTH_SHORT).show();
         return false;
     }
 
