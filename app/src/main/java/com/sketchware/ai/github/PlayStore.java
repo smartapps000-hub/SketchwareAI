@@ -862,6 +862,46 @@ public final class PlayStore {
                 || a.description != null && a.description.toLowerCase(Locale.ROOT).contains(f);
     }
 
+    // ------------------------------------------------------------------ v2.1.3: Follow
+
+    /**
+     * v2.1.3 (owner's 22 Nov directive: "a Follow pill next to the version, Follow / Following"): whether the signed-in
+     * account follows {@code login} on GitHub (GET /user/following/{login}: 204 yes, 404 no); null when unknown.
+     */
+    static Boolean following(String token, String login) throws IOException {
+        GitHubHttp.Response r = GitHubHttp.api("GET", "/user/following/" + CloudBackup.enc(login), token, null);
+        if (r.code == 204) return Boolean.TRUE;
+        if (r.code == 404) return Boolean.FALSE;
+        return null;
+    }
+
+    /**
+     * Follows or unfollows {@code login} (PUT / DELETE /user/following/{login}). GitHub lets a sign-in do it only with
+     * the {@code user:follow} permission, which sign-ins made before v2.1.3 don't have: then a GitHubException with code
+     * "scope" (the page asks for Sign in again).
+     */
+    static void follow(String token, String login, boolean on) throws IOException, GitHubException {
+        GitHubHttp.Response r = GitHubHttp.api(on ? "PUT" : "DELETE", "/user/following/" + CloudBackup.enc(login), token,
+                on ? "" : null);
+        if (r.code == 204) return;
+        if (lacksFollowScope(r)) {
+            throw new GitHubException("scope", "Following needs one more GitHub permission (follow accounts) that your "
+                    + "sign-in from before v2.1.3 doesn't have: tap Sign in again on Settings' account card, then Follow.");
+        }
+        throw CloudBackup.http(on ? "Following @" + login : "Unfollowing @" + login, r);
+    }
+
+    /** A 403 / 404 from a sign-in whose permissions (X-OAuth-Scopes) don't include following. */
+    static boolean lacksFollowScope(GitHubHttp.Response r) {
+        if (r.code != 403 && r.code != 404) return false;
+        if (r.scopes == null) return r.code == 404;
+        for (String scope : r.scopes.split(",")) {
+            String t = scope.trim();
+            if (t.equals("user") || t.equals("user:follow")) return false;
+        }
+        return true;
+    }
+
     /**
      * GitHub's download counts of the versions' APK and .swb files (v2.1.3: a backup in parts counts once, by its parts
      * list: every import of it reads that list once).

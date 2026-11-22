@@ -21,9 +21,11 @@ public final class DeviceFlow {
 
     /**
      * What cloud backup needs: a private repository of the user's (GitHub's OAuth scopes can't narrow it further);
-     * v2.0.0 adds {@code user:email} (read-only) for the primary e-mail shown on the drawer's account card.
+     * v2.0.0 adds {@code user:email} (read-only) for the primary e-mail shown on the drawer's account card. v2.1.3 adds
+     * {@code user:follow} (follow / unfollow accounts only) for the Play Store's Follow pill; GitHub shows it on its
+     * authorization page.
      */
-    public static final String SCOPE = "repo user:email";
+    public static final String SCOPE = "repo user:email user:follow";
 
     private DeviceFlow() {
     }

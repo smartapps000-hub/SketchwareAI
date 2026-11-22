@@ -307,8 +307,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         });
         header.addView(search, new LinearLayout.LayoutParams(-1, v.dp(44)));
         list.removeAllViews();
-        // v2.1.2 (owner's 21 Nov screenshot: the tall Publish card circled): one slim row
-        list.addView(publishRow(), v.full(52, 4));
+        // v2.1.3 (owner's 22 Nov screenshot: the Publish row marked "Remove", a tick beside the title): Publish is a
+        // pill at the right of the header; it opens the publish page
+        addPublishButton();
         listStatus = v.line("", false);
         listStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(listStatus, v.full(-1, 10));
@@ -320,41 +321,30 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         refreshList(null);
     }
 
-    /** v2.1.2: "Publish your app" as one slim glass row (icon, title, an arrow). */
-    private View publishRow() {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackgroundResource(R.drawable.ob_pill16_state);
-        row.setPadding(v.dp(10), 0, v.dp(14), 0);
-        ImageView tile = new ImageView(this);
-        tile.setBackgroundResource(R.drawable.ob_tile);
-        tile.setImageResource(R.drawable.ob_ic_store);
-        tile.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        tile.setPadding(v.dp(7), v.dp(7), v.dp(7), v.dp(7));
-        row.addView(tile, new LinearLayout.LayoutParams(v.dp(34), v.dp(34)));
-        TextView t = new TextView(this, null, 0, R.style.Ob_Text);
-        t.setText("Publish your app");
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        t.setTypeface(v.bold());
-        GitHubViews.oneLine(t);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
-        tp.leftMargin = v.dp(12);
-        row.addView(t, tp);
-        TextView go = new TextView(this, null, 0, R.style.Ob_Text_Label);
-        go.setText("›");
-        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
-        go.setTextColor(v.color(R.color.ob_accent));
-        row.addView(go, new LinearLayout.LayoutParams(-2, -2));
-        row.setContentDescription("Publish your app: a project backed up to GitHub, with its APK, .swb and pictures");
-        row.setClickable(true);
-        row.setFocusable(true);
-        row.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.sw_press));
-        row.setOnClickListener(x -> {
+    /** v2.1.3: "Publish" at the right of the header (orange, white label, the store icon); once per screen. */
+    private void addPublishButton() {
+        View titleColumn = (View) findViewById(R.id.gs_title).getParent();
+        android.view.ViewGroup header = (android.view.ViewGroup) titleColumn.getParent();
+        if (header.findViewWithTag("publish") != null) return;
+        TextView publish = v.smallPill("Publish", true, true, x -> {
             if (!AuthGuard.check(this)) return;
             startActivity(new Intent(this, PlayStoreActivity.class).putExtra(EXTRA_PUBLISH, true));
         });
-        return row;
+        publish.setTag("publish");
+        android.graphics.drawable.Drawable icon = getDrawable(R.drawable.ob_ic_store);
+        if (icon != null) {
+            icon = icon.mutate();
+            icon.setTint(0xFFFFFFFF);
+            icon.setBounds(0, 0, v.dp(16), v.dp(16));
+            publish.setCompoundDrawablesRelative(icon, null, null, null);
+            publish.setCompoundDrawablePadding(v.dp(6));
+        }
+        publish.setPadding(v.dp(12), 0, v.dp(14), 0);
+        GitHubViews.oneLine(publish);
+        publish.setContentDescription("Publish your app: a project backed up to GitHub, with its APK, .swb and pictures");
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, v.dp(36));
+        p.leftMargin = v.dp(8);
+        header.addView(publish, p);
     }
 
     private void searchGitHub(String text) {
@@ -526,65 +516,70 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         PlayStore.App a = current;
         ((TextView) findViewById(R.id.gs_title)).setText(a.name());
         pageBox.removeAllViews();
-        // 1. hero
+        // 1. hero. v2.1.3 (owner's 22 Nov directive: "a very slim card; the title in our orange, one line; @creator as a
+        // pill like the version, clickable; a Follow pill beside the version; Downloads / Likes / Shares / Views inside
+        // its bottom, smaller; everything above the fold"): the icon with the title and the publish line, a row of
+        // pills, a hairline, the four counters
         LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.HORIZONTAL);
-        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setOrientation(LinearLayout.VERTICAL);
         hero.setBackgroundResource(R.drawable.ob_pill16);
-        hero.setPadding(v.dp(14), v.dp(12), v.dp(14), v.dp(12));
-        hero.addView(appTile(a, 72), new LinearLayout.LayoutParams(v.dp(72), v.dp(72)));
+        hero.setPadding(v.dp(12), v.dp(10), v.dp(12), v.dp(6));
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(appTile(a, 52), new LinearLayout.LayoutParams(v.dp(52), v.dp(52)));
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView name = new TextView(this, null, 0, R.style.Ob_Text_Title);
         name.setText(a.name());
-        name.setMaxLines(2);
-        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        texts.addView(name);
-        // v2.1.1: the creator opens their page. v2.1.2 (owner's 21 Nov screenshot: @username and the version pill drawn
-        // into each other): @username on its own row, the pill on the next with clear space between
-        TextView creator = new TextView(this, null, 0, R.style.Ob_Text_Label);
-        creator.setText("@" + a.owner);
-        creator.setTextColor(v.color(R.color.ob_accent));
-        creator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        creator.setIncludeFontPadding(true);
-        creator.setPadding(0, v.dp(4), v.dp(8), v.dp(4));
-        creator.setMinHeight(v.dp(32));
-        creator.setGravity(Gravity.CENTER_VERTICAL);
-        creator.setContentDescription("Developer @" + a.owner + ": open their page");
-        GitHubViews.oneLine(creator);
-        creator.setOnClickListener(x -> startActivity(developer(this, a.owner)));
-        texts.addView(creator, new LinearLayout.LayoutParams(-1, -2));
-        LinearLayout versionRow = new LinearLayout(this);
-        versionRow.setOrientation(LinearLayout.HORIZONTAL);
-        versionRow.setGravity(Gravity.CENTER_VERTICAL);
-        if (a.versionName != null && !a.versionName.isEmpty()) {
-            TextView pill = new TextView(this, null, 0, R.style.Ob_Text_Label);
-            pill.setText("v" + a.versionName + (a.versionCode == null || a.versionCode.isEmpty() ? "" : " (" + a.versionCode + ")"));
-            pill.setTypeface(v.bold());
-            pill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            pill.setTextColor(v.color(R.color.ob_accent));
-            pill.setGravity(Gravity.CENTER);
-            pill.setBackgroundResource(R.drawable.ob_pill16);
-            pill.setPadding(v.dp(10), v.dp(3), v.dp(10), v.dp(3));
-            GitHubViews.oneLine(pill);
-            versionRow.addView(pill, new LinearLayout.LayoutParams(-2, -2));
-        }
-        if (versionRow.getChildCount() > 0) {
-            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, -2);
-            vp.topMargin = v.dp(4);
-            texts.addView(versionRow, vp);
-        }
-        // third review (MEDIUM): its own row, two lines at most, never cut short
+        name.setTypeface(v.bold());
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19);
+        name.setTextColor(v.color(R.color.ob_orange));
+        GitHubViews.oneLine(name);
+        texts.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        // third review (MEDIUM, v2.1.2): never cut short: one line here, the whole of it in the description below
         TextView meta = v.line(publishLine(a), false);
-        meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        meta.setMaxLines(2);
-        texts.addView(meta, v.full(-1, 8));
+        meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        GitHubViews.oneLine(meta);
+        texts.addView(meta, v.full(-1, 2));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
-        tp.leftMargin = v.dp(14);
-        hero.addView(texts, tp);
+        tp.leftMargin = v.dp(12);
+        head.addView(texts, tp);
+        hero.addView(head);
+        LinearLayout pills = new LinearLayout(this);
+        pills.setOrientation(LinearLayout.HORIZONTAL);
+        pills.setGravity(Gravity.CENTER_VERTICAL);
+        // v2.1.1: the creator opens their page
+        TextView creator = heroPill("@" + a.owner, R.color.ob_accent, x -> startActivity(developer(this, a.owner)));
+        creator.setMaxWidth(v.dp(150));
+        creator.setContentDescription("Developer @" + a.owner + ": open their page");
+        pills.addView(creator, new LinearLayout.LayoutParams(-2, v.dp(28)));
+        if (a.versionName != null && !a.versionName.isEmpty()) {
+            TextView version = heroPill("v" + a.versionName + (a.versionCode == null || a.versionCode.isEmpty() ? ""
+                    : " (" + a.versionCode + ")"), R.color.ob_accent, null);
+            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, v.dp(28));
+            vp.leftMargin = v.dp(6);
+            pills.addView(version, vp);
+        }
+        String me = TokenStore.get(this).login();
+        if (me == null || !me.equalsIgnoreCase(a.owner)) {
+            followPill = heroPill("＋ Follow", R.color.ob_text, x -> toggleFollow());
+            LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-2, v.dp(28));
+            fp.leftMargin = v.dp(6);
+            pills.addView(followPill, fp);
+            showFollow();
+        } else {
+            followPill = null;
+        }
+        hero.addView(pills, v.full(-1, 10));
+        View line = new View(this);
+        line.setBackgroundColor(v.color(R.color.ob_divider));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, v.dp(1) / 2));
+        lp.topMargin = v.dp(10);
+        hero.addView(line, lp);
+        // 2. the counters, inside the card's bottom
+        hero.addView(statsRow(), v.full(-1, 2));
         pageBox.addView(hero);
-        // 2. metrics
-        pageBox.addView(statsRow(), v.full(-1, 8));
         // 3. the actions, one row of capsules
         actionsBox = new LinearLayout(this);
         actionsBox.setOrientation(LinearLayout.HORIZONTAL);
@@ -594,12 +589,21 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         actionNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         pageBox.addView(actionNote, v.full(-1, 6));
         renderActions();
-        // 4. description and What's new
+        // 4. description and What's new. v2.1.3 (owner's 22 Nov: "the description looks like one big page: a heading
+        // and two lines"): "About this app" and two lines; a tap shows all of it (and two lines again)
         if (a.description != null && !a.description.isEmpty()) {
+            pageBox.addView(heading("About this app"), v.full(-1, 14));
             TextView d = v.line(a.description, false);
-            d.setTextColor(v.color(R.color.ob_text));
-            d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            pageBox.addView(d, v.full(-1, 14));
+            d.setTextColor(v.color(R.color.ob_text_2));
+            d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            d.setMaxLines(2);
+            d.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            d.setContentDescription(a.description);
+            d.setOnClickListener(x -> {
+                boolean all = d.getMaxLines() == 2;
+                d.setMaxLines(all ? 60 : 2);
+            });
+            pageBox.addView(d, v.full(-1, 4));
         }
         String status = a.status();
         if (a.changelog != null && !a.changelog.trim().isEmpty()) {
@@ -679,34 +683,31 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         statLabels = new TextView[4];
         statCells = new LinearLayout[4];
         for (int i = 0; i < 4; i++) {
+            // v2.1.3: inside the hero's bottom, smaller (no tile of their own); Like and Share press like a pill
             LinearLayout cell = new LinearLayout(this);
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setGravity(Gravity.CENTER);
-            cell.setBackgroundResource(R.drawable.ob_pill16);
-            cell.setPadding(v.dp(4), v.dp(8), v.dp(4), v.dp(8));
+            cell.setPadding(v.dp(2), v.dp(6), v.dp(2), v.dp(6));
+            cell.setMinimumHeight(v.dp(48));
             TextView value = new TextView(this, null, 0, R.style.Ob_Text_Label);
             value.setTypeface(v.bold());
-            value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+            value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
             value.setGravity(Gravity.CENTER);
             GitHubViews.oneLine(value);
             cell.addView(value, new LinearLayout.LayoutParams(-1, -2));
             TextView label = v.line(labels[i], false);
-            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
             label.setGravity(Gravity.CENTER);
             // third review: "Downloads" whole at a large font size (shrinks to 8sp at most)
-            GitHubViews.fitOneLine(label, 8f, 11f);
+            GitHubViews.fitOneLine(label, 8f, 10f);
             cell.addView(label, new LinearLayout.LayoutParams(-1, -2));
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
-            if (i > 0) p.leftMargin = v.dp(6);
-            row.addView(cell, p);
+            row.addView(cell, new LinearLayout.LayoutParams(0, -2, 1f));
             statValues[i] = value;
             statLabels[i] = label;
             statCells[i] = cell;
         }
-        // v2.1.2 (owner's 21 Nov screenshot: the Like tile drawn without its glass): the four tiles keep one glass
-        // background; Like and Share show a press with a foreground layer instead of swapping their background
         for (int i = 1; i <= 2; i++) {
-            statCells[i].setForeground(getDrawable(R.drawable.ob_press_overlay));
+            statCells[i].setBackgroundResource(R.drawable.ob_pill16_state_clear);
             statCells[i].setClickable(true);
             statCells[i].setFocusable(true);
             statCells[i].setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.sw_press));
@@ -715,6 +716,106 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         statCells[2].setOnClickListener(x -> share());
         showStats();
         return row;
+    }
+
+    /** v2.1.3: a 28dp glass pill of the hero (the creator, the version, Follow). */
+    private TextView heroPill(String text, int color, View.OnClickListener click) {
+        TextView pill = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        pill.setText(text);
+        pill.setTypeface(v.bold());
+        pill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        pill.setTextColor(v.color(color));
+        pill.setGravity(Gravity.CENTER);
+        pill.setBackgroundResource(click == null ? R.drawable.ob_pill16 : R.drawable.ob_pill16_state);
+        pill.setPadding(v.dp(11), 0, v.dp(11), 0);
+        GitHubViews.oneLine(pill);
+        if (click != null) {
+            pill.setClickable(true);
+            pill.setFocusable(true);
+            pill.setOnClickListener(click);
+        }
+        return pill;
+    }
+
+    // ------------------------------------------------------------------ v2.1.3: Follow
+
+    private TextView followPill;
+    /** Whether the signed-in account follows the app's creator (null: not known yet). */
+    private Boolean follows;
+    private boolean followBusy;
+
+    /** Follow (white) / ✓ Following (accent), as the Private / Public pills show their state. */
+    private void showFollow() {
+        if (followPill == null) return;
+        boolean on = Boolean.TRUE.equals(follows);
+        followPill.setText(on ? "✓ Following" : "＋ Follow");
+        followPill.setTextColor(v.color(on ? R.color.ob_accent : R.color.ob_text));
+        followPill.setBackgroundResource(on ? R.drawable.ob_amber_pill_state : R.drawable.ob_pill16_state);
+        followPill.setAlpha(followBusy ? 0.6f : 1f);
+        followPill.setContentDescription(on ? "Following @" + current.owner + ": tap to unfollow"
+                : "Follow @" + current.owner + " on GitHub");
+    }
+
+    /** Reads whether the account follows the creator (on the page's worker). */
+    private void loadFollow(String token) {
+        if (token == null || followPill == null) return;
+        String owner = current.owner;
+        try {
+            Boolean now = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.following(token, owner));
+            ui(() -> {
+                if (current == null || !owner.equals(current.owner)) return;
+                follows = now;
+                showFollow();
+            });
+        } catch (Exception ignored) {
+            // unknown: the pill says Follow; a tap finds out
+        }
+    }
+
+    private void toggleFollow() {
+        if (!signedIn()) {
+            GitHubInAppAuthDialog.show(this, login -> recreate());
+            return;
+        }
+        if (followBusy) return;
+        boolean on = !Boolean.TRUE.equals(follows);
+        String owner = current.owner;
+        followBusy = true;
+        follows = on;
+        showFollow();
+        android.content.Context app = getApplicationContext();
+        POSTS.execute(() -> {
+            String problem = null;
+            boolean scope = false;
+            try {
+                String token = token();
+                if (token == null) throw new GitHubException("signed_out", "Sign in again.");
+                PlayStore.follow(token, owner, on);
+            } catch (GitHubException e) {
+                problem = e.getMessage();
+                scope = "scope".equals(e.code);
+            } catch (Exception e) {
+                problem = GitHubImportDialog.text(e);
+            }
+            String why = problem;
+            boolean needsScope = scope;
+            ui(() -> {
+                followBusy = false;
+                if (why != null) follows = !on;
+                showFollow();
+                if (why == null) {
+                    Toast.makeText(this, on ? "Following @" + owner : "Unfollowed @" + owner, Toast.LENGTH_SHORT).show();
+                } else if (needsScope) {
+                    new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                            .setTitle("Sign in again to follow")
+                            .setMessage(why)
+                            .setPositiveButton("Sign in again", (d, w) -> GitHubInAppAuthDialog.show(this, login -> recreate()))
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show();
+                }
+            });
+            if (why != null && !needsScope) toast(app, why);
+        });
     }
 
     private void showStats() {
@@ -844,6 +945,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 showActions(found, why != null);
             });
             loadReactions(token, read ? fresh : a);
+            loadFollow(token);
             loadReviews(token);
         });
     }
@@ -947,6 +1049,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             });
         }
         addAction("GitHub", false, 1f, "GitHub: open on GitHub", x -> startActivity(RepoViewerActivity.intent(this, a.owner, a.repo)));
+        // v2.1.3 (owner's 22 Nov directive: "Review next to GitHub, four buttons in one row")
+        addAction("Review", false, 1f, "Review: write a review of " + a.name(), x -> reviewTapped());
         if (!versionsRead) {
             actionNote.setText("Reading its newest version…");
             actionNote.setTextColor(v.color(R.color.ob_text_2));
@@ -1043,6 +1147,24 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             shown++;
         }
         if (shown == 0) reviewsBox.addView(v.line("No reviews yet.", false), v.full(-1, 10));
+    }
+
+    /** v2.1.3: the Review button: sign in, then the review form (or why reviews are off / still loading). */
+    private void reviewTapped() {
+        if (!signedIn()) {
+            GitHubInAppAuthDialog.show(this, login -> recreate());
+            return;
+        }
+        if (discussionInfo == null) {
+            Toast.makeText(this, "Reading the reviews from GitHub…", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!"true".equals(discussionInfo[1])) {
+            Toast.makeText(this, "Reviews are off for this app: its owner switches GitHub Discussions on (Publish does it).",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        writeReview();
     }
 
     private void writeReview() {
