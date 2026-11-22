@@ -24,15 +24,33 @@ public final class OtpNotifications extends NotificationListenerService {
         void codeFromNotification(String code, String from);
     }
 
-    /** How long before the window started waiting an e-mail may have come (the page and the e-mail race). */
-    private static final long GRACE_MILLIS = 120_000L;
-
     private static volatile Sink sink;
-    private static volatile long armedAt;
+    /**
+     * Review (MEDIUM): only notifications posted from this time on count (wall clock): when the page offered "Send a
+     * code via email" or E-mail me a code was tapped, else shortly before the code page came; never an older code.
+     */
+    private static volatile long floor;
     private static volatile OtpNotifications connected;
+
+    /**
+     * Review (MEDIUM): Android 15 hides one-time codes from notification listeners that aren't trusted system apps, so
+     * the switch is offered on Android 8-14 only (Android 15+: copy the code and come back).
+     */
+    public static boolean offered() {
+        return android.os.Build.VERSION.SDK_INT < 35;
+    }
 
     /** Whether the user gave Sketchware AI notification access in Android's settings. */
     public static boolean enabled(Context context) {
+        if (android.os.Build.VERSION.SDK_INT >= 27) {
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) context
+                        .getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) return nm.isNotificationListenerAccessGranted(component(context));
+            } catch (RuntimeException | LinkageError ignored) {
+                // read the setting as androidx does
+            }
+        }
         // as androidx's NotificationManagerCompat reads it: the listeners the user turned on, "pkg/cls:pkg/cls"
         try {
             String on = android.provider.Settings.Secure.getString(context.getContentResolver(),
@@ -52,20 +70,28 @@ public final class OtpNotifications extends NotificationListenerService {
         return new ComponentName(context.getApplicationContext(), OtpNotifications.class);
     }
 
-    /** The sign-in window waits for an e-mailed code from now on (the service is bound again when access is on). */
-    static void arm(Context context, Sink waiting) {
+    /**
+     * The sign-in window waits for an e-mailed code posted from {@code since} on (wall clock; a later floor of the
+     * same window moves it on, never back); the service is bound again when access is on.
+     */
+    static void arm(Context context, Sink waiting, long since) {
         boolean fresh = sink != waiting;
         sink = waiting;
-        if (fresh) armedAt = System.currentTimeMillis();
+        floor = fresh ? since : Math.max(floor, since);
         OtpNotifications live = connected;
         if (live != null) {
             live.scanActive();
-        } else if (enabled(context)) {
-            try {
-                requestRebind(component(context));
-            } catch (RuntimeException ignored) {
-                // access just turned off, or Android refused: the window still has Paste & fill
-            }
+        } else {
+            rebind(context);
+        }
+    }
+
+    private static void rebind(Context context) {
+        if (!enabled(context)) return;
+        try {
+            requestRebind(component(context));
+        } catch (RuntimeException ignored) {
+            // access just turned off, or Android refused: the window still has Paste & fill
         }
     }
 
@@ -94,6 +120,8 @@ public final class OtpNotifications extends NotificationListenerService {
     @Override
     public void onListenerDisconnected() {
         if (connected == this) connected = null;
+        // review (MEDIUM): a window started waiting again while Android was unbinding: bound again
+        if (sink != null) rebind(this);
     }
 
     @Override
@@ -107,6 +135,8 @@ public final class OtpNotifications extends NotificationListenerService {
     }
 
     private void letGo() {
+        // review (MEDIUM): unbinding: the next arm asks for a new binding instead of using this one
+        if (connected == this) connected = null;
         try {
             requestUnbind();
         } catch (RuntimeException ignored) {
@@ -142,12 +172,17 @@ public final class OtpNotifications extends NotificationListenerService {
         if (code != null) waiting.codeFromNotification(code, appName(sbn.getPackageName()));
     }
 
-    /** The code in a GitHub notification posted since the window waited (minus the grace), else null. */
+    /** The code in a GitHub notification posted since the window's floor, else null (never throws). */
     private String codeOf(StatusBarNotification sbn) {
-        if (sbn == null || sbn.getNotification() == null) return null;
-        if (getPackageName().equals(sbn.getPackageName())) return null;
-        if (sbn.getPostTime() < armedAt - GRACE_MILLIS) return null;
-        return OtpAssist.codeFromGitHubMail(textOf(sbn.getNotification()));
+        try {
+            if (sbn == null || sbn.getNotification() == null) return null;
+            if (getPackageName().equals(sbn.getPackageName())) return null;
+            if (sbn.getPostTime() < floor) return null;
+            return OtpAssist.codeFromGitHubMail(textOf(sbn.getNotification()));
+        } catch (RuntimeException e) {
+            // review (LOW): another app's extras that can't be read (BadParcelableException) are skipped
+            return null;
+        }
     }
 
     /** The notification's title, text, expanded text and lines (Gmail puts the e-mail's start in the expanded text). */

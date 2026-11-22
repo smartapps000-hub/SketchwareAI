@@ -1137,6 +1137,38 @@
       "verifiedOn": [
         "code reading and the review (frame times on a phone not measured)"
       ]
+    },
+    {
+      "fingerprint": "No code bar on GitHub's 'Confirm access' page ('Send a code via email') nor on 'Enter the verification code sent to b***@gmail.com'",
+      "rootCause": "v2.1.2-v2.1.3 showed the bar by address only (OtpAssist.pageKind); GitHub shows its sudo pages at /login/device/… and /login/oauth/…, which were left out on purpose (the device-code page)",
+      "repair": "v2.1.4: the bar follows what the page shows (OtpAssist.PROBE_SCRIPT every 1.5 s and on every page finish): a code field → Open Gmail / Paste & fill, 'Send a code via email' → E-mail me a code; a copied code fills itself on return, opt-in codes from e-mail notifications",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "jsdom otp-script-test.js (stand-ins of GitHub's pages)",
+        "ART GitHubTest (answers, e-mail codes)",
+        "render V214Test (bar states)"
+      ]
+    },
+    {
+      "fingerprint": "'Sign-in not accepted … HTTP 401: Bad credentials' right after updating",
+      "rootCause": "GitHub ended the token on its side (its limit of 10 sign-ins per app / scope, access removed in GitHub's settings, or a token found in a public place); the app only notices it at its next check, which runs when the updated app starts. No update path removes or changes the token (checked again)",
+      "repair": "v2.1.4: the refusal says whether the token sent is the one made at sign-in (token_print), and 'Why? GitHub's security log' opens GitHub's own record",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "ART GitHubTest (token print)",
+        "code reading and the review"
+      ]
+    },
+    {
+      "fingerprint": "No Follow button on the app page (own app) / no way to see a creator's followers",
+      "rootCause": "v2.1.3 hid Follow on your own app and never showed follower counts on the app page",
+      "repair": "v2.1.4: Follow always shown with the creator's followers (own app: '👥 N', opens your page); the creator page has Follow, a level and the country",
+      "scope": "IDE, Play Store",
+      "verifiedOn": [
+        "render V214Test",
+        "JVM V211ClientTest (profile)",
+        "ART GitHubTest (levels, countries)"
+      ]
     }
   ]
 }

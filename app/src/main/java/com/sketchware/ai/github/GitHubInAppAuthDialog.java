@@ -118,6 +118,15 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private String waitingCode;
     private String waitingFrom;
     private long waitingAt;
+    /** Review (MEDIUM): every code this window put in or tried (by hand too): never filled by itself again. */
+    private final java.util.Set<String> usedCodes = new java.util.HashSet<>();
+    /**
+     * Review (MEDIUM): codes from notifications count only from this time on (wall clock): when the page offered
+     * "Send a code via email" / E-mail me a code was tapped, else 30 s before a code page first showed.
+     */
+    private long codeFloor;
+    /** Review (LOW): notification access as the bar last drew it (a focus return redraws only when it changed). */
+    private boolean drawnWithNotifications;
     /**
      * Third review: when the device page asked for at the start (before the code) was requested
      * ({@code SystemClock.elapsedRealtime()}), 0 once a page started or failed: a code arriving meanwhile waits for it
@@ -255,14 +264,20 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (closed) return;
         // v2.1.4: away to copy GitHub's code (Gmail, an authenticator app): a code copied meanwhile goes in by itself
         if (!hasFocus) {
-            if (codePage()) leftForCodeAt = System.currentTimeMillis();
+            // review (LOW): also from "Send a code via email" (Open Gmail right after E-mail me a code)
+            if (codePage() || "send".equals(otpKind)) leftForCodeAt = System.currentTimeMillis();
         } else {
             long left = leftForCodeAt;
             leftForCodeAt = 0;
-            if (left > 0 && codePage()) codeFromClipboard(left);
-            // the notification-access line may have changed in Android's settings
-            otpState = null;
-            otpBar(currentUri());
+            if (left > 0 && (codePage() || "send".equals(otpKind))) codeFromClipboard(left);
+            // review (LOW): redrawn only when notification access changed in Android's settings (a redraw puts the
+            // bar's hint over the status line: sign-in errors and "signing you in" stay)
+            if (chrome != null && chrome.otp != null && chrome.otp.getVisibility() == View.VISIBLE
+                    && OtpNotifications.enabled(getContext()) != drawnWithNotifications) {
+                otpState = null;
+                otpBar(currentUri());
+            }
+            probeNow();
         }
         if (!hasFocus || signIn.pending() == null) return;
         signIn.pollNow();
@@ -1029,8 +1044,21 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.1.4: reads the page again for a code field / "Send a code via email" (and keeps reading while open). */
     private void probeTick() {
         if (closed) return;
+        // review (LOW): a screen re-created under the window without a dismiss: the window stops (no leak, no listener)
+        if (activity.isFinishing() || activity.isDestroyed()) {
+            try {
+                dismiss();
+            } catch (RuntimeException ignored) {
+                // already gone from the window manager
+            }
+            close();
+            return;
+        }
         main.removeCallbacks(probeTick);
         main.postDelayed(probeTick, PROBE_MILLIS);
+        // review (LOW): only while the window is in front (the page is read again on return)
+        Window w = getWindow();
+        if (w != null && !w.getDecorView().hasWindowFocus()) return;
         probeNow();
     }
 
@@ -1064,7 +1092,10 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (chrome == null || chrome.otp == null) return;
         String pathKind = uri == null ? null : OtpAssist.pageKind(uri.getScheme(), uri.getHost(), uri.getPath());
         boolean onGitHub = uri != null && "https".equals(uri.getScheme()) && "github.com".equals(uri.getHost());
-        OtpAssist.Probe p = onGitHub ? probe : null;
+        String path = uri == null || uri.getPath() == null ? "" : uri.getPath();
+        // review (LOW): recovery-code and passkey pages are never code pages, whatever their fields are called
+        boolean vetoed = path.contains("recovery") || path.contains("webauthn");
+        OtpAssist.Probe p = onGitHub && !vetoed ? probe : null;
         // v2.1.4 (owner's 22 Nov report: no bar on "Confirm access" / "Enter the verification code sent to
         // b***@gmail.com"): the page itself decides first; the address only when the page hasn't been read yet
         String kind;
@@ -1082,17 +1113,26 @@ public final class GitHubInAppAuthDialog extends Dialog {
         String state = kind + "|" + (p == null ? "" : p.key()) + "|" + notifications;
         if (state.equals(otpState)) return;
         otpState = state;
+        drawnWithNotifications = notifications;
         boolean waits = "email".equals(kind) || "code".equals(kind) || "send".equals(kind);
+        long now = System.currentTimeMillis();
+        if ("send".equals(kind)) {
+            // review (MEDIUM): a code from before GitHub offered to send one is never this page's code
+            codeFloor = Math.max(codeFloor, now);
+        } else if (waits && codeFloor == 0) {
+            codeFloor = now - 30_000L;
+        }
         if (waits) {
-            OtpNotifications.arm(getContext(), otpSink);
-        } else {
+            OtpNotifications.arm(getContext(), otpSink, codeFloor);
+        } else if (probe != null || !onGitHub || vetoed) {
+            // review (MEDIUM): only on a page that was read (a page between loads keeps the listener as it was)
             OtpNotifications.disarm(otpSink);
         }
         if (kind == null) {
             chrome.otp.setVisibility(View.GONE);
             return;
         }
-        if (codePage()) fillWaitingCode();
+        if ("email".equals(kind) || "code".equals(kind)) fillWaitingCode();
         boolean login = "login".equals(kind);
         boolean send = "send".equals(kind);
         boolean email = "email".equals(kind) || "code".equals(kind) || login || send;
@@ -1119,7 +1159,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         gap(chrome.openMail, send);
         gap(chrome.pasteFill, email);
         // v2.1.4: codes from e-mail notifications (the user's own switch in Android's settings)
-        if (email) {
+        if (email && OtpNotifications.offered()) {
             chrome.otpAuto.setText(notifications ? "✓ Codes in GitHub's e-mail go in by themselves (notification access)"
                     : "⚡ Fill codes from e-mail notifications · Turn on ›");
             chrome.otpAuto.setTextColor(getContext().getResources().getColor(notifications ? R.color.ob_text_2
@@ -1144,7 +1184,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     + "fill).", false);
             return;
         }
-        status(notifications ? "GitHub's code goes in by itself when its e-mail arrives (or copy it and tap Paste & fill)."
+        status(notifications && OtpNotifications.offered()
+                ? "GitHub's code goes in by itself when its e-mail arrives (or copy it and tap Paste & fill)."
                 : "Open Gmail and copy GitHub's code: it goes in by itself when you come back (or tap Paste & fill).",
                 false);
     }
@@ -1165,8 +1206,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
         page.evaluateJavascript(OtpAssist.SEND_SCRIPT, answer -> {
             if (closed || page != web) return;
             if ("clicked".equals(OtpAssist.unquote(answer))) {
-                OtpNotifications.arm(getContext(), otpSink);
-                status(OtpNotifications.enabled(getContext()) ? "GitHub is e-mailing you a code: it goes in here by itself "
+                codeFloor = Math.max(codeFloor, System.currentTimeMillis());
+                waitingCode = null;
+                OtpNotifications.arm(getContext(), otpSink, codeFloor);
+                status(OtpNotifications.enabled(getContext()) && OtpNotifications.offered()
+                        ? "GitHub is e-mailing you a code: it goes in here by itself "
                         + "when the e-mail arrives." : "GitHub is e-mailing you a code. Open Gmail, copy it and come back: "
                         + "it goes in by itself.", false);
                 main.postDelayed(this::probeNow, 1200);
@@ -1242,8 +1286,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.1.4: a code in the e-mail app's notification (the user turned notification access on). */
     private void codeFromNotification(String code, String from) {
         main.post(() -> {
-            if (closed) return;
-            if (codePage()) {
+            if (closed || usedCodes.contains(code)) return;
+            if ("email".equals(otpKind) || "code".equals(otpKind)) {
                 autoFill(code, from);
             } else {
                 // the e-mail came before GitHub's page showed its field: filled when the field comes
@@ -1271,17 +1315,19 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (clip == null) return;
         CharSequence copied;
         try {
-            if (!clip.hasPrimaryClip() || clip.getPrimaryClip() == null || clip.getPrimaryClip().getItemCount() == 0) {
-                return;
-            }
+            // review (MEDIUM): the description first (no "pasted from your clipboard" notice, nothing read): only
+            // plain text copied while the window was away is read (Android keeps when a clip was set)
+            if (!clip.hasPrimaryClip()) return;
             android.content.ClipDescription d = clip.getPrimaryClipDescription();
-            long at = d == null ? 0 : d.getTimestamp();
-            // only a code copied while the window was away (Android keeps when a clip was set)
+            if (d == null || !d.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN)) return;
+            long at = d.getTimestamp();
             if (at <= 0) return;
             boolean wall = at > 1_000_000_000_000L;
             long since = wall ? leftAt : SystemClock.elapsedRealtime() - (System.currentTimeMillis() - leftAt);
             if (at < since - 2000) return;
-            copied = clip.getPrimaryClip().getItemAt(0).coerceToText(getContext());
+            android.content.ClipData data = clip.getPrimaryClip();
+            if (data == null || data.getItemCount() == 0) return;
+            copied = data.getItemAt(0).getText();
         } catch (RuntimeException e) {
             return;
         }
@@ -1291,7 +1337,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
 
     /** v2.1.4: a code that came by itself (never the same one twice in two minutes). */
     private void autoFill(String code, String from) {
-        if (closed || web == null || code == null) return;
+        if (closed || web == null || code == null || usedCodes.contains(code)) return;
         long now = SystemClock.elapsedRealtime();
         if (code.equals(lastAutoCode) && now - lastAutoAt < 120_000L) return;
         lastAutoCode = code;
@@ -1318,6 +1364,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
                         + "your password. Sign in first." : "This GitHub page has no code field yet: wait for it to load, "
                         + "then tap Paste & fill again.", true);
             } else {
+                usedCodes.add(code);
+                if (code.equals(waitingCode)) waitingCode = null;
                 status("Code " + code + (from == null ? "" : " from " + from) + " filled in: GitHub is checking it…",
                         false);
             }

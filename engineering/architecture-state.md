@@ -1606,3 +1606,49 @@ Owner's 22 Nov phone review of v2.1.2 (11 screenshots, in Telugu). Record: `engi
   passkey or recovery pages): the bar shows there too ("Code by e-mail?").
 - **Gson 2.15.0** (2.9.0 before); the precompiled jars use `Gson.fromJson / toJson`, `GsonBuilder.create /
   excludeFieldsWithoutExposeAnnotation`, `TypeToken.getType` only.
+
+## v2.1.4 additions (22 Nov 2026): the code bar reads GitHub's page, codes from e-mail notifications, Publish in one line, Follow everywhere, creator levels and country
+
+Owner's 22 Nov review of v2.1.3 (10 screenshots, in Telugu). Record: `engineering/v2.1.4-verification.md`.
+
+- **Code bar by page content** (`GitHubInAppAuthDialog`, `OtpAssist`): GitHub's "Confirm access" (sudo) page and the
+  e-mailed sudo code page come at addresses `OtpAssist.pageKind` doesn't know (`/login/device/...`, `/login/oauth/...`), so
+  v2.1.3 showed no bar there. `OtpAssist.PROBE_SCRIPT` (reads only) answers `"<field>|<send>|<sent to>|<confirm access>"`:
+  a code field (`FIELD_JS`: autocomplete one-time-code, name/id with otp / totp / code / sudo / verification, placeholder
+  XXXXXX / 000000, numeric 6 / 8; never `user-code-*`, login, password, e-mail, search), six / eight one-digit boxes, a
+  visible "Send a code via email" control, the masked address after "sent to". It runs on every main-frame finish and every
+  `PROBE_MILLIS` (1.5 s) while the window is open (`probeTick` on the dialog's `main` Handler, removed in `close()`); a page
+  between loads (null answer) keeps the last look. `otpBar` decides: field → "email" (address known or e-mail address
+  path), "two-factor" (that path), else "code"; no field but the send link → "send"; else the address kind. The bar redraws
+  only when its state key changes (no status overwrite every tick). "E-mail me a code" = `SEND_SCRIPT` (clicks GitHub's own
+  control). `fillScript` now finds the field the same way (named fields first).
+- **Codes by themselves**: (a) the clipboard: focus lost while a code page showed (`leftForCodeAt`), back with focus → a
+  6/8-digit code copied since then (ClipDescription timestamp, wall or uptime clock) is filled (`autoFill`; never the same
+  code twice in two minutes); (b) `OtpNotifications` (NotificationListenerService; manifest service protected by
+  `BIND_NOTIFICATION_LISTENER_SERVICE`, no uses-permission): only after the user turns on Android's Notification access
+  (explained first: `explainAutoCodes`, Settings detail page on 11+, App info for Android 13+ restricted settings); armed
+  only while a window shows a send / code page (`arm` / `disarm`), `requestUnbind()` the rest of the time, `requestRebind`
+  when armed; only notifications that mention GitHub, posted at most 2 min before arming, code after "code" /
+  "verification" (`OtpAssist.codeFromGitHubMail`); a code before the field exists waits (`waitingCode`, 10 min).
+- **Refusal evidence** (`GitHubSession`): `token_print` = 12 hex of SHA-256(token) at sign-in (`noteSignedIn(app, token)`);
+  a refusal note says whether the token sent is that one (GitHub ended it) or not (a fault here). `DrawerAccountCard`:
+  "Why? GitHub's security log ›" (ClickableSpan → github.com/settings/security-log?q=action:oauth_authorization).
+- **Publish** (`PlayStoreActivity`): step 1 = heading + the chosen project as one row with Change (`changingProject`,
+  `lastRepos`); the list's explanation only while choosing; "✨ From project" beside step 2; `describe(info, asked)` writes
+  `com.sketchware.ai.project.StoreDescription.of(scId)` (the snapshot of `ProjectDiffAnalyzer` + button / check labels read
+  with own hC / eC instances) into an empty description (never over typed words; asked → confirm first) for the project
+  linked to the repository (`linkedProject`); an unreadable project (no screens) is not described. Done: `CloudSync.
+  publishToStore(activity, store, onDone)` → `GitHubProgress.doneOpens("Done · See it in the store", …)` (no auto-close) →
+  `openStoreAfterPublish`: `PlayStore.highlight`, back to the list behind (`liveList` WeakReference) or a new store tab.
+  `CloudSync.runStore` calls `PlayStore.notePublished` (the app first in the phone's copy, `playstore_recent` marks for 24 h);
+  `withRecent` keeps marked apps first and listed before GitHub's search has them; the card says "● Just published", the
+  lit one sits on `ob_accent_box`. "What's new" through `plainMarkdown` (# headings bold, - points as •, **bold**, links as
+  text).
+- **Follow and creators**: `followTarget` (the app's creator or the creator page's login) for `showFollow` / `loadFollow` /
+  `loadFollowing` / `toggleFollow`; the pill always shows: "＋ Follow · N" / "✓ Following · N" (N from `PlayStore.profile`,
+  GET /users/{login}; ±1 after a tap that worked), own app "👥 N" (opens your page); the creator page has a full-width
+  Follow and its Followers number follows the pill. The @creator pill shrinks first (weight 1 in a wrap-width row). Levels
+  `PlayStore.badge`: Official (smartapps000-hub), ✔ Verified (account ≥ 30 days, a public name or bio, ≥ 1 store app),
+  ★ Trusted (≥ 365 days, ≥ 2 apps, ≥ 10 followers or ≥ 100 downloads), else Not verified with the reason; `BADGE_RULES`
+  on tap. Country: `Countries.fromLocation` (the profile's Location: Locale country names in English, short forms, Indian
+  states and cities, big cities, a flag emoji; else none: "Country not shared on GitHub"), with "on GitHub since".

@@ -150,7 +150,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         if (picturesRow != null) showPictures();
         // v2.1.4: a publish's Done came back here
         showPublished();
+        // review (LOW): a Follow on another page (the creator's) since this page was read: read again
+        if (resumedOnce && followPill != null) {
+            work.execute(() -> loadFollow(token()));
+        }
+        resumedOnce = true;
     }
+
+    private boolean resumedOnce;
 
     @Override
     public void onPause() {
@@ -334,8 +341,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /** v2.1.4: back on the list after a publish's Done: the app first and lit, the store read again from GitHub. */
     private void showPublished() {
+        // review (LOW): only the store list takes the highlight (an app or creator page resuming first leaves it)
+        if (appsBox == null) return;
         String h = PlayStore.takeHighlight();
-        if (h == null || appsBox == null) return;
+        if (h == null) return;
         lit = h;
         if (searchBox != null && searchBox.getText().length() > 0) searchBox.setText("");
         filter = "";
@@ -392,12 +401,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             try {
                 List<PlayStore.App> found = GitHubHttp.quick(TIMEOUT_MILLIS,
                         () -> PlayStore.search(token, searching ? text : null, null));
-                List<PlayStore.App> merged = PlayStore.merge(found, PlayStore.cached(getApplicationContext()));
-                // v2.1.4: an app published from this phone stays first (and listed) before GitHub's search has it
-                if (!searching) merged = PlayStore.withRecent(getApplicationContext(), merged);
-                final List<PlayStore.App> listed = merged;
-                // review (LOW): a search shows its results; only the whole store is kept on the phone
-                if (!searching) PlayStore.save(getApplicationContext(), listed);
+                // v2.1.4: an app published from this phone stays first (and listed) before GitHub's search has it;
+                // review (LOW): a search shows its results; only the whole store is kept on the phone (merged and
+                // saved in one step with a publish's entry)
+                final List<PlayStore.App> listed = searching
+                        ? PlayStore.merge(found, PlayStore.cached(getApplicationContext()))
+                        : PlayStore.refreshCache(getApplicationContext(), found);
                 ui(() -> {
                     apps = listed;
                     searched = searching;
@@ -883,6 +892,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private void loadFollow(String token) {
         if (followPill == null) return;
         String owner = followTarget;
+        int tapsAtStart = followTaps;
         try {
             PlayStore.Profile p = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.profile(token, owner));
             int apps = 0;
@@ -895,7 +905,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                     Math.max(0, downloads), System.currentTimeMillis());
             ui(() -> {
                 if (!owner.equals(followTarget)) return;
-                if (!followBusy) ownerFollowers = p.followers;
+                // review (LOW): a read that started before a Follow tap doesn't undo the tap's ±1
+                if (!followBusy && followTaps == tapsAtStart) ownerFollowers = p.followers;
                 showFollow();
                 showCreatorBadge(badge);
             });
@@ -1573,6 +1584,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                                TextView status, LinearLayout appsList) {
         status.setText("Reading @" + login + " on GitHub…");
         status.setTextColor(v.color(R.color.ob_text_2));
+        int tapsAtStart = followTaps;
         work.execute(() -> {
             String token = token();
             PlayStore.Developer d;
@@ -1600,7 +1612,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
                 values[0].setText(PlayStore.count(d.apps.size()));
                 values[1].setText(PlayStore.count(d.projects.size()));
-                if (!followBusy) ownerFollowers = d.followers;
+                if (!followBusy && followTaps == tapsAtStart) ownerFollowers = d.followers;
                 values[2].setText(PlayStore.count(ownerFollowers >= 0 ? ownerFollowers : d.followers));
                 showFollow();
                 showPlace(d);

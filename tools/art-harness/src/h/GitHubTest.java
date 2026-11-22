@@ -1657,6 +1657,8 @@ public final class GitHubTest {
                         && "112233".equals(call(otp214, "codeFromGitHubMail", "GitHub: a sign-in from 103944 (IP) needs "
                         + "your verification code 112233"))
                         && call(otp214, "codeFromGitHubMail", "Your order 123456 has shipped") == null
+                        // review: never a bare number (a pull request or issue) from a GitHub notification
+                        && call(otp214, "codeFromGitHubMail", "GitHub: pull request #123456 was merged") == null
                         && call(otp214, "codeFromGitHubMail", (Object) null) == null,
                 call(otp214, "codeFromGitHubMail", "GitHub: a sign-in from 103944 (IP) needs your verification code 112233"));
         Class<?> probeClass = c("com.sketchware.ai.github.OtpAssist$Probe");

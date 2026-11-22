@@ -359,3 +359,18 @@ Whether a generated APK runs on a given Android version depends on that project'
 - Follow uses the `user:follow` OAuth scope: sign-ins from v2.1.3 ask GitHub for it (GitHub shows it on its authorization
   page); older tokens get 404 / 403 and the page asks for Sign in again. Not run against github.com here.
 - Tab fades via `overridePendingTransition` (deprecated in API 34, still applied on Android 14-17); not run on a phone.
+
+## v2.1.4 (22 Nov 2026)
+
+- Codes from e-mail notifications (`OtpNotifications`, a NotificationListenerService): off until the user grants Android's
+  Notification access. Android 13+ blocks that switch for apps installed from a file ("Restricted setting") until App info
+  → ⋮ → Allow restricted settings; Android 15 keeps that rule. `requestUnbind` / `requestRebind` (API 24+). The detail
+  settings page (`ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS`) is API 30+, older phones get the list. **Not run** on a
+  phone; Gmail's notification text (whether the code is in it) depends on Gmail's version and the e-mail.
+- Clipboard on focus: Android 10+ lets only the focused app read the clipboard (the window has focus when it reads);
+  Android 12+ shows "pasted from your clipboard". `ClipDescription.getTimestamp` (API 26). Not run on a phone.
+- The page reader (`PROBE_SCRIPT`) runs in the app's WebView on GitHub's pages; checked in jsdom against stand-ins of
+  GitHub's pages; GitHub's real "Confirm access" markup is **not** checked here (the build machine can't open github.com's
+  sign-in pages).
+- Country names from `Locale.getISOCountries` / `getDisplayCountry(Locale.ENGLISH)` (ICU on Android): checked on the ART
+  harness (API 31).

@@ -122,8 +122,13 @@ public final class DrawerAccountCard {
         if (trouble) {
             wrap(status, profile.problem);
             status.setTextColor(v.color(R.color.ob_error));
-            // v2.1.4 (owner's 22 Nov report): GitHub's own record of why it ended the sign-in, one tap away
-            whyLink(status, profile.problem);
+            // v2.1.4 (owner's 22 Nov report): GitHub's own record of why it ended the sign-in, one tap away; review
+            // (LOW): only when GitHub refused it (not when this phone can't read the saved sign-in)
+            if (GitHubSession.isRefused(card.getContext())) {
+                whyLink(status, profile.problem);
+            } else {
+                status.setMovementMethod(null);
+            }
             renew.setVisibility(View.VISIBLE);
             renew.setOnClickListener(x -> actions.signIn());
         } else {

@@ -491,6 +491,23 @@ public final class PlayStore {
         return recent;
     }
 
+    /** v2.1.4 review (LOW): made private again: not kept first or listed before GitHub's search says so. */
+    static void forgetRecent(Context context, String owner, String repo) {
+        if (owner == null || repo == null) return;
+        context.getApplicationContext().getSharedPreferences(RECENT_PREFS, Context.MODE_PRIVATE).edit()
+                .remove(key(owner, repo)).apply();
+    }
+
+    /**
+     * v2.1.4 review (LOW): GitHub's answer merged into the phone's copy and saved in one step under the same lock as
+     * {@link #notePublished} (a refresh that read the copy before a publish can't save over the new entry).
+     */
+    static synchronized List<App> refreshCache(Context context, List<App> found) {
+        List<App> merged = withRecent(context, merge(found, cached(context)));
+        save(context, merged);
+        return merged;
+    }
+
     static void highlight(String owner, String repo) {
         highlight = key(owner, repo);
     }

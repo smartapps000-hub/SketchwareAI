@@ -141,6 +141,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     r = w.eval(probe);
     check('sign-in page: user name / password are not code fields', r === '0|0||0', r);
 
+    // review: the address in its own element right after "sent to" (no space in the page's text)
+    const tight = '<p>Enter the verification code sent to<strong>m***@outlook.com</strong></p>'
+      + '<form><input type="text" name="otp" autocomplete="one-time-code"></form>';
+    w = page('https://github.com/sessions/sudo', tight);
+    r = w.eval(probe);
+    check('the address read from its own element', r === '1|0|m***@outlook.com|0', r);
+
     // a hidden "send" link (another choice's form) is not offered
     const hiddenSend = '<div hidden><button>Send a code via email</button></div><p>Use your passkey</p>';
     w = page('https://github.com/login/device/confirm', hiddenSend);

@@ -83,8 +83,8 @@ public final class OtpAssist {
             + "function codeFields(){return Array.prototype.slice.call(document.querySelectorAll('input')).filter(codeField);}"
             + "function sendLinks(){var out=[];var els=document.querySelectorAll('a,button,input[type=submit],summary,"
             + "[role=button]');for(var k=0;k<els.length;k++){var e=els[k];"
-            + "var tx=((e.innerText||e.textContent||e.value||'')+'').replace(/\\s+/g,' ').trim();"
-            + "if(tx.length>80||!shown(e))continue;"
+            + "var tx=((e.textContent||e.value||'')+'').replace(/\\s+/g,' ').trim();"
+            + "if(tx.length>80||!/mail/i.test(tx)||!shown(e))continue;"
             + "if(/send (a |the |me a )?(new )?(verification |one-time |authentication |security |sign-in )?code"
             + "( via| by| to)?( your)? ?e-?mail/i.test(tx)||/e-?mail me a code/i.test(tx)){out.push(e);}}return out;}";
 
@@ -96,8 +96,8 @@ public final class OtpAssist {
      */
     public static final String PROBE_SCRIPT = "(function(){" + FIELD_JS
             + "var code=codeFields().length>0||codeBoxes()!==null;var send=sendLinks().length>0;"
-            + "var body=document.body?((document.body.innerText||document.body.textContent||'')+''):'';"
-            + "var m=body.match(/[Ss]ent to:?\\s+([A-Za-z0-9._%+*\\u2022-]+@[A-Za-z0-9.*\\u2022-]+\\.[a-z]{2,24})/);"
+            + "var body=document.body?((document.body.textContent||'')+''):'';"
+            + "var m=body.match(/[Ss]ent to:?\\s*([A-Za-z0-9._%+*\\u2022-]+@[A-Za-z0-9.*\\u2022-]+\\.[a-z]{2,24})/);"
             + "var h=document.querySelector('h1,h2');var head=(document.title||'')+' '+(h?(h.textContent||''):'');"
             + "var sudo=/confirm access|sudo/i.test(head);"
             + "return (code?'1':'0')+'|'+(send?'1':'0')+'|'+(m?m[1]:'')+'|'+(sudo?'1':'0');})()";
@@ -164,9 +164,9 @@ public final class OtpAssist {
         String t = text.toString();
         if (t.length() > 20_000) t = t.substring(0, 20_000);
         if (!t.toLowerCase(java.util.Locale.ROOT).contains("github")) return null;
+        // review (MEDIUM): only a number after "code" / "verification" (never a pull request or issue number)
         Matcher m = AFTER_WORD.matcher(t);
-        if (m.find()) return m.group(2);
-        return codeFrom(t);
+        return m.find() ? m.group(2) : null;
     }
 
     /**

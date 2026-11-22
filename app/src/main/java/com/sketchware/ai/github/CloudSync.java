@@ -566,6 +566,8 @@ public final class CloudSync {
                 ProjectRepo repo = ProjectRepo.open(session[1], session[0], scId);
                 if (repo != null) {
                     repo.setPrivate(true);
+                    // v2.1.4 review (LOW): no longer listed first as "Just published"
+                    PlayStore.forgetRecent(sync.app, session[0], repo.name);
                     message = "Private: the project's repository opens only for you now.";
                 } else if (ProjectRepo.gone(session[1], ProjectLinks.repoNumber(scId, session[0]))) {
                     message = "Private: its repository isn't on GitHub any more (nothing there to hide).";
