@@ -2,6 +2,19 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.3 (versionCode 210, `v2.1.3-e1bcdcb-minApi26`)
+
+`apk/Sketchware_AI_v2.1.3.apk`, sha256 `4ecff3afa25fa1737f68ee7a792c8d850e058691ed1150e59b4ba5824b5bbba4` (Git LFS).
+A required update for v2.1.2 (it offers it by itself, downloads it in the app and checks this SHA-256). The update card
+shows UPDATE AVAILABLE, numbered key features and the fixes with glass Later / Update pills; backups from 3 MB go up in
+parts four at a time, try again by themselves after a lost connection and go on from where they stopped; Retry takes the
+old "Didn't work" notice away; notifications are the app's glass card; Restore shows one card per project (and per demo)
+with its versions inside; the Play Store has Publish in the header, a slim app page with Follow and Review; tabs open
+faster; sizes in decimal MB; Gson 2.15.0. Release notes: `releases/v2.1.3/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.3.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.3.apk
+
 ## v2.1.2 (versionCode 209, `v2.1.2-2dbb401-minApi26`)
 
 `apk/Sketchware_AI_v2.1.2.apk`, sha256 `ef44b98efd9b1ea538322335748e6b4c77847001f931628729a29ba07566418c` (Git LFS).
