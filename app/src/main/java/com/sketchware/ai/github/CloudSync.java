@@ -352,7 +352,13 @@ public final class CloudSync {
 
     /** A progress sheet following {@code job} (queued here, or the same job already queued or running). */
     static GitHubProgress follow(Activity activity, CloudSync sync, Job job, int icon, String title) {
+        return follow(activity, sync, job, icon, title, null, null);
+    }
+
+    static GitHubProgress follow(Activity activity, CloudSync sync, Job job, int icon, String title, Runnable onDone,
+                                 String doneLabel) {
         GitHubProgress progress = GitHubProgress.show(activity, icon, title);
+        if (onDone != null) progress.doneOpens(doneLabel, onDone);
         progress.update(1, "Starting…");
         String key = job.key();
         progress.actions(() -> sync.cancel(key), () -> {
@@ -479,13 +485,21 @@ public final class CloudSync {
      * staged on the phone until it worked).
      */
     public static GitHubProgress publishToStore(Activity activity, Store store) {
+        return publishToStore(activity, store, null);
+    }
+
+    /**
+     * v2.1.4 (owner's 22 Nov review: "Done goes away by itself; Done should open the Play Store"): the sheet's Done
+     * stays until tapped and then runs {@code onDone} (the store list with the app first).
+     */
+    public static GitHubProgress publishToStore(Activity activity, Store store, Runnable onDone) {
         CloudSync sync = get(activity);
         Job job = new Job(store.scId != null ? store.scId : "store-" + store.number, STORE, store.title,
                 Options.AUTOMATIC, true);
         job.store = store;
         job.login = store.login;
         job.link = ProjectRepo.link(store.login != null ? store.login : TokenStore.get(activity).login(), store.repo);
-        return follow(activity, sync, job, R.drawable.ob_ic_store, "Publishing " + store.title);
+        return follow(activity, sync, job, R.drawable.ob_ic_store, "Publishing " + store.title, onDone, "Done · See it in the store");
     }
 
     /** v2.1.1 review (LOW): the same without a screen (it closed meanwhile): the notification follows it, a toast ends it. */
@@ -2045,6 +2059,8 @@ public final class CloudSync {
             ProjectLinks.visibilityNow(store.scId, login, false);
         }
         GitHubSession.clearRefused(app);
+        // v2.1.4: first in the phone's copy of the store at once (GitHub's search lists a new app minutes later)
+        PlayStore.notePublished(app, login, store.repo, store.number, listing.title, listing.description);
         // review (HIGH): the staged words and pictures stay for the next publish (a republish without them would
         // have nothing to upload; the store keeps its pictures then anyway)
         return store.title + " is in the Play Store" + (note == null ? "." : ". " + note);

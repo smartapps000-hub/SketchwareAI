@@ -177,9 +177,30 @@ public final class GitHubProgress {
         finished = true;
         succeeded = true;
         set(100, text);
+        if (doneAction != null) {
+            // v2.1.4: stays until tapped; Done opens what was made (the store list with the app first)
+            Runnable open = doneAction;
+            TextView done = pill(doneLabel == null ? "Done" : doneLabel, true, x -> {
+                dismiss();
+                open.run();
+            });
+            GitHubViews.oneLine(done);
+            buttons(done);
+            buttons2.removeAllViews();
+            return;
+        }
         buttons(pill("Done", false, x -> dismiss()));
         buttons2.removeAllViews();
         if (inFront()) main.postDelayed(this::dismiss, 1600);
+    }
+
+    private Runnable doneAction;
+    private String doneLabel;
+
+    /** v2.1.4: when the job ends well, the sheet stays with an orange {@code label} pill that runs {@code open}. */
+    public void doneOpens(String label, Runnable open) {
+        doneLabel = label;
+        doneAction = open;
     }
 
     private boolean inFront() {

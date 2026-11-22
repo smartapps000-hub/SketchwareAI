@@ -148,6 +148,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         super.onResume();
         // pictures picked or removed meanwhile (another screen of the same form)
         if (picturesRow != null) showPictures();
+        // v2.1.4: a publish's Done came back here
+        showPublished();
     }
 
     @Override
@@ -171,6 +173,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     @Override
     public void onDestroy() {
+        if (liveList != null && liveList.get() == this) liveList = null;
         work.shutdownNow();
         images.shutdownNow();
         super.onDestroy();
@@ -258,6 +261,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private String filter = "";
     /** The list on screen is a GitHub search's (not the whole store). */
     private boolean searched;
+    /** v2.1.4: the store list on screen (a publish's Done goes back to it), else null. */
+    private static java.lang.ref.WeakReference<PlayStoreActivity> liveList;
+    /** v2.1.4: the app lit after a publish's Done ("owner/repo"), else null. */
+    private String lit;
+    private EditText searchBox;
 
     private void buildList() {
         title("Play Store", "");
@@ -306,6 +314,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             return false;
         });
         header.addView(search, new LinearLayout.LayoutParams(-1, v.dp(44)));
+        searchBox = search;
+        liveList = new java.lang.ref.WeakReference<>(this);
         list.removeAllViews();
         // v2.1.3 (owner's 22 Nov screenshot: the Publish row marked "Remove", a tick beside the title): Publish is a
         // pill at the right of the header; it opens the publish page
@@ -316,8 +326,24 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         appsBox = new LinearLayout(this);
         appsBox.setOrientation(LinearLayout.VERTICAL);
         list.addView(appsBox, v.full(-1, 6));
-        apps = PlayStore.cached(this);
+        lit = PlayStore.takeHighlight();
+        apps = PlayStore.withRecent(this, PlayStore.cached(this));
         showApps();
+        refreshList(null);
+    }
+
+    /** v2.1.4: back on the list after a publish's Done: the app first and lit, the store read again from GitHub. */
+    private void showPublished() {
+        String h = PlayStore.takeHighlight();
+        if (h == null || appsBox == null) return;
+        lit = h;
+        if (searchBox != null && searchBox.getText().length() > 0) searchBox.setText("");
+        filter = "";
+        searched = false;
+        apps = PlayStore.withRecent(this, PlayStore.cached(this));
+        showApps();
+        View scroll = (View) list.getParent();
+        if (scroll != null) scroll.scrollTo(0, 0);
         refreshList(null);
     }
 
@@ -367,10 +393,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 List<PlayStore.App> found = GitHubHttp.quick(TIMEOUT_MILLIS,
                         () -> PlayStore.search(token, searching ? text : null, null));
                 List<PlayStore.App> merged = PlayStore.merge(found, PlayStore.cached(getApplicationContext()));
+                // v2.1.4: an app published from this phone stays first (and listed) before GitHub's search has it
+                if (!searching) merged = PlayStore.withRecent(getApplicationContext(), merged);
+                final List<PlayStore.App> listed = merged;
                 // review (LOW): a search shows its results; only the whole store is kept on the phone
-                if (!searching) PlayStore.save(getApplicationContext(), merged);
+                if (!searching) PlayStore.save(getApplicationContext(), listed);
                 ui(() -> {
-                    apps = merged;
+                    apps = listed;
                     searched = searching;
                     View retry = appsBox.findViewWithTag("retry");
                     if (retry != null) appsBox.removeView(retry);
@@ -378,8 +407,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                         listStatus.setText(found.isEmpty() ? "No app on GitHub matches “" + text + "”."
                                 : found.size() + (found.size() == 1 ? " app" : " apps") + " on GitHub match “" + text + "”");
                     } else {
-                        listStatus.setText(merged.isEmpty() ? "No apps in the store yet: be the first (Publish your app)."
-                                : merged.size() + (merged.size() == 1 ? " app" : " apps") + " · newest first");
+                        listStatus.setText(listed.isEmpty() ? "No apps in the store yet: be the first (Publish your app)."
+                                : listed.size() + (listed.size() == 1 ? " app" : " apps") + " · newest first");
                     }
                     showApps();
                 });
@@ -459,8 +488,19 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(12);
         card.addView(texts, tp);
+        // v2.1.4: published from this phone today: marked; just after a publish's Done: lit
+        boolean recent = PlayStore.recentlyPublished(this, a);
+        if (recent) {
+            TextView mark = v.line("● Just published", false);
+            mark.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            mark.setTypeface(v.bold());
+            mark.setTextColor(v.color(R.color.ob_amber));
+            texts.addView(mark, 1);
+        }
+        if (PlayStore.is(a, lit)) card.setBackgroundResource(R.drawable.ob_accent_box);
         card.setOnClickListener(x -> startActivity(app(this, a.owner, a.repo)));
-        card.setContentDescription(name + " by " + a.owner + (status == null ? "" : ", " + status));
+        card.setContentDescription(name + " by " + a.owner + (recent ? ", just published" : "")
+                + (status == null ? "" : ", " + status));
         return card;
     }
 
@@ -551,6 +591,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         pills.setGravity(Gravity.CENTER_VERTICAL);
         // v2.1.1: the creator opens their page
         TextView creator = heroPill("@" + a.owner, R.color.ob_accent, x -> startActivity(developer(this, a.owner)));
+        creatorPill = creator;
         creator.setMaxWidth(v.dp(150));
         creator.setContentDescription("Developer @" + a.owner + ": open their page");
         pills.addView(creator, new LinearLayout.LayoutParams(-2, v.dp(28)));
@@ -561,16 +602,20 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             vp.leftMargin = v.dp(6);
             pills.addView(version, vp);
         }
+        // v2.1.4 (owner's 22 Nov review: "there is no Follow button: how will people follow? like Telegram / Instagram,
+        // with how many follow"): always there with the creator's followers; on your own app it shows your followers
+        // and opens your page
         String me = TokenStore.get(this).login();
-        if (me == null || !me.equalsIgnoreCase(a.owner)) {
-            followPill = heroPill("＋ Follow", R.color.ob_text, x -> toggleFollow());
-            LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-2, v.dp(28));
-            fp.leftMargin = v.dp(6);
-            pills.addView(followPill, fp);
-            showFollow();
-        } else {
-            followPill = null;
-        }
+        followTarget = a.owner;
+        ownApp = me != null && me.equalsIgnoreCase(a.owner);
+        followPill = heroPill(ownApp ? "👥 Followers" : "＋ Follow", R.color.ob_text, x -> {
+            if (ownApp) startActivity(developer(this, a.owner));
+            else toggleFollow();
+        });
+        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-2, v.dp(28));
+        fp.leftMargin = v.dp(6);
+        pills.addView(followPill, fp);
+        showFollow();
         hero.addView(pills, v.full(-1, 10));
         View line = new View(this);
         line.setBackgroundColor(v.color(R.color.ob_divider));
@@ -618,7 +663,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 s.setTextColor(v.color(R.color.ob_accent));
                 box.addView(s);
             }
-            TextView c = v.line(a.changelog.trim(), false);
+            // v2.1.4: the version's notes are Markdown (## headings, **bold**, - points): drawn, not shown as marks
+            TextView c = v.line("", false);
+            c.setText(plainMarkdown(a.changelog.trim()));
             c.setTextColor(v.color(R.color.ob_text));
             c.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             c.setMaxLines(14);
@@ -654,6 +701,51 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 + "shows there under your name); a view counts once.", false);
         note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         pageBox.addView(note, v.full(-1, 12));
+    }
+
+    /**
+     * v2.1.4: release notes' Markdown as text: "#" headings bold without the marks, "- " / "* " points as "• ",
+     * {@code **bold**} bold, {@code `code`} without the backticks, [text](link) as its text, blank-line runs as one.
+     */
+    static CharSequence plainMarkdown(String md) {
+        android.text.SpannableStringBuilder out = new android.text.SpannableStringBuilder();
+        boolean blank = false;
+        for (String raw : md.replace("\r", "").split("\n")) {
+            String line = raw.trim();
+            if (line.isEmpty()) {
+                if (!blank && out.length() > 0) out.append('\n');
+                blank = true;
+                continue;
+            }
+            blank = false;
+            if (out.length() > 0 && out.charAt(out.length() - 1) != '\n') out.append('\n');
+            boolean heading = line.startsWith("#");
+            if (heading) line = line.replaceFirst("^#+\\s*", "");
+            if (line.startsWith("- ") || line.startsWith("* ")) line = "• " + line.substring(2);
+            line = line.replaceAll("\\[([^\\]]*)\\]\\([^)]*\\)", "$1").replace("`", "");
+            int start = out.length();
+            // **bold** runs
+            int at = 0;
+            while (true) {
+                int open = line.indexOf("**", at);
+                int close = open < 0 ? -1 : line.indexOf("**", open + 2);
+                if (open < 0 || close < 0) {
+                    out.append(line.substring(at));
+                    break;
+                }
+                out.append(line, at, open);
+                int b = out.length();
+                out.append(line, open + 2, close);
+                out.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), b, out.length(),
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                at = close + 2;
+            }
+            if (heading) {
+                out.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, out.length(),
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        return out;
     }
 
     /** "Updated · ★ 42 · 19 Nov 2026", "Re-published • Update #3 · ★ 17 · 18 Nov 2026", "First release · ★ 3". */
@@ -749,26 +841,76 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private volatile boolean reviewsFailed;
 
     /** Follow (white) / ✓ Following (accent), as the Private / Public pills show their state. */
+    /** v2.1.4: whom the Follow pill follows (the app's creator, or the creator whose page this is). */
+    private String followTarget;
+    /** v2.1.4: the creator page's Followers number (changes with a Follow tap), else null. */
+    private TextView followersValue;
+    /** v2.1.4: the app page is the signed-in account's own app (the pill shows its followers). */
+    private boolean ownApp;
+    /** v2.1.4: the creator's followers on GitHub (-1: not read yet). */
+    private int ownerFollowers = -1;
+    private TextView creatorPill;
+
     private void showFollow() {
         if (followPill == null) return;
+        String count = ownerFollowers < 0 ? "" : PlayStore.count(ownerFollowers);
+        if (followersValue != null && ownerFollowers >= 0) followersValue.setText(count);
+        if (ownApp) {
+            followPill.setText(ownerFollowers < 0 ? "👥 Followers" : "👥 " + count + (ownerFollowers == 1 ? " follower"
+                    : " followers"));
+            followPill.setTextColor(v.color(R.color.ob_text));
+            followPill.setBackgroundResource(R.drawable.ob_pill16_state);
+            followPill.setContentDescription((ownerFollowers < 0 ? "Your followers" : count + " people follow you")
+                    + ": open your page");
+            return;
+        }
         boolean on = Boolean.TRUE.equals(follows);
-        followPill.setText(on ? "✓ Following" : "＋ Follow");
+        followPill.setText((on ? "✓ Following" : "＋ Follow") + (count.isEmpty() ? "" : " · " + count));
         followPill.setTextColor(v.color(on ? R.color.ob_accent : R.color.ob_text));
         followPill.setBackgroundResource(on ? R.drawable.ob_amber_pill_state : R.drawable.ob_pill16_state);
         followPill.setAlpha(followBusy ? 0.6f : 1f);
-        followPill.setContentDescription(on ? "Following @" + current.owner + ": tap to unfollow"
-                : "Follow @" + current.owner + " on GitHub");
+        followPill.setContentDescription((on ? "Following @" + followTarget + ": tap to unfollow"
+                : "Follow @" + followTarget + " on GitHub") + (count.isEmpty() ? "" : ", " + count + " followers"));
     }
 
-    /** Reads whether the account follows the creator (on the page's worker). */
+    /**
+     * Reads whether the account follows the creator (on the page's worker). v2.1.4: also the creator's profile: the
+     * followers on the pill and the badge on the @creator pill.
+     */
     private void loadFollow(String token) {
-        if (token == null || followPill == null) return;
-        String owner = current.owner;
+        if (followPill == null) return;
+        String owner = followTarget;
+        try {
+            PlayStore.Profile p = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.profile(token, owner));
+            int apps = 0;
+            for (PlayStore.App x : PlayStore.cached(getApplicationContext())) {
+                if (owner.equalsIgnoreCase(x.owner)) apps++;
+            }
+            int storeApps = Math.max(1, apps);
+            long downloads = stats.downloads;
+            PlayStore.Badge badge = PlayStore.badge(p.login, p.name, p.bio, p.createdAt, storeApps, p.followers,
+                    Math.max(0, downloads), System.currentTimeMillis());
+            ui(() -> {
+                if (!owner.equals(followTarget)) return;
+                if (!followBusy) ownerFollowers = p.followers;
+                showFollow();
+                showCreatorBadge(badge);
+            });
+        } catch (Exception ignored) {
+            // the pill says Follow without a number
+        }
+        loadFollowing(token);
+    }
+
+    /** Whether the signed-in account follows {@link #followTarget} (on a worker). */
+    private void loadFollowing(String token) {
+        if (token == null || ownApp || followPill == null) return;
+        String owner = followTarget;
         int tapsBefore = followTaps;
         try {
             Boolean now = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.following(token, owner));
             ui(() -> {
-                if (current == null || !owner.equals(current.owner)) return;
+                if (!owner.equals(followTarget)) return;
                 // a tap since this read started decides the pill (its own answer follows)
                 if (followBusy || followTaps != tapsBefore) return;
                 follows = now;
@@ -786,7 +928,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         }
         if (followBusy) return;
         boolean on = !Boolean.TRUE.equals(follows);
-        String owner = current.owner;
+        String owner = followTarget;
         followTaps++;
         followBusy = true;
         follows = on;
@@ -810,6 +952,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             ui(() -> {
                 followBusy = false;
                 if (why != null) follows = !on;
+                // v2.1.4: the count follows the tap that worked
+                else if (ownerFollowers >= 0) ownerFollowers = Math.max(0, ownerFollowers + (on ? 1 : -1));
                 showFollow();
                 if (why == null) {
                     Toast.makeText(this, on ? "Following @" + owner : "Unfollowed @" + owner, Toast.LENGTH_SHORT).show();
@@ -824,6 +968,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             });
             if (why != null && !needsScope) toast(app, why);
         });
+    }
+
+    /** v2.1.4: "@creator ✔" / "@creator ★" (a tap on the pill opens the creator's page, which says why). */
+    private void showCreatorBadge(PlayStore.Badge badge) {
+        if (creatorPill == null || current == null || badge == null) return;
+        String mark = badge.level == PlayStore.Badge.TRUSTED ? " ★" : badge.level >= PlayStore.Badge.VERIFIED ? " ✔" : "";
+        creatorPill.setText("@" + current.owner + mark);
+        creatorPill.setContentDescription("Developer @" + current.owner + ", " + badge.label + ": open their page");
     }
 
     private void showStats() {
@@ -1296,10 +1448,33 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         handle.setTextColor(v.color(R.color.ob_accent));
         GitHubViews.oneLine(handle);
         texts.addView(handle);
+        // v2.1.4 (owner's 22 Nov review): the creator's level (✔ Verified / ★ Trusted / Not verified; a tap says how it
+        // is worked out) and the country of their GitHub Location
+        TextView badge = heroPill("…", R.color.ob_text_2, null);
+        badge.setVisibility(View.GONE);
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(26));
+        bp.topMargin = v.dp(6);
+        texts.addView(badge, bp);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(14);
         top.addView(texts, tp);
         card.addView(top);
+        TextView place = v.line("", false);
+        place.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        place.setTextColor(v.color(R.color.ob_text));
+        place.setVisibility(View.GONE);
+        card.addView(place, v.full(-1, 10));
+        // v2.1.4: Follow on the creator's page too (like any social app), with the followers number below
+        String me = TokenStore.get(this).login();
+        followTarget = login;
+        ownApp = me != null && me.equalsIgnoreCase(login);
+        if (!ownApp) {
+            followPill = heroPill("＋ Follow", R.color.ob_text, x -> toggleFollow());
+            LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-1, v.dp(38));
+            fp.topMargin = v.dp(12);
+            card.addView(followPill, fp);
+            showFollow();
+        }
         TextView bio = v.line("", false);
         bio.setTextColor(v.color(R.color.ob_text));
         bio.setVisibility(View.GONE);
@@ -1335,13 +1510,59 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             values[i] = value;
         }
         list.addView(numbers, v.full(-1, 10));
+        followersValue = values[2];
         TextView status = v.line("Reading @" + login + " on GitHub…", false);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(status, v.full(-1, 10));
         LinearLayout appsList = new LinearLayout(this);
         appsList.setOrientation(LinearLayout.VERTICAL);
         list.addView(appsList, v.full(-1, 4));
+        creatorBadge = badge;
+        creatorPlace = place;
         loadDeveloper(login, name, bio, avatar, values, status, appsList);
+    }
+
+    private TextView creatorBadge;
+    private TextView creatorPlace;
+
+    /** v2.1.4: the creator's badge pill (tap: how the levels are worked out). */
+    private void showBadge(PlayStore.Badge b) {
+        if (creatorBadge == null || b == null) return;
+        creatorBadge.setText(b.label);
+        int color = b.level >= PlayStore.Badge.TRUSTED ? R.color.ob_amber : b.level == PlayStore.Badge.VERIFIED
+                ? R.color.ob_accent : R.color.ob_text_2;
+        creatorBadge.setTextColor(v.color(color));
+        creatorBadge.setBackgroundResource(R.drawable.ob_pill16_state);
+        creatorBadge.setVisibility(View.VISIBLE);
+        creatorBadge.setContentDescription(b.why + " Tap for how levels are worked out.");
+        creatorBadge.setOnClickListener(x -> new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle(b.label)
+                .setMessage(b.why + "\n\n" + PlayStore.BADGE_RULES)
+                .setPositiveButton(android.R.string.ok, null)
+                .show());
+    }
+
+    /** v2.1.4: "🇮🇳 India · on GitHub since Mar 2019" from the profile's own Location (or why it isn't known). */
+    private void showPlace(PlayStore.Developer d) {
+        if (creatorPlace == null) return;
+        Countries.Country c = Countries.fromLocation(d.location);
+        String since = d.createdAt > 0 ? "on GitHub since " + new java.text.SimpleDateFormat("MMM yyyy", Locale.ENGLISH)
+                .format(new java.util.Date(d.createdAt)) : null;
+        String where;
+        if (c != null) {
+            where = c.toString();
+            // the place itself when it says more than the country ("Hyderabad, Telangana")
+            String loc = d.location.trim();
+            if (!loc.equalsIgnoreCase(c.name) && loc.length() <= 40) where = where + " (" + loc + ")";
+        } else if (d.location != null && !d.location.trim().isEmpty()) {
+            where = "📍 " + d.location.trim();
+        } else {
+            String me = TokenStore.get(this).login();
+            where = me != null && me.equalsIgnoreCase(d.login) ? "📍 Country not set: add it as Location in your GitHub "
+                    + "profile (github.com → Settings → Public profile)" : "📍 Country not shared on GitHub";
+        }
+        creatorPlace.setText(since == null ? where : where + " · " + since);
+        creatorPlace.setVisibility(View.VISIBLE);
     }
 
     private void loadDeveloper(String login, TextView name, TextView bio, ImageView avatar, TextView[] values,
@@ -1375,7 +1596,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
                 values[0].setText(PlayStore.count(d.apps.size()));
                 values[1].setText(PlayStore.count(d.projects.size()));
-                values[2].setText(PlayStore.count(d.followers));
+                if (!followBusy) ownerFollowers = d.followers;
+                values[2].setText(PlayStore.count(ownerFollowers >= 0 ? ownerFollowers : d.followers));
+                showFollow();
+                showPlace(d);
+                showBadge(PlayStore.badge(d.login, d.name, d.bio, d.createdAt, d.apps.size(), d.followers, 0,
+                        System.currentTimeMillis()));
                 status.setText("");
                 appsList.removeAllViews();
                 appsList.addView(heading("Apps in the Play Store"), v.full(-1, 8));
@@ -1396,6 +1622,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
             });
             if (d.avatar != null) ui(() -> loadPicture(d.avatar, avatar, v.dp(72)));
+            loadFollowing(token);
             // the downloads of the store apps (ten at most: one request each)
             long total = 0;
             boolean known = false;
@@ -1411,7 +1638,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
             long sum = total;
             boolean any = known || d.apps.isEmpty();
-            ui(() -> values[3].setText(any ? PlayStore.count(sum) : "–"));
+            ui(() -> {
+                values[3].setText(any ? PlayStore.count(sum) : "–");
+                // downloads can lift the level (Trusted)
+                showBadge(PlayStore.badge(d.login, d.name, d.bio, d.createdAt, d.apps.size(), d.followers, sum,
+                        System.currentTimeMillis()));
+            });
         });
     }
 
@@ -1611,6 +1843,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private EditText videoField;
     /** True while the fields are being filled from the phone (no save meanwhile). */
     private boolean filling;
+    /** v2.1.4: the list of projects is open (Change tapped, or none chosen yet). */
+    private boolean changingProject;
+    private List<ProjectRepo.Info> lastRepos;
+    /** v2.1.4: the line under the description (written from the project, or why it couldn't be). */
+    private TextView describeNote;
 
     private SharedPreferences prefs() {
         return getSharedPreferences(PREFS, MODE_PRIVATE);
@@ -1631,18 +1868,31 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         }
         // v2.1.1: the project chosen last time, with its form and pictures as they were left
         chosenNumber = prefs().getLong("chosen_" + login, 0);
+        // v2.1.4 (owner's 22 Nov review: "Your project and its paragraph are too big: one line; once chosen, steps 2
+        // and 3 come up; Change goes back"): one heading line, the chosen project as one row with Change
         list.addView(heading("1 · Your project"), v.full(-1, 4));
-        list.addView(v.line("Projects backed up to GitHub from this account. The newest version's APK and .swb are what "
-                + "the store offers: Run the project before its backup to include the APK.", false), v.full(-1, 4));
         reposBox = new LinearLayout(this);
         reposBox.setOrientation(LinearLayout.VERTICAL);
-        list.addView(reposBox, v.full(-1, 8));
+        list.addView(reposBox, v.full(-1, 6));
 
-        list.addView(heading("2 · Store page"), v.full(-1, 22));
+        LinearLayout storeHead = new LinearLayout(this);
+        storeHead.setOrientation(LinearLayout.HORIZONTAL);
+        storeHead.setGravity(Gravity.CENTER_VERTICAL);
+        storeHead.addView(heading("2 · Store page"), new LinearLayout.LayoutParams(0, -2, 1f));
+        // v2.1.4 (owner: "the description should come by itself, from a deep analysis of the project")
+        TextView describe = v.smallPill("✨ From project", false, true, x -> describeAsked());
+        GitHubViews.oneLine(describe);
+        describe.setContentDescription("Write the description from the project: its screens, buttons and features");
+        storeHead.addView(describe, new LinearLayout.LayoutParams(-2, v.dp(34)));
+        list.addView(storeHead, v.full(-1, 16));
         titleField = v.input("App name", false, 1);
         list.addView(titleField, v.full(46, 6));
         descriptionField = v.input("What the app does", true, 6);
-        list.addView(descriptionField, v.full(-1, 8));
+        list.addView(descriptionField, v.full(-1, 4));
+        describeNote = v.line("", false);
+        describeNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        describeNote.setVisibility(View.GONE);
+        list.addView(describeNote, v.full(-1, 4));
         videoField = v.input("Demo video link (https://…, optional)", false, 1);
         videoField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         list.addView(videoField, v.full(46, 8));
@@ -1664,7 +1914,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         descriptionField.addTextChangedListener(save);
         videoField.addTextChangedListener(save);
 
-        list.addView(heading("3 · Pictures"), v.full(-1, 22));
+        list.addView(heading("3 · Pictures"), v.full(-1, 16));
         list.addView(v.line("Up to " + PlayStore.MAX_SHOTS + " screenshots, kept on this phone for this and later publishes "
                 + "(long-press one to remove it; publishing without any keeps the store's pictures).", false), v.full(-1, 4));
         HorizontalScrollView scroll = new HorizontalScrollView(this);
@@ -1762,25 +2012,108 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             showPictures();
         }
         chosen = info;
+        changingProject = false;
         showRepos(repos);
+        // v2.1.4: an empty description is written from the project at once
+        describe(info, false);
     }
 
     private void showRepos(List<ProjectRepo.Info> repos) {
+        lastRepos = repos;
         reposBox.removeAllViews();
         if (repos.isEmpty()) {
             reposBox.addView(v.line("No project repository yet: back a project up to GitHub first (its card's GitHub "
                     + "pill, or Back up).", false));
             return;
         }
+        boolean wasChosen = chosen != null;
         for (ProjectRepo.Info info : repos) {
             if (chosen == null && info.number == chosenNumber) chosen = info;
+        }
+        if (chosen != null && !wasChosen) describe(chosen, false);
+        // v2.1.4: chosen: one row with Change (steps 2 and 3 right under it)
+        if (chosen != null && !changingProject) {
+            ProjectRepo.Info picked = chosen;
+            TextView change = v.smallPill("Change", false, true, x -> {
+                changingProject = true;
+                showRepos(repos);
+            });
+            GitHubViews.oneLine(change);
+            change.setContentDescription("Choose another project");
+            LinearLayout row = v.row("✓ " + PlayStore.displayName(picked.name), picked.name
+                    + (picked.isPrivate ? " · private" : " · public"), change);
+            reposBox.addView(row);
+            return;
+        }
+        reposBox.addView(v.line("Projects backed up to GitHub from this account (the newest version's APK and .swb are "
+                + "what the store offers).", false), v.full(-1, 0));
+        for (ProjectRepo.Info info : repos) {
             boolean picked = chosen != null && chosen.number == info.number;
             TextView choose = v.smallPill(picked ? "✓ Chosen" : "Choose", picked, true, x -> choose(info, repos));
             GitHubViews.oneLine(choose);
             LinearLayout row = v.row(PlayStore.displayName(info.name), info.name + (info.isPrivate ? " · private" : " · public"),
                     choose);
-            reposBox.addView(row, v.full(-1, reposBox.getChildCount() == 0 ? 0 : 8));
+            reposBox.addView(row, v.full(-1, 8));
         }
+    }
+
+    /** v2.1.4: "✨ From project": written again (asked first when the field has words). */
+    private void describeAsked() {
+        if (chosen == null) {
+            Toast.makeText(this, "Choose the project first (step 1).", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (descriptionField.getText().toString().trim().isEmpty()) {
+            describe(chosen, true);
+            return;
+        }
+        ProjectRepo.Info info = chosen;
+        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Write it from the project?")
+                .setMessage("The description is replaced by one written from the project's screens, buttons and "
+                        + "features. You can change it afterwards.")
+                .setPositiveButton("Replace", (d, w) -> describe(info, true))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * v2.1.4 (owner's 22 Nov review): the description written from the project on this phone linked to the chosen
+     * repository ({@link com.sketchware.ai.project.StoreDescription}); without {@code asked} only into an empty field
+     * (never over words the user typed meanwhile).
+     */
+    private void describe(ProjectRepo.Info info, boolean asked) {
+        if (descriptionField == null || info == null) return;
+        if (!asked && !descriptionField.getText().toString().trim().isEmpty()) return;
+        long number = info.number;
+        String account = login;
+        note(describeNote, "Reading the project to write what it does…", false);
+        work.execute(() -> {
+            String scId = linkedProject(account, info);
+            String text = scId == null ? null : com.sketchware.ai.project.StoreDescription.of(scId);
+            ui(() -> {
+                if (chosenNumber != number || descriptionField == null) return;
+                if (text == null) {
+                    note(describeNote, scId == null ? "This project isn't on this phone: write what the app does (a "
+                            + "project backed up from this phone is described by itself)." : "The project couldn't be read: "
+                            + "write what the app does.", scId != null);
+                    return;
+                }
+                if (!asked && !descriptionField.getText().toString().trim().isEmpty()) {
+                    note(describeNote, "", false);
+                    return;
+                }
+                descriptionField.setText(text);
+                note(describeNote, "✨ Written from the project's screens, buttons and features: change anything.", false);
+            });
+        });
+    }
+
+    private void note(TextView t, String text, boolean error) {
+        if (t == null) return;
+        t.setText(text);
+        t.setTextColor(v.color(error ? R.color.ob_error : R.color.ob_text_2));
+        t.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void showPictures() {
@@ -1928,8 +2261,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("Make it public?")
                 .setMessage(repo.name + " becomes public: everyone can see the project's code, its versions (APK and .swb) "
-                        + "and this store page; GitHub Discussions are switched on for its reviews. Make it private again "
-                        + "any time with its card's pill (it then leaves the store).")
+                        + "and this store page; GitHub Discussions are switched on for its reviews. The newest backup's "
+                        + "APK is what people install (Run the project before its backup to include it). Make it private "
+                        + "again any time with its card's pill (it then leaves the store).")
                 .setPositiveButton("Publish", (d, w) -> publish(repo, appTitle))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
@@ -1954,9 +2288,22 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             store.scId = linkedProject(account, repo);
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 if (isFinishing() || isDestroyed()) CloudSync.publishToStoreQuietly(app, store);
-                else CloudSync.publishToStore(this, store);
+                else CloudSync.publishToStore(this, store, () -> openStoreAfterPublish(account, repo.name));
             });
         });
+    }
+
+    /**
+     * v2.1.4 (owner's 22 Nov review: "Done should go to the Play Store and show the app at the top, as in the list"):
+     * the store list with the app first and lit, read again from GitHub (the list behind this page, else a new one).
+     */
+    private void openStoreAfterPublish(String owner, String repo) {
+        PlayStore.highlight(owner, repo);
+        PlayStoreActivity behind = liveList == null ? null : liveList.get();
+        if (behind == null || behind == this || behind.isFinishing() || behind.isDestroyed()) {
+            startActivity(tab(this));
+        }
+        if (!isFinishing()) finish();
     }
 
     /** The project on this phone linked to that repository (by number, else by name), or null. */

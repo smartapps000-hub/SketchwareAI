@@ -403,6 +403,109 @@ public final class PlayStore {
         save(context, apps);
     }
 
+    // ------------------------------------------------------------------ v2.1.4: just published
+
+    /** v2.1.4: how long an app published from this phone stays first and marked "Just published". */
+    static final long RECENT_MILLIS = 24 * 3600_000L;
+    private static final String RECENT_PREFS = "playstore_recent";
+    /** v2.1.4: the app the list shows first and lit after a publish's Done ("owner/repo" in lower case), once. */
+    private static volatile String highlight;
+
+    private static String key(String owner, String repo) {
+        return (owner + "/" + repo).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * v2.1.4 (owner's 22 Nov review: "after publishing, Done should go to the Play Store and show the app at the top,
+     * as in the list"): the published app goes first into the phone's copy of the store at once (GitHub's search may
+     * take minutes to list a newly public repository), with its new words; its store page is read again when opened.
+     */
+    public static synchronized void notePublished(Context context, String owner, String repo, long number, String title,
+                                                  String description) {
+        if (owner == null || repo == null) return;
+        List<App> apps = cached(context);
+        App mine = null;
+        for (java.util.Iterator<App> it = apps.iterator(); it.hasNext(); ) {
+            App a = it.next();
+            if (a.owner.equalsIgnoreCase(owner) && a.repo.equalsIgnoreCase(repo)) {
+                mine = a;
+                it.remove();
+            }
+        }
+        if (mine == null) {
+            mine = new App();
+            mine.owner = owner;
+            mine.repo = repo;
+        }
+        long now = System.currentTimeMillis();
+        if (number != 0) mine.number = number;
+        if (title != null && !title.trim().isEmpty()) mine.title = title.trim();
+        if (description != null && !description.trim().isEmpty()) mine.description = description.trim();
+        mine.updated = now;
+        mine.listingRead = false;
+        apps.add(0, mine);
+        save(context, apps);
+        context.getApplicationContext().getSharedPreferences(RECENT_PREFS, Context.MODE_PRIVATE).edit()
+                .putLong(key(owner, repo), now).apply();
+    }
+
+    /** v2.1.4: published from this phone in the last day. */
+    public static boolean recentlyPublished(Context context, App a) {
+        long at = context.getApplicationContext().getSharedPreferences(RECENT_PREFS, Context.MODE_PRIVATE)
+                .getLong(key(a.owner, a.repo), 0);
+        return at > 0 && System.currentTimeMillis() - at < RECENT_MILLIS;
+    }
+
+    /**
+     * v2.1.4: {@code list} with the apps published from this phone in the last day first (newest first), also those
+     * GitHub's search doesn't list yet (from the phone's copy).
+     */
+    static List<App> withRecent(Context context, List<App> list) {
+        java.util.Map<String, ?> marks = context.getApplicationContext().getSharedPreferences(RECENT_PREFS,
+                Context.MODE_PRIVATE).getAll();
+        if (marks.isEmpty()) return list;
+        long now = System.currentTimeMillis();
+        List<App> recent = new ArrayList<>();
+        List<App> rest = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (App a : list) {
+            Object at = marks.get(key(a.owner, a.repo));
+            seen.add(key(a.owner, a.repo));
+            if (at instanceof Long && now - (Long) at < RECENT_MILLIS) recent.add(a);
+            else rest.add(a);
+        }
+        for (App a : cached(context)) {
+            String k = key(a.owner, a.repo);
+            Object at = marks.get(k);
+            if (!seen.contains(k) && at instanceof Long && now - (Long) at < RECENT_MILLIS) {
+                recent.add(a);
+                seen.add(k);
+            }
+        }
+        recent.sort((x, y) -> {
+            Object ax = marks.get(key(x.owner, x.repo));
+            Object ay = marks.get(key(y.owner, y.repo));
+            return Long.compare(ay instanceof Long ? (Long) ay : 0, ax instanceof Long ? (Long) ax : 0);
+        });
+        recent.addAll(rest);
+        return recent;
+    }
+
+    static void highlight(String owner, String repo) {
+        highlight = key(owner, repo);
+    }
+
+    /** The app to light up once (after a publish's Done), else null. */
+    static String takeHighlight() {
+        String h = highlight;
+        highlight = null;
+        return h;
+    }
+
+    static boolean is(App a, String ownerSlashRepo) {
+        return ownerSlashRepo != null && ownerSlashRepo.equals(key(a.owner, a.repo));
+    }
+
     /** The search answer merged with what the phone read before (store pages, pictures), in the answer's order. */
     static List<App> merge(List<App> found, List<App> before) {
         List<App> out = new ArrayList<>();
@@ -1063,8 +1166,116 @@ public final class PlayStore {
         public String avatar;
         public int followers;
         public int publicRepos;
+        /** v2.1.4: the profile's own Location line and when the account was made (0: unknown). */
+        public String location;
+        public long createdAt;
         public final List<App> apps = new ArrayList<>();
         public final List<App> projects = new ArrayList<>();
+    }
+
+    /** v2.1.4: a GitHub account's public profile (GET /users/{login}). */
+    public static final class Profile {
+        public String login;
+        public String name;
+        public String bio;
+        public String location;
+        public int followers;
+        public int publicRepos;
+        public long createdAt;
+    }
+
+    /** v2.1.4: the account's public profile: followers for the Follow pill, the rest for the creator's badge. */
+    public static Profile profile(String token, String login) throws IOException, GitHubException {
+        if (login == null || !login.matches("[A-Za-z0-9-]{1,39}")) throw new GitHubException("bad_login", "No such account.");
+        GitHubHttp.Response r = GitHubHttp.api("GET", "/users/" + login, token, null);
+        if (r.code == 404) throw new GitHubException("not_found", "@" + login + " isn't on GitHub (any more).");
+        if (!r.ok()) throw CloudBackup.http("Reading @" + login, r);
+        JsonObject u = DeviceFlow.parse(r.body);
+        Profile p = new Profile();
+        p.login = DeviceFlow.string(u, "login");
+        if (p.login == null) p.login = login;
+        p.name = DeviceFlow.string(u, "name");
+        p.bio = DeviceFlow.string(u, "bio");
+        p.location = DeviceFlow.string(u, "location");
+        p.followers = intOf(u, "followers");
+        p.publicRepos = intOf(u, "public_repos");
+        p.createdAt = time(DeviceFlow.string(u, "created_at"));
+        return p;
+    }
+
+    /** "2019-04-01T10:00:00Z" → milliseconds, else 0. */
+    static long time(String iso) {
+        if (iso == null) return 0;
+        try {
+            java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.ROOT);
+            f.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date d = f.parse(iso);
+            return d == null ? 0 : d.getTime();
+        } catch (java.text.ParseException | RuntimeException e) {
+            return 0;
+        }
+    }
+
+    // ------------------------------------------------------------------ v2.1.4: creator badges
+
+    /**
+     * v2.1.4 (owner's 22 Nov review: "verified users, non-verified users and trusted users should be known"): a
+     * creator's level, worked out from the account's public GitHub profile and the store (GitHub has no "verified
+     * person" mark for users, so the rules are the app's own and are shown with the badge).
+     */
+    public static final class Badge {
+        public static final int NOT_VERIFIED = 0;
+        public static final int VERIFIED = 1;
+        public static final int TRUSTED = 2;
+        public static final int OFFICIAL = 3;
+        public final int level;
+        public final String label;
+        /** Why this level (what is missing for the next one). */
+        public final String why;
+
+        Badge(int level, String label, String why) {
+            this.level = level;
+            this.label = label;
+            this.why = why;
+        }
+    }
+
+    public static final long DAY_MILLIS = 24 * 3600_000L;
+
+    /** How the levels are worked out (shown when a badge is tapped). */
+    public static final String BADGE_RULES = "Worked out by Sketchware AI from the creator's public GitHub profile and "
+            + "the store (GitHub has no \"verified person\" mark for accounts):\n"
+            + "• ✔ Verified: a GitHub account older than 30 days, with a public name or bio and at least one app in the "
+            + "store.\n"
+            + "• ★ Trusted: Verified, older than a year, at least two apps, and 10 or more followers or 100 or more "
+            + "downloads.\n"
+            + "• Not verified: a newer account or no app yet. It doesn't mean anything bad: check what an app asks "
+            + "for before installing it.";
+
+    public static Badge badge(String login, String name, String bio, long createdAt, int apps, int followers,
+                              long downloads, long now) {
+        if (COMMUNITY_OWNER.equalsIgnoreCase(login)) {
+            return new Badge(Badge.OFFICIAL, "✔ Official", "The Sketchware AI account.");
+        }
+        long age = createdAt > 0 ? now - createdAt : -1;
+        boolean named = (name != null && !name.trim().isEmpty()) || (bio != null && !bio.trim().isEmpty());
+        boolean verified = age >= 30 * DAY_MILLIS && named && apps >= 1;
+        if (!verified) {
+            String missing;
+            if (age < 0) missing = "the account's age isn't known";
+            else if (age < 30 * DAY_MILLIS) missing = "the GitHub account is " + Math.max(0, age / DAY_MILLIS) + " days old";
+            else if (!named) missing = "the profile has no public name or bio";
+            else missing = "no app in the store yet";
+            return new Badge(Badge.NOT_VERIFIED, "Not verified", "Not verified: " + missing + ".");
+        }
+        boolean trusted = age >= 365 * DAY_MILLIS && apps >= 2 && (followers >= 10 || downloads >= 100);
+        if (trusted) {
+            return new Badge(Badge.TRUSTED, "★ Trusted", "Trusted: an account of " + (age / (365 * DAY_MILLIS))
+                    + "+ years with " + apps + " apps" + (followers >= 10 ? " and " + followers + " followers" : " and "
+                    + downloads + " downloads") + ".");
+        }
+        return new Badge(Badge.VERIFIED, "✔ Verified", "Verified: an account of " + (age / DAY_MILLIS) + " days with "
+                + apps + (apps == 1 ? " app" : " apps") + " in the store.");
     }
 
     /** A creator's page: the account (GitHub's profile), the store apps and the other public projects. */
@@ -1082,6 +1293,8 @@ public final class PlayStore {
         d.avatar = safeAvatar(DeviceFlow.string(u, "avatar_url"));
         d.followers = intOf(u, "followers");
         d.publicRepos = intOf(u, "public_repos");
+        d.location = DeviceFlow.string(u, "location");
+        d.createdAt = time(DeviceFlow.string(u, "created_at"));
         d.apps.addAll(searchRepos(token, "topic:" + TOPIC, null, d.login, "Reading @" + login + "'s apps"));
         java.util.Set<Long> inStore = new java.util.HashSet<>();
         for (App a : d.apps) inStore.add(a.number);
