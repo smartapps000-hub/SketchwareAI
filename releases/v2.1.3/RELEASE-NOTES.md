@@ -1,7 +1,7 @@
 # Sketchware AI v2.1.3
 
-versionCode 210, `APK_NAME`, APK_BYTES bytes, sha256
-`APK_SHA256`. Installs over v2.1.2 (same test key). v2.1.2 asks for it by itself about 3.5 s after it opens (required,
+versionCode 210, `v2.1.3-e1bcdcb-minApi26`, 142,870,987 bytes, sha256
+`4ecff3afa25fa1737f68ee7a792c8d850e058691ed1150e59b4ba5824b5bbba4`. Installs over v2.1.2 (same test key). v2.1.2 asks for it by itself about 3.5 s after it opens (required,
 no Later), downloads it in the app and checks its SHA-256.
 
 ## Download

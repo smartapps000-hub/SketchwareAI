@@ -456,7 +456,9 @@ Follow = PUT / DELETE /user/following (scope `user:follow` added to `DeviceFlow.
 follow"). Speed: `HoneyDropBar.OPEN_AT` 0.14, 150 ms tab fades (`ob_tab_in/hold/out`), New Project reads `lC.b()/c()` (each
 decrypts every list file) off the main thread under `ProjectIds.RESTORE_LOCK` with the folders, id kept in
 `onSaveInstanceState`. `OtpAssist.pageKind` "login" (code bar on GitHub's sign-in pages). Gson 2.15.0. Renders
-`setup_v213.sh` + `V213Test`. RELEASE_FACTS
+`setup_v213.sh` + `V213Test`. GITHUBTEST 137/137, GITHUBCLIENT 112/112, V210CLIENT 27/27,
+V211CLIENT 13/13, JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15, CACHETEST 31/31, DOCTORTEST 21/21; three review passes. APK
+v2.1.3-e1bcdcb, versionCode 210 (next 211), sha256 `4ecff3af...5bbba4`, 142,870,987 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
