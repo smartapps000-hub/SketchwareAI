@@ -41,6 +41,8 @@ public final class StoreDescription {
         } catch (RuntimeException e) {
             return null;
         }
+        // a project that couldn't be read (no screens) isn't described: the field stays for the user's words
+        if (s.has("readError") || ProjectDiffAnalyzer.object(s, "screens").size() == 0) return null;
         return write(s, labels(scId));
     }
 

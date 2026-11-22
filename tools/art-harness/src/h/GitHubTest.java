@@ -1660,13 +1660,13 @@ public final class GitHubTest {
                         && call(otp214, "codeFromGitHubMail", (Object) null) == null,
                 call(otp214, "codeFromGitHubMail", "GitHub: a sign-in from 103944 (IP) needs your verification code 112233"));
         Class<?> probeClass = c("com.sketchware.ai.github.OtpAssist$Probe");
-        Object seen = call(probeClass, "parse", "1|0|b***@gmail.com|1");
-        Object seenSend = call(probeClass, "parse", "0|1||1");
+        Object seen214 = call(probeClass, "parse", "1|0|b***@gmail.com|1");
+        Object seenSend214 = call(probeClass, "parse", "0|1||1");
         check("v2.1.4: the page reader's answer: a code field and where the code went; the Send link; anything else "
                         + "ignored",
-                seen != null && Boolean.TRUE.equals(get(seen, "codeField")) && Boolean.FALSE.equals(get(seen, "sendLink"))
-                        && "b***@gmail.com".equals(get(seen, "sentTo")) && Boolean.TRUE.equals(get(seen, "confirmAccess"))
-                        && seenSend != null && Boolean.TRUE.equals(get(seenSend, "sendLink")) && get(seenSend, "sentTo") == null
+                seen214 != null && Boolean.TRUE.equals(get(seen214, "codeField")) && Boolean.FALSE.equals(get(seen214, "sendLink"))
+                        && "b***@gmail.com".equals(get(seen214, "sentTo")) && Boolean.TRUE.equals(get(seen214, "confirmAccess"))
+                        && seenSend214 != null && Boolean.TRUE.equals(get(seenSend214, "sendLink")) && get(seenSend214, "sentTo") == null
                         && call(probeClass, "parse", "garbage") == null && call(probeClass, "parse", (Object) null) == null
                         && "1|0|x@y.io|0".equals(call(otp214, "unquote", "\"1|0|x@y.io|0\""))
                         && call(otp214, "unquote", "null") == null, null);
@@ -1728,13 +1728,13 @@ public final class GitHubTest {
                         && Long.valueOf(0L).equals(call(store214, "time", "yesterday")), call(store214, "time", "2019-04-01T10:00:00Z"));
         // the description written from a project
         Class<?> describe = c("com.sketchware.ai.project.StoreDescription");
-        Object snap = call(c("com.google.gson.JsonParser"), "parseString", "{\"appName\":\"Vehicle Parking\",\"minSdk\":"
+        Object snap214 = call(c("com.google.gson.JsonParser"), "parseString", "{\"appName\":\"Vehicle Parking\",\"minSdk\":"
                 + "\"21\",\"targetSdk\":\"37\",\"material3\":true,\"screens\":{\"MainActivity\":{\"views\":{\"web\":"
                 + "\"WebView\",\"b1\":\"Button\",\"l1\":\"ListView\"},\"components\":{\"cam\":\"Camera\",\"net\":"
                 + "\"RequestNetwork\",\"sp\":\"SharedPreferences\"},\"parts\":[\"navigation drawer\"]},"
                 + "\"ParkingHistoryActivity\":{\"views\":{},\"components\":{}}},\"permissions\":[\"CAMERA\",\"INTERNET\","
                 + "\"ACCESS_NETWORK_STATE\"],\"libraries\":[\"AppCompat & Material\"]}");
-        String written = (String) call(describe, "write", call(snap, "getAsJsonObject"),
+        String written = (String) call(describe, "write", call(snap214, "getAsJsonObject"),
                 java.util.Arrays.asList("Park vehicle", "Exit"));
         check("v2.1.4: the store description written from the project: what it does, its screens and how they are "
                         + "reached, what to tap, the permissions in plain words, Material 3 and the Android versions",
@@ -1762,24 +1762,24 @@ public final class GitHubTest {
         set(other, "repo", "SketchwareAI-Timer");
         @SuppressWarnings("unchecked")
         List<Object> withoutIt = (List<Object>) call(store214, "withRecent", CTX, new ArrayList<>(java.util.Arrays.asList(other)));
-        Object notes = neu("com.sketchware.ai.github.PlayStore$App");
-        set(notes, "owner", "Octo");
-        set(notes, "repo", "SketchwareAI-Notes");
+        Object notes214 = neu("com.sketchware.ai.github.PlayStore$App");
+        set(notes214, "owner", "Octo");
+        set(notes214, "repo", "SketchwareAI-Notes");
         @SuppressWarnings("unchecked")
-        List<Object> found = (List<Object>) call(store214, "withRecent", CTX, new ArrayList<>(java.util.Arrays.asList(other, notes)));
+        List<Object> found = (List<Object>) call(store214, "withRecent", CTX, new ArrayList<>(java.util.Arrays.asList(other, notes214)));
         check("v2.1.4: Done after a publish: the app first on the store list (also before GitHub's search has it), "
                         + "marked just published; others stay in their order",
                 withoutIt.size() == 2 && "SketchwareAI-Notes".equals(get(withoutIt.get(0), "repo"))
                         && "Notes".equals(get(withoutIt.get(0), "title")) && withoutIt.get(1) == other
-                        && found.size() == 2 && found.get(0) == notes && found.get(1) == other
-                        && Boolean.TRUE.equals(call(store214, "recentlyPublished", CTX, notes))
+                        && found.size() == 2 && found.get(0) == notes214 && found.get(1) == other
+                        && Boolean.TRUE.equals(call(store214, "recentlyPublished", CTX, notes214))
                         && Boolean.FALSE.equals(call(store214, "recentlyPublished", CTX, other)),
                 withoutIt.size() + " " + found.size());
         call(store214, "highlight", "Octo", "SketchwareAI-Notes");
         String lit = (String) call(store214, "takeHighlight");
         check("v2.1.4: the published app is lit once (case does not matter)",
                 "octo/sketchwareai-notes".equals(lit) && call(store214, "takeHighlight") == null
-                        && Boolean.TRUE.equals(call(store214, "is", notes, lit)), lit);
+                        && Boolean.TRUE.equals(call(store214, "is", notes214, lit)), lit);
         Object recentClear = call(recentPrefs, "edit");
         call(recentClear, "clear");
         call(recentClear, "commit");

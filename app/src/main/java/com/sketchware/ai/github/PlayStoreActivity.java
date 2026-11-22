@@ -594,7 +594,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         creatorPill = creator;
         creator.setMaxWidth(v.dp(150));
         creator.setContentDescription("Developer @" + a.owner + ": open their page");
-        pills.addView(creator, new LinearLayout.LayoutParams(-2, v.dp(28)));
+        // v2.1.4 (render: "👥 Follo…" cut beside a long @name): the @creator pill gives way first (it ends in "…"),
+        // the version and Follow stay whole; the row is only as wide as its pills
+        pills.addView(creator, new LinearLayout.LayoutParams(-2, v.dp(28), 1f));
         if (a.versionName != null && !a.versionName.isEmpty()) {
             TextView version = heroPill("v" + a.versionName + (a.versionCode == null || a.versionCode.isEmpty() ? ""
                     : " (" + a.versionCode + ")"), R.color.ob_accent, null);
@@ -616,7 +618,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         fp.leftMargin = v.dp(6);
         pills.addView(followPill, fp);
         showFollow();
-        hero.addView(pills, v.full(-1, 10));
+        LinearLayout.LayoutParams pr = new LinearLayout.LayoutParams(-2, -2);
+        pr.topMargin = v.dp(10);
+        hero.addView(pills, pr);
         View line = new View(this);
         line.setBackgroundColor(v.color(R.color.ob_divider));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, v.dp(1) / 2));
@@ -856,8 +860,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         String count = ownerFollowers < 0 ? "" : PlayStore.count(ownerFollowers);
         if (followersValue != null && ownerFollowers >= 0) followersValue.setText(count);
         if (ownApp) {
-            followPill.setText(ownerFollowers < 0 ? "👥 Followers" : "👥 " + count + (ownerFollowers == 1 ? " follower"
-                    : " followers"));
+            followPill.setText(ownerFollowers < 0 ? "👥 Followers" : "👥 " + count);
             followPill.setTextColor(v.color(R.color.ob_text));
             followPill.setBackgroundResource(R.drawable.ob_pill16_state);
             followPill.setContentDescription((ownerFollowers < 0 ? "Your followers" : count + " people follow you")
@@ -1551,9 +1554,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         String where;
         if (c != null) {
             where = c.toString();
-            // the place itself when it says more than the country ("Hyderabad, Telangana")
-            String loc = d.location.trim();
-            if (!loc.equalsIgnoreCase(c.name) && loc.length() <= 40) where = where + " (" + loc + ")";
+            // the place itself when it says more than the country ("Hyderabad, Telangana"; "Berlin, Germany" → "Berlin")
+            String loc = d.location.trim().replaceAll("(?i)[,\\s]*\\b" + java.util.regex.Pattern.quote(c.name) + "\\s*$", "")
+                    .replaceAll("[,\\s]+$", "").trim();
+            if (!loc.isEmpty() && !loc.equalsIgnoreCase(c.name) && loc.length() <= 40) where = where + " (" + loc + ")";
         } else if (d.location != null && !d.location.trim().isEmpty()) {
             where = "📍 " + d.location.trim();
         } else {
