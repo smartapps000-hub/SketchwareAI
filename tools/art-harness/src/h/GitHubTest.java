@@ -1647,6 +1647,152 @@ public final class GitHubTest {
         call(cleanup, "commit");
         linkFile.delete();
 
+        // --- v2.1.4 (owner's 22 Nov review of v2.1.3, ten screenshots)
+        Class<?> otp214 = c("com.sketchware.ai.github.OtpAssist");
+        check("v2.1.4: the code in GitHub's e-mail notification (sudo / device e-mails); nothing from other e-mails",
+                "81234567".equals(call(otp214, "codeFromGitHubMail", "[GitHub] Sudo email verification code\nHere is your "
+                        + "GitHub sudo authentication code: 81234567 This code is valid for 15 minutes"))
+                        && "482913".equals(call(otp214, "codeFromGitHubMail", "GitHub · Please verify your device · "
+                        + "Verification code: 482913"))
+                        && "112233".equals(call(otp214, "codeFromGitHubMail", "GitHub: a sign-in from 103944 (IP) needs "
+                        + "your verification code 112233"))
+                        && call(otp214, "codeFromGitHubMail", "Your order 123456 has shipped") == null
+                        && call(otp214, "codeFromGitHubMail", (Object) null) == null,
+                call(otp214, "codeFromGitHubMail", "GitHub: a sign-in from 103944 (IP) needs your verification code 112233"));
+        Class<?> probeClass = c("com.sketchware.ai.github.OtpAssist$Probe");
+        Object seen = call(probeClass, "parse", "1|0|b***@gmail.com|1");
+        Object seenSend = call(probeClass, "parse", "0|1||1");
+        check("v2.1.4: the page reader's answer: a code field and where the code went; the Send link; anything else "
+                        + "ignored",
+                seen != null && Boolean.TRUE.equals(get(seen, "codeField")) && Boolean.FALSE.equals(get(seen, "sendLink"))
+                        && "b***@gmail.com".equals(get(seen, "sentTo")) && Boolean.TRUE.equals(get(seen, "confirmAccess"))
+                        && seenSend != null && Boolean.TRUE.equals(get(seenSend, "sendLink")) && get(seenSend, "sentTo") == null
+                        && call(probeClass, "parse", "garbage") == null && call(probeClass, "parse", (Object) null) == null
+                        && "1|0|x@y.io|0".equals(call(otp214, "unquote", "\"1|0|x@y.io|0\""))
+                        && call(otp214, "unquote", "null") == null, null);
+        String probeJs = (String) get(otp214, "PROBE_SCRIPT");
+        String sendJs = (String) get(otp214, "SEND_SCRIPT");
+        check("v2.1.4: the page reader only reads (no click, no typing); E-mail me a code only presses GitHub's own link",
+                !probeJs.contains("click(") && !probeJs.contains(".value=") && !probeJs.contains("submit(")
+                        && sendJs.contains("l[0].click()") && !sendJs.contains(".value=")
+                        && probeJs.contains("user-code"), probeJs.length() + " " + sendJs.length());
+        Class<?> countries = c("com.sketchware.ai.github.Countries");
+        java.util.function.Function<String, String> country = loc -> {
+            try {
+                Object cc = call(countries, "fromLocation", loc);
+                return cc == null ? null : (String) get(cc, "code");
+            } catch (Throwable t) {
+                return "ERR " + t;
+            }
+        };
+        check("v2.1.4: the creator's country from their GitHub Location (names, short forms, states, cities, a flag)",
+                "IN".equals(country.apply("Hyderabad, India")) && "IN".equals(country.apply("Telangana"))
+                        && "IN".equals(country.apply("Guntur, AP")) && "IN".equals(country.apply("Bengaluru"))
+                        && "US".equals(country.apply("San Francisco, CA")) && "US".equals(country.apply("USA"))
+                        && "GB".equals(country.apply("London")) && "DE".equals(country.apply("Berlin, Germany"))
+                        && "IN".equals(country.apply("🇮🇳")) && "JP".equals(country.apply("Japan"))
+                        && country.apply("Earth") == null && country.apply("") == null && country.apply("Remote") == null
+                        && country.apply(null) == null,
+                country.apply("Hyderabad, India") + " " + country.apply("Japan") + " " + country.apply("San Francisco, CA"));
+        Object india = call(countries, "fromLocation", "Vijayawada");
+        check("v2.1.4: a country is shown with its flag and English name",
+                india != null && "🇮🇳 India".equals(String.valueOf(india))
+                        && "United States".equals(call(countries, "nameOf", "US")), String.valueOf(india));
+        Class<?> store214 = c("com.sketchware.ai.github.PlayStore");
+        long now214 = 1_800_000_000_000L;
+        long day = 24 * 3600_000L;
+        java.util.function.Function<Object[], Integer> level = a -> {
+            try {
+                return (Integer) get(call(store214, "badge", a), "level");
+            } catch (Throwable t) {
+                return -9;
+            }
+        };
+        check("v2.1.4: creator levels: Official (the Sketchware AI account), Not verified (new / no name / no app), "
+                        + "Verified (30+ days, named, an app), Trusted (a year, 2+ apps, 10+ followers or 100+ downloads)",
+                level.apply(new Object[]{"smartapps000-hub", null, null, 0L, 0, 0, 0L, now214}) == 3
+                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 10 * day, 1, 50, 0L, now214}) == 0
+                        && level.apply(new Object[]{"ann", null, " ", now214 - 90 * day, 2, 50, 0L, now214}) == 0
+                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 90 * day, 0, 50, 0L, now214}) == 0
+                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 60 * day, 1, 0, 0L, now214}) == 1
+                        && level.apply(new Object[]{"ann", null, "Makes apps", now214 - 400 * day, 1, 99, 999L, now214}) == 1
+                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 400 * day, 2, 12, 0L, now214}) == 2
+                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 400 * day, 3, 2, 150L, now214}) == 2
+                        && level.apply(new Object[]{"ann", "Ann", null, 0L, 3, 99, 999L, now214}) == 0,
+                null);
+        Object young = call(store214, "badge", "ann", "Ann", null, now214 - 10 * day, 1, 0, 0L, now214);
+        check("v2.1.4: a level says why (what is missing)", String.valueOf(get(young, "why")).contains("10 days old"),
+                get(young, "why"));
+        check("v2.1.4: GitHub's account dates read (created_at)",
+                Long.valueOf(1554112800000L).equals(call(store214, "time", "2019-04-01T10:00:00Z"))
+                        && Long.valueOf(0L).equals(call(store214, "time", "yesterday")), call(store214, "time", "2019-04-01T10:00:00Z"));
+        // the description written from a project
+        Class<?> describe = c("com.sketchware.ai.project.StoreDescription");
+        Object snap = call(c("com.google.gson.JsonParser"), "parseString", "{\"appName\":\"Vehicle Parking\",\"minSdk\":"
+                + "\"21\",\"targetSdk\":\"37\",\"material3\":true,\"screens\":{\"MainActivity\":{\"views\":{\"web\":"
+                + "\"WebView\",\"b1\":\"Button\",\"l1\":\"ListView\"},\"components\":{\"cam\":\"Camera\",\"net\":"
+                + "\"RequestNetwork\",\"sp\":\"SharedPreferences\"},\"parts\":[\"navigation drawer\"]},"
+                + "\"ParkingHistoryActivity\":{\"views\":{},\"components\":{}}},\"permissions\":[\"CAMERA\",\"INTERNET\","
+                + "\"ACCESS_NETWORK_STATE\"],\"libraries\":[\"AppCompat & Material\"]}");
+        String written = (String) call(describe, "write", call(snap, "getAsJsonObject"),
+                java.util.Arrays.asList("Park vehicle", "Exit"));
+        check("v2.1.4: the store description written from the project: what it does, its screens and how they are "
+                        + "reached, what to tap, the permissions in plain words, Material 3 and the Android versions",
+                written.startsWith("Vehicle Parking is an Android app that opens web pages inside the app and takes photos "
+                        + "with the camera.")
+                        && written.contains("2 screens: Main and Parking History, reached with a side menu.")
+                        && written.contains("Tap: Park vehicle and Exit.")
+                        && written.contains("• Loads data from the internet")
+                        && written.contains("• Remembers your data and settings on the phone")
+                        && written.contains("• Shows your items in scrolling lists")
+                        && written.contains("Asks for: Camera and Internet.")
+                        && written.endsWith("Made with Sketchware AI · Material 3 design · Android 5.0 to 17."),
+                written);
+        check("v2.1.4: button words that say nothing (\"Button\", \"button3\", resources) are left out",
+                call(describe, "clean", "Button") == null && call(describe, "clean", "button3") == null
+                        && call(describe, "clean", "@string/go") == null && call(describe, "clean", "x") == null
+                        && "Park vehicle".equals(call(describe, "clean", "  Park\nvehicle ")), null);
+        // a publish puts the app first on the phone's list, also before GitHub's search lists it
+        File storeCache = (File) call(store214, "cacheFile", CTX);
+        byte[] storeBefore = storeCache.isFile() ? java.nio.file.Files.readAllBytes(storeCache.toPath()) : null;
+        Object recentPrefs = call(CTX, "getSharedPreferences", "playstore_recent", 0);
+        call(store214, "notePublished", CTX, "octo", "SketchwareAI-Notes", 77L, "Notes", "Write notes");
+        Object other = neu("com.sketchware.ai.github.PlayStore$App");
+        set(other, "owner", "ann");
+        set(other, "repo", "SketchwareAI-Timer");
+        @SuppressWarnings("unchecked")
+        List<Object> withoutIt = (List<Object>) call(store214, "withRecent", CTX, new ArrayList<>(java.util.Arrays.asList(other)));
+        Object notes = neu("com.sketchware.ai.github.PlayStore$App");
+        set(notes, "owner", "Octo");
+        set(notes, "repo", "SketchwareAI-Notes");
+        @SuppressWarnings("unchecked")
+        List<Object> found = (List<Object>) call(store214, "withRecent", CTX, new ArrayList<>(java.util.Arrays.asList(other, notes)));
+        check("v2.1.4: Done after a publish: the app first on the store list (also before GitHub's search has it), "
+                        + "marked just published; others stay in their order",
+                withoutIt.size() == 2 && "SketchwareAI-Notes".equals(get(withoutIt.get(0), "repo"))
+                        && "Notes".equals(get(withoutIt.get(0), "title")) && withoutIt.get(1) == other
+                        && found.size() == 2 && found.get(0) == notes && found.get(1) == other
+                        && Boolean.TRUE.equals(call(store214, "recentlyPublished", CTX, notes))
+                        && Boolean.FALSE.equals(call(store214, "recentlyPublished", CTX, other)),
+                withoutIt.size() + " " + found.size());
+        call(store214, "highlight", "Octo", "SketchwareAI-Notes");
+        String lit = (String) call(store214, "takeHighlight");
+        check("v2.1.4: the published app is lit once (case does not matter)",
+                "octo/sketchwareai-notes".equals(lit) && call(store214, "takeHighlight") == null
+                        && Boolean.TRUE.equals(call(store214, "is", notes, lit)), lit);
+        Object recentClear = call(recentPrefs, "edit");
+        call(recentClear, "clear");
+        call(recentClear, "commit");
+        if (storeBefore != null) java.nio.file.Files.write(storeCache.toPath(), storeBefore);
+        else storeCache.delete();
+        Class<?> session214 = c("com.sketchware.ai.github.GitHubSession");
+        String print = (String) call(session214, "print", "gho_example_token_value");
+        check("v2.1.4: a refusal can tell whether the token sent is the one made at sign-in (12 hex digits of its "
+                        + "SHA-256; the token itself is never kept outside the Keystore seal)",
+                print != null && print.matches("[0-9a-f]{12}") && print.equals(call(session214, "print", "gho_example_token_value"))
+                        && !print.equals(call(session214, "print", "gho_other")) && call(session214, "print", (Object) null) == null,
+                print);
+
         // --- a .swb with an entry outside its folder is refused
         File evilZip = new File(swb.getParentFile(), "evil.swb");
         try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(evilZip))) {

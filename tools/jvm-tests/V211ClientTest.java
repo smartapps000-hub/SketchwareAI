@@ -194,7 +194,8 @@ public class V211ClientTest {
         }
         if (api.equals("/users/ann")) {
             answer(x, 200, "{\"login\":\"ann\",\"name\":\"Ann Lee\",\"bio\":\"Makes small apps\",\"avatar_url\":"
-                    + "\"https://avatars.githubusercontent.com/u/9?v=4\",\"followers\":42,\"public_repos\":7}");
+                    + "\"https://avatars.githubusercontent.com/u/9?v=4\",\"followers\":42,\"public_repos\":7,"
+                    + "\"location\":\"Hyderabad, Telangana\",\"created_at\":\"2019-04-01T10:00:00Z\"}");
             return;
         }
         if (api.equals("/users/ghost-404")) {
@@ -413,7 +414,25 @@ public class V211ClientTest {
         check("v2.1.1: search: the store topic, the creator, the words in names and descriptions (encoded)",
                 decoded.equals("topic:sketchwareai-playstore user:ann notes app in:name,description") && !q.contains(" notes"),
                 decoded);
+        // v2.1.4: the profile alone (the Follow pill's followers, the creator's level and country)
+        Object profile = call(store, "profile", "tok", "ann");
+        String profileMissing = null;
+        try {
+            call(store, "profile", "tok", "ghost-404");
+        } catch (Exception e) {
+            profileMissing = e.getMessage();
+        }
+        check("v2.1.4: a creator's profile: followers, name, bio, Location and when the account was made; an account "
+                        + "that isn't there says so",
+                Integer.valueOf(42).equals(field(profile, "followers")) && "Ann Lee".equals(field(profile, "name"))
+                        && "Hyderabad, Telangana".equals(field(profile, "location"))
+                        && Long.valueOf(1554112800000L).equals(field(profile, "createdAt"))
+                        && profileMissing != null && profileMissing.contains("isn't on GitHub"),
+                field(profile, "createdAt") + " " + profileMissing);
         Object dev = call(store, "developer", "tok", "ann");
+        check("v2.1.4: the creator page reads the Location and the account's date too",
+                "Hyderabad, Telangana".equals(field(dev, "location")) && Long.valueOf(1554112800000L).equals(field(dev, "createdAt")),
+                field(dev, "location"));
         @SuppressWarnings("unchecked")
         List<Object> devApps = (List<Object>) field(dev, "apps");
         @SuppressWarnings("unchecked")
