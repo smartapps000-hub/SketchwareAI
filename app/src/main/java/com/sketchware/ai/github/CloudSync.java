@@ -1179,7 +1179,7 @@ public final class CloudSync {
             if (n == null) return false;
             android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(n);
             return caps == null || caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | LinkageError e) {
             return true;
         }
     }

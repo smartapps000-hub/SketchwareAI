@@ -455,6 +455,19 @@ public final class GitHubTest {
         }
         check("v2.1.1: Downloads = the APK and .swb download counts of the versions (not the parts list)",
                 Long.valueOf(17).equals(call(storeClass, "downloadsOf", java.util.Collections.singletonList(dl))), null);
+        Object dlParts = neu("com.sketchware.ai.github.ProjectRepo$Version");
+        for (String[] asset : new String[][]{{"Big.apk", "3"}, {"Big.swb.part000", "9"}, {"Big.swb.part001", "9"},
+                {"Big.swb.parts.json", "9"}}) {
+            Object a = neu("com.sketchware.ai.github.ProjectRepo$Asset");
+            set(a, "name", asset[0]);
+            set(a, "downloads", Long.parseLong(asset[1]));
+            @SuppressWarnings("unchecked")
+            List<Object> assets = (List<Object>) get(dlParts, "assets");
+            assets.add(a);
+        }
+        check("v2.1.3: a version in parts (no .swb) counts each import once, by its parts list (not per part)",
+                Long.valueOf(12).equals(call(storeClass, "downloadsOf", java.util.Collections.singletonList(dlParts))),
+                call(storeClass, "downloadsOf", java.util.Collections.singletonList(dlParts)));
         check("v2.1.1: an app's icon is its repository's playstore/icon.png on GitHub's file host",
                 "https://raw.githubusercontent.com/ann/SketchwareAI-Notes/main/playstore/icon.png".equals(call(store1, "iconUrl")),
                 call(store1, "iconUrl"));
@@ -1367,7 +1380,7 @@ public final class GitHubTest {
         check("v2.1.3: sizes in decimal units as Android's screens show them (142,824,153 bytes = 142.8 MB)",
                 "142.8 MB".equals(call(syncClass, "megabytes", 142_824_153L)) && "999 KB".equals(call(syncClass, "megabytes", 999_999L))
                         && "6.2 MB".equals(call(syncClass, "megabytes", 6_200_000L)), call(syncClass, "megabytes", 142_824_153L));
-        Class<?> store = c("com.sketchware.ai.github.PlayStore");
+        Class<?> store213 = c("com.sketchware.ai.github.PlayStore");
         Class<?> responseClass = c("com.sketchware.ai.github.GitHubHttp$Response");
         java.lang.reflect.Constructor<?> responseMake = responseClass.getDeclaredConstructor(int.class, String.class);
         responseMake.setAccessible(true);
@@ -1377,9 +1390,9 @@ public final class GitHubTest {
         set(withScope, "scopes", "repo, user:email, user:follow");
         Object unknownScope = responseMake.newInstance(403, "{}");
         check("v2.1.3: Follow refused for a sign-in without user:follow (from before v2.1.3) asks for Sign in again; "
-                        + "with it, a 404 is a real error", Boolean.TRUE.equals(call(store, "lacksFollowScope", noScope))
-                        && Boolean.FALSE.equals(call(store, "lacksFollowScope", withScope))
-                        && Boolean.FALSE.equals(call(store, "lacksFollowScope", unknownScope)), null);
+                        + "with it, a 404 is a real error", Boolean.TRUE.equals(call(store213, "lacksFollowScope", noScope))
+                        && Boolean.FALSE.equals(call(store213, "lacksFollowScope", withScope))
+                        && Boolean.FALSE.equals(call(store213, "lacksFollowScope", unknownScope)), null);
         check("v2.1.3: new sign-ins ask GitHub for repo, user:email and user:follow",
                 "repo user:email user:follow".equals(get(c("com.sketchware.ai.github.DeviceFlow"), "SCOPE")), null);
         // grouped Restore cards: pinned in front, else the newest; the marks
@@ -1394,11 +1407,11 @@ public final class GitHubTest {
         set(i3, "key", "c");
         set(i3, "time", 200L);
         @SuppressWarnings("unchecked")
-        List<Object> plain = (List<Object>) call(backups, "orderedItems", java.util.Arrays.asList(i1, i2, i3), null);
+        List<Object> plain213 = (List<Object>) call(backups, "orderedItems", java.util.Arrays.asList(i1, i2, i3), null);
         @SuppressWarnings("unchecked")
         List<Object> pinnedOrder = (List<Object>) call(backups, "orderedItems", java.util.Arrays.asList(i1, i2, i3), "a");
         check("v2.1.3: a group's versions: newest first; a pinned one in front, then the rest newest first; marks",
-                plain.get(0) == i2 && plain.get(1) == i3 && plain.get(2) == i1
+                plain213.get(0) == i2 && plain213.get(1) == i3 && plain213.get(2) == i1
                         && pinnedOrder.get(0) == i1 && pinnedOrder.get(1) == i2 && pinnedOrder.get(2) == i3
                         && "★ Pinned".equals(call(backups, "markOf", i1, "a", 300L, 3))
                         && "New".equals(call(backups, "markOf", i2, "a", 300L, 3))
@@ -1412,22 +1425,32 @@ public final class GitHubTest {
                         && "notes".equals(call(backups, "versionPart", "notes")), call(backups, "versionPart",
                 "My App v1.0 (com.my.app, 3) 2026-11-22T101500"));
         // a cancel reaches the job's helper threads (parts sent side by side)
-        Class<?> http = c("com.sketchware.ai.github.GitHubHttp");
+        Class<?> http213 = c("com.sketchware.ai.github.GitHubHttp");
         java.util.concurrent.CountDownLatch adopted = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch cancelledSeen = new java.util.concurrent.CountDownLatch(1);
         boolean[] helperSaw = {false, false};
+        Throwable[] helperError = {null};
         Thread jobThread = new Thread(() -> {
             Thread parent = Thread.currentThread();
             Thread helper = new Thread(() -> {
                 try {
-                    call(http, "adopt", parent);
-                    helperSaw[0] = (Boolean) call(http, "isCancelled");
+                    call(http213, "adopt", parent);
+                    helperSaw[0] = (Boolean) call(http213, "isCancelled");
                     adopted.countDown();
-                    for (int i = 0; i < 200 && !(Boolean) call(http, "isCancelled"); i++) Thread.sleep(10);
-                    helperSaw[1] = (Boolean) call(http, "isCancelled");
-                    call(http, "disown");
+                    // the cancel interrupts the helper (its sleep here, its connection in a real upload)
+                    for (int i = 0; i < 200 && !(Boolean) call(http213, "isCancelled"); i++) {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException interrupted) {
+                            // the interrupt flag is cleared; the cancel record stays
+                        }
+                    }
+                    helperSaw[1] = (Boolean) call(http213, "isCancelled");
+                    call(http213, "disown");
                     cancelledSeen.countDown();
                 } catch (Throwable t) {
+                    helperError[0] = t;
+                    adopted.countDown();
                     cancelledSeen.countDown();
                 }
             }, "BackupPartTest");
@@ -1439,11 +1462,11 @@ public final class GitHubTest {
         }, "JobThreadTest");
         jobThread.start();
         adopted.await(5, java.util.concurrent.TimeUnit.SECONDS);
-        call(http, "cancel", jobThread);
+        call(http213, "cancel", jobThread);
         cancelledSeen.await(5, java.util.concurrent.TimeUnit.SECONDS);
         jobThread.join(5000);
         check("v2.1.3: a helper thread of a job counts as cancelled once its job is (Cancel reaches every part)",
-                !helperSaw[0] && helperSaw[1], helperSaw[0] + " " + helperSaw[1]);
+                !helperSaw[0] && helperSaw[1], helperSaw[0] + " " + helperSaw[1] + " " + helperError[0]);
         // a lost connection: the job runs again by itself (a backup from where it stopped), then ends well
         java.util.concurrent.atomic.AtomicInteger tries = new java.util.concurrent.atomic.AtomicInteger();
         Object retryRunner = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {

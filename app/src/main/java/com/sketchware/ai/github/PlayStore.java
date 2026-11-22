@@ -903,14 +903,18 @@ public final class PlayStore {
     }
 
     /**
-     * GitHub's download counts of the versions' APK and .swb files (v2.1.3: a backup in parts counts once, by its parts
-     * list: every import of it reads that list once).
+     * GitHub's download counts of the versions' APK and .swb files. v2.1.3: a version whose backup is in parts (no .swb
+     * file) counts its parts list once per import (every import reads it once); a version with a .swb counts the .swb
+     * (older backups wrote a parts list beside a single file too).
      */
     static long downloadsOf(List<ProjectRepo.Version> versions) {
         long total = 0;
         for (ProjectRepo.Version ver : versions) {
+            boolean single = false;
+            for (ProjectRepo.Asset x : ver.assets) if (x.name != null && x.name.endsWith(".swb")) single = true;
             for (ProjectRepo.Asset x : ver.assets) {
-                if (x.name != null && (x.name.endsWith(".apk") || x.name.endsWith(".swb") || SwbParts.isManifest(x.name))) {
+                if (x.name == null) continue;
+                if (x.name.endsWith(".apk") || x.name.endsWith(".swb") || (!single && SwbParts.isManifest(x.name))) {
                     total += Math.max(0, x.downloads);
                 }
             }
