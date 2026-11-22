@@ -1140,7 +1140,23 @@ public final class CloudSync {
         if (runnerForTests != null && !autoRetryInTests) return false;
         if (!BACKUP.equals(job.kind) && !IMPORT.equals(job.kind)) return false;
         if (job.cancelled || job.deferred || job.stalled || GitHubHttp.isCancelled()) return false;
-        return !(e instanceof GitHubHttp.NoRetry) && !SyncDoctor.isStorageFull(e);
+        return !(e instanceof GitHubHttp.NoRetry) && !SyncDoctor.isStorageFull(e) && isNetwork(e);
+    }
+
+    /**
+     * v2.1.3 review (LOW): a lost or failed connection (also in a cause): no host / DNS, a socket closed or reset, a
+     * timeout, a TLS failure, an answer cut short. A local file error is not one (it isn't tried again by itself).
+     */
+    static boolean isNetwork(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            if (t instanceof java.net.UnknownHostException || t instanceof java.net.SocketException
+                    || t instanceof java.net.SocketTimeoutException || t instanceof javax.net.ssl.SSLException
+                    || t instanceof java.io.EOFException || t instanceof java.net.ProtocolException) {
+                return true;
+            }
+            if (t instanceof java.io.InterruptedIOException && !(t instanceof GitHubHttp.Cancelled)) return true;
+        }
+        return false;
     }
 
     private void waitToRetry(Job job, IOException e, int attempt) throws GitHubHttp.Cancelled {

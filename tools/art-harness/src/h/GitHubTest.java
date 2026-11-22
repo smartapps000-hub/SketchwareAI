@@ -1363,6 +1363,14 @@ public final class GitHubTest {
                         && Integer.valueOf(2).equals(call(repoClass, "partsFor", 3L * 1024 * 1024))
                         && Integer.valueOf(4).equals(call(repoClass, "partsFor", 6_500_000L))
                         && Integer.valueOf(13).equals(call(repoClass, "partsFor", 25L * 1024 * 1024 + 1)), null);
+        check("v2.1.3 review: larger backups take larger parts (about 48 at most; GitHub limits writes per minute): "
+                        + "200 MiB in 5 MiB parts, 1 GiB in 16 MiB parts",
+                Long.valueOf(2L * 1024 * 1024).equals(call(repoClass, "partBytesFor", 96L * 1024 * 1024))
+                        && Long.valueOf(5L * 1024 * 1024).equals(call(repoClass, "partBytesFor", 200L * 1024 * 1024))
+                        && Integer.valueOf(40).equals(call(repoClass, "partsFor", 200L * 1024 * 1024))
+                        && Long.valueOf(16L * 1024 * 1024).equals(call(repoClass, "partBytesFor", 1024L * 1024 * 1024))
+                        && Integer.valueOf(64).equals(call(repoClass, "partsFor", 1024L * 1024 * 1024)),
+                call(repoClass, "partBytesFor", 200L * 1024 * 1024));
         Object speed = neu("com.sketchware.ai.github.CloudSync$UploadSpeed");
         call(speed, "add", 1_000L, 0L);
         call(speed, "add", 5_000L, 400L * 1024);
@@ -1467,6 +1475,13 @@ public final class GitHubTest {
         jobThread.join(5000);
         check("v2.1.3: a helper thread of a job counts as cancelled once its job is (Cancel reaches every part)",
                 !helperSaw[0] && helperSaw[1], helperSaw[0] + " " + helperSaw[1] + " " + helperError[0]);
+        check("v2.1.3 review: only a network failure is tried again by itself (not a local file error)",
+                Boolean.TRUE.equals(call(syncClass, "isNetwork", new java.net.UnknownHostException("uploads.github.com")))
+                        && Boolean.TRUE.equals(call(syncClass, "isNetwork", new java.io.IOException("x",
+                        new java.net.SocketTimeoutException("read timed out"))))
+                        && Boolean.FALSE.equals(call(syncClass, "isNetwork", new java.io.FileNotFoundException("/x/y.swb")))
+                        && Boolean.FALSE.equals(call(syncClass, "isNetwork", new java.io.IOException("Can't create staging"))),
+                null);
         // a lost connection: the job runs again by itself (a backup from where it stopped), then ends well
         java.util.concurrent.atomic.AtomicInteger tries = new java.util.concurrent.atomic.AtomicInteger();
         Object retryRunner = proxy("com.sketchware.ai.github.CloudSync$Runner", (m, a) -> {

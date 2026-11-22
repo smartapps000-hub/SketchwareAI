@@ -743,6 +743,10 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     /** Whether the signed-in account follows the app's creator (null: not known yet). */
     private Boolean follows;
     private boolean followBusy;
+    /** Review (LOW): counts Follow taps; a read that started before a tap doesn't overwrite its result. */
+    private volatile int followTaps;
+    /** Review (LOW): the reviews couldn't be read (the Review button says so instead of "reading"). */
+    private volatile boolean reviewsFailed;
 
     /** Follow (white) / ✓ Following (accent), as the Private / Public pills show their state. */
     private void showFollow() {
@@ -760,10 +764,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private void loadFollow(String token) {
         if (token == null || followPill == null) return;
         String owner = current.owner;
+        int tapsBefore = followTaps;
         try {
             Boolean now = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.following(token, owner));
             ui(() -> {
                 if (current == null || !owner.equals(current.owner)) return;
+                // a tap since this read started decides the pill (its own answer follows)
+                if (followBusy || followTaps != tapsBefore) return;
                 follows = now;
                 showFollow();
             });
@@ -780,6 +787,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         if (followBusy) return;
         boolean on = !Boolean.TRUE.equals(follows);
         String owner = current.owner;
+        followTaps++;
         followBusy = true;
         follows = on;
         showFollow();
@@ -1094,11 +1102,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         try {
             String[] info = new String[3];
             List<PlayStore.Post> posts = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.posts(token, a.owner, a.repo, info));
+            reviewsFailed = false;
             ui(() -> {
                 discussionInfo = info;
                 showReviews(posts);
             });
         } catch (Exception e) {
+            reviewsFailed = true;
             String why = RepoViewerActivity.whyFailed(e);
             ui(() -> {
                 reviewsBox.removeAllViews();
@@ -1156,7 +1166,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             return;
         }
         if (discussionInfo == null) {
-            Toast.makeText(this, "Reading the reviews from GitHub…", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, reviewsFailed ? "The reviews couldn't be read from GitHub: tap Try again under Reviews."
+                    : "Reading the reviews from GitHub…", Toast.LENGTH_SHORT).show();
             return;
         }
         if (!"true".equals(discussionInfo[1])) {

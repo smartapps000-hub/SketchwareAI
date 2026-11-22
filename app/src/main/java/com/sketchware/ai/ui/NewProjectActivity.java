@@ -131,37 +131,58 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         // v1.9.8: never an id that still has folders (a project whose list file is damaged would lose its data).
         // v2.1.3 (owner's 22 Nov report: lag opening Create): lC.b() and lC.c() each read and decrypt every project's
         // list file: on a thread of their own; the screen shows at once, Create waits for the id
-        ((TextView) findViewById(R.id.np_subtitle)).setText("Project #…");
-        Thread ids = new Thread(() -> {
-            String id;
-            String name;
-            try {
-                id = com.sketchware.ai.project.ProjectIds.free(lC.b());
-                name = lC.c();
-            } catch (RuntimeException e) {
-                id = null;
-                name = null;
-            }
-            String freeId = id;
-            String freeName = name;
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                if (freeId == null) {
-                    ((TextView) findViewById(R.id.np_subtitle)).setText("The project list couldn't be read");
-                    return;
+        // v2.1.3 review (MEDIUM): re-created after Android stopped the app (an icon pick): the same id at once
+        String savedId = savedInstanceState == null ? null : savedInstanceState.getString(STATE_SC_ID);
+        if (savedId != null) {
+            scId = savedId;
+            ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
+        } else {
+            ((TextView) findViewById(R.id.np_subtitle)).setText("Project #…");
+            Thread ids = new Thread(() -> {
+                String id;
+                try {
+                    // review (LOW): the id is chosen and its folders made in one step, under the restores' lock (an
+                    // import picking an id meanwhile can't take the same one)
+                    synchronized (com.sketchware.ai.project.ProjectIds.RESTORE_LOCK) {
+                        id = com.sketchware.ai.project.ProjectIds.free(lC.b());
+                        makeFolders(id);
+                    }
+                } catch (RuntimeException e) {
+                    id = null;
                 }
-                scId = freeId;
-                ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
-                // what the user typed meanwhile stays
-                if (packageName.getText().length() == 0) {
-                    packageName.setText("com.my." + freeName.toLowerCase());
+                String name;
+                try {
+                    name = lC.c();
+                } catch (RuntimeException e) {
+                    // review (LOW): lC.c() throws for a project named "NewProject" + letters: the plain default
+                    name = "NewProject";
                 }
-                if (projectName.getText().length() == 0) projectName.setText(freeName);
-                makeFolders();
-            });
-        }, "NewProjectId");
-        ids.setDaemon(true);
-        ids.start();
+                String freeId = id;
+                String freeName = name;
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (freeId == null) {
+                        ((TextView) findViewById(R.id.np_subtitle)).setText("The project list couldn't be read");
+                        return;
+                    }
+                    scId = freeId;
+                    ((TextView) findViewById(R.id.np_subtitle)).setText("Project #" + scId);
+                    // what the user typed meanwhile stays
+                    if (packageName.getText().length() == 0) {
+                        packageName.setText("com.my." + freeName.toLowerCase());
+                    }
+                    if (projectName.getText().length() == 0) projectName.setText(freeName);
+                    // an icon picked before the id was known goes into the project's folder now
+                    if (pendingIcon != null) {
+                        choices.customIcon = saveIcon(pendingIcon);
+                        pendingIcon = null;
+                    }
+                    refreshPreview();
+                });
+            }, "NewProjectId");
+            ids.setDaemon(true);
+            ids.start();
+        }
         findViewById(R.id.np_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.np_cancel).setOnClickListener(v -> finish());
         findViewById(R.id.np_create).setOnClickListener(v -> create());
@@ -271,14 +292,35 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         makeFolders();
     }
 
-    /** As MyProjectSettingActivity: the project's folders and the icon file the icon picker writes to. */
     private void makeFolders() {
-        if (scId == null) return;
+        if (scId != null) makeFolders(scId);
+    }
+
+    /** As MyProjectSettingActivity: the project's folders and the icon file the icon picker writes to. */
+    private static void makeFolders(String id) {
         oB folders = new oB();
-        folders.f(wq.e() + File.separator + scId);
-        folders.f(wq.g() + File.separator + scId);
-        folders.f(wq.t() + File.separator + scId);
-        folders.f(wq.d() + File.separator + scId);
+        folders.f(wq.e() + File.separator + id);
+        folders.f(wq.g() + File.separator + id);
+        folders.f(wq.t() + File.separator + id);
+        folders.f(wq.d() + File.separator + id);
+    }
+
+    /** v2.1.3: the project's id across a re-creation (Android may stop the app while the icon picker is open). */
+    private static final String STATE_SC_ID = "np_sc_id";
+    /** v2.1.3: an icon picked while the id is still being read (saved when it arrives). */
+    private Bitmap pendingIcon;
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (scId != null) outState.putString(STATE_SC_ID, scId);
+    }
+
+    /** v2.1.3: a tap on Create or the icon before the id is read says so. */
+    private boolean idReady() {
+        if (scId != null) return true;
+        android.widget.Toast.makeText(this, "Reading the project list…", android.widget.Toast.LENGTH_SHORT).show();
+        return false;
     }
 
     @Override
@@ -300,15 +342,20 @@ public class NewProjectActivity extends BaseAppCompatActivity {
             int orientation = new ExifInterface(filename).getAttributeInt("Orientation", -1);
             Bitmap rotated = iB.a(bitmap, orientation != 3 ? orientation != 6 ? orientation != 8 ? 0 : 270 : 90 : 180);
             icon.setImageBitmap(rotated);
-            saveIcon(rotated);
-            choices.customIcon = true;
+            if (scId == null) {
+                // v2.1.3 review (MEDIUM): the id isn't read yet (a re-created screen): saved once it is
+                pendingIcon = rotated;
+                choices.customIcon = true;
+            } else {
+                choices.customIcon = saveIcon(rotated);
+            }
         } catch (Exception e) {
             SketchwareUtil.toastError("Couldn't read that image");
         }
     }
 
     private void pickIcon() {
-        if (scId == null) return;
+        if (!idReady()) return;
         File iconFile = iconFile();
         try {
             iconFile.getParentFile().mkdirs();
@@ -330,10 +377,15 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         return new File(wq.e() + File.separator + scId + File.separator + "icon.png");
     }
 
-    private void saveIcon(Bitmap bitmap) {
-        try (FileOutputStream out = new FileOutputStream(iconFile())) {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-        } catch (IOException ignored) {
+    /** True when the icon file was written (v2.1.3: the project is marked with an own icon only then). */
+    private boolean saveIcon(Bitmap bitmap) {
+        File file = iconFile();
+        //noinspection ResultOfMethodCallIgnored
+        file.getParentFile().mkdirs();
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            return bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -624,7 +676,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
 
     private void create() {
         // v2.1.3: the project's id is read on its own thread (a moment after the screen opens)
-        if (scId == null) return;
+        if (!idReady()) return;
         if (creating || mB.a()) return;
         if (!(packageValidator.b() & projectNameValidator.b() & appNameValidator.b())) {
             return;

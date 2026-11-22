@@ -59,9 +59,26 @@ public final class ProjectRepo {
     /** Parts (and the APK) sent at the same time. */
     static int PARALLEL = 4;
 
+    /**
+     * v2.1.3 review (MEDIUM): at most about this many parts per backup: GitHub limits writes to about 80 a minute and 500
+     * an hour, so a larger backup takes larger parts (whole MiB, up to 16 MiB, which every version since v2.0.4 restores).
+     */
+    static final int MOST_PARTS = 48;
+    static final long MAX_PART_BYTES = 16L * 1024 * 1024;
+
+    /** The part size of a backup of {@code size} bytes: 2 MiB up to 96 MiB, larger above (16 MiB at most). */
+    public static long partBytesFor(long size) {
+        long mib = 1024L * 1024;
+        long wanted = (size + MOST_PARTS - 1) / MOST_PARTS;
+        long rounded = (wanted + mib - 1) / mib * mib;
+        return Math.max(PART_BYTES, Math.min(MAX_PART_BYTES, rounded));
+    }
+
     /** How many files a backup of {@code size} bytes goes up as (1 = one .swb). */
     public static int partsFor(long size) {
-        return size < PARALLEL_MIN_BYTES ? 1 : (int) ((size + PART_BYTES - 1) / PART_BYTES);
+        if (size < PARALLEL_MIN_BYTES) return 1;
+        long part = partBytesFor(size);
+        return (int) ((size + part - 1) / part);
     }
     /** What a backup may weigh (release assets go up to 2 GB each; a phone's patience is the real limit). */
     public static final long MAX_BYTES = 1024L * 1024 * 1024;
@@ -598,11 +615,12 @@ public final class ProjectRepo {
             manifest.name = base + ".swb";
             manifest.size = size;
             manifest.sha256 = sha256;
-            manifest.partBytes = PART_BYTES;
+            long partBytes = partBytesFor(size);
+            manifest.partBytes = partBytes;
             int count = partsFor(size);
             for (int i = 0; i < count; i++) {
-                long offset = i * PART_BYTES;
-                long length = Math.min(PART_BYTES, size - offset);
+                long offset = i * partBytes;
+                long length = Math.min(partBytes, size - offset);
                 String asset = base + ".swb.part" + String.format(Locale.ENGLISH, "%03d", i);
                 work.add(new Upload(asset, swb, offset, length, "application/octet-stream",
                         "part " + (i + 1) + " of " + count));
@@ -647,6 +665,13 @@ public final class ProjectRepo {
         Version stored = parse(DeviceFlow.parse(p.body));
         if (existing != null) {
             for (Asset old : existing.assets) {
+                if (!uploaded.contains(old.name)) deleteAsset(old.id);
+            }
+        }
+        if (resume != null) {
+            // v2.1.3 review (LOW): a resumed draft keeps only this backup's files (a draft of an earlier version of the
+            // app may hold a single .swb of the same packed file)
+            for (Asset old : resume.assets) {
                 if (!uploaded.contains(old.name)) deleteAsset(old.id);
             }
         }

@@ -98,7 +98,9 @@ public class CloudSyncService extends Service {
         if (nm == null) return;
         try {
             nm.cancel(finishedId(key));
-            nm.cancel(ID_RUNNING + 1 + (key.hashCode() & 0xfff));
+            // review (LOW): the old range (7341 + 12 bits) also holds the app update's notices (7410, 7411)
+            int legacy = ID_RUNNING + 1 + (key.hashCode() & 0xfff);
+            if (legacy != UpdateNotice.ID && legacy != UpdateNotice.ID + 1) nm.cancel(legacy);
         } catch (RuntimeException ignored) {
             // nothing to take away
         }
