@@ -163,6 +163,18 @@
         <receiver
             android:name="com.sketchware.ai.github.CloudSyncService$Actions"
             android:exported="false" />
+        <!-- v2.1.4 (owner's 22 Nov ask: GitHub's e-mailed code into the app): only after the user turns on
+             Android's "Notification access" for Sketchware AI; used only while the sign-in window waits for a code
+             (unbound the rest of the time). No permission is added: only the system can bind it. -->
+        <service
+            android:name="com.sketchware.ai.github.OtpNotifications"
+            android:exported="true"
+            android:label="Sketchware AI: GitHub sign-in codes"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <!-- v2.0.4: Restore projects (GitHub and on this phone, full screen) and the Publish to GitHub screen -->
         <activity
             android:name="com.sketchware.ai.github.GitHubBackupsActivity"

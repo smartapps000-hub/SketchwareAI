@@ -396,6 +396,12 @@ public final class GitHubViews {
         public TextView otpTitle;
         public TextView openMail;
         public TextView pasteFill;
+        /** v2.1.4: where the code went ("Sent to b***@gmail.com"), or what to do next; hidden when empty. */
+        public TextView otpNote;
+        /** v2.1.4: presses the page's own "Send a code via email" (GitHub's "Confirm access" page). */
+        public TextView sendMail;
+        /** v2.1.4: codes from e-mail notifications (on: what it does; off: how to turn it on). */
+        public TextView otpAuto;
     }
 
     /**
@@ -510,8 +516,22 @@ public final class GitHubViews {
         otpTitle.setTextColor(color(R.color.ob_text));
         otp.addView(otpTitle, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
+        // v2.1.4: where the code went, or the next step (GitHub's "Confirm access" page)
+        TextView otpNote = new TextView(c, null, 0, R.style.Ob_Text_Label);
+        otpNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        otpNote.setTextColor(color(R.color.ob_text_2));
+        otpNote.setVisibility(View.GONE);
+        LinearLayout.LayoutParams onp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        onp.topMargin = dp(2);
+        otp.addView(otpNote, onp);
         LinearLayout otpButtons = new LinearLayout(c);
         otpButtons.setOrientation(LinearLayout.HORIZONTAL);
+        TextView sendMail = smallPill("E-mail me a code", true, true, null);
+        oneLine(sendMail);
+        sendMail.setContentDescription("E-mail me a code: GitHub sends the code to your e-mail");
+        sendMail.setVisibility(View.GONE);
+        otpButtons.addView(sendMail, new LinearLayout.LayoutParams(0, dp(40), 1f));
         TextView openMail = smallPill("Open Gmail", false, true, null);
         oneLine(openMail);
         openMail.setContentDescription("Open Gmail: GitHub's e-mail has the code");
@@ -519,6 +539,7 @@ public final class GitHubViews {
         oneLine(pasteFill);
         pasteFill.setContentDescription("Paste and fill: puts the code you copied into GitHub's field and verifies it");
         LinearLayout.LayoutParams ob = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        ob.leftMargin = 0;
         otpButtons.addView(openMail, ob);
         LinearLayout.LayoutParams pf = new LinearLayout.LayoutParams(0, dp(40), 1f);
         pf.leftMargin = dp(8);
@@ -527,6 +548,14 @@ public final class GitHubViews {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         obp.topMargin = dp(8);
         otp.addView(otpButtons, obp);
+        // v2.1.4: codes from e-mail notifications (the user's own switch in Android's settings)
+        TextView otpAuto = new TextView(c, null, 0, R.style.Ob_Text_Label);
+        otpAuto.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        otpAuto.setTextColor(color(R.color.ob_accent));
+        otpAuto.setPadding(0, dp(6), 0, dp(2));
+        otpAuto.setVisibility(View.GONE);
+        otp.addView(otpAuto, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams op = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         op.topMargin = dp(8);
@@ -568,6 +597,9 @@ public final class GitHubViews {
         a.otpTitle = otpTitle;
         a.openMail = openMail;
         a.pasteFill = pasteFill;
+        a.otpNote = otpNote;
+        a.sendMail = sendMail;
+        a.otpAuto = otpAuto;
         return a;
     }
 

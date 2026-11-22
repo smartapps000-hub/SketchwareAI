@@ -345,7 +345,7 @@ public final class SignIn {
                 if (g[0] != generation) return;
                 TokenStore.get(app).save(token, account.login, account.id);
             }
-            GitHubSession.noteSignedIn(app);
+            GitHubSession.noteSignedIn(app, token);
             // v2.1.2: kept in the sign-in's record on this phone
             SessionLog.record(app, "signed_in", "Signed in as @" + account.login);
             // v2.1.0: this phone is the account's phone now (another phone signs out at its next check)

@@ -160,6 +160,32 @@ public final class GitHubSession {
                 .putInt("signin_count", prefs.getInt("signin_count", 0) + 1).apply();
     }
 
+    /**
+     * v2.1.4 (owner's 22 Nov report: "signed out as soon as it updated", 401 Bad credentials after the update): a short
+     * fingerprint of the token made at this sign-in (12 hex digits of its SHA-256; the token itself is never kept
+     * outside the Keystore seal), so a refusal can say whether the token sent is still that one (GitHub ended it) or
+     * not (a fault on this phone).
+     */
+    static void noteSignedIn(Context context, String token) {
+        noteSignedIn(context);
+        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString("token_print", print(token)).apply();
+    }
+
+    static String print(String token) {
+        if (token == null) return null;
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return TokenStore.hex(d).substring(0, 12);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            return null;
+        }
+    }
+
+    /** v2.1.4: GitHub's own record of what happened to the app's sign-ins (it needs the user's GitHub sign-in). */
+    public static final String SECURITY_LOG_URL = "https://github.com/settings/security-log?q=action%3Aoauth_authorization";
+
     /** v2.1.0: GitHub accepted the saved sign-in just now (a backup, the re-check). */
     static void noteAccepted(Context context) {
         context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -189,6 +215,18 @@ public final class GitHubSession {
             if (count > 0) sb.append(" (sign-in ").append(count).append(" on this phone)");
             if (accepted > 0) sb.append(", last accepted ").append(f.format(new java.util.Date(accepted)));
             sb.append('.');
+        }
+        // v2.1.4: whether the token sent is the one this sign-in made (GitHub ended it) or not (a fault here)
+        String made = prefs.getString("token_print", null);
+        if (made != null) {
+            String sent = print(TokenStore.get(context).token());
+            if (made.equals(sent)) {
+                sb.append(" The token sent is the one made at this sign-in, unchanged on this phone: GitHub ended it on "
+                        + "its side (GitHub's security log says when and why).");
+            } else if (sent != null) {
+                sb.append(" The saved token isn't the one made at this sign-in (").append(made).append(" / ").append(sent)
+                        .append("): a fault on this phone; please send this line.");
+            }
         }
         return sb.toString();
     }

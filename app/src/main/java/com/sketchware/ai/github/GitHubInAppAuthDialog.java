@@ -101,6 +101,23 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private final Runnable stalled = this::pageStalled;
     private final Runnable countdown = this::countDown;
     private final Runnable devicePageCheck = this::devicePageCheck;
+    /** v2.1.4: the page is read for a code field / "Send a code via email" this often while the window is open. */
+    private static final long PROBE_MILLIS = 1500L;
+    private final Runnable probeTick = this::probeTick;
+    private final OtpNotifications.Sink otpSink = this::codeFromNotification;
+    /** v2.1.4: what the page itself showed at the last look ({@link OtpAssist#PROBE_SCRIPT}), else null. */
+    private OtpAssist.Probe probe;
+    /** v2.1.4: the code bar's last drawn state (the bar and the status line change only when it changes). */
+    private String otpState;
+    /** v2.1.4: when the window lost focus while the page had a code field (wall clock), else 0. */
+    private long leftForCodeAt;
+    /** v2.1.4: the last code put in by itself (copied or from a notification) and when: never the same twice. */
+    private String lastAutoCode;
+    private long lastAutoAt;
+    /** v2.1.4: a code that came (notification) before GitHub's page showed its field: filled when the field comes. */
+    private String waitingCode;
+    private String waitingFrom;
+    private long waitingAt;
     /**
      * Third review: when the device page asked for at the start (before the code) was requested
      * ({@code SystemClock.elapsedRealtime()}), 0 once a page started or failed: a code arriving meanwhile waits for it
@@ -203,6 +220,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         // v2.1.2: the verification-code bar
         chrome.openMail.setOnClickListener(v -> openMail());
         chrome.pasteFill.setOnClickListener(v -> pasteAndFill());
+        chrome.sendMail.setOnClickListener(v -> sendMailCode());
+        chrome.otpAuto.setOnClickListener(v -> explainAutoCodes());
         setOnDismissListener(d -> close());
         if (!TokenStore.supported()) {
             status("GitHub sign-in needs Android 6.0 or newer.", true);
@@ -213,6 +232,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         createWeb();
         signIn.addListener(listener);
         begin();
+        // v2.1.4: GitHub's code pages are found by what they show (they come at many addresses)
+        main.postDelayed(probeTick, PROBE_MILLIS);
     }
 
     @Override
@@ -231,7 +252,19 @@ public final class GitHubInAppAuthDialog extends Dialog {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus || closed || signIn.pending() == null) return;
+        if (closed) return;
+        // v2.1.4: away to copy GitHub's code (Gmail, an authenticator app): a code copied meanwhile goes in by itself
+        if (!hasFocus) {
+            if (codePage()) leftForCodeAt = System.currentTimeMillis();
+        } else {
+            long left = leftForCodeAt;
+            leftForCodeAt = 0;
+            if (left > 0 && codePage()) codeFromClipboard(left);
+            // the notification-access line may have changed in Android's settings
+            otpState = null;
+            otpBar(currentUri());
+        }
+        if (!hasFocus || signIn.pending() == null) return;
         signIn.pollNow();
         if (openedBrowser) status("Checking with GitHub…", false);
     }
@@ -286,6 +319,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         if (login != null) {
             signedIn = true;
+            OtpNotifications.disarm(otpSink);
             // v2.0.2: the browser tab of "Sign in via browser" closes too, back to the screen the window was opened on
             try {
                 activity.finishActivity(REQUEST_BROWSER);
@@ -365,6 +399,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (current == this) current = null;
         signIn.removeListener(listener);
         main.removeCallbacksAndMessages(null);
+        OtpNotifications.disarm(otpSink);
         for (WebView popup : new java.util.ArrayList<>(popups)) destroyQuietly(popup);
         popups.clear();
         // v2.0.1: closed before GitHub's approval: the sign-in pauses and keeps its code for the next window
@@ -959,7 +994,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
             web.evaluateJavascript(SOCIAL_SCRIPT, null);
         }
         toDevicePageIfSignedIn(uri);
+        probe = null;
         otpBar(uri);
+        probeNow();
         if (path.equals("/login/device") || path.equals("/login/device/")) {
             fill();
         } else if (path.startsWith("/login/device/")) {
@@ -972,30 +1009,124 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
     }
 
-    /** v2.1.2: what the verification-code bar is for on the page shown now ("email", "two-factor"), else null. */
+    /**
+     * v2.1.2: what the verification-code bar is for on the page shown now ("email", "two-factor", "login"; v2.1.4 also
+     * "code": a code field GitHub doesn't say more about, and "send": "Send a code via email" without a field yet),
+     * else null.
+     */
     private String otpKind;
+
+    /** v2.1.4: the page shown now has a field for a code (the bar's Paste & fill and the automatic fill work there). */
+    private boolean codePage() {
+        return "email".equals(otpKind) || "code".equals(otpKind) || "two-factor".equals(otpKind);
+    }
+
+    private Uri currentUri() {
+        String url = web == null ? null : web.getUrl();
+        return url == null ? null : Uri.parse(url);
+    }
+
+    /** v2.1.4: reads the page again for a code field / "Send a code via email" (and keeps reading while open). */
+    private void probeTick() {
+        if (closed) return;
+        main.removeCallbacks(probeTick);
+        main.postDelayed(probeTick, PROBE_MILLIS);
+        probeNow();
+    }
+
+    private void probeNow() {
+        if (closed || web == null || chrome == null || signedIn) return;
+        final WebView page = web;
+        Uri uri = currentUri();
+        if (uri == null || !"https".equals(uri.getScheme()) || !"github.com".equals(uri.getHost())) {
+            if (probe != null) {
+                probe = null;
+                otpBar(uri);
+            }
+            return;
+        }
+        try {
+            page.evaluateJavascript(OtpAssist.PROBE_SCRIPT, answer -> {
+                if (closed || page != web) return;
+                OtpAssist.Probe seen = OtpAssist.Probe.parse(OtpAssist.unquote(answer));
+                // a page between two loads answers nothing: the last look stands until the next one
+                if (seen == null) return;
+                probe = seen;
+                otpBar(currentUri());
+            });
+        } catch (RuntimeException ignored) {
+            // the WebView is going away
+        }
+    }
 
     /** v2.1.2: the bar shows on GitHub's verification pages only (an e-mailed code: with Open Gmail). */
     private void otpBar(Uri uri) {
         if (chrome == null || chrome.otp == null) return;
-        String kind = uri == null ? null : OtpAssist.pageKind(uri.getScheme(), uri.getHost(), uri.getPath());
+        String pathKind = uri == null ? null : OtpAssist.pageKind(uri.getScheme(), uri.getHost(), uri.getPath());
+        boolean onGitHub = uri != null && "https".equals(uri.getScheme()) && "github.com".equals(uri.getHost());
+        OtpAssist.Probe p = onGitHub ? probe : null;
+        // v2.1.4 (owner's 22 Nov report: no bar on "Confirm access" / "Enter the verification code sent to
+        // b***@gmail.com"): the page itself decides first; the address only when the page hasn't been read yet
+        String kind;
+        if (p != null && p.codeField) {
+            if (p.sentTo != null || "email".equals(pathKind)) kind = "email";
+            else if ("two-factor".equals(pathKind)) kind = "two-factor";
+            else kind = "code";
+        } else if (p != null && p.sendLink) {
+            kind = "send";
+        } else {
+            kind = pathKind;
+        }
         otpKind = kind;
+        boolean notifications = OtpNotifications.enabled(getContext());
+        String state = kind + "|" + (p == null ? "" : p.key()) + "|" + notifications;
+        if (state.equals(otpState)) return;
+        otpState = state;
+        boolean waits = "email".equals(kind) || "code".equals(kind) || "send".equals(kind);
+        if (waits) {
+            OtpNotifications.arm(getContext(), otpSink);
+        } else {
+            OtpNotifications.disarm(otpSink);
+        }
         if (kind == null) {
             chrome.otp.setVisibility(View.GONE);
             return;
         }
+        if (codePage()) fillWaitingCode();
         boolean login = "login".equals(kind);
-        boolean email = "email".equals(kind) || login;
+        boolean send = "send".equals(kind);
+        boolean email = "email".equals(kind) || "code".equals(kind) || login || send;
+        String sentTo = p == null ? null : p.sentTo;
+        boolean confirm = p != null && p.confirmAccess;
         // v2.1.3: on GitHub's sign-in page too, for the code it may e-mail after the password
-        chrome.otpTitle.setText(login ? "Code by e-mail?" : email ? "Email verification code"
-                : "Two-factor code");
+        String title;
+        if (send) title = confirm ? "Confirm access with an e-mailed code" : "Get a code by e-mail";
+        else if (login) title = "Code by e-mail?";
+        else if ("two-factor".equals(kind)) title = "Two-factor code";
+        else if (sentTo != null) title = "Code sent to " + sentTo;
+        else if ("email".equals(kind)) title = "Email verification code";
+        else title = "Verification code";
+        chrome.otpTitle.setText(title);
+        String note = null;
+        if (send) note = "GitHub sends a code to your account's e-mail.";
+        else if ("code".equals(kind)) note = "From GitHub's e-mail or your authenticator app.";
+        chrome.otpNote.setText(note == null ? "" : note);
+        chrome.otpNote.setVisibility(note == null ? View.GONE : View.VISIBLE);
+        chrome.sendMail.setVisibility(send ? View.VISIBLE : View.GONE);
         chrome.openMail.setVisibility(email ? View.VISIBLE : View.GONE);
-        // alone, Paste & fill takes the row without the gap it keeps beside Open Gmail
-        android.view.ViewGroup.LayoutParams lp = chrome.pasteFill.getLayoutParams();
-        if (lp instanceof android.widget.LinearLayout.LayoutParams) {
-            ((android.widget.LinearLayout.LayoutParams) lp).leftMargin = email ? (int) (8 * getContext().getResources()
-                    .getDisplayMetrics().density) : 0;
-            chrome.pasteFill.setLayoutParams(lp);
+        chrome.pasteFill.setVisibility(send ? View.GONE : View.VISIBLE);
+        // a pill beside another keeps an 8dp gap; the first one shown none
+        gap(chrome.openMail, send);
+        gap(chrome.pasteFill, email);
+        // v2.1.4: codes from e-mail notifications (the user's own switch in Android's settings)
+        if (email) {
+            chrome.otpAuto.setText(notifications ? "✓ Codes in GitHub's e-mail go in by themselves (notification access)"
+                    : "⚡ Fill codes from e-mail notifications · Turn on ›");
+            chrome.otpAuto.setTextColor(getContext().getResources().getColor(notifications ? R.color.ob_text_2
+                    : R.color.ob_accent));
+            chrome.otpAuto.setVisibility(View.VISIBLE);
+        } else {
+            chrome.otpAuto.setVisibility(View.GONE);
         }
         chrome.otp.setVisibility(View.VISIBLE);
         if (login) {
@@ -1003,8 +1134,194 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     + "Paste & fill.", false);
             return;
         }
-        status(email ? "GitHub e-mailed you a code: copy it, then tap Paste & fill." : "Copy the code from your "
-                + "authenticator app, then tap Paste & fill.", false);
+        if (send) {
+            status("Tap E-mail me a code (GitHub's \"Send a code via email\"), or choose another way on GitHub's page.",
+                    false);
+            return;
+        }
+        if ("two-factor".equals(kind)) {
+            status("Copy the code from your authenticator app: it goes in by itself when you come back (or tap Paste & "
+                    + "fill).", false);
+            return;
+        }
+        status(notifications ? "GitHub's code goes in by itself when its e-mail arrives (or copy it and tap Paste & fill)."
+                : "Open Gmail and copy GitHub's code: it goes in by itself when you come back (or tap Paste & fill).",
+                false);
+    }
+
+    private void gap(View pill, boolean after) {
+        android.view.ViewGroup.LayoutParams lp = pill.getLayoutParams();
+        if (lp instanceof android.widget.LinearLayout.LayoutParams) {
+            ((android.widget.LinearLayout.LayoutParams) lp).leftMargin = after ? (int) (8 * getContext().getResources()
+                    .getDisplayMetrics().density) : 0;
+            pill.setLayoutParams(lp);
+        }
+    }
+
+    /** v2.1.4: presses GitHub's own "Send a code via email" on the page (the user's tap). */
+    private void sendMailCode() {
+        if (web == null) return;
+        final WebView page = web;
+        page.evaluateJavascript(OtpAssist.SEND_SCRIPT, answer -> {
+            if (closed || page != web) return;
+            if ("clicked".equals(OtpAssist.unquote(answer))) {
+                OtpNotifications.arm(getContext(), otpSink);
+                status(OtpNotifications.enabled(getContext()) ? "GitHub is e-mailing you a code: it goes in here by itself "
+                        + "when the e-mail arrives." : "GitHub is e-mailing you a code. Open Gmail, copy it and come back: "
+                        + "it goes in by itself.", false);
+                main.postDelayed(this::probeNow, 1200);
+            } else {
+                status("GitHub's page has no \"Send a code via email\" right now: choose a way on the page.", true);
+                probeNow();
+            }
+        });
+    }
+
+    /** v2.1.4: what codes from e-mail notifications do, then Android's own switch for it. */
+    private void explainAutoCodes() {
+        if (OtpNotifications.enabled(getContext())) {
+            status("Codes in GitHub's e-mail go in by themselves while this window waits for one. Turn it off in "
+                    + "Android's Settings → Notification access.", false);
+            return;
+        }
+        String text = "Sketchware AI can take GitHub's code from your e-mail app's notification and put it into GitHub's "
+                + "field here; GitHub's own Verify is then pressed.\n\n"
+                + "• Only while this sign-in window waits for a code.\n"
+                + "• Only notifications that mention GitHub and hold a 6- or 8-digit code.\n"
+                + "• Nothing is kept or sent anywhere; turn it off in the same place.\n\n"
+                + "Next, Android shows Notification access: turn on Sketchware AI. If it says \"Restricted setting\" "
+                + "(apps installed from a file), tap App info → ⋮ (top right) → Allow restricted settings, then turn it on.";
+        try {
+            new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                    .setTitle("Codes from e-mail notifications")
+                    .setMessage(text)
+                    .setPositiveButton("Open settings", (d, w) -> openListenerSettings())
+                    .setNeutralButton("App info", (d, w) -> openAppInfo())
+                    .setNegativeButton("Not now", null)
+                    .show();
+        } catch (RuntimeException e) {
+            openListenerSettings();
+        }
+    }
+
+    private void openListenerSettings() {
+        Context context = getContext();
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= 30) {
+            intent = new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                            OtpNotifications.component(context).flattenToString());
+        } else {
+            intent = new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+        }
+        try {
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return;
+        } catch (RuntimeException ignored) {
+            // the detail page isn't on this phone: the list
+        }
+        try {
+            context.startActivity(new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            status("This phone has no Notification access page: copy the code from the e-mail and tap Paste & fill.",
+                    true);
+        }
+    }
+
+    private void openAppInfo() {
+        Context context = getContext();
+        try {
+            context.startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.getPackageName(), null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            status("App info didn't open: open Settings → Apps → Sketchware AI.", true);
+        }
+    }
+
+    /** v2.1.4: a code in the e-mail app's notification (the user turned notification access on). */
+    private void codeFromNotification(String code, String from) {
+        main.post(() -> {
+            if (closed) return;
+            if (codePage()) {
+                autoFill(code, from);
+            } else {
+                // the e-mail came before GitHub's page showed its field: filled when the field comes
+                waitingCode = code;
+                waitingFrom = from;
+                waitingAt = SystemClock.elapsedRealtime();
+                status("Code from " + from + " ready: it goes in when GitHub's page shows its field.", false);
+                probeNow();
+            }
+        });
+    }
+
+    private void fillWaitingCode() {
+        String code = waitingCode;
+        if (code == null) return;
+        waitingCode = null;
+        if (SystemClock.elapsedRealtime() - waitingAt > 10 * 60_000L) return;
+        autoFill(code, waitingFrom);
+    }
+
+    /** v2.1.4: back from Gmail / an authenticator app: a code copied while away goes in by itself. */
+    private void codeFromClipboard(long leftAt) {
+        android.content.ClipboardManager clip = (android.content.ClipboardManager) getContext()
+                .getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clip == null) return;
+        CharSequence copied;
+        try {
+            if (!clip.hasPrimaryClip() || clip.getPrimaryClip() == null || clip.getPrimaryClip().getItemCount() == 0) {
+                return;
+            }
+            android.content.ClipDescription d = clip.getPrimaryClipDescription();
+            long at = d == null ? 0 : d.getTimestamp();
+            // only a code copied while the window was away (Android keeps when a clip was set)
+            if (at <= 0) return;
+            boolean wall = at > 1_000_000_000_000L;
+            long since = wall ? leftAt : SystemClock.elapsedRealtime() - (System.currentTimeMillis() - leftAt);
+            if (at < since - 2000) return;
+            copied = clip.getPrimaryClip().getItemAt(0).coerceToText(getContext());
+        } catch (RuntimeException e) {
+            return;
+        }
+        String code = OtpAssist.codeFrom(copied);
+        if (code != null) autoFill(code, "the clipboard");
+    }
+
+    /** v2.1.4: a code that came by itself (never the same one twice in two minutes). */
+    private void autoFill(String code, String from) {
+        if (closed || web == null || code == null) return;
+        long now = SystemClock.elapsedRealtime();
+        if (code.equals(lastAutoCode) && now - lastAutoAt < 120_000L) return;
+        lastAutoCode = code;
+        lastAutoAt = now;
+        fillCode(code, from);
+    }
+
+    private void fillCode(String code, String from) {
+        final WebView page = web;
+        page.evaluateJavascript(OtpAssist.fillScript(code), result -> {
+            if (closed || page != web) return;
+            String r = result == null ? "" : result.replace("\"", "");
+            if ("none".equals(r)) {
+                if (from != null) {
+                    // the field isn't there yet: kept for the moment it comes
+                    waitingCode = code;
+                    waitingFrom = from;
+                    waitingAt = SystemClock.elapsedRealtime();
+                    lastAutoCode = null;
+                    status("Code from " + from + " ready: it goes in when GitHub's page shows its field.", false);
+                    return;
+                }
+                status("login".equals(otpKind) ? "No code field on this page: GitHub asks for an e-mailed code after "
+                        + "your password. Sign in first." : "This GitHub page has no code field yet: wait for it to load, "
+                        + "then tap Paste & fill again.", true);
+            } else {
+                status("Code " + code + (from == null ? "" : " from " + from) + " filled in: GitHub is checking it…",
+                        false);
+            }
+        });
     }
 
     /** v2.1.2: Gmail (else the phone's e-mail app); the sign-in window stays as it is. */
@@ -1029,8 +1346,10 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.1.2: the code the user copied into GitHub's field on this page (GitHub's own Verify is then pressed). */
     private void pasteAndFill() {
         if (web == null || otpKind == null) return;
-        Uri now = web.getUrl() == null ? null : Uri.parse(web.getUrl());
-        if (now == null || OtpAssist.pageKind(now.getScheme(), now.getHost(), now.getPath()) == null) {
+        Uri now = currentUri();
+        // v2.1.4: a page GitHub shows its code field on (read from the page), or one of its code addresses
+        boolean field = probe != null && probe.codeField;
+        if (!field && (now == null || OtpAssist.pageKind(now.getScheme(), now.getHost(), now.getPath()) == null)) {
             otpBar(now);
             return;
         }
@@ -1047,21 +1366,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         String code = OtpAssist.codeFrom(copied);
         if (code == null) {
-            status("No 6- or 8-digit code was copied. Copy the code" + ("email".equals(otpKind) ? " from GitHub's e-mail"
-                    : "") + ", then tap Paste & fill.", true);
+            status("No 6- or 8-digit code was copied. Copy the code" + ("two-factor".equals(otpKind) ? ""
+                    : " from GitHub's e-mail") + ", then tap Paste & fill.", true);
             return;
         }
-        web.evaluateJavascript(OtpAssist.fillScript(code), result -> {
-            if (closed) return;
-            String r = result == null ? "" : result.replace("\"", "");
-            if ("none".equals(r)) {
-                status("login".equals(otpKind) ? "No code field on this page: GitHub asks for an e-mailed code after "
-                        + "your password. Sign in first." : "This GitHub page has no code field yet: wait for it to load, "
-                        + "then tap Paste & fill again.", true);
-            } else {
-                status("Code " + code + " filled in: GitHub is checking it…", false);
-            }
-        });
+        fillCode(code, null);
     }
 
     private void pageSlow() {

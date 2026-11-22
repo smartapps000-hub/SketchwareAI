@@ -122,6 +122,8 @@ public final class DrawerAccountCard {
         if (trouble) {
             wrap(status, profile.problem);
             status.setTextColor(v.color(R.color.ob_error));
+            // v2.1.4 (owner's 22 Nov report): GitHub's own record of why it ended the sign-in, one tap away
+            whyLink(status, profile.problem);
             renew.setVisibility(View.VISIBLE);
             renew.setOnClickListener(x -> actions.signIn());
         } else {
@@ -135,6 +137,7 @@ public final class DrawerAccountCard {
             }
             if (line.length() == 0) line.append("Backups go to your private repository ").append(CloudBackup.REPO);
             wrap(status, line.toString());
+            status.setMovementMethod(null);
             status.setTextColor(v.color(R.color.ob_text_2));
             renew.setVisibility(View.GONE);
         }
@@ -152,6 +155,39 @@ public final class DrawerAccountCard {
         card.setOnClickListener(null);
         card.setClickable(false);
         card.setContentDescription("GitHub account @" + profile.login);
+    }
+
+    /**
+     * v2.1.4: "Why? GitHub's security log ›" after the refusal's words: GitHub's own record (sign-ins ended, by whom and
+     * why) opens in the browser.
+     */
+    private static void whyLink(TextView status, String problem) {
+        String why = "Why? GitHub's security log ›";
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(problem).append("  ");
+        int start = text.length();
+        text.append(why);
+        text.setSpan(new android.text.style.ClickableSpan() {
+            @Override
+            public void onClick(View widget) {
+                try {
+                    widget.getContext().startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(GitHubSession.SECURITY_LOG_URL))
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                } catch (RuntimeException e) {
+                    android.widget.Toast.makeText(widget.getContext(), "No browser to open GitHub's security log",
+                            android.widget.Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void updateDrawState(android.text.TextPaint ds) {
+                ds.setColor(0xFFFFB877);
+                ds.setUnderlineText(false);
+                ds.setFakeBoldText(true);
+            }
+        }, start, text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        status.setText(text);
+        status.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
     }
 
     /** v2.0.5: one line, never wrapped; a long value keeps its start and end ("bammidieswar…@gmail.com"). */
