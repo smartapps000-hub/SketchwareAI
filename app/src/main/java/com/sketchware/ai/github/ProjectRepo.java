@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import mod.jbk.util.LogUtil;
+
 /**
  * v2.0.4 (owner's 16 Nov directive "one dedicated repository per project, versioned releases and assets, 5 versions with
  * a Standard pin, instant Public / Private"): every project backed up to GitHub has its own repository
@@ -656,6 +658,11 @@ public final class ProjectRepo {
         if (progress != null) progress.saving();
 
         // publish (a new version) or update (the same version again), then the old files of that version go
+        if (resume != null) {
+            // v2.1.3 review (LOW): a resumed draft keeps only this backup's files (a draft of an earlier version of the
+            // app may hold a single .swb of the same packed file), removed while it is still a draft
+            cleanUp(resume.assets, uploaded);
+        }
         JsonObject patch = new JsonObject();
         patch.addProperty("body", body(backup.notes, facts));
         if (backup.title != null) patch.addProperty("name", backup.title);
@@ -663,18 +670,7 @@ public final class ProjectRepo {
         GitHubHttp.Response p = GitHubHttp.api("PATCH", path("/releases/" + releaseId), token, patch.toString());
         if (!p.ok()) throw CloudBackup.http("Saving the release " + tag, p);
         Version stored = parse(DeviceFlow.parse(p.body));
-        if (existing != null) {
-            for (Asset old : existing.assets) {
-                if (!uploaded.contains(old.name)) deleteAsset(old.id);
-            }
-        }
-        if (resume != null) {
-            // v2.1.3 review (LOW): a resumed draft keeps only this backup's files (a draft of an earlier version of the
-            // app may hold a single .swb of the same packed file)
-            for (Asset old : resume.assets) {
-                if (!uploaded.contains(old.name)) deleteAsset(old.id);
-            }
-        }
+        if (existing != null) cleanUp(existing.assets, uploaded);
         prune();
         if (stored == null) {
             stored = new Version();
@@ -904,16 +900,53 @@ public final class ProjectRepo {
     }
 
     /** Removes an asset of that name from the release, if there is one (a half-finished try). */
-    private void removeAsset(long releaseId, String assetName) throws IOException, GitHubException {
-        GitHubHttp.Response r = GitHubHttp.api("GET", path("/releases/" + releaseId + "/assets?per_page=100"), token, null);
-        if (!r.ok()) return;
-        try {
-            for (JsonElement e : JsonParser.parseString(r.body).getAsJsonArray()) {
-                JsonObject o = e.getAsJsonObject();
-                if (assetName.equals(DeviceFlow.string(o, "name"))) deleteAsset(number(o));
+    /**
+     * v2.1.3 review (LOW): the files of a release that this backup doesn't name are removed, best effort: the backup is
+     * stored already (or still a draft), so a refused or dropped removal (a write limit, a 5xx) is left for the next backup
+     * instead of failing this one; stops at the first refusal (no stream of refused writes).
+     */
+    private void cleanUp(List<Asset> assets, Set<String> keep) throws GitHubHttp.Cancelled {
+        for (Asset old : assets) {
+            if (keep.contains(old.name)) continue;
+            GitHubHttp.stopIfCancelled();
+            try {
+                deleteAsset(old.id);
+            } catch (GitHubHttp.Cancelled e) {
+                throw e;
+            } catch (IOException | GitHubException e) {
+                LogUtil.d("ProjectRepo", "Old file left for the next backup: " + old.name + " (" + e.getMessage() + ")");
+                return;
             }
-        } catch (RuntimeException ignored) {
-            // the next try says what is wrong
+        }
+    }
+
+    private void removeAsset(long releaseId, String assetName) throws IOException, GitHubException {
+        // v2.1.3 review (LOW): by the id known from the release when there is one; else through every page of its files
+        Asset known = present.get(assetName);
+        if (known != null && known.id > 0) {
+            deleteAsset(known.id);
+            present.remove(assetName);
+            return;
+        }
+        for (int page = 1; page <= 10; page++) {
+            GitHubHttp.Response r = GitHubHttp.api("GET", path("/releases/" + releaseId + "/assets?per_page=100&page=" + page),
+                    token, null);
+            if (!r.ok()) return;
+            int seen = 0;
+            try {
+                for (JsonElement e : JsonParser.parseString(r.body).getAsJsonArray()) {
+                    seen++;
+                    JsonObject o = e.getAsJsonObject();
+                    if (assetName.equals(DeviceFlow.string(o, "name"))) {
+                        deleteAsset(number(o));
+                        return;
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // the next try says what is wrong
+                return;
+            }
+            if (seen < 100) return;
         }
     }
 

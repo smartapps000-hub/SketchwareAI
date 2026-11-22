@@ -1148,7 +1148,9 @@ public final class CloudSync {
      * timeout, a TLS failure, an answer cut short. A local file error is not one (it isn't tried again by itself).
      */
     static boolean isNetwork(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
+        int depth = 0;
+        for (Throwable t = e; t != null && depth++ < 10; t = t.getCause() == t ? null : t.getCause()) {
+            if (t instanceof GitHubHttp.NoRetry) return false;
             if (t instanceof java.net.UnknownHostException || t instanceof java.net.SocketException
                     || t instanceof java.net.SocketTimeoutException || t instanceof javax.net.ssl.SSLException
                     || t instanceof java.io.EOFException || t instanceof java.net.ProtocolException) {

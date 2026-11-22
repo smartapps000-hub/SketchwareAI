@@ -144,6 +144,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
                     // review (LOW): the id is chosen and its folders made in one step, under the restores' lock (an
                     // import picking an id meanwhile can't take the same one)
                     synchronized (com.sketchware.ai.project.ProjectIds.RESTORE_LOCK) {
+                        idLockTaken = true;
                         id = com.sketchware.ai.project.ProjectIds.free(lC.b());
                         makeFolders(id);
                     }
@@ -176,12 +177,20 @@ public class NewProjectActivity extends BaseAppCompatActivity {
                     if (pendingIcon != null) {
                         choices.customIcon = saveIcon(pendingIcon);
                         pendingIcon = null;
+                        if (!choices.customIcon) iconNotSaved();
                     }
                     refreshPreview();
                 });
             }, "NewProjectId");
             ids.setDaemon(true);
             ids.start();
+            // review (LOW): a restore or import holding the project list makes the id wait: say so after a moment
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (scId == null && !isFinishing() && !isDestroyed()) {
+                    ((TextView) findViewById(R.id.np_subtitle)).setText(idLockTaken
+                            ? "Project #… · reading the project list" : "Project #… · waiting for a restore to finish");
+                }
+            }, 1500);
         }
         findViewById(R.id.np_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.np_cancel).setOnClickListener(v -> finish());
@@ -307,6 +316,8 @@ public class NewProjectActivity extends BaseAppCompatActivity {
 
     /** v2.1.3: the project's id across a re-creation (Android may stop the app while the icon picker is open). */
     private static final String STATE_SC_ID = "np_sc_id";
+    /** v2.1.3 review: the id's thread holds the restores' lock (else a restore or import holds it). */
+    private volatile boolean idLockTaken;
     /** v2.1.3: an icon picked while the id is still being read (saved when it arrives). */
     private Bitmap pendingIcon;
 
@@ -316,10 +327,18 @@ public class NewProjectActivity extends BaseAppCompatActivity {
         if (scId != null) outState.putString(STATE_SC_ID, scId);
     }
 
+    /** v2.1.3 review (LOW): the picked icon couldn't be written: the tile shows the app's letters again and says so. */
+    private void iconNotSaved() {
+        if (monogram != null) icon.setImageDrawable(monogram);
+        refreshPreview();
+        SketchwareUtil.toastError("Couldn't save that icon (is the phone's storage full?)");
+    }
+
     /** v2.1.3: a tap on Create or the icon before the id is read says so. */
     private boolean idReady() {
         if (scId != null) return true;
-        android.widget.Toast.makeText(this, "Reading the project list…", android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, "Reading the project list (a restore in progress finishes first)…",
+                android.widget.Toast.LENGTH_SHORT).show();
         return false;
     }
 
@@ -348,6 +367,7 @@ public class NewProjectActivity extends BaseAppCompatActivity {
                 choices.customIcon = true;
             } else {
                 choices.customIcon = saveIcon(rotated);
+                if (!choices.customIcon) iconNotSaved();
             }
         } catch (Exception e) {
             SketchwareUtil.toastError("Couldn't read that image");

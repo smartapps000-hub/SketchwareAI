@@ -316,7 +316,8 @@ public final class GitHubHttp {
         while (left > 0) {
             long n = in.skip(left);
             if (n <= 0) {
-                if (in.read() < 0) throw new java.io.EOFException("The file is shorter than expected");
+                // v2.1.3 review (nit): the phone's own file, not the network (never tried again by itself)
+                if (in.read() < 0) throw new NoRetry("The file is shorter than expected", null);
                 n = 1;
             }
             left -= n;
