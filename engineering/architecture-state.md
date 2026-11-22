@@ -1561,3 +1561,48 @@ screenshots (9 points). Record: `engineering/v2.1.2-verification.md`.
   corners sampled along their arcs with the edge offset added (`HoneyDropBar.onDraw`, window 0 only at the bar's ends):
   an edge tab's crest grows out of the corner (v2.1.1 had a 4-5 dp step where the arc ended).
 
+
+## v2.1.3 additions (22 Nov 2026): parallel parts, retries by themselves, glass notifications, grouped Restore, Play Store hero, Follow
+
+Owner's 22 Nov phone review of v2.1.2 (11 screenshots, in Telugu). Record: `engineering/v2.1.3-verification.md`.
+
+- **Update card** (`UpdateCard`): "UPDATE AVAILABLE" Sora bold 26sp in `ob_error` (#FF8A65, the colour of a failed
+  percentage), the version step and a REQUIRED tag (`ob_amber_pill`), the reason, "KEY FEATURES" with a 44dp amber line and
+  numbered points (`update_notes`), "BUGS FIXED · MORE EFFICIENT" with ticks (`update_fixes`, new in app-control.json, up
+  to three lines), Later (glass) beside Update (`ob_amber_pill_state`, `ob_ic_download` and the label centred together).
+- **Uploads** (`ProjectRepo.sendAll`): a backup from `PARALLEL_MIN_BYTES` (3 MiB) goes as `PART_BYTES` (2 MiB) parts and the
+  APK, `PARALLEL` (4) at a time on helper threads of the job (`GitHubHttp.adopt` / `disown`: a cancel, pause or watchdog stop
+  of the job reaches them; `isCancelled` reads the parent's cancel); one rising sum of bytes (`Sent`); a part that fails for
+  good stops the parts not started, the ones on their way finish (they count for the next try's resume). The parts list
+  allows any part size up to 16 MiB since v2.0.4, so older versions restore these. A cancel that closed the connection is
+  reported as a cancel (`GitHubHttp.uploadAsset`).
+- **Retries by themselves** (`CloudSync.runWithRetries`): a BACKUP or IMPORT job that ends with an IOException other than a
+  stop, `NoRetry` or a full phone runs again after 5 / 15 / 30 s and once Android has a network with internet again (up to
+  2 more minutes each); "Connection lost (…). Trying again in N s (1 of 3); the backup goes on from where it stopped…". The
+  packed .swb is the checkpoint (v2.0.5) and the draft keeps the parts already sent.
+- **Notices** (`CloudSyncService`): the end notice of a job goes when that job runs again (`clearFinished`, at a tap and
+  when a job starts; also the old v2.0.4-v2.1.2 id); end notices have their own id range (`finishedId`, 21000 + 12 bits).
+  `GlassNotice`: the running / done / failed and the update notifications as a dark glass card (RemoteViews,
+  `DecoratedCustomViewStyle`, `ob_notification_glass(_big).xml`: LinearLayout, ImageView, TextView, ProgressBar, plain
+  shapes `ob_notif_card` / `ob_notif_tile` / `ob_notif_progress` only).
+- **Restore** (`GitHubBackupsActivity.groupCard`): On this phone groups .swb files by project (`backups/<project>/`, else the
+  name before " v1…" / "_v1…"; `phoneGroups`, `projectPart`, `versionPart`), Demo groups demos by name; each card: tile,
+  name, the shown version's line, Restore / Open at the right of the title row; with more than one version a selector
+  (`orderedItems`: a pinned one in front, else the newest; `markOf`: ★ Pinned / New) and ★ Pin (SharedPreferences
+  `sketchware_ai_restore_pins`); Demo extras: Public / Private (opens Publish) and Share once the demo has a GitHub record of
+  this account, else Delete. `slimCard` removed.
+- **Play Store**: Publish pill in the header (`addPublishButton`, the row removed); hero = 52dp tile, title in `ob_orange`
+  one line, publish line, pills @creator (opens the creator page) / version / Follow (`heroPill`), a hairline, the four
+  counters inside (Like / Share press on `ob_pill16_state_clear`); actions Install APK, .SWB, (Demo when there is a video),
+  GitHub, Review (`reviewTapped`); "About this app" with two lines (tap: all). Follow: `PlayStore.following` (GET
+  /user/following/{login}), `follow` (PUT / DELETE), `lacksFollowScope` (403 / 404 without `user:follow` in X-OAuth-Scopes:
+  "Sign in again to follow"); `DeviceFlow.SCOPE` "repo user:email user:follow". `downloadsOf` counts a version's parts list
+  when it has no .swb.
+- **Speed**: `HoneyDropBar.OPEN_AT` 0.14 (~160 ms after the tap; 0.40 = 460 ms before); tab fades `ob_tab_in` / `ob_tab_hold` /
+  `ob_tab_out` (150 ms; Android's fade_in / fade_out are 500 ms) on open (MainActivity, GC's Create), Back to Home and Create's
+  close (TabScreens); `NewProjectActivity` reads `lC.b()` / `lC.c()` (each decrypts every project's list file) on its own
+  thread, Create and the icon picker wait for the id. `CloudSync.megabytes` and the viewer's sizes in decimal units.
+- **Code helper**: `OtpAssist.pageKind` "login" on github.com `/login…` and `/session(s)…` (not the device-code, OAuth,
+  passkey or recovery pages): the bar shows there too ("Code by e-mail?").
+- **Gson 2.15.0** (2.9.0 before); the precompiled jars use `Gson.fromJson / toJson`, `GsonBuilder.create /
+  excludeFieldsWithoutExposeAnnotation`, `TypeToken.getType` only.

@@ -1027,6 +1027,15 @@
       "checks": [
         "images out/v212_*.png"
       ]
+    },
+    {
+      "id": "Renders V213Test",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v213.sh)",
+      "content": "update card (required / not), the notification card through RemoteViews.apply (running, retrying, done, failed, update), Restore's three tabs with grouped cards, the Play Store list (Publish in the header) and app page (Follow / Following)",
+      "checks": [
+        "images out/v213_*.png",
+        "RemoteViews.apply applied (LinearLayout) x5"
+      ]
     }
   ]
 }

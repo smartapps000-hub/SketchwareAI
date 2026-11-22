@@ -381,6 +381,24 @@
       "file": "Settings.Secure.ANDROID_ID documentation: Android 8.0+ a 64-bit value unique to each combination of app signing key, user and device",
       "purpose": "v2.1.2: SingleDeviceGuard device_key (the same phone across reinstalls)",
       "available": true
+    },
+    {
+      "id": "github-follow-api",
+      "file": "GitHub REST: PUT / DELETE /user/following/{username} (204), GET /user/following/{username} (204 / 404); OAuth scope user:follow; X-OAuth-Scopes header",
+      "purpose": "v2.1.3: Play Store Follow",
+      "available": true
+    },
+    {
+      "id": "gson-2.15.0",
+      "file": "com.google.code.gson:gson:2.15.0 POM and jar from Maven Central (Apache-2.0; latest release in maven-metadata.xml, 24 Oct 2026)",
+      "purpose": "v2.1.3: Gson update",
+      "available": true
+    },
+    {
+      "id": "remoteviews-allowed",
+      "file": "Android RemoteViews: allowed layouts and views (@RemoteView), remotable methods (setImageResource, setColorFilter(int), setProgressBar, setTextColor), DecoratedCustomViewStyle",
+      "purpose": "v2.1.3: GlassNotice",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

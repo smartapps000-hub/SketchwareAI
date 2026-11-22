@@ -347,3 +347,15 @@ Whether a generated APK runs on a given Android version depends on that project'
 - `SingleDeviceGuard`'s device key uses ANDROID_ID, which Android 8+ scopes to the app's signing key, the user and the phone
   (the same after a reinstall with the same key; another Android user or a work profile has another).
 
+
+## v2.1.3 (22 Nov 2026)
+
+- The glass notification card (RemoteViews with `DecoratedCustomViewStyle`, Android 7+; the IDE needs 8+): applied with
+  Android's own `RemoteViews.apply` in layoutlib (Android 14's code, a factory-free inflater as the shade uses); the shade of
+  a real phone (Android 12+ draws its own header and actions around it; light / dark system theme) is **not run**.
+- Parallel part uploads (4 connections to uploads.github.com) and the automatic retries: run against a fake GitHub on the
+  desktop JVM and the queue on ART; real networks, Android 15's background network limits and battery managers are **not
+  run**. `ConnectivityManager.getActiveNetwork` (API 23+) decides "network back"; unknown = online.
+- Follow uses the `user:follow` OAuth scope: sign-ins from v2.1.3 ask GitHub for it (GitHub shows it on its authorization
+  page); older tokens get 404 / 403 and the page asks for Sign in again. Not run against github.com here.
+- Tab fades via `overridePendingTransition` (deprecated in API 34, still applied on Android 14-17); not run on a phone.

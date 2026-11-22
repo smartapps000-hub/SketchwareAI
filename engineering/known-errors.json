@@ -1090,6 +1090,53 @@
       "verifiedOn": [
         "render V212Test"
       ]
+    },
+    {
+      "fingerprint": "After Retry the backup runs, but 'Didn't work: <project> · GitHub' stays in the notifications",
+      "rootCause": "the end notice of a job was only taken away by its own Retry action; a Retry from the sheet or a new tap ran the job and left the old notice",
+      "repair": "v2.1.3: CloudSyncService.clearFinished when the job is queued by a tap and when it starts (also the old id range); a later end replaces it",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "code reading and the review (notifications don't run in the harness)"
+      ]
+    },
+    {
+      "fingerprint": "Backup fails with UnknownHostException 'Unable to resolve host uploads.github.com' and needs a Retry tap",
+      "rootCause": "a lost network (or DNS) during a backup ended the job at once; DNS errors weren't retried at the request level either",
+      "repair": "v2.1.3: the job runs again by itself up to three times (5 / 15 / 30 s, waiting up to 2 min each for a network), from where it stopped",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "ART GitHubTest (two lost connections then done; four then Retry)",
+        "JVM GitHubClientTest (resume after a failure in parallel)"
+      ]
+    },
+    {
+      "fingerprint": "Uploads slow while downloads are fast (a 6-20 MB project)",
+      "rootCause": "one connection to uploads.github.com carried the whole backup; on a long, lossy mobile route one TCP connection can't fill the uplink",
+      "repair": "v2.1.3: 2 MiB parts and the APK sent 4 at a time from 3 MiB; a failure keeps the parts sent",
+      "scope": "IDE, GitHub",
+      "verifiedOn": [
+        "JVM GitHubClientTest (parallel parts, helper threads, resume, cancel)",
+        "ART GitHubTest (partsFor, helper cancel)"
+      ]
+    },
+    {
+      "fingerprint": "The update downloads as '136.2 MB' while the APK was 142 MB",
+      "rootCause": "the app divided by 1024 x 1024 (MiB) and wrote MB; Android's screens use decimal MB; nothing was removed from the APK",
+      "repair": "v2.1.3: decimal units (142,824,153 bytes = 142.8 MB)",
+      "scope": "IDE",
+      "verifiedOn": [
+        "ART GitHubTest (megabytes)"
+      ]
+    },
+    {
+      "fingerprint": "Lag opening Home → Create → Play Store → Community",
+      "rootCause": "each tab opened 460 ms after the tap (after the drop's crater), then Android's ~400 ms screen animation; Back to Home used Android's 500 ms fade; Create decrypted every project's list file twice on the main thread",
+      "repair": "v2.1.3: tabs open ~160 ms after the tap with a 150 ms fade, Back to Home 150 ms, Create reads the list on its own thread",
+      "scope": "IDE",
+      "verifiedOn": [
+        "code reading and the review (frame times on a phone not measured)"
+      ]
     }
   ]
 }
