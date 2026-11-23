@@ -907,8 +907,14 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 if (!owner.equals(followTarget)) return;
                 // review (LOW): a read that started before a Follow tap doesn't undo the tap's ±1; second review: with
                 // no count yet, the read's count with that tap
-                if (!followBusy && followTaps == tapsAtStart) ownerFollowers = p.followers;
-                else if (ownerFollowers < 0) ownerFollowers = Math.max(0, p.followers + (Boolean.TRUE.equals(follows) ? 1 : -1));
+                // third review (LOW): while the tap's request is on its way its own answer adds the ±1
+                if (followBusy) {
+                    if (ownerFollowers < 0) ownerFollowers = p.followers;
+                } else if (followTaps == tapsAtStart) {
+                    ownerFollowers = p.followers;
+                } else if (ownerFollowers < 0) {
+                    ownerFollowers = Math.max(0, p.followers + (Boolean.TRUE.equals(follows) ? 1 : -1));
+                }
                 showFollow();
                 showCreatorBadge(badge);
             });
@@ -1614,8 +1620,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
                 values[0].setText(PlayStore.count(d.apps.size()));
                 values[1].setText(PlayStore.count(d.projects.size()));
-                if (!followBusy && followTaps == tapsAtStart) ownerFollowers = d.followers;
-                else if (ownerFollowers < 0) ownerFollowers = Math.max(0, d.followers + (Boolean.TRUE.equals(follows) ? 1 : -1));
+                if (followBusy) {
+                    if (ownerFollowers < 0) ownerFollowers = d.followers;
+                } else if (followTaps == tapsAtStart) {
+                    ownerFollowers = d.followers;
+                } else if (ownerFollowers < 0) {
+                    ownerFollowers = Math.max(0, d.followers + (Boolean.TRUE.equals(follows) ? 1 : -1));
+                }
                 values[2].setText(PlayStore.count(ownerFollowers >= 0 ? ownerFollowers : d.followers));
                 showFollow();
                 showPlace(d);
