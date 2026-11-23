@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.1.3)
+## Shipped (v1.0 – v2.1.4)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -97,6 +97,9 @@ Everything in this section is in the released APK and was exercised as described
 | Faster backups that resume, glass notifications | Backups from 3 MB go up in 2 MB parts four at a time with the APK; a lost connection is retried by itself (waiting for the network) and goes on from where it stopped; Retry takes the old "Didn't work" notice away; backup, import and update notifications are the app's dark glass card; sizes in decimal MB | v2.1.3 |
 | Grouped Restore, Play Store hero, Follow | On this phone and Demo: one card per project with its versions inside, Restore / Open in the title row, ★ Pin; Play Store: Publish in the header, a slim hero (orange title, @creator / version / Follow pills, counters inside), Install APK · .SWB · GitHub · Review in one row, two-line description; Follow / Following (GitHub's follow) | v2.1.3 |
 | Update card, faster tabs | "UPDATE AVAILABLE" card with numbered key features and the fixes, glass Later / Update pills; tabs open ~0.3 s sooner with a 150 ms fade; the e-mailed code helper on GitHub's sign-in pages; Gson 2.15.0 | v2.1.3 |
+| Sign-in code helper on every GitHub code page | The code bar reads GitHub's page itself (also "Confirm access" and the e-mailed sudo code page): E-mail me a code presses GitHub's own "Send a code via email"; a code copied in Gmail goes in by itself on return; Android 8-14: optional codes from e-mail notifications (the user's Notification access switch); a refusal says whether GitHub ended the very token made at sign-in, with a link to GitHub's security log | v2.1.4 |
+| Publish in one line, description from the project, Done to the store | Step 1 = the chosen project with Change, steps 2-3 under it; the description written from the project's screens, buttons, features and permissions; Done opens the store with the app first ("Just published"); What's new drawn from Markdown | v2.1.4 |
+| Follow everywhere, creator levels and country | Follow always on the app page with the creator's followers (own app: your followers), Follow on the creator page; ✔ Verified / ★ Trusted / Not verified from the public profile and the store (rules shown); the country with its flag from the GitHub Location | v2.1.4 |
 | One GitHub repository per project | Back up to GitHub (and the backup after saving) goes into the project's own private repository `SketchwareAI-<name>`; each app version is a release `v<versionName>-<versionCode>` with the .swb (16 MB parts above that) and the APK built since the last backup; at most 5 versions, the one pinned **★ Standard** never removed; Public / Private is one change on GitHub | v2.0.4 |
 | Publish to GitHub | The Private pill opens a screen filled from the project (title, description, topics, README, "What's New & Fixed" from an on-phone comparison with the previous version); Publish Public writes README.md and CHANGELOG.md and makes the repository public; later backups keep those up to date | v2.0.4 |
 | Restore projects screen | Full screen: a GitHub link, your project repositories with their versions (Latest, ★ Standard), Restore and Set as Standard, the older backups; the .swb files on the phone. Restored projects are linked to their repository again. Shared github.com project links and `sketchwareai://import` open it | v2.0.4 |
