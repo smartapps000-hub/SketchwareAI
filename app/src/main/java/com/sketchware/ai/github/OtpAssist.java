@@ -96,8 +96,13 @@ public final class OtpAssist {
      */
     public static final String PROBE_SCRIPT = "(function(){" + FIELD_JS
             + "var code=codeFields().length>0||codeBoxes()!==null;var send=sendLinks().length>0;"
-            + "var body=document.body?((document.body.textContent||'')+''):'';"
-            + "var m=body.match(/[Ss]ent to:?\\s*([A-Za-z0-9._%+*\\u2022-]+@[A-Za-z0-9.*\\u2022-]+\\.[a-z]{2,24})/);"
+            // second review (LOW): the address from a shown element whose own text says "sent to" (never hidden text,
+            // scripts or "consent to")
+            + "var m=null;if(document.body&&document.createTreeWalker){var tw=document.createTreeWalker(document.body,4,"
+            + "null,false);var n;while(!m&&(n=tw.nextNode())){if(!/\\b[Ss]ent to/.test(n.nodeValue||''))continue;"
+            + "var el=n.parentElement;if(!el||!shown(el))continue;"
+            + "m=((el.textContent||'')+'').match(/\\b[Ss]ent to:?\\s*([A-Za-z0-9._%+*\\u2022-]+@[A-Za-z0-9.*\\u2022-]+"
+            + "\\.[a-z]{2,24})/);}}"
             + "var h=document.querySelector('h1,h2');var head=(document.title||'')+' '+(h?(h.textContent||''):'');"
             + "var sudo=/confirm access|sudo/i.test(head);"
             + "return (code?'1':'0')+'|'+(send?'1':'0')+'|'+(m?m[1]:'')+'|'+(sudo?'1':'0');})()";

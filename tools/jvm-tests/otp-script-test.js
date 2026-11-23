@@ -148,6 +148,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     r = w.eval(probe);
     check('the address read from its own element', r === '1|0|m***@outlook.com|0', r);
 
+    // second review: a hidden "sent to" panel and "consent to" are not where the code went
+    const hiddenSent = '<div hidden><p>We sent a code to b***@gmail.com</p></div><p>I consent to admin@example.com</p>'
+      + '<form><input type="text" name="app_otp" autocomplete="one-time-code"></form>';
+    w = page('https://github.com/sessions/two-factor/app', hiddenSent);
+    r = w.eval(probe);
+    check('hidden "sent to" text and "consent to" give no address', r === '1|0||0', r);
+
     // a hidden "send" link (another choice's form) is not offered
     const hiddenSend = '<div hidden><button>Send a code via email</button></div><p>Use your passkey</p>';
     w = page('https://github.com/login/device/confirm', hiddenSend);

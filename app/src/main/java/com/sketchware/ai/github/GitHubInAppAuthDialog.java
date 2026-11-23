@@ -1046,6 +1046,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if (closed) return;
         // review (LOW): a screen re-created under the window without a dismiss: the window stops (no leak, no listener)
         if (activity.isFinishing() || activity.isDestroyed()) {
+            // second review (LOW): as onSignInChanged's own case: the window goes, the sign-in itself goes on
+            keepSignIn = true;
             try {
                 dismiss();
             } catch (RuntimeException ignored) {
@@ -1108,6 +1110,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         } else {
             kind = pathKind;
         }
+        String before = otpKind;
         otpKind = kind;
         boolean notifications = OtpNotifications.enabled(getContext());
         String state = kind + "|" + (p == null ? "" : p.key()) + "|" + notifications;
@@ -1116,8 +1119,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
         drawnWithNotifications = notifications;
         boolean waits = "email".equals(kind) || "code".equals(kind) || "send".equals(kind);
         long now = System.currentTimeMillis();
-        if ("send".equals(kind)) {
-            // review (MEDIUM): a code from before GitHub offered to send one is never this page's code
+        if ("send".equals(kind) && !"send".equals(before)) {
+            // review (MEDIUM): a code from before GitHub offered to send one is never this page's code; second review
+            // (LOW): only when the page turns into "send" (a redraw doesn't move it past an e-mail that came)
             codeFloor = Math.max(codeFloor, now);
         } else if (waits && codeFloor == 0) {
             codeFloor = now - 30_000L;
@@ -1319,7 +1323,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
             // plain text copied while the window was away is read (Android keeps when a clip was set)
             if (!clip.hasPrimaryClip()) return;
             android.content.ClipDescription d = clip.getPrimaryClipDescription();
-            if (d == null || !d.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN)) return;
+            // second review (MEDIUM): text of any kind (Gmail's and the browser's Copy give text/html with its text)
+            if (d == null || !d.hasMimeType("text/*")) return;
             long at = d.getTimestamp();
             if (at <= 0) return;
             boolean wall = at > 1_000_000_000_000L;

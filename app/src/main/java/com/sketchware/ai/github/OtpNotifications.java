@@ -87,7 +87,8 @@ public final class OtpNotifications extends NotificationListenerService {
     }
 
     private static void rebind(Context context) {
-        if (!enabled(context)) return;
+        // second review (note): Android 15+ hides the codes: no binding there even with access from before
+        if (!offered() || !enabled(context)) return;
         try {
             requestRebind(component(context));
         } catch (RuntimeException ignored) {
