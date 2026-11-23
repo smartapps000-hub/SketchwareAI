@@ -2,6 +2,20 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.4 (versionCode 211, `v2.1.4-23ec136-minApi26`)
+
+`apk/Sketchware_AI_v2.1.4.apk`, sha256 `0687a5a7958276e213941d82976de14e94dedfc4a8ef285348bc241a26bab0a4` (Git LFS).
+A required update for v2.1.3 (it offers it by itself, downloads it in the app and checks this SHA-256). The sign-in code
+bar reads GitHub's page (also "Confirm access"): E-mail me a code, and a code copied in Gmail goes in by itself on return
+(Android 8-14: optionally straight from the e-mail notification); a refused sign-in says whether GitHub ended the very token
+made at sign-in, with a link to GitHub's security log; Publish shows the chosen project in one line, writes the
+description from the project and Done opens the store with the app first; Follow is always on the app page with the
+followers, creator pages show a level (Verified / Trusted / Not verified) and the country. Release notes:
+`releases/v2.1.4/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.4.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.4.apk
+
 ## v2.1.3 (versionCode 210, `v2.1.3-e1bcdcb-minApi26`)
 
 `apk/Sketchware_AI_v2.1.3.apk`, sha256 `4ecff3afa25fa1737f68ee7a792c8d850e058691ed1150e59b4ba5824b5bbba4` (Git LFS).
