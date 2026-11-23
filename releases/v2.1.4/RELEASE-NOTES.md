@@ -1,7 +1,7 @@
 # Sketchware AI v2.1.4
 
-versionCode 211, `@@NAME@@`, @@SIZE@@ bytes, sha256
-`@@SHA@@`. Installs over v2.1.3 (same test key). v2.1.3 asks for it by itself about 3.5 s after it opens (required,
+versionCode 211, `v2.1.4-23ec136-minApi26`, 142,903,627 bytes, sha256
+`0687a5a7958276e213941d82976de14e94dedfc4a8ef285348bc241a26bab0a4`. Installs over v2.1.3 (same test key). v2.1.3 asks for it by itself about 3.5 s after it opens (required,
 no Later), downloads it in the app and checks its SHA-256.
 
 ## Download
@@ -17,10 +17,12 @@ The owner's 22 Nov review of v2.1.3 (10 screenshots). The full record is `engine
   verification code sent to b***@gmail.com" (it didn't in v2.1.3: those pages have other addresses).
 - On "Confirm access": **E-mail me a code** presses GitHub's own "Send a code via email".
 - Open Gmail, copy the code, come back: the code goes in by itself and GitHub's Verify is pressed (no Paste needed).
-- Optional, your switch: **Fill codes from e-mail notifications · Turn on**. With Android's "Notification access" for
-  Sketchware AI on, GitHub's code goes from Gmail's notification straight into the field. It is used only while the sign-in
-  window waits for a code, only for notifications that mention GitHub and hold a 6- or 8-digit code; nothing is kept or
-  sent anywhere. Apps installed from a file: Android first asks for App info → ⋮ → Allow restricted settings.
+- Android 8-14, optional, your switch: **Fill codes from e-mail notifications · Turn on**. With Android's "Notification
+  access" for Sketchware AI on, GitHub's code goes from Gmail's notification straight into the field. It is used only while
+  the sign-in window waits for a code, only for notifications that mention GitHub with a code after "code" or
+  "verification"; nothing is kept or sent anywhere. Apps installed from a file: Android first asks for App info → ⋮ →
+  Allow restricted settings. Android 15 hides one-time codes from such apps, so there the switch isn't offered: copy the
+  code in Gmail and come back.
 
 ## Signed out after an update
 

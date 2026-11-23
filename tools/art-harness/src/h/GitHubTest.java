@@ -266,28 +266,28 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 210, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(210).equals(get(shipped, "minVersionCode"))
+        check("repository's app-control.json reads: enabled, min 211, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(211).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.1.3 (210) with it: no notice (its status message is for 208 and older)",
-                call(control, "decide", shipped, 210, false, null) == null, null);
-        Object old209 = call(control, "decide", shipped, 209, false, null);
-        check("v2.1.2 (209): Update with the v2.1.3 URL, forced (v2.1.2's own card shows the reason and the lines)",
+        check("v2.1.4 (211) with it: no notice (its status message is for 208 and older)",
+                call(control, "decide", shipped, 211, false, null) == null, null);
+        Object old209 = call(control, "decide", shipped, 210, false, null);
+        check("v2.1.3 (210): Update with the v2.1.4 URL, forced (v2.1.3's own card shows the reason and the lines)",
                 old209 != null && "update".equals(get(old209, "kind")) && Boolean.TRUE.equals(get(old209, "force"))
-                        && String.valueOf(get(old209, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.3.apk"),
+                        && String.valueOf(get(old209, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.4.apk"),
                 old209 == null ? null : get(old209, "url"));
         Object old198 = call(control, "decide", shipped, 208, false, null);
-        check("an older version (v2.1.1, 208): Update with the v2.1.3 URL, forced, with the file's words in v2.1.1's own "
+        check("an older version (v2.1.1, 208): Update with the v2.1.4 URL, forced, with the file's words in v2.1.1's own "
                         + "dialog (owner, 21 Nov: the live in-app update)",
                 old198 != null && "update".equals(get(old198, "kind")) && Boolean.TRUE.equals(get(old198, "force"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.3.apk")
-                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.3 is required"),
+                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.4.apk")
+                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.4 is required"),
                 old198 == null ? null : get(old198, "url"));
-        check("v2.1.3: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 210 "
-                        + "\"v2.1.3\", update forced, the card's reason, three key features and three fixes",
+        check("v2.1.4: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 211 "
+                        + "\"v2.1.4\", update forced, the card's reason, three key features and three fixes",
                 String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
-                        && Integer.valueOf(210).equals(get(shipped, "latestVersionCode"))
-                        && "v2.1.3".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
+                        && Integer.valueOf(211).equals(get(shipped, "latestVersionCode"))
+                        && "v2.1.4".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
                         && ((java.util.List<?>) get(shipped, "updateNotes")).size() == 3
                         && ((java.util.List<?>) get(shipped, "updateFixes")).size() == 3
                         && String.valueOf(get(shipped, "updateReason")).startsWith("This update is required"),

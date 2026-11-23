@@ -1036,6 +1036,38 @@
         "images out/v213_*.png",
         "RemoteViews.apply applied (LinearLayout) x5"
       ]
+    },
+    {
+      "id": "940 githubtest (v2.1.4)",
+      "kind": "ART h.GitHubTest on a fresh m3 project",
+      "content": "v2.1.3's checks with app-control 211 / v2.1.4 plus: OtpAssist.codeFromGitHubMail (sudo and device e-mails, keyword only: never an order or pull request number), Probe.parse / unquote, PROBE_SCRIPT reads only and SEND_SCRIPT only clicks GitHub's link, Countries.fromLocation (names, short forms, states, cities, a flag; none for Earth / Remote / empty) and the flag line, PlayStore.badge (Official, Not verified x4, Verified x2, Trusted x2) and its reason, PlayStore.time, StoreDescription.write and clean, notePublished / withRecent / recentlyPublished / highlight once, GitHubSession.print",
+      "checks": [
+        "GITHUBTEST 150/150"
+      ]
+    },
+    {
+      "id": "V211ClientTest (v2.1.4)",
+      "kind": "JVM 17 against a local fake GitHub",
+      "content": "v2.1.1's checks plus PlayStore.profile (followers, name, Location, created_at; 404) and the creator page's Location and account date",
+      "checks": [
+        "V211CLIENT 15/15"
+      ]
+    },
+    {
+      "id": "otp-script-test.js (v2.1.4)",
+      "kind": "node + jsdom (OtpScriptPrint prints the scripts: probe, send, fill)",
+      "content": "v2.1.2's 11 plus: Confirm access (send link found, no field), E-mail me a code presses GitHub's own button once, the e-mailed sudo code page (field, b***@gmail.com, 8 digits filled and Verify once), an unknown page's field by placeholder / numeric input, the device-code boxes never a code page and never typed into, sign-in fields not code fields, the address in its own element, hidden 'sent to' and 'consent to' ignored, a hidden send link neither offered nor pressed",
+      "checks": [
+        "OTPSCRIPT 24/24"
+      ]
+    },
+    {
+      "id": "Renders V214Test",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v214.sh)",
+      "content": "the sign-in code bar (Confirm access with E-mail me a code; code page with notification access off / on; a code filled) over a drawn stand-in of GitHub's page; Publish (chosen project row + Change, description written from a two-screen project; the list after Change); the store list after Done (lit, Just published); an app page (Follow · 314, @creator ✔); your own app (👥, @name shortened first); creator pages (★ Trusted India, ✔ Verified Germany, Not verified without a country)",
+      "checks": [
+        "images out/v214_*.png"
+      ]
     }
   ]
 }

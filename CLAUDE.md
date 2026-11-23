@@ -459,6 +459,23 @@ decrypts every list file) off the main thread under `ProjectIds.RESTORE_LOCK` wi
 `setup_v213.sh` + `V213Test`. GITHUBTEST 137/137, GITHUBCLIENT 112/112, V210CLIENT 27/27,
 V211CLIENT 13/13, JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15, CACHETEST 31/31, DOCTORTEST 21/21; three review passes. APK
 v2.1.3-e1bcdcb, versionCode 210 (next 211), sha256 `4ecff3af...5bbba4`, 142,870,987 bytes.
+v2.1.4 (owner's 22 Nov review of v2.1.3, 10 screenshots, Telugu; record `engineering/v2.1.4-verification.md`): the sign-in
+code bar follows GitHub's page (`OtpAssist.PROBE_SCRIPT` every 1.5 s in front + each page finish: code field, "Send a code
+via email", "sent to" address; `SEND_SCRIPT` = E-mail me a code; recovery / passkey pages vetoed); a code copied while away
+(any text clip; description checked first, no "pasted" notice otherwise) fills itself on return; `OtpNotifications`
+(NotificationListenerService, opt-in via Android's Notification access, Android 8-14 only: Android 15 hides one-time codes
+from such listeners; armed only while a window waits, `requestUnbind` otherwise; codes after "code"/"verification" only,
+posted after the page offered one, never twice per window). Sign-out after update = GitHub ended the token (no app path
+changes it): `token_print` in the refusal note + "Why? GitHub's security log" (refusals only). Publish: one-line step 1
+with Change, `project.StoreDescription` writes the description from the project, Done stays ("Done · See it in the
+store") → the list with the app first (`PlayStore.notePublished` / `withRecent` / `refreshCache` under one lock, 24 h,
+`forgetRecent` on Private). Follow always (followers from GET /users, own app "👥 N", creator page Follow), creator levels
+`PlayStore.badge` (Verified / Trusted / Not verified / Official, rules on tap), country `Countries.fromLocation` (GitHub
+Location only). Renders `setup_v214.sh` + `V214Test`; jsdom OTPSCRIPT 24/24; GITHUBTEST 150/150, V211CLIENT 15/15,
+V210CLIENT 27/27, GITHUBCLIENT 112/112, CACHETEST 31/31, DOCTORTEST 21/21, JAVAEDIT 101/101, JAVAEDIT-OPEN 15/15; three
+review passes. JVM client tests need the harness's android/os + util stubs (SystemClock, Handler, Looper, Build,
+Environment, Base64, Log) before android.jar. APK v2.1.4-23ec136, versionCode 211 (next 212), sha256 `0687a5a7...26bab0a4`,
+142,903,627 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
