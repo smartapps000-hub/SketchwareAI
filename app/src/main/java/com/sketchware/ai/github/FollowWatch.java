@@ -43,7 +43,7 @@ public final class FollowWatch extends JobService {
         JobScheduler js = (JobScheduler) app.getSystemService(Context.JOB_SCHEDULER_SERVICE);
         if (js == null) return;
         try {
-            if (me == null || PlayStore.followedSet(app, me).isEmpty()) {
+            if (me == null || !PlayStore.noticesOn(app, me) || PlayStore.followedSet(app, me).isEmpty()) {
                 js.cancel(JOB_ID);
                 return;
             }
@@ -84,7 +84,7 @@ public final class FollowWatch extends JobService {
     /** One look: the store's apps, the ones of followed creators compared with the last look, a notice for each new one. */
     static void check(Context app) throws Exception {
         String me = TokenStore.get(app).login();
-        if (me == null) return;
+        if (me == null || !PlayStore.noticesOn(app, me)) return;
         String token = GitHubSession.isRefused(app) ? null : TokenStore.get(app).token();
         // the following list itself, when the sign-in can read it (a Follow from github.com counts too)
         if (token != null) {
@@ -97,16 +97,28 @@ public final class FollowWatch extends JobService {
         Set<String> followed = PlayStore.followedSet(app, me);
         if (followed.isEmpty()) return;
         List<PlayStore.App> found = PlayStore.search(token, null, null);
+        // review (MEDIUM): news = a publish to the store (the store page's own time), never a backup's push; at most 40
+        // pages read (15 without a sign-in: GitHub's limit for anonymous reads is 60 an hour)
+        List<PlayStore.App> theirs = PlayStore.fromFollowed(found, followed);
+        int limit = token == null ? 15 : 40;
+        for (int i = 0; i < theirs.size() && i < limit; i++) {
+            if (Thread.currentThread().isInterrupted()) return;
+            try {
+                theirs.get(i).publishedAt = PlayStore.storePublishedAt(token, theirs.get(i));
+            } catch (java.io.IOException e) {
+                theirs.get(i).publishedAt = 0;
+            }
+        }
         SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         Map<String, Long> seen = new HashMap<>();
         for (Map.Entry<String, ?> e : prefs.getAll().entrySet()) {
             if (e.getValue() instanceof Long) seen.put(e.getKey(), (Long) e.getValue());
         }
         List<PlayStore.App> fresh = PlayStore.newFromFollowed(found, followed, seen);
-        // the whole record replaced (creators no longer followed go)
+        // the whole record replaced (creators no longer followed go); review (LOW): written before the job ends
         SharedPreferences.Editor edit = prefs.edit().clear();
         for (Map.Entry<String, Long> e : seen.entrySet()) edit.putLong(e.getKey(), e.getValue());
-        edit.apply();
+        edit.commit();
         int n = 0;
         for (PlayStore.App a : fresh) {
             if (n++ >= 5) break;
@@ -127,7 +139,8 @@ public final class FollowWatch extends JobService {
                 .putExtra(PlayStoreActivity.EXTRA_OWNER, a.owner)
                 .putExtra(PlayStoreActivity.EXTRA_REPO, a.repo)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        int id = 23000 + ((a.owner + "/" + a.repo).toLowerCase(java.util.Locale.ROOT).hashCode() & 0xfff);
+        // review (LOW): its own range (CloudSync's end notices use 21000-25095)
+        int id = 30000 + ((a.owner + "/" + a.repo).toLowerCase(java.util.Locale.ROOT).hashCode() & 0xfff);
         PendingIntent pi = PendingIntent.getActivity(app, id, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String status = a.status();
@@ -135,7 +148,7 @@ public final class FollowWatch extends JobService {
                 ? new android.app.Notification.Builder(app, CHANNEL) : new android.app.Notification.Builder(app);
         b.setSmallIcon(R.drawable.ob_ic_store)
                 .setContentTitle("New from @" + a.owner + ": " + a.name())
-                .setContentText(status != null ? status : "On the Play Store now")
+                .setContentText(status != null ? status : "Published on the Play Store")
                 .setContentIntent(pi)
                 .setAutoCancel(true);
         try {

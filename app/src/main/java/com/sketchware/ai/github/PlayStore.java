@@ -1066,13 +1066,54 @@ public final class PlayStore {
         p.edit().putStringSet(key, set).apply();
     }
 
-    /** The whole list from GitHub replaces the one on the phone. */
+    /**
+     * The whole list from GitHub replaces the one on the phone. Review (LOW): a Follow / Unfollow tapped in the last two
+     * minutes stays (the list may have been read before GitHub had it).
+     */
     public static synchronized void saveFollowing(Context context, String me, java.util.Collection<String> logins) {
         if (me == null) return;
+        android.content.SharedPreferences p = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE);
+        String m = me.toLowerCase(Locale.ROOT);
         java.util.Set<String> set = new java.util.HashSet<>();
         for (String l : logins) set.add(l.toLowerCase(Locale.ROOT));
-        context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE).edit()
-                .putStringSet("list_" + me.toLowerCase(Locale.ROOT), set).apply();
+        String tap = p.getString("tap_" + m, null);
+        if (tap != null) {
+            String[] t = tap.split("\\|");
+            try {
+                if (t.length == 3 && Math.abs(System.currentTimeMillis() - Long.parseLong(t[2])) < 120_000L) {
+                    if ("1".equals(t[1])) set.add(t[0]);
+                    else set.remove(t[0]);
+                }
+            } catch (NumberFormatException ignored) {
+                // an old mark
+            }
+        }
+        p.edit().putStringSet("list_" + m, set).apply();
+    }
+
+    /**
+     * v2.1.5 review: a Follow / Unfollow the user tapped (GitHub said yes): kept, remembered for two minutes against a
+     * list read in flight, and from the first Follow on, new apps of followed creators come as notifications.
+     */
+    public static synchronized void tapFollow(Context context, String me, String login, boolean on) {
+        if (me == null || login == null) return;
+        noteFollowing(context, me, login, on);
+        android.content.SharedPreferences.Editor e = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE).edit();
+        e.putString("tap_" + me.toLowerCase(Locale.ROOT), login.toLowerCase(Locale.ROOT) + "|" + (on ? "1" : "0") + "|"
+                + System.currentTimeMillis());
+        if (on) e.putBoolean("notices_" + me.toLowerCase(Locale.ROOT), true);
+        e.apply();
+    }
+
+    /**
+     * v2.1.5 review (LOW): notifications about followed creators only after a Follow in the app (an account that follows
+     * people on github.com doesn't get them by itself after an update).
+     */
+    public static boolean noticesOn(Context context, String me) {
+        return me != null && context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE)
+                .getBoolean("notices_" + me.toLowerCase(Locale.ROOT), false);
     }
 
     /** A GitHub account in a followers / following list. */
@@ -1143,9 +1184,11 @@ public final class PlayStore {
     }
 
     /**
-     * v2.1.5: what is new from followed creators since the last look ({@code seen}: "owner/repo" → updated time, and
-     * "c:owner" for each creator looked at): apps not seen before and apps updated since. A creator's first look (just
-     * followed) only records: the apps they had before are not "new". Creators no longer followed are forgotten.
+     * v2.1.5: what is new from followed creators since the last look ({@code seen}: "owner/repo" → when the app was last
+     * published to the store, and "c:owner" for each creator looked at): apps published since. Review (MEDIUM): the
+     * store page's own publish time ({@link App#publishedAt}, from {@link #storePublishedAt}), never GitHub's push time
+     * (every backup pushes). A creator's first look (just followed) only records: the apps they had before are not
+     * "new". An app whose page wasn't read keeps its record. Creators no longer followed are forgotten.
      */
     static List<App> newFromFollowed(List<App> apps, java.util.Set<String> followed, java.util.Map<String, Long> seen) {
         List<App> out = new ArrayList<>();
@@ -1153,8 +1196,10 @@ public final class PlayStore {
             String k = key(a.owner, a.repo);
             Long before = seen.get(k);
             boolean looked = seen.containsKey("c:" + a.owner.toLowerCase(Locale.ROOT));
-            if (looked && (before == null || a.updated > before)) out.add(a);
-            seen.put(k, a.updated);
+            long published = a.publishedAt;
+            if (looked && published > 0 && (before == null || published > before)) out.add(a);
+            if (published > 0) seen.put(k, before == null ? published : Math.max(before, published));
+            else if (before == null) seen.put(k, 0L);
         }
         java.util.Iterator<java.util.Map.Entry<String, Long>> it = seen.entrySet().iterator();
         while (it.hasNext()) {
@@ -1486,6 +1531,12 @@ public final class PlayStore {
             // no telephony
         }
         return countryCode(Locale.getDefault().getCountry());
+    }
+
+    /** v2.1.5 review (MEDIUM): when the app was last published to the store (its page's published_at), else 0. */
+    static long storePublishedAt(String token, App app) throws IOException {
+        JsonObject page = readPage(token, "/repos/" + CloudBackup.enc(app.owner) + "/" + CloudBackup.enc(app.repo));
+        return page == null ? 0 : longOf(page, "published_at");
     }
 
     /** v2.1.5: only the creator's country from an app's store page (one request), else null. */

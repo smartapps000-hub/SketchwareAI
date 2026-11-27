@@ -249,7 +249,21 @@ public final class GitHubViews {
         t.setHorizontallyScrolling(true);
         t.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
         t.setMarqueeRepeatLimit(-1);
-        t.setSelected(true);
+        // review (MEDIUM): a MarqueeText scrolls without being "selected" (a selected pill draws pressed, and TalkBack
+        // says "selected"); any other text view needs the selected state to scroll
+        if (!(t instanceof MarqueeText)) t.setSelected(true);
+    }
+
+    /** v2.1.5 review: a text view whose marquee runs without the selected state (it reports itself focused). */
+    public static class MarqueeText extends TextView {
+        public MarqueeText(Context context, android.util.AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+            super(context, attrs, defStyleAttr, defStyleRes);
+        }
+
+        @Override
+        public boolean isFocused() {
+            return true;
+        }
     }
 
     /**

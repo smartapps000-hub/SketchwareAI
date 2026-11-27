@@ -1829,6 +1829,17 @@ public final class GitHubTest {
         Object set215 = call(store214, "followedSet", CTX, me215);
         call(store214, "noteFollowing", CTX, me215, "Bob", false);
         Object afterUnfollow = call(store214, "followedSet", CTX, me215);
+        // review (LOW): a Follow tapped just now stays when a list read before it arrives; notices after a Follow in the app
+        call(store214, "tapFollow", CTX, me215, "Dan", true);
+        call(store214, "saveFollowing", CTX, me215, java.util.Arrays.asList("Cara"));
+        Object keptTap = call(store214, "followedSet", CTX, me215);
+        Object noticesOn = call(store214, "noticesOn", CTX, me215);
+        Object noticesOther = call(store214, "noticesOn", CTX, "someoneElse");
+        check("v2.1.5 review: a Follow tapped just now survives a list read before it; notifications only after a Follow "
+                        + "in the app (per account)",
+                new java.util.HashSet<>(java.util.Arrays.asList("cara", "dan")).equals(keptTap)
+                        && Boolean.TRUE.equals(noticesOn) && Boolean.FALSE.equals(noticesOther),
+                keptTap + " " + noticesOn + " " + noticesOther);
         check("v2.1.5: Follow kept on the phone per account (case doesn't matter): never read = unknown, Follow = "
                         + "Following, GitHub's list replaces it, Unfollow takes the creator off",
                 neverRead == null && Boolean.TRUE.equals(afterFollow) && otherAccount215 == null && Boolean.FALSE.equals(replaced)
@@ -1838,12 +1849,14 @@ public final class GitHubTest {
         followClear = call(followPrefs, "edit");
         call(followClear, "clear");
         call(followClear, "commit");
-        java.util.function.BiFunction<String, Long, Object> storeApp = (ownerRepo, updated) -> {
+        // the store page's publish time decides what is news (review MEDIUM: a backup's push changes "updated" only)
+        java.util.function.BiFunction<String, Long, Object> storeApp = (ownerRepo, published) -> {
             try {
                 Object a = neu("com.sketchware.ai.github.PlayStore$App");
                 set(a, "owner", ownerRepo.substring(0, ownerRepo.indexOf('/')));
                 set(a, "repo", ownerRepo.substring(ownerRepo.indexOf('/') + 1));
-                set(a, "updated", updated);
+                set(a, "updated", published);
+                set(a, "publishedAt", published);
                 return a;
             } catch (Throwable t) {
                 throw new RuntimeException(t);
@@ -1859,17 +1872,24 @@ public final class GitHubTest {
                 storeApp.apply("Ann/SketchwareAI-B", 400L), storeApp.apply("Ann/SketchwareAI-D", 350L),
                 storeApp.apply("Bob/SketchwareAI-C", 500L)));
         @SuppressWarnings("unchecked") List<Object> fresh2 = (List<Object>) call(store214, "newFromFollowed", look2, follows215, seen215);
+        // a backup pushed Ann's B again (GitHub's time moves, the store page's doesn't); a page not read (0) keeps its record
+        List<Object> look2b = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-A", 100L),
+                storeApp.apply("Ann/SketchwareAI-B", 400L), storeApp.apply("Ann/SketchwareAI-D", 0L)));
+        set(look2b.get(1), "updated", 9_000L);
+        @SuppressWarnings("unchecked") List<Object> fresh2b = (List<Object>) call(store214, "newFromFollowed", look2b, follows215, seen215);
+        boolean pushNotNews = fresh2b.isEmpty() && Long.valueOf(350L).equals(seen215.get("ann/sketchwareai-d"));
         // Bob followed now: his app from before is not "new"; Ann unfollowed: forgotten
         java.util.Set<String> follows215b = new java.util.HashSet<>(java.util.Arrays.asList("bob"));
         @SuppressWarnings("unchecked") List<Object> fresh3 = (List<Object>) call(store214, "newFromFollowed", look2, follows215b, seen215);
         boolean annForgotten = true;
         for (String k215 : seen215.keySet()) if (k215.contains("ann")) annForgotten = false;
-        check("v2.1.5: followed creators' apps newest first; a creator's first look only records, then new apps and "
-                        + "updates are news; a newly followed creator's older apps are not; unfollowed creators forgotten",
+        check("v2.1.5: followed creators' apps newest first; a creator's first look only records, then publishes to "
+                        + "the store are news (a backup's push isn't); a newly followed creator's older apps are not; "
+                        + "unfollowed creators forgotten",
                 first215.size() == 2 && "SketchwareAI-B".equals(get(first215.get(0), "repo")) && fresh1.isEmpty()
                         && fresh2.size() == 2 && "SketchwareAI-B".equals(get(fresh2.get(0), "repo"))
                         && "SketchwareAI-D".equals(get(fresh2.get(1), "repo")) && fresh3.isEmpty() && annForgotten
-                        && seen215.containsKey("c:bob"),
+                        && seen215.containsKey("c:bob") && pushNotNews,
                 first215.size() + " " + fresh1.size() + " " + fresh2.size() + " " + fresh3.size() + " " + seen215);
         Class<?> otp215 = c("com.sketchware.ai.github.OtpAssist");
         Object mobile215 = call(c("com.sketchware.ai.github.OtpAssist$Probe"), "parse", "0|1||0|1");

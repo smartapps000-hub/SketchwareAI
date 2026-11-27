@@ -1113,7 +1113,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
             if (p.sentTo != null || "email".equals(pathKind)) kind = "email";
             else if ("two-factor".equals(pathKind)) kind = "two-factor";
             else kind = "code";
-        } else if ((p != null && p.mobile) || "mobile".equals(pathKind)) {
+        } else if ((p != null && p.mobile && path.startsWith("/sessions")) || "mobile".equals(pathKind)) {
+            // review (LOW): the page reader's "GitHub Mobile" counts on GitHub's sign-in pages only
             // v2.1.5: GitHub Mobile's request: answered only in that app (E-mail me a code when GitHub offers one)
             kind = "mobile";
         } else if (p != null && p.sendLink) {

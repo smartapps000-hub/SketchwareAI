@@ -84,7 +84,34 @@ public class SketchJsonTest {
                 t.SketchJson.setJson("{}", "a", "hello"));
         check("whole number written without .0, NaN as null", "{\"a\":3,\"b\":null}".equals(
                 t.SketchJson.setNumber(t.SketchJson.setNumber("{}", "a", 3.0), "b", Double.NaN)), null);
-        check("empty path: the value itself", "\"x\"".equals(t.SketchJson.setText("{}", "", "x")), null);
+        check("empty path: setters change nothing (a path variable not set yet never wipes the JSON); set JSON "
+                + "replaces the whole only for empty text or JSON", "{\"a\":1}".equals(t.SketchJson.setText("{\"a\":1}", "", "x"))
+                && "{\"a\":1}".equals(t.SketchJson.setNumber("{\"a\":1}", " $ ", 2)) && "plain".equals(t.SketchJson.setText("plain", ".", "x"))
+                && "[1]".equals(t.SketchJson.setJson("{\"a\":1}", "", "[1]")) && "{}".equals(t.SketchJson.setJson("", "", "{}"))
+                && "oops".equals(t.SketchJson.setJson("oops", "", "[1]")), t.SketchJson.setJson("{\"a\":1}", "", "[1]"));
+        check("a text, number or boolean in the way is kept (the change isn't made); null in the way becomes an object",
+                "{\"user\":\"bob\"}".equals(t.SketchJson.setText("{\"user\":\"bob\"}", "user.name", "x"))
+                        && "{\"user\":{\"name\":\"x\"}}".equals(t.SketchJson.setText("{\"user\":null}", "user.name", "x")),
+                t.SketchJson.setText("{\"user\":null}", "user.name", "x"));
+        check("a byte-order mark before the JSON is read past", "Ravi".equals(t.SketchJson.getText("\uFEFF{\"n\":\"Ravi\"}", "n"))
+                && t.SketchJson.isValid("\uFEFF [1]"), null);
+        StringBuilder deep = new StringBuilder();
+        for (int i = 0; i < 200000; i++) deep.append('[');
+        String deepJson = deep.toString();
+        boolean deepOk;
+        try {
+            deepOk = !t.SketchJson.isValid(deepJson) && "".equals(t.SketchJson.getText(deepJson, "[0]"))
+                    && deepJson.equals(t.SketchJson.setText(deepJson, "[0]", "x"));
+        } catch (Throwable e) {
+            deepOk = false;
+        }
+        check("nested thousands deep: no error thrown (reads empty, changes nothing)", deepOk, null);
+        String cached = "{\"a\":{\"b\":1}}";
+        String changed = t.SketchJson.setNumber(cached, "a.b", 2);
+        check("readers keep the last tree, setters never change it", t.SketchJson.getNumber(cached, "a.b") == 1
+                && t.SketchJson.getNumber(changed, "a.b") == 2 && t.SketchJson.getNumber(cached, "a.b") == 1
+                && "{\"a\":{\"b\":1},\"c\":true}".equals(t.SketchJson.setBoolean(cached, "c", true))
+                && t.SketchJson.count(cached, "") == 1, changed);
         check("far past the end refused (no huge padding)", "[]".equals(t.SketchJson.setText("[]", "[5000]", "x"))
                 && "[null,\"x\"]".equals(t.SketchJson.setText("[]", "[1]", "x")), t.SketchJson.setText("[]", "[1]", "x"));
         String removed = t.SketchJson.remove(j, "items[1]");

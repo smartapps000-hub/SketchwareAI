@@ -248,7 +248,8 @@ public final class BlockGuide {
                 "Anywhere you build or change JSON (e.g. before sending it to a server).",
                 "A String variable that holds the JSON (empty: a new object), a path and the text. " + path
                         + " Missing parts are made; [] at the end adds a new item.",
-                "The variable holds the changed JSON. Text that isn't JSON is never overwritten.");
+                "The variable holds the changed JSON. Text that isn't JSON, an empty path and a text or number "
+                        + "already on the path are never overwritten.");
         put("sketchJsonSetNumber", "JSON [myJson] set [age] to number [21]", JSON,
                 "As set text.",
                 "The String variable, a path and a number (a whole number is written without \".0\").",
@@ -259,7 +260,8 @@ public final class BlockGuide {
                 "The variable holds the changed JSON.");
         put("sketchJsonSetJson", "JSON [myJson] set [user] to JSON [part]", JSON,
                 "When one JSON goes inside another (an object or an array).",
-                "The String variable, a path and JSON text (text that isn't JSON is put as text).",
+                "The String variable, a path and JSON text (text that isn't JSON is put as text); an empty path "
+                        + "replaces the whole JSON.",
                 "The variable holds the JSON with the part inside.");
         put("sketchJsonRemove", "JSON [myJson] remove [user.age]", JSON,
                 "Anywhere you change JSON.",

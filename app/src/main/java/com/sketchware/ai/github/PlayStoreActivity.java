@@ -654,7 +654,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         pills.setOrientation(LinearLayout.HORIZONTAL);
         pills.setGravity(Gravity.CENTER_VERTICAL);
         // v2.1.1: the creator opens their page
-        TextView creator = heroPill("@" + a.owner, R.color.ob_accent, x -> startActivity(developer(this, a.owner)));
+        TextView creator = heroPill("@" + a.owner, R.color.ob_accent, x -> startActivity(developer(this, a.owner)), true);
         creatorPill = creator;
         creator.setMaxWidth(v.dp(150));
         creator.setContentDescription("Developer @" + a.owner + ": open their page");
@@ -665,7 +665,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         pills.addView(creator, new LinearLayout.LayoutParams(-2, v.dp(28), 1f));
         if (a.versionName != null && !a.versionName.isEmpty()) {
             TextView version = heroPill("v" + a.versionName + (a.versionCode == null || a.versionCode.isEmpty() ? ""
-                    : " (" + a.versionCode + ")"), R.color.ob_accent, null);
+                    : " (" + a.versionCode + ")"), R.color.ob_accent, null, true);
             version.setMaxWidth(v.dp(112));
             GitHubViews.marquee(version);
             LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, v.dp(28));
@@ -688,6 +688,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         fp.leftMargin = v.dp(6);
         pills.addView(followPill, fp);
         followPill.setGravity(Gravity.CENTER);
+        // review (LOW): "✓ Following" stays whole in the fixed width at large font sizes (shrinks a little instead)
+        GitHubViews.fitOneLine(followPill, 9f, 12f);
         showFollow();
         LinearLayout.LayoutParams pr = new LinearLayout.LayoutParams(-2, -2);
         pr.topMargin = v.dp(10);
@@ -887,7 +889,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /** v2.1.3: a 28dp glass pill of the hero (the creator, the version, Follow). */
     private TextView heroPill(String text, int color, View.OnClickListener click) {
-        TextView pill = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        return heroPill(text, color, click, false);
+    }
+
+    /** v2.1.5: {@code scrolls}: a long text scrolls sideways (GitHubViews.marquee). */
+    private TextView heroPill(String text, int color, View.OnClickListener click, boolean scrolls) {
+        TextView pill = scrolls ? new GitHubViews.MarqueeText(this, null, 0, R.style.Ob_Text_Label)
+                : new TextView(this, null, 0, R.style.Ob_Text_Label);
         pill.setText(text);
         pill.setTypeface(v.bold());
         pill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -1066,7 +1074,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 showFollow();
                 if (why == null) {
                     // v2.1.5: kept for this account; new apps of followed creators come as notifications
-                    PlayStore.noteFollowing(app, TokenStore.get(app).login(), owner, on);
+                    PlayStore.tapFollow(app, TokenStore.get(app).login(), owner, on);
                     FollowWatch.schedule(app);
                     Toast.makeText(this, on ? "Following @" + owner : "Unfollowed @" + owner, Toast.LENGTH_SHORT).show();
                     if (on) askNotifications(owner);
@@ -1088,25 +1096,36 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /**
      * v2.1.5 (owner's 23 Nov review: "when following, if notifications are off, a message and turn them on"): Android
-     * 13+ asks for the notification permission once, after saying why; turned off for the app in Settings: a message
-     * with Turn on.
+     * 13+ asks for the notification permission after saying why; turned off for the app in Settings, or refused for
+     * good: a message with Turn on. Review (LOW): asked at most every three days, not at every Follow.
      */
     private void askNotifications(String owner) {
         android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         boolean allowed = nm == null || nm.areNotificationsEnabled();
-        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        boolean permission = android.os.Build.VERSION.SDK_INT < 33 || checkSelfPermission(
+                "android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (allowed && permission) return;
+        android.content.SharedPreferences p = getSharedPreferences("playstore_follows", MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        if (now - p.getLong("notices_asked_at", 0) < 3 * PlayStore.DAY_MILLIS) return;
+        p.edit().putLong("notices_asked_at", now).apply();
+        // refused before and Android won't show its question again: only Settings can turn them on
+        boolean refusedForGood = !permission && p.getBoolean("notices_requested", false)
+                && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS");
+        if (!permission && !refusedForGood) {
             new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Get @" + owner + "'s new apps?")
                     .setMessage("Sketchware AI tells you with a notification when @" + owner + " publishes a new app or "
                             + "version. Allow notifications on the next screen.")
-                    .setPositiveButton("Allow", (d, w) -> requestPermissions(
-                            new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_NOTIFICATIONS))
+                    .setPositiveButton("Allow", (d, w) -> {
+                        p.edit().putBoolean("notices_requested", true).apply();
+                        requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_NOTIFICATIONS);
+                    })
                     .setNegativeButton("Not now", null)
                     .show();
             return;
         }
-        if (!allowed) {
+        {
             new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Notifications are off")
                     .setMessage("Turn on Sketchware AI's notifications to hear when @" + owner + " publishes a new app.")
@@ -2333,6 +2352,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             descriptionField.setText(d);
             videoField.setText(staged.video == null ? "" : staged.video);
             formCountry = staged.country;
+            // review (LOW): "Don't show a country" holds for this account's next apps too
+            if (formCountry == null && countryOff()) formCountry = "";
             showCountryLine();
         } finally {
             filling = false;
@@ -2449,10 +2470,25 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                         return;
                     }
                     formCountry = picked;
+                    rememberCountryOff("".equals(picked));
                     showCountryLine();
                     saveForm();
                 })
                 .show();
+    }
+
+    /** v2.1.5 review (LOW): whether this account chose "Don't show a country" last time. */
+    private boolean countryOff() {
+        String me = TokenStore.get(this).login();
+        return me != null && getSharedPreferences("playstore_publish", MODE_PRIVATE)
+                .getBoolean("country_off_" + me.toLowerCase(Locale.ROOT), false);
+    }
+
+    private void rememberCountryOff(boolean off) {
+        String me = TokenStore.get(this).login();
+        if (me == null) return;
+        getSharedPreferences("playstore_publish", MODE_PRIVATE).edit()
+                .putBoolean("country_off_" + me.toLowerCase(Locale.ROOT), off).apply();
     }
 
     private void chooseAnyCountry() {
@@ -2467,6 +2503,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 .setTitle("Choose your country")
                 .setItems(labels, (d, which) -> {
                     formCountry = all.get(which)[1];
+                    rememberCountryOff(false);
                     showCountryLine();
                     saveForm();
                 })
@@ -2669,6 +2706,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             Toast.makeText(this, "The video link must start with https://", Toast.LENGTH_LONG).show();
             return;
         }
+        // review (LOW): the country is published exactly as the form shows it (this phone's, fixed now) and named below
+        if (formCountry == null) {
+            String phone = PlayStore.phoneCountry(this);
+            formCountry = phone == null ? "" : phone;
+            showCountryLine();
+        }
+        String countryWords = formCountry.isEmpty() ? "No country is shown on the store page."
+                : "Your store page shows the country " + new Countries.Country(formCountry, Countries.nameOf(formCountry))
+                + " (Change on this page).";
         saveForm();
         ProjectRepo.Info repo = chosen;
         String title = titleField.getText().toString().trim();
@@ -2680,7 +2726,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 .setMessage(repo.name + " becomes public: everyone can see the project's code, its versions (APK and .swb) "
                         + "and this store page; GitHub Discussions are switched on for its reviews. The newest backup's "
                         + "APK is what people install (Run the project before its backup to include it). Make it private "
-                        + "again any time with its card's pill (it then leaves the store).")
+                        + "again any time with its card's pill (it then leaves the store).\n\n" + countryWords)
                 .setPositiveButton("Publish", (d, w) -> publish(repo, appTitle))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();

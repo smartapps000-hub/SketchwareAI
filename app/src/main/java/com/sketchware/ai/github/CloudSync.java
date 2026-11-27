@@ -2033,8 +2033,8 @@ public final class CloudSync {
         if (job.login != null && !job.login.equalsIgnoreCase(login)) throw new OtherAccount(blockedText(job));
         PlayStore.Listing listing = PlayStore.Listing.load(store.staging);
         if (listing.title == null || listing.title.trim().isEmpty()) listing.title = store.title;
-        // v2.1.5: the creator's country by itself (this phone's), unless the form chose one or "not shown"
-        if (listing.country == null) listing.country = PlayStore.phoneCountry(app);
+        // v2.1.5: the creator's country as the Publish page fixed it at Publish (this phone's unless another or "not
+        // shown" was chosen); review (LOW): never read here, so never one the page didn't show
         File icon = store.scId == null ? null : RepoIcons.localIcon(store.scId);
         if (icon != null) listing.icon = java.nio.file.Files.readAllBytes(icon.toPath());
         step(job, 3, "Opening " + store.repo + " on GitHub…");

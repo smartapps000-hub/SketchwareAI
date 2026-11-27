@@ -12,8 +12,11 @@ import org.json.JSONTokener;
 /**
  * Sketchware AI's JSON power pack (the JSON blocks): reads and changes JSON text by a path such as "user.name",
  * "items[0].title", "items[-1]" (the last item), "['key.with.dots']" or "items[]" (a new item at the end, when
- * setting). An empty path is the whole JSON. Uses Android's own org.json (no library) and never throws: a missing
- * part reads as empty text, 0 or false, and a change that can't be made leaves the JSON as it was.
+ * setting). An empty path is the whole JSON (for reading; only "set JSON" can replace the whole). A key that starts
+ * with "$" or holds a dot is written ['$key']. Uses Android's own org.json (no library; its reader also takes some
+ * relaxed JSON such as unquoted keys) and never throws: a missing part reads as empty text, 0 or false, and a change
+ * that can't be made leaves the JSON as it was (a text, number or true/false already on the path is never replaced by
+ * an object or array).
  */
 public final class SketchJson {
 
@@ -21,6 +24,8 @@ public final class SketchJson {
     private static final Object APPEND = new Object();
     /** At most this many empty items are added before a new item far past the end of an array. */
     private static final int MAX_PADDING = 1000;
+    /** The last JSON text the readers parsed and its tree (readers never change it; setters parse their own). */
+    private static volatile Object[] lastRead;
 
     private SketchJson() {
     }
@@ -64,7 +69,7 @@ public final class SketchJson {
 
     /** "object", "array", "text", "number", "boolean", "null", "missing" or "invalid" (the JSON can't be read). */
     public static String type(String json, String path) {
-        if (parse(json) == MISSING) return "invalid";
+        if (readTree(json) == MISSING) return "invalid";
         Object v = at(json, path);
         if (v == MISSING) return "missing";
         if (v instanceof JSONObject) return "object";
@@ -77,17 +82,19 @@ public final class SketchJson {
 
     /** Whether the text is JSON (an object, an array, a quoted text, a number, true, false or null). */
     public static boolean isValid(String json) {
-        return parse(json) != MISSING;
+        return readTree(json) != MISSING;
     }
 
     /** The JSON with two-space indents, one item per line; text that isn't an object or array comes back as it was. */
     public static String pretty(String json) {
-        Object v = parse(json);
+        Object v = readTree(json);
         try {
             if (v instanceof JSONObject) return unslash(((JSONObject) v).toString(2));
             if (v instanceof JSONArray) return unslash(((JSONArray) v).toString(2));
         } catch (JSONException e) {
             // as it was
+        } catch (StackOverflowError e) {
+            // nested too deeply to write out: as it was
         }
         return json == null ? "" : json;
     }
@@ -114,10 +121,17 @@ public final class SketchJson {
         return put(json, path, Boolean.valueOf(value));
     }
 
-    /** Puts a JSON part (an object or array as text); text that isn't JSON is put as text. */
+    /**
+     * Puts a JSON part (an object or array as text); text that isn't JSON is put as text. With an empty path it
+     * replaces the whole JSON, but only empty text or JSON, never other text.
+     */
     public static String setJson(String json, String path, String value) {
         Object v = parse(value);
         if (v == MISSING) v = value == null ? JSONObject.NULL : value;
+        if (path(path).isEmpty()) {
+            boolean blank = json == null || json.trim().length() == 0;
+            return blank || parse(json) != MISSING ? toJson(v) : json;
+        }
         return put(json, path, v);
     }
 
@@ -157,10 +171,12 @@ public final class SketchJson {
             } else {
                 return same;
             }
+            return toJson(root);
         } catch (JSONException e) {
             return same;
+        } catch (StackOverflowError e) {
+            return same;
         }
-        return toJson(root);
     }
 
     // ------------------------------------------------------------------ lists and maps
@@ -199,16 +215,21 @@ public final class SketchJson {
         if (list == null) return;
         list.clear();
         Object v = at(json, path);
-        if (v instanceof JSONObject) {
-            list.add(map((JSONObject) v));
-            return;
-        }
-        if (v instanceof JSONArray) {
-            JSONArray a = (JSONArray) v;
-            for (int i = 0; i < a.length(); i++) {
-                Object item = a.opt(i);
-                if (item instanceof JSONObject) list.add(map((JSONObject) item));
+        try {
+            if (v instanceof JSONObject) {
+                list.add(map((JSONObject) v));
+                return;
             }
+            if (v instanceof JSONArray) {
+                JSONArray a = (JSONArray) v;
+                for (int i = 0; i < a.length(); i++) {
+                    Object item = a.opt(i);
+                    if (item instanceof JSONObject) list.add(map((JSONObject) item));
+                }
+            }
+        } catch (StackOverflowError e) {
+            // nested too deeply: nothing
+            list.clear();
         }
     }
 
@@ -217,14 +238,30 @@ public final class SketchJson {
         if (map == null) return;
         map.clear();
         Object v = at(json, path);
-        if (v instanceof JSONObject) map.putAll(map((JSONObject) v));
+        try {
+            if (v instanceof JSONObject) map.putAll(map((JSONObject) v));
+        } catch (StackOverflowError e) {
+            // nested too deeply: nothing
+            map.clear();
+        }
     }
 
     // ------------------------------------------------------------------ inside
 
+    /** The tree of a JSON text for the readers: the last one is kept (a loop reading items[i] parses once). */
+    static Object readTree(String json) {
+        Object[] last = lastRead;
+        if (last != null && last[0] == json && json != null) return last[1];
+        Object tree = parse(json);
+        if (json != null) lastRead = new Object[]{json, tree};
+        return tree;
+    }
+
     static Object parse(String json) {
         if (json == null) return MISSING;
         String t = json.trim();
+        // a byte-order mark (a file saved by some editors) before the JSON
+        while (t.length() > 0 && t.charAt(0) == '\uFEFF') t = t.substring(1).trim();
         if (t.length() == 0) return MISSING;
         char c = t.charAt(0);
         if ("{[\"-0123456789tfn".indexOf(c) < 0) return MISSING;
@@ -240,6 +277,9 @@ public final class SketchJson {
         } catch (JSONException e) {
             return MISSING;
         } catch (RuntimeException e) {
+            return MISSING;
+        } catch (StackOverflowError e) {
+            // nested thousands deep
             return MISSING;
         }
     }
@@ -310,7 +350,7 @@ public final class SketchJson {
     }
 
     static Object at(String json, String path) {
-        Object node = parse(json);
+        Object node = readTree(json);
         if (node == MISSING) return MISSING;
         ArrayList<Object> keys = path(path);
         for (int i = 0; i < keys.size(); i++) {
@@ -352,7 +392,8 @@ public final class SketchJson {
     private static String put(String json, String path, Object value) {
         String same = json == null ? "" : json;
         ArrayList<Object> keys = path(path);
-        if (keys.isEmpty()) return toJson(value);
+        // no path (e.g. a path variable not set yet): nothing is replaced
+        if (keys.isEmpty()) return same;
         boolean blank = json == null || json.trim().length() == 0;
         Object root = blank ? MISSING : parse(json);
         if (root == MISSING) {
@@ -367,16 +408,20 @@ public final class SketchJson {
                 Object key = keys.get(i);
                 Object next = child(node, key);
                 if (!(next instanceof JSONObject) && !(next instanceof JSONArray)) {
+                    // a text, number or true/false in the way is kept: the change isn't made
+                    if (next != MISSING && next != null && next != JSONObject.NULL) return same;
                     next = container(keys.get(i + 1));
                     if (!set(node, key, next)) return same;
                 }
                 node = next;
             }
             if (!set(node, keys.get(keys.size() - 1), value)) return same;
+            return toJson(root);
         } catch (JSONException e) {
             return same;
+        } catch (StackOverflowError e) {
+            return same;
         }
-        return toJson(root);
     }
 
     /** A new array when the next key is a position ("[0]", "[]"), else a new object. */
@@ -486,7 +531,12 @@ public final class SketchJson {
         if (v instanceof String) return unslash(JSONObject.quote((String) v));
         if (v instanceof Number) return numberText((Number) v);
         if (v instanceof Boolean) return v.toString();
-        return unslash(v.toString());
+        try {
+            return unslash(v.toString());
+        } catch (StackOverflowError e) {
+            // nested too deeply to write out
+            return "";
+        }
     }
 
     /** org.json writes "/" as "\/" (valid, but hard to read in addresses): every such pair is an escaped "/". */
