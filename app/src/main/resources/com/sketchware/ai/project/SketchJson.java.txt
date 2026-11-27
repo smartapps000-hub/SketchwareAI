@@ -1,0 +1,496 @@
+package __PACKAGE__;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+
+/**
+ * Sketchware AI's JSON power pack (the JSON blocks): reads and changes JSON text by a path such as "user.name",
+ * "items[0].title", "items[-1]" (the last item), "['key.with.dots']" or "items[]" (a new item at the end, when
+ * setting). An empty path is the whole JSON. Uses Android's own org.json (no library) and never throws: a missing
+ * part reads as empty text, 0 or false, and a change that can't be made leaves the JSON as it was.
+ */
+public final class SketchJson {
+
+    private static final Object MISSING = new Object();
+    private static final Object APPEND = new Object();
+    /** At most this many empty items are added before a new item far past the end of an array. */
+    private static final int MAX_PADDING = 1000;
+
+    private SketchJson() {
+    }
+
+    // ------------------------------------------------------------------ reading
+
+    /** The text at the path (a number without ".0" when whole, an object or array as JSON), else "". */
+    public static String getText(String json, String path) {
+        return text(at(json, path));
+    }
+
+    /** The number at the path (text that holds a number is read too), else 0. */
+    public static double getNumber(String json, String path) {
+        return number(at(json, path));
+    }
+
+    /** true for true, "true", a number other than 0; else false. */
+    public static boolean getBoolean(String json, String path) {
+        return bool(at(json, path));
+    }
+
+    /** The part at the path as JSON text (an object, an array, a quoted text ...), else "". */
+    public static String getJson(String json, String path) {
+        Object v = at(json, path);
+        return v == MISSING ? "" : toJson(v);
+    }
+
+    /** Whether the path exists (also when its value is null). */
+    public static boolean has(String json, String path) {
+        return at(json, path) != MISSING;
+    }
+
+    /** Items of an array, keys of an object, letters of a text; else 0. */
+    public static double count(String json, String path) {
+        Object v = at(json, path);
+        if (v instanceof JSONArray) return ((JSONArray) v).length();
+        if (v instanceof JSONObject) return ((JSONObject) v).length();
+        if (v instanceof String) return ((String) v).length();
+        return 0;
+    }
+
+    /** "object", "array", "text", "number", "boolean", "null", "missing" or "invalid" (the JSON can't be read). */
+    public static String type(String json, String path) {
+        if (parse(json) == MISSING) return "invalid";
+        Object v = at(json, path);
+        if (v == MISSING) return "missing";
+        if (v instanceof JSONObject) return "object";
+        if (v instanceof JSONArray) return "array";
+        if (v instanceof String) return "text";
+        if (v instanceof Number) return "number";
+        if (v instanceof Boolean) return "boolean";
+        return "null";
+    }
+
+    /** Whether the text is JSON (an object, an array, a quoted text, a number, true, false or null). */
+    public static boolean isValid(String json) {
+        return parse(json) != MISSING;
+    }
+
+    /** The JSON with two-space indents, one item per line; text that isn't an object or array comes back as it was. */
+    public static String pretty(String json) {
+        Object v = parse(json);
+        try {
+            if (v instanceof JSONObject) return unslash(((JSONObject) v).toString(2));
+            if (v instanceof JSONArray) return unslash(((JSONArray) v).toString(2));
+        } catch (JSONException e) {
+            // as it was
+        }
+        return json == null ? "" : json;
+    }
+
+    // ------------------------------------------------------------------ changing (the new JSON text comes back)
+
+    public static String setText(String json, String path, String value) {
+        return put(json, path, value == null ? JSONObject.NULL : value);
+    }
+
+    public static String setNumber(String json, String path, double value) {
+        Object v;
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            v = JSONObject.NULL;
+        } else if (value == Math.rint(value) && Math.abs(value) < 9.0E15) {
+            v = Long.valueOf((long) value);
+        } else {
+            v = Double.valueOf(value);
+        }
+        return put(json, path, v);
+    }
+
+    public static String setBoolean(String json, String path, boolean value) {
+        return put(json, path, Boolean.valueOf(value));
+    }
+
+    /** Puts a JSON part (an object or array as text); text that isn't JSON is put as text. */
+    public static String setJson(String json, String path, String value) {
+        Object v = parse(value);
+        if (v == MISSING) v = value == null ? JSONObject.NULL : value;
+        return put(json, path, v);
+    }
+
+    /** The JSON without the part at the path (an array closes the gap). */
+    public static String remove(String json, String path) {
+        String same = json == null ? "" : json;
+        ArrayList<Object> keys = path(path);
+        Object root = parse(json);
+        if (root == MISSING || keys.isEmpty()) return same;
+        Object parent = null;
+        Object parentKey = null;
+        Object node = root;
+        for (int i = 0; i < keys.size() - 1; i++) {
+            parent = node;
+            parentKey = keys.get(i);
+            node = child(node, parentKey);
+            if (node == MISSING) return same;
+        }
+        Object last = keys.get(keys.size() - 1);
+        try {
+            if (node instanceof JSONObject) {
+                JSONObject o = (JSONObject) node;
+                String name = String.valueOf(last);
+                if (last == APPEND || !o.has(name)) return same;
+                o.remove(name);
+            } else if (node instanceof JSONArray) {
+                // without JSONArray.remove (Android 4.4+): a copy without the item
+                JSONArray a = (JSONArray) node;
+                int index = index(last, a.length());
+                if (index < 0 || index >= a.length()) return same;
+                JSONArray kept = new JSONArray();
+                for (int i = 0; i < a.length(); i++) {
+                    if (i != index) kept.put(a.opt(i));
+                }
+                if (parent == null) return toJson(kept);
+                if (!set(parent, parentKey, kept)) return same;
+            } else {
+                return same;
+            }
+        } catch (JSONException e) {
+            return same;
+        }
+        return toJson(root);
+    }
+
+    // ------------------------------------------------------------------ lists and maps
+
+    /** The keys of the object at the path (the positions "0", "1" ... of an array) into the list. */
+    public static void keys(String json, String path, ArrayList<String> list) {
+        if (list == null) return;
+        list.clear();
+        Object v = at(json, path);
+        if (v instanceof JSONObject) {
+            Iterator<?> it = ((JSONObject) v).keys();
+            while (it.hasNext()) list.add(String.valueOf(it.next()));
+        } else if (v instanceof JSONArray) {
+            for (int i = 0; i < ((JSONArray) v).length(); i++) list.add(String.valueOf(i));
+        }
+    }
+
+    /** The items of the array at the path (an object's values) as text into the list. */
+    public static void toTextList(String json, String path, ArrayList<String> list) {
+        if (list == null) return;
+        list.clear();
+        ArrayList<Object> items = items(at(json, path));
+        for (int i = 0; i < items.size(); i++) list.add(text(items.get(i)));
+    }
+
+    /** The items of the array at the path (an object's values) as numbers into the list. */
+    public static void toNumberList(String json, String path, ArrayList<Double> list) {
+        if (list == null) return;
+        list.clear();
+        ArrayList<Object> items = items(at(json, path));
+        for (int i = 0; i < items.size(); i++) list.add(Double.valueOf(number(items.get(i))));
+    }
+
+    /** The objects of the array at the path into the list of maps (one object: one map); numbers come as Double. */
+    public static void toMapList(String json, String path, ArrayList<HashMap<String, Object>> list) {
+        if (list == null) return;
+        list.clear();
+        Object v = at(json, path);
+        if (v instanceof JSONObject) {
+            list.add(map((JSONObject) v));
+            return;
+        }
+        if (v instanceof JSONArray) {
+            JSONArray a = (JSONArray) v;
+            for (int i = 0; i < a.length(); i++) {
+                Object item = a.opt(i);
+                if (item instanceof JSONObject) list.add(map((JSONObject) item));
+            }
+        }
+    }
+
+    /** The object at the path into the map (cleared first); numbers come as Double, null as "". */
+    public static void toMap(String json, String path, HashMap<String, Object> map) {
+        if (map == null) return;
+        map.clear();
+        Object v = at(json, path);
+        if (v instanceof JSONObject) map.putAll(map((JSONObject) v));
+    }
+
+    // ------------------------------------------------------------------ inside
+
+    static Object parse(String json) {
+        if (json == null) return MISSING;
+        String t = json.trim();
+        if (t.length() == 0) return MISSING;
+        char c = t.charAt(0);
+        if ("{[\"-0123456789tfn".indexOf(c) < 0) return MISSING;
+        try {
+            JSONTokener tokener = new JSONTokener(t);
+            Object v = tokener.nextValue();
+            // nothing after the value, and a word only when it is true, false or null
+            if (tokener.nextClean() != 0) return MISSING;
+            if ((c == 't' || c == 'f') && !(v instanceof Boolean)) return MISSING;
+            if (c == 'n' && v != JSONObject.NULL) return MISSING;
+            if ((c == '-' || (c >= '0' && c <= '9')) && !(v instanceof Number)) return MISSING;
+            return v == null ? MISSING : v;
+        } catch (JSONException e) {
+            return MISSING;
+        } catch (RuntimeException e) {
+            return MISSING;
+        }
+    }
+
+    static ArrayList<Object> path(String path) {
+        ArrayList<Object> out = new ArrayList<Object>();
+        if (path == null) return out;
+        String p = path.trim();
+        if (p.startsWith("$")) p = p.substring(1);
+        StringBuilder key = new StringBuilder();
+        int i = 0;
+        while (i < p.length()) {
+            char c = p.charAt(i);
+            if (c == '.') {
+                flush(key, out);
+                i++;
+            } else if (c == '[') {
+                flush(key, out);
+                int close;
+                if (i + 1 < p.length() && (p.charAt(i + 1) == '"' || p.charAt(i + 1) == '\'')) {
+                    int endQuote = p.indexOf(p.charAt(i + 1), i + 2);
+                    close = endQuote < 0 ? -1 : p.indexOf(']', endQuote);
+                    if (close < 0) {
+                        key.append(p.substring(i));
+                        break;
+                    }
+                    out.add(p.substring(i + 2, endQuote));
+                } else {
+                    close = p.indexOf(']', i);
+                    if (close < 0) {
+                        key.append(p.substring(i));
+                        break;
+                    }
+                    String inside = p.substring(i + 1, close).trim();
+                    if (inside.length() == 0) {
+                        out.add(APPEND);
+                    } else if (isWhole(inside)) {
+                        out.add(Integer.valueOf(Integer.parseInt(inside)));
+                    } else {
+                        out.add(inside);
+                    }
+                }
+                i = close + 1;
+            } else {
+                key.append(c);
+                i++;
+            }
+        }
+        flush(key, out);
+        return out;
+    }
+
+    private static void flush(StringBuilder key, ArrayList<Object> out) {
+        if (key.length() > 0) {
+            out.add(key.toString());
+            key.setLength(0);
+        }
+    }
+
+    /** "-?[0-9]{1,9}" */
+    private static boolean isWhole(String s) {
+        int start = s.startsWith("-") ? 1 : 0;
+        if (s.length() == start || s.length() - start > 9) return false;
+        for (int i = start; i < s.length(); i++) {
+            if (s.charAt(i) < '0' || s.charAt(i) > '9') return false;
+        }
+        return true;
+    }
+
+    static Object at(String json, String path) {
+        Object node = parse(json);
+        if (node == MISSING) return MISSING;
+        ArrayList<Object> keys = path(path);
+        for (int i = 0; i < keys.size(); i++) {
+            node = child(node, keys.get(i));
+            if (node == MISSING) return MISSING;
+        }
+        return node;
+    }
+
+    private static Object child(Object node, Object key) {
+        if (key == APPEND) return MISSING;
+        if (node instanceof JSONObject) {
+            JSONObject o = (JSONObject) node;
+            String name = String.valueOf(key);
+            return o.has(name) ? o.opt(name) : MISSING;
+        }
+        if (node instanceof JSONArray) {
+            JSONArray a = (JSONArray) node;
+            int index = index(key, a.length());
+            return index >= 0 && index < a.length() ? a.opt(index) : MISSING;
+        }
+        return MISSING;
+    }
+
+    /** The position the key names in an array of this length (negative: from the end), else -1. */
+    private static int index(Object key, int length) {
+        int n;
+        if (key instanceof Integer) {
+            n = ((Integer) key).intValue();
+        } else {
+            String s = String.valueOf(key).trim();
+            if (!isWhole(s)) return -1;
+            n = Integer.parseInt(s);
+        }
+        if (n < 0) n = length + n;
+        return n < 0 ? -1 : n;
+    }
+
+    private static String put(String json, String path, Object value) {
+        String same = json == null ? "" : json;
+        ArrayList<Object> keys = path(path);
+        if (keys.isEmpty()) return toJson(value);
+        boolean blank = json == null || json.trim().length() == 0;
+        Object root = blank ? MISSING : parse(json);
+        if (root == MISSING) {
+            // text that isn't JSON is never replaced; empty text starts a new object or array
+            if (!blank) return same;
+            root = container(keys.get(0));
+        }
+        if (!(root instanceof JSONObject) && !(root instanceof JSONArray)) return same;
+        Object node = root;
+        try {
+            for (int i = 0; i < keys.size() - 1; i++) {
+                Object key = keys.get(i);
+                Object next = child(node, key);
+                if (!(next instanceof JSONObject) && !(next instanceof JSONArray)) {
+                    next = container(keys.get(i + 1));
+                    if (!set(node, key, next)) return same;
+                }
+                node = next;
+            }
+            if (!set(node, keys.get(keys.size() - 1), value)) return same;
+        } catch (JSONException e) {
+            return same;
+        }
+        return toJson(root);
+    }
+
+    /** A new array when the next key is a position ("[0]", "[]"), else a new object. */
+    private static Object container(Object nextKey) {
+        return nextKey == APPEND || nextKey instanceof Integer ? new JSONArray() : new JSONObject();
+    }
+
+    private static boolean set(Object node, Object key, Object value) throws JSONException {
+        if (node instanceof JSONObject) {
+            if (key == APPEND) return false;
+            ((JSONObject) node).put(String.valueOf(key), value);
+            return true;
+        }
+        if (node instanceof JSONArray) {
+            JSONArray a = (JSONArray) node;
+            if (key == APPEND) {
+                a.put(value);
+                return true;
+            }
+            int index = index(key, a.length());
+            if (index < 0 || index > a.length() + MAX_PADDING) return false;
+            a.put(index, value);
+            return true;
+        }
+        return false;
+    }
+
+    private static ArrayList<Object> items(Object v) {
+        ArrayList<Object> out = new ArrayList<Object>();
+        if (v instanceof JSONArray) {
+            JSONArray a = (JSONArray) v;
+            for (int i = 0; i < a.length(); i++) out.add(a.opt(i));
+        } else if (v instanceof JSONObject) {
+            JSONObject o = (JSONObject) v;
+            Iterator<?> it = o.keys();
+            while (it.hasNext()) out.add(o.opt(String.valueOf(it.next())));
+        }
+        return out;
+    }
+
+    private static HashMap<String, Object> map(JSONObject o) {
+        HashMap<String, Object> m = new HashMap<String, Object>();
+        Iterator<?> it = o.keys();
+        while (it.hasNext()) {
+            String k = String.valueOf(it.next());
+            m.put(k, plain(o.opt(k)));
+        }
+        return m;
+    }
+
+    /** As Gson gives it to the map blocks: maps, lists, Double numbers; JSON null as "". */
+    private static Object plain(Object v) {
+        if (v instanceof JSONObject) return map((JSONObject) v);
+        if (v instanceof JSONArray) {
+            JSONArray a = (JSONArray) v;
+            ArrayList<Object> l = new ArrayList<Object>();
+            for (int i = 0; i < a.length(); i++) l.add(plain(a.opt(i)));
+            return l;
+        }
+        if (v instanceof Number) return Double.valueOf(((Number) v).doubleValue());
+        if (v == null || v == JSONObject.NULL) return "";
+        return v;
+    }
+
+    private static String text(Object v) {
+        if (v == MISSING || v == null || v == JSONObject.NULL) return "";
+        if (v instanceof String) return (String) v;
+        if (v instanceof Number) return numberText((Number) v);
+        if (v instanceof JSONObject || v instanceof JSONArray) return toJson(v);
+        return String.valueOf(v);
+    }
+
+    private static String numberText(Number n) {
+        if (n instanceof Double || n instanceof Float) {
+            double d = n.doubleValue();
+            if (!Double.isInfinite(d) && d == Math.rint(d) && Math.abs(d) < 1.0E15) return String.valueOf((long) d);
+            return String.valueOf(d);
+        }
+        return String.valueOf(n);
+    }
+
+    private static double number(Object v) {
+        if (v instanceof Number) return ((Number) v).doubleValue();
+        if (v instanceof Boolean) return ((Boolean) v).booleanValue() ? 1 : 0;
+        if (v instanceof String) {
+            try {
+                return Double.parseDouble(((String) v).trim());
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private static boolean bool(Object v) {
+        if (v instanceof Boolean) return ((Boolean) v).booleanValue();
+        if (v instanceof Number) return ((Number) v).doubleValue() != 0;
+        if (v instanceof String) {
+            String s = ((String) v).trim();
+            return s.equalsIgnoreCase("true") || s.equals("1");
+        }
+        return false;
+    }
+
+    static String toJson(Object v) {
+        if (v == null || v == JSONObject.NULL || v == MISSING) return "null";
+        if (v instanceof String) return unslash(JSONObject.quote((String) v));
+        if (v instanceof Number) return numberText((Number) v);
+        if (v instanceof Boolean) return v.toString();
+        return unslash(v.toString());
+    }
+
+    /** org.json writes "/" as "\/" (valid, but hard to read in addresses): every such pair is an escaped "/". */
+    private static String unslash(String s) {
+        return s.indexOf("\\/") < 0 ? s : s.replace("\\/", "/");
+    }
+}

@@ -32,6 +32,8 @@ public final class BlockGuide {
     public static final int GITHUB = 0xFF1F6FEB;
     /** v2.0.3: the GitHub true/false block (GitHub's green). */
     public static final int GITHUB_GREEN = 0xFF2EA043;
+    /** v2.1.5: the JSON power pack (the operators' JSON green). */
+    public static final int JSON = 0xFF5CB722;
 
     /** One block's guide. */
     public static final class Entry {
@@ -201,12 +203,98 @@ public final class BlockGuide {
                 "A group or a permission.",
                 "GRANTED, DENIED, or NEVER_ASK_AGAIN (Android won't show the dialog again: send the user to the "
                         + "app's settings).");
+        // v2.1.5: JSON power pack (SketchJson; paths: user.name, items[0].title, items[-1], items[] to add)
+        String path = "A path: user.name, items[0].title, items[-1] (the last item), ['a.b'] for a key with dots; "
+                + "empty for the whole JSON.";
+        put("sketchJsonGetText", "JSON [json] text at [user.name]", JSON,
+                "A text slot: setText, a Toast, an \"if equals\".",
+                "The JSON text (a String variable or a server's answer) and a path. " + path,
+                "The text there; a whole number without \".0\", an object or array as JSON; \"\" when the path "
+                        + "isn't there.");
+        put("sketchJsonGetNumber", "JSON [json] number at [price]", JSON,
+                "A number slot: set a Number variable, math blocks, setProgress.",
+                "The JSON text and a path. " + path,
+                "The number there (text such as \"12.5\" is read too); 0 when the path isn't there.");
+        put("sketchJsonGetBoolean", "JSON [json] boolean at [done]", JSON,
+                "An if / if-else, or set a Boolean variable.",
+                "The JSON text and a path. " + path,
+                "true for true, \"true\" or a number other than 0; false otherwise.");
+        put("sketchJsonGetJson", "JSON [json] part at [user]", JSON,
+                "Where a JSON text goes: another JSON block, set a String variable.",
+                "The JSON text and a path. " + path,
+                "That part as JSON text (an object, an array, a quoted text), ready for the other JSON blocks.");
+        put("sketchJsonHas", "JSON [json] has [user.email]", JSON,
+                "An if before reading a part that may be missing.",
+                "The JSON text and a path. " + path,
+                "true when the path is there (also when its value is null).");
+        put("sketchJsonCount", "JSON [json] count at [items]", JSON,
+                "A repeat block's count, or a number slot.",
+                "The JSON text and the path of an array (or object).",
+                "How many items the array has (keys of an object); with repeat and \"items[\" + i + \"]\" you go "
+                        + "through every item.");
+        put("sketchJsonType", "JSON [json] type at [data]", JSON,
+                "An \"if equals\" that checks what came back.",
+                "The JSON text and a path. " + path,
+                "object, array, text, number, boolean, null, missing (no such path) or invalid (not JSON).");
+        put("sketchJsonIsValid", "[text] is valid JSON", JSON,
+                "An if right after a server answers, before the other JSON blocks.",
+                "Any text.",
+                "true when the text is JSON.");
+        put("sketchJsonPretty", "pretty JSON [json]", JSON,
+                "setText of a TextView, or a log.",
+                "The JSON text.",
+                "The same JSON with two-space indents, one value per line.");
+        put("sketchJsonSetText", "JSON [myJson] set [user.name] to text [Ravi]", JSON,
+                "Anywhere you build or change JSON (e.g. before sending it to a server).",
+                "A String variable that holds the JSON (empty: a new object), a path and the text. " + path
+                        + " Missing parts are made; [] at the end adds a new item.",
+                "The variable holds the changed JSON. Text that isn't JSON is never overwritten.");
+        put("sketchJsonSetNumber", "JSON [myJson] set [age] to number [21]", JSON,
+                "As set text.",
+                "The String variable, a path and a number (a whole number is written without \".0\").",
+                "The variable holds the changed JSON.");
+        put("sketchJsonSetBoolean", "JSON [myJson] set [done] to [true]", JSON,
+                "As set text.",
+                "The String variable, a path and true or false.",
+                "The variable holds the changed JSON.");
+        put("sketchJsonSetJson", "JSON [myJson] set [user] to JSON [part]", JSON,
+                "When one JSON goes inside another (an object or an array).",
+                "The String variable, a path and JSON text (text that isn't JSON is put as text).",
+                "The variable holds the JSON with the part inside.");
+        put("sketchJsonRemove", "JSON [myJson] remove [user.age]", JSON,
+                "Anywhere you change JSON.",
+                "The String variable and the path to remove.",
+                "The variable holds the JSON without it (an array closes the gap).");
+        put("sketchJsonKeys", "JSON [json] keys at [user] to [list]", JSON,
+                "After the JSON arrives, before showing its fields.",
+                "The JSON text, the path of an object (empty: the whole JSON) and a String list.",
+                "The list holds the object's keys in their order.");
+        put("sketchJsonToTextList", "JSON [json] array at [names] to [list]", JSON,
+                "Before a ListView or Spinner shows the items.",
+                "The JSON text, the path of an array and a String list.",
+                "The list holds each item as text (it is emptied first).");
+        put("sketchJsonToNumberList", "JSON [json] array at [scores] to [list]", JSON,
+                "Before you add up or sort numbers.",
+                "The JSON text, the path of an array and a Number list.",
+                "The list holds each item as a number (it is emptied first).");
+        put("sketchJsonToMapList", "JSON [json] array at [items] to [listMap]", JSON,
+                "A RequestNetwork onResponse, before a ListView's custom view shows the rows.",
+                "The server's JSON, the path of an array of objects and a Map list.",
+                "One map per object, as the Gson blocks make them (numbers as Double): read them with the List Map "
+                        + "blocks.");
+        put("sketchJsonToMap", "JSON [json] object at [user] to [map]", JSON,
+                "Where one object's fields are needed.",
+                "The JSON text, the path of an object and a Map variable.",
+                "The map holds the object's keys and values (emptied first).");
     }
 
     private static void put(String opCode, String block, int color, String where, String plug, String result) {
         // the two permission checks are a boolean and a value block; every other guided block is a command
         String kind = "hasAutoPermission".equals(opCode) || "gitHubHasToken".equals(opCode) ? "b"
                 : "getPermissionStatus".equals(opCode) || "gitHubDescribe".equals(opCode) ? "s" : " ";
+        // v2.1.5: the JSON blocks say their own shape
+        String json = com.sketchware.ai.project.JsonCode.kind(opCode);
+        if (json != null) kind = json;
         ENTRIES.put(opCode, new Entry(block, kind, color, where, plug, result));
     }
 

@@ -103,7 +103,8 @@ public final class FollowWatch extends JobService {
             if (e.getValue() instanceof Long) seen.put(e.getKey(), (Long) e.getValue());
         }
         List<PlayStore.App> fresh = PlayStore.newFromFollowed(found, followed, seen);
-        SharedPreferences.Editor edit = prefs.edit();
+        // the whole record replaced (creators no longer followed go)
+        SharedPreferences.Editor edit = prefs.edit().clear();
         for (Map.Entry<String, Long> e : seen.entrySet()) edit.putLong(e.getKey(), e.getValue());
         edit.apply();
         int n = 0;

@@ -2641,6 +2641,13 @@ public class BlocksHandler {
             logicEditorActivity.a("s", "GsonListTojsonString");
             logicEditorActivity.a(" ", "stringSplitToList");
         }
+        // v2.1.5: JSON power pack (tap a block, or the guide row, for what it does)
+        logicEditorActivity.a("JSON power pack", 0xff555555);
+        for (String[] block : com.sketchware.ai.project.JsonCode.BLOCKS) {
+            logicEditorActivity.a(block[1], block[0]);
+        }
+        logicEditorActivity.b("\u24d8 JSON blocks guide", "jsonGuide", v -> com.sketchware.ai.ui.BlockGuide.show(
+                logicEditorActivity, "JSON power pack", com.sketchware.ai.project.JsonCode.opCodes()));
         logicEditorActivity.a("add source directly", 0xff555555);
         logicEditorActivity.a(" ", "addSourceDirectly");
         logicEditorActivity.a("b", "asdBoolean");

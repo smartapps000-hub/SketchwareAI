@@ -834,6 +834,9 @@ public class yq {
                 com.sketchware.ai.project.PermissionCode.helperClass(packageName, N.g));
         addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.WebCode.CLASS_NAME,
                 com.sketchware.ai.project.WebCode.helperClass(packageName, N.g));
+        // v2.1.5: SketchJson.java for the JSON power pack blocks (Android's org.json: no library)
+        addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.JsonCode.CLASS_NAME,
+                com.sketchware.ai.project.JsonCode.helperClass(packageName));
         // v2.0.2: SketchGitHub.java for the GitHub component (its field and "new SketchGitHub(this)" use no "SketchGitHub."
         // when no event is used: any mention of the class counts)
         addCodeHelper(srcCodeBeans, javaFiles, javaDir, com.sketchware.ai.project.GitHubCode.CLASS_NAME, com.sketchware.ai.project.GitHubCode.helperClass(packageName), com.sketchware.ai.project.GitHubCode.CLASS_NAME);

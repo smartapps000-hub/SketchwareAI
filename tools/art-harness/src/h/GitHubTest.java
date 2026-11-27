@@ -1710,18 +1710,26 @@ public final class GitHubTest {
                 return -9;
             }
         };
-        check("v2.1.4: creator levels: Official (the Sketchware AI account), Not verified (new / no name / no app), "
-                        + "Verified (30+ days, named, an app), Trusted (a year, 2+ apps, 10+ followers or 100+ downloads)",
+        check("v2.1.5: creator levels by themselves (no name / bio needed): Official (the Sketchware AI account), Not "
+                        + "verified (under 30 days / no app / age unknown), Verified (30+ days and an app), Trusted (a year "
+                        + "and 3+ apps, 10+ followers or 50+ downloads)",
                 level.apply(new Object[]{"smartapps000-hub", null, null, 0L, 0, 0, 0L, now214}) == 3
                         && level.apply(new Object[]{"ann", "Ann", null, now214 - 10 * day, 1, 50, 0L, now214}) == 0
-                        && level.apply(new Object[]{"ann", null, " ", now214 - 90 * day, 2, 50, 0L, now214}) == 0
+                        && level.apply(new Object[]{"ann", null, " ", now214 - 90 * day, 2, 50, 0L, now214}) == 1
                         && level.apply(new Object[]{"ann", "Ann", null, now214 - 90 * day, 0, 50, 0L, now214}) == 0
                         && level.apply(new Object[]{"ann", "Ann", null, now214 - 60 * day, 1, 0, 0L, now214}) == 1
-                        && level.apply(new Object[]{"ann", null, "Makes apps", now214 - 400 * day, 1, 99, 999L, now214}) == 1
-                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 400 * day, 2, 12, 0L, now214}) == 2
-                        && level.apply(new Object[]{"ann", "Ann", null, now214 - 400 * day, 3, 2, 150L, now214}) == 2
+                        && level.apply(new Object[]{"ann", null, "Makes apps", now214 - 400 * day, 1, 99, 999L, now214}) == 2
+                        && level.apply(new Object[]{"ann", null, null, now214 - 400 * day, 1, 2, 49L, now214}) == 1
+                        && level.apply(new Object[]{"ann", null, null, now214 - 400 * day, 1, 0, 50L, now214}) == 2
+                        && level.apply(new Object[]{"ann", null, null, now214 - 400 * day, 3, 0, 0L, now214}) == 2
+                        && level.apply(new Object[]{"ann", null, null, now214 - 364 * day, 9, 99, 999L, now214}) == 1
                         && level.apply(new Object[]{"ann", "Ann", null, 0L, 3, 99, 999L, now214}) == 0,
                 null);
+        // the owner's account (January 2023, four apps in the store) on 23 Nov 2026
+        Object owner215 = call(store214, "badge", "bammireddy", null, null, now214 - 1050 * day, 4, 0, 0L, now214);
+        check("v2.1.5: an account of almost three years with four apps is Trusted, and says why",
+                Integer.valueOf(2).equals(get(owner215, "level")) && String.valueOf(get(owner215, "why")).contains("4 apps"),
+                get(owner215, "why"));
         Object young = call(store214, "badge", "ann", "Ann", null, now214 - 10 * day, 1, 0, 0L, now214);
         check("v2.1.4: a level says why (what is missing)", String.valueOf(get(young, "why")).contains("10 days old"),
                 get(young, "why"));
@@ -1794,6 +1802,114 @@ public final class GitHubTest {
                 print != null && print.matches("[0-9a-f]{12}") && print.equals(call(session214, "print", "gho_example_token_value"))
                         && !print.equals(call(session214, "print", "gho_other")) && call(session214, "print", (Object) null) == null,
                 print);
+
+        // --- v2.1.5: country, follows, followed creators' new apps, GitHub Mobile's page, the JSON power pack
+        check("v2.1.5: a country code from a store page (two letters, any case) or nothing",
+                "IN".equals(call(store214, "countryCode", " in ")) && call(store214, "countryCode", "IND") == null
+                        && call(store214, "countryCode", "India") == null && call(store214, "countryCode", (Object) null) == null,
+                call(store214, "countryCode", " in "));
+        Object withCountry = neu("com.sketchware.ai.github.PlayStore$App");
+        set(withCountry, "owner", "ann");
+        set(withCountry, "repo", "SketchwareAI-Timer");
+        set(withCountry, "creatorCountry", "IN");
+        Object back215 = call(c("com.sketchware.ai.github.PlayStore$App"), "fromJson", call(withCountry, "toJson"));
+        check("v2.1.5: the creator's country travels with the store's cached list", "IN".equals(get(back215, "creatorCountry")),
+                get(back215, "creatorCountry"));
+        String me215 = "Tester215";
+        Object followPrefs = call(CTX, "getSharedPreferences", "playstore_follows", 0);
+        Object followClear = call(followPrefs, "edit");
+        call(followClear, "clear");
+        call(followClear, "commit");
+        Object neverRead = call(store214, "knownFollowing", CTX, me215, "Ann");
+        call(store214, "noteFollowing", CTX, me215, "Ann", true);
+        Object afterFollow = call(store214, "knownFollowing", CTX, "tester215", "ANN");
+        Object otherAccount215 = call(store214, "knownFollowing", CTX, "someoneElse", "Ann");
+        call(store214, "saveFollowing", CTX, me215, java.util.Arrays.asList("Bob", "Cara"));
+        Object replaced = call(store214, "knownFollowing", CTX, me215, "ann");
+        Object set215 = call(store214, "followedSet", CTX, me215);
+        call(store214, "noteFollowing", CTX, me215, "Bob", false);
+        Object afterUnfollow = call(store214, "followedSet", CTX, me215);
+        check("v2.1.5: Follow kept on the phone per account (case doesn't matter): never read = unknown, Follow = "
+                        + "Following, GitHub's list replaces it, Unfollow takes the creator off",
+                neverRead == null && Boolean.TRUE.equals(afterFollow) && otherAccount215 == null && Boolean.FALSE.equals(replaced)
+                        && new java.util.HashSet<>(java.util.Arrays.asList("bob", "cara")).equals(set215)
+                        && java.util.Collections.singleton("cara").equals(afterUnfollow),
+                neverRead + " " + afterFollow + " " + otherAccount215 + " " + replaced + " " + set215 + " " + afterUnfollow);
+        followClear = call(followPrefs, "edit");
+        call(followClear, "clear");
+        call(followClear, "commit");
+        java.util.function.BiFunction<String, Long, Object> storeApp = (ownerRepo, updated) -> {
+            try {
+                Object a = neu("com.sketchware.ai.github.PlayStore$App");
+                set(a, "owner", ownerRepo.substring(0, ownerRepo.indexOf('/')));
+                set(a, "repo", ownerRepo.substring(ownerRepo.indexOf('/') + 1));
+                set(a, "updated", updated);
+                return a;
+            } catch (Throwable t) {
+                throw new RuntimeException(t);
+            }
+        };
+        java.util.Set<String> follows215 = new java.util.HashSet<>(java.util.Arrays.asList("ann"));
+        java.util.Map<String, Long> seen215 = new java.util.HashMap<>();
+        List<Object> look1 = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-A", 100L),
+                storeApp.apply("Ann/SketchwareAI-B", 300L), storeApp.apply("Bob/SketchwareAI-C", 500L)));
+        @SuppressWarnings("unchecked") List<Object> first215 = (List<Object>) call(store214, "fromFollowed", look1, follows215);
+        @SuppressWarnings("unchecked") List<Object> fresh1 = (List<Object>) call(store214, "newFromFollowed", look1, follows215, seen215);
+        List<Object> look2 = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-A", 100L),
+                storeApp.apply("Ann/SketchwareAI-B", 400L), storeApp.apply("Ann/SketchwareAI-D", 350L),
+                storeApp.apply("Bob/SketchwareAI-C", 500L)));
+        @SuppressWarnings("unchecked") List<Object> fresh2 = (List<Object>) call(store214, "newFromFollowed", look2, follows215, seen215);
+        // Bob followed now: his app from before is not "new"; Ann unfollowed: forgotten
+        java.util.Set<String> follows215b = new java.util.HashSet<>(java.util.Arrays.asList("bob"));
+        @SuppressWarnings("unchecked") List<Object> fresh3 = (List<Object>) call(store214, "newFromFollowed", look2, follows215b, seen215);
+        boolean annForgotten = true;
+        for (String k215 : seen215.keySet()) if (k215.contains("ann")) annForgotten = false;
+        check("v2.1.5: followed creators' apps newest first; a creator's first look only records, then new apps and "
+                        + "updates are news; a newly followed creator's older apps are not; unfollowed creators forgotten",
+                first215.size() == 2 && "SketchwareAI-B".equals(get(first215.get(0), "repo")) && fresh1.isEmpty()
+                        && fresh2.size() == 2 && "SketchwareAI-B".equals(get(fresh2.get(0), "repo"))
+                        && "SketchwareAI-D".equals(get(fresh2.get(1), "repo")) && fresh3.isEmpty() && annForgotten
+                        && seen215.containsKey("c:bob"),
+                first215.size() + " " + fresh1.size() + " " + fresh2.size() + " " + fresh3.size() + " " + seen215);
+        Class<?> otp215 = c("com.sketchware.ai.github.OtpAssist");
+        Object mobile215 = call(c("com.sketchware.ai.github.OtpAssist$Probe"), "parse", "0|1||0|1");
+        Object old215 = call(c("com.sketchware.ai.github.OtpAssist$Probe"), "parse", "1|0||0");
+        check("v2.1.5: GitHub Mobile's page known by its address and by the page reader (five parts; v2.1.4's four "
+                        + "still read)",
+                "mobile".equals(call(otp215, "pageKind", "https", "github.com", "/sessions/two-factor/mobile"))
+                        && "two-factor".equals(call(otp215, "pageKind", "https", "github.com", "/sessions/two-factor/app"))
+                        && mobile215 != null && Boolean.TRUE.equals(get(mobile215, "mobile"))
+                        && Boolean.TRUE.equals(get(mobile215, "sendLink")) && old215 != null
+                        && Boolean.FALSE.equals(get(old215, "mobile")) && Boolean.TRUE.equals(get(old215, "codeField"))
+                        && call(c("com.sketchware.ai.github.OtpAssist$Probe"), "parse", "1|0||0|1|x") == null,
+                call(otp215, "pageKind", "https", "github.com", "/sessions/two-factor/mobile"));
+        check("v2.1.5: the window's own sign-in code (4101-C456) is never taken for GitHub's e-mailed code",
+                Boolean.TRUE.equals(call(otp215, "isDeviceCode", "4101-C456"))
+                        && Boolean.TRUE.equals(call(otp215, "isDeviceCode", " WDJB-MJHT "))
+                        && Boolean.FALSE.equals(call(otp215, "isDeviceCode", "340413"))
+                        && Boolean.FALSE.equals(call(otp215, "isDeviceCode", "Your code is 4101-C456"))
+                        && Boolean.FALSE.equals(call(otp215, "isDeviceCode", (Object) null))
+                        && "340413".equals(call(otp215, "codeFrom", "Verification code: 340413")), null);
+        String probe215 = (String) get(otp215, "PROBE_SCRIPT");
+        check("v2.1.5: the page reader still only reads", !probe215.contains("click(") && !probe215.contains(".value=")
+                && probe215.contains("GitHub Mobile"), probe215.length());
+        Class<?> json215 = c("com.sketchware.ai.project.JsonCode");
+        String[][] jsonBlocks = (String[][]) get(json215, "BLOCKS");
+        String helper215 = (String) call(json215, "helperClass", "com.my.app");
+        boolean ascii215 = true;
+        for (int i = 0; i < helper215.length(); i++) if (helper215.charAt(i) > 126) ascii215 = false;
+        boolean guided215 = true;
+        for (String[] b : jsonBlocks) {
+            Object e = call(c("com.sketchware.ai.ui.BlockGuide"), "entry", b[0]);
+            if (e == null || !b[1].equals(get(e, "kind")) || !b[2].contains("SketchJson.")) guided215 = false;
+        }
+        check("v2.1.5: JSON power pack: 19 blocks, each with its guide in its own shape, calling the generated "
+                        + "SketchJson (package filled in, ASCII, Android's org.json, no Gson, no lambda)",
+                jsonBlocks.length == 19 && guided215 && helper215.startsWith("package com.my.app;")
+                        && helper215.contains("public final class SketchJson") && !helper215.contains("__PACKAGE__")
+                        && ascii215 && helper215.contains("import org.json.JSONTokener;") && !helper215.contains("gson")
+                        && !helper215.contains("->"),
+                jsonBlocks.length + " " + guided215 + " " + ascii215);
 
         // --- a .swb with an entry outside its folder is refused
         File evilZip = new File(swb.getParentFile(), "evil.swb");

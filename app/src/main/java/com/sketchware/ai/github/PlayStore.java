@@ -1143,19 +1143,26 @@ public final class PlayStore {
     }
 
     /**
-     * v2.1.5: what is new from followed creators since the last look ({@code seen}: "owner/repo" → updated time): apps
-     * not seen before and apps updated since. The first look ({@code seen} empty) only records and returns nothing.
+     * v2.1.5: what is new from followed creators since the last look ({@code seen}: "owner/repo" → updated time, and
+     * "c:owner" for each creator looked at): apps not seen before and apps updated since. A creator's first look (just
+     * followed) only records: the apps they had before are not "new". Creators no longer followed are forgotten.
      */
     static List<App> newFromFollowed(List<App> apps, java.util.Set<String> followed, java.util.Map<String, Long> seen) {
         List<App> out = new ArrayList<>();
-        boolean first = seen.isEmpty();
         for (App a : fromFollowed(apps, followed)) {
             String k = key(a.owner, a.repo);
             Long before = seen.get(k);
-            if (!first && (before == null || a.updated > before)) out.add(a);
+            boolean looked = seen.containsKey("c:" + a.owner.toLowerCase(Locale.ROOT));
+            if (looked && (before == null || a.updated > before)) out.add(a);
             seen.put(k, a.updated);
         }
-        if (first && seen.isEmpty()) seen.put("_", 0L);
+        java.util.Iterator<java.util.Map.Entry<String, Long>> it = seen.entrySet().iterator();
+        while (it.hasNext()) {
+            String k = it.next().getKey();
+            String owner = k.startsWith("c:") ? k.substring(2) : k.indexOf('/') > 0 ? k.substring(0, k.indexOf('/')) : null;
+            if (owner == null || !followed.contains(owner.toLowerCase(Locale.ROOT))) it.remove();
+        }
+        for (String f : followed) seen.put("c:" + f, 0L);
         return out;
     }
 

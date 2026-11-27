@@ -186,6 +186,9 @@ public class Fixtures {
         } else if (spec.equals("perm") || spec.equals("permplain")) {
             // v1.9.4: Button, TextView (the permission blocks' test project)
             for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
+        } else if (spec.equals("json")) {
+            // v2.1.5: Button, TextView (the JSON power pack's test project)
+            for (int t : new int[]{3, 4}) widgets.add(new int[]{t});
         } else if (spec.equals("github")) {
             // v2.0.2: Button, TextView (the GitHub component's test project); v2.0.4: a ListView for showList
             for (int t : new int[]{3, 4, 9}) widgets.add(new int[]{t});
@@ -405,6 +408,9 @@ public class Fixtures {
         }
         if (spec.equals("github")) {
             gitHubBlocks(proj, javaName);
+        }
+        if (spec.equals("json")) {
+            jsonBlocks(proj, javaName);
         }
         if (spec.equals("resolver")) {
             resolveLibraries(sc_id, "com.squareup.retrofit2:converter-gson:2.9.0");
@@ -898,6 +904,88 @@ public class Fixtures {
         java.io.File[] children = f.listFiles();
         if (children != null) for (java.io.File c : children) deleteTree(c);
         f.delete();
+    }
+
+    /**
+     * v2.1.5: fixture 936 "json": every JSON power pack block once in onCreate (com.sketchware.ai.project.JsonCode, specs
+     * read from the APK so the fixture follows the drawer), with String / Number / Map variables and String / Number /
+     * Map lists; the build must compile them against the generated SketchJson.
+     */
+    @SuppressWarnings("unchecked")
+    static void jsonBlocks(Object proj, String javaName) throws Throwable {
+        HashMap<String, ArrayList<Object>> vars = (HashMap<String, ArrayList<Object>>) get(proj, "e");
+        ArrayList<Object> v = vars.computeIfAbsent(javaName, k -> new ArrayList<>());
+        v.add(neu("android.util.Pair", 2, "data"));
+        v.add(neu("android.util.Pair", 2, "built"));
+        v.add(neu("android.util.Pair", 1, "total"));
+        v.add(neu("android.util.Pair", 3, "user"));
+        HashMap<String, ArrayList<Object>> lists = (HashMap<String, ArrayList<Object>>) get(proj, "f");
+        ArrayList<Object> l = lists.computeIfAbsent(javaName, k -> new ArrayList<>());
+        l.add(neu("android.util.Pair", 2, "names"));
+        l.add(neu("android.util.Pair", 1, "scores"));
+        l.add(neu("android.util.Pair", 3, "rows"));
+        String[][] spec = (String[][]) get(c("com.sketchware.ai.project.JsonCode"), "BLOCKS");
+        java.util.function.BiFunction<String, String[], Object> jb = (op, params) -> {
+            for (String[] b : spec) {
+                if (!b[0].equals(op)) continue;
+                try {
+                    return block(params[0], b[3], b[1], op, java.util.Arrays.copyOfRange(params, 1, params.length));
+                } catch (Throwable t) {
+                    throw new RuntimeException(t);
+                }
+            }
+            throw new IllegalArgumentException("no JSON block " + op);
+        };
+        ArrayList<Object> create = new ArrayList<>();
+        String json = "{\"user\":{\"name\":\"Ravi\",\"age\":21,\"vip\":true,\"site\":\"https://x.io/a\"},"
+                + "\"items\":[{\"title\":\"One\",\"n\":1},{\"title\":\"Two\",\"n\":2}],\"tags\":[\"a\",\"b\"],"
+                + "\"scores\":[1,2.5]}";
+        // commands 10-29 in one stack (13 and 16 are ifs with one block inside); values 30-39; variables 40-59
+        Object[] cmds = {
+                block("10", "set %m.varStr to %s", " ", "setVarString", "data", json),
+                block("11", "%m.textview setText %s", " ", "setText", "textview1", "@30"),
+                block("12", "set %m.varInt to %d", " ", "setVarInt", "total", "@31"),
+                block("13", "if %b then", "c", "if", "@32"),
+                block("15", "%m.textview setText %s", " ", "setText", "textview1", "@34"),
+                block("16", "if %b then", "c", "if", "@35"),
+                block("18", "set %m.varInt to %d", " ", "setVarInt", "total", "@37"),
+                block("19", "if %b then", "c", "if", "@38"),
+                jb.apply("sketchJsonSetText", new String[]{"20", "built", "user.name", "Ravi \"R\""}),
+                jb.apply("sketchJsonSetNumber", new String[]{"21", "built", "user.age", "21"}),
+                jb.apply("sketchJsonSetBoolean", new String[]{"22", "built", "user.vip", "@39"}),
+                jb.apply("sketchJsonSetJson", new String[]{"23", "built", "items[]", "@50"}),
+                jb.apply("sketchJsonRemove", new String[]{"24", "built", "user.vip"}),
+                jb.apply("sketchJsonKeys", new String[]{"25", "@51", "user", "names"}),
+                jb.apply("sketchJsonToTextList", new String[]{"26", "@52", "tags", "names"}),
+                jb.apply("sketchJsonToNumberList", new String[]{"27", "@53", "scores", "scores"}),
+                jb.apply("sketchJsonToMapList", new String[]{"28", "@54", "items", "rows"}),
+                jb.apply("sketchJsonToMap", new String[]{"29", "@55", "user", "user"})};
+        String[] order = {"10", "11", "12", "13", "15", "16", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27",
+                "28", "29"};
+        for (int i = 0; i < cmds.length; i++) {
+            if (i + 1 < cmds.length) set(cmds[i], "nextBlock", Integer.parseInt(order[i + 1]));
+            create.add(cmds[i]);
+        }
+        Object toast1 = block("14", "Toast %s", " ", "doToast", "@33");
+        Object toast2 = block("17", "Toast %s", " ", "doToast", "@36");
+        set(cmds[3], "subStack1", 14);
+        set(cmds[5], "subStack1", 17);
+        create.add(toast1);
+        create.add(toast2);
+        create.add(jb.apply("sketchJsonGetText", new String[]{"30", "@40", "user.name"}));
+        create.add(jb.apply("sketchJsonGetNumber", new String[]{"31", "@41", "user.age"}));
+        create.add(jb.apply("sketchJsonGetBoolean", new String[]{"32", "@42", "user.vip"}));
+        create.add(jb.apply("sketchJsonGetJson", new String[]{"33", "@43", "items[0]"}));
+        create.add(jb.apply("sketchJsonType", new String[]{"34", "@44", "items"}));
+        create.add(jb.apply("sketchJsonHas", new String[]{"35", "@45", "tags"}));
+        create.add(jb.apply("sketchJsonPretty", new String[]{"36", "@46"}));
+        create.add(jb.apply("sketchJsonCount", new String[]{"37", "@47", "items"}));
+        create.add(jb.apply("sketchJsonIsValid", new String[]{"38", "@48"}));
+        create.add(block("39", "true", "b", "true"));
+        create.add(neu("com.besome.sketch.beans.BlockBean", "50", "data", "s", "", "getVar"));
+        for (int id = 40; id <= 48; id++) create.add(neu("com.besome.sketch.beans.BlockBean", String.valueOf(id), "data", "s", "", "getVar"));
+        for (int id = 51; id <= 55; id++) create.add(neu("com.besome.sketch.beans.BlockBean", String.valueOf(id), "data", "s", "", "getVar"));
+        call(proj, "a", javaName, "onCreate_initializeLogic", create);
     }
 
     @SuppressWarnings("unchecked")

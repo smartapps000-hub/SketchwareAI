@@ -108,6 +108,10 @@ public class ExtraBlocks {
         arrayList.add(addBlock("gitHubDownloadFile", " ", "", "%1$s.downloadFile(%2$s, %3$s);", "#1F6FEB", "%m.GitHub download %s.url save as %s.nameOrPath"));
         arrayList.add(addBlock("gitHubShowList", " ", "", "%1$s.showList(%3$s, %2$s);", "#1F6FEB", "%m.GitHub show %s.json in %m.listview"));
         arrayList.add(addBlock("gitHubDescribe", "s", "", "%1$s.describe(%2$s)", "#2EA043", "%m.GitHub readable text of %s.json"));
+        // v2.1.5: JSON power pack (com.sketchware.ai.project.JsonCode; generated SketchJson on Android's org.json)
+        for (String[] block : com.sketchware.ai.project.JsonCode.BLOCKS) {
+            arrayList.add(addBlock(block[0], block[1], "", block[2], com.sketchware.ai.project.JsonCode.COLOR, block[3]));
+        }
     }
 
     /**
