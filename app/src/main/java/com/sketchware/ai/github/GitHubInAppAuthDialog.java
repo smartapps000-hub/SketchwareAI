@@ -111,6 +111,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
     private String otpState;
     /** v2.1.4: when the window lost focus while the page had a code field (wall clock), else 0. */
     private long leftForCodeAt;
+    /**
+     * v2.1.5 (owner's 23 Nov report: "the code should come into the app without opening the e-mail"): Android tells the
+     * window when something is copied (Gmail's notification "Copy code", a copy in split screen; Android 10+ only while
+     * this window is in front, else the code is read on return as before).
+     */
+    private ClipboardManager.OnPrimaryClipChangedListener clipListener;
     /** v2.1.4: the last code put in by itself (copied or from a notification) and when: never the same twice. */
     private String lastAutoCode;
     private long lastAutoAt;
@@ -232,6 +238,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         chrome.sendMail.setOnClickListener(v -> sendMailCode());
         chrome.otpAuto.setOnClickListener(v -> explainAutoCodes());
         setOnDismissListener(d -> close());
+        watchClipboard();
         if (!TokenStore.supported()) {
             status("GitHub sign-in needs Android 6.0 or newer.", true);
             AuthGuard.markUnavailable();
@@ -415,6 +422,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         signIn.removeListener(listener);
         main.removeCallbacksAndMessages(null);
         OtpNotifications.disarm(otpSink);
+        unwatchClipboard();
         for (WebView popup : new java.util.ArrayList<>(popups)) destroyQuietly(popup);
         popups.clear();
         // v2.0.1: closed before GitHub's approval: the sign-in pauses and keeps its code for the next window
@@ -1105,6 +1113,9 @@ public final class GitHubInAppAuthDialog extends Dialog {
             if (p.sentTo != null || "email".equals(pathKind)) kind = "email";
             else if ("two-factor".equals(pathKind)) kind = "two-factor";
             else kind = "code";
+        } else if ((p != null && p.mobile) || "mobile".equals(pathKind)) {
+            // v2.1.5: GitHub Mobile's request: answered only in that app (E-mail me a code when GitHub offers one)
+            kind = "mobile";
         } else if (p != null && p.sendLink) {
             kind = "send";
         } else {
@@ -1139,12 +1150,15 @@ public final class GitHubInAppAuthDialog extends Dialog {
         if ("email".equals(kind) || "code".equals(kind)) fillWaitingCode();
         boolean login = "login".equals(kind);
         boolean send = "send".equals(kind);
+        boolean mobile = "mobile".equals(kind);
+        boolean offersMail = send || (mobile && p != null && p.sendLink);
         boolean email = "email".equals(kind) || "code".equals(kind) || login || send;
         String sentTo = p == null ? null : p.sentTo;
         boolean confirm = p != null && p.confirmAccess;
         // v2.1.3: on GitHub's sign-in page too, for the code it may e-mail after the password
         String title;
-        if (send) title = confirm ? "Confirm access with an e-mailed code" : "Get a code by e-mail";
+        if (mobile) title = "Approve in the GitHub Mobile app";
+        else if (send) title = confirm ? "Confirm access with an e-mailed code" : "Get a code by e-mail";
         else if (login) title = "Code by e-mail?";
         else if ("two-factor".equals(kind)) title = "Two-factor code";
         else if (sentTo != null) title = "Code sent to " + sentTo;
@@ -1152,15 +1166,21 @@ public final class GitHubInAppAuthDialog extends Dialog {
         else title = "Verification code";
         chrome.otpTitle.setText(title);
         String note = null;
-        if (send) note = "GitHub sends a code to your account's e-mail.";
+        if (mobile) note = "GitHub sent this request to its own GitHub Mobile app only: it can't be answered here. "
+                + (offersMail ? "No GitHub Mobile? E-mail me a code." : "No GitHub Mobile? Choose another way on GitHub's "
+                + "page below (authenticator app, SMS or a recovery code).");
+        else if (send) note = "GitHub sends a code to your account's e-mail.";
         else if ("code".equals(kind)) note = "From GitHub's e-mail or your authenticator app.";
         chrome.otpNote.setText(note == null ? "" : note);
         chrome.otpNote.setVisibility(note == null ? View.GONE : View.VISIBLE);
-        chrome.sendMail.setVisibility(send ? View.VISIBLE : View.GONE);
-        chrome.openMail.setVisibility(email ? View.VISIBLE : View.GONE);
-        chrome.pasteFill.setVisibility(send ? View.GONE : View.VISIBLE);
+        chrome.sendMail.setVisibility(offersMail ? View.VISIBLE : View.GONE);
+        chrome.openMail.setText(mobile ? "Open GitHub Mobile" : "Open Gmail");
+        chrome.openMail.setContentDescription(mobile ? "Open the GitHub Mobile app to approve this sign-in"
+                : "Open Gmail: GitHub's e-mail has the code");
+        chrome.openMail.setVisibility(email || mobile ? View.VISIBLE : View.GONE);
+        chrome.pasteFill.setVisibility(send || mobile ? View.GONE : View.VISIBLE);
         // a pill beside another keeps an 8dp gap; the first one shown none
-        gap(chrome.openMail, send);
+        gap(chrome.openMail, offersMail);
         gap(chrome.pasteFill, email);
         // v2.1.4: codes from e-mail notifications (the user's own switch in Android's settings)
         if (email && OtpNotifications.offered()) {
@@ -1173,6 +1193,11 @@ public final class GitHubInAppAuthDialog extends Dialog {
             chrome.otpAuto.setVisibility(View.GONE);
         }
         chrome.otp.setVisibility(View.VISIBLE);
+        if (mobile) {
+            status("Open GitHub Mobile and tap the number this page shows" + (offersMail ? ", or tap E-mail me a code."
+                    : ". No GitHub Mobile: use another way on GitHub's page."), false);
+            return;
+        }
         if (login) {
             status("Sign in below · the code goes in by itself. If GitHub e-mails you a code: Open Gmail, copy it, "
                     + "Paste & fill.", false);
@@ -1190,8 +1215,8 @@ public final class GitHubInAppAuthDialog extends Dialog {
         }
         status(notifications && OtpNotifications.offered()
                 ? "GitHub's code goes in by itself when its e-mail arrives (or copy it and tap Paste & fill)."
-                : "Open Gmail and copy GitHub's code: it goes in by itself when you come back (or tap Paste & fill).",
-                false);
+                : "Pull down your notifications and tap Copy code on GitHub's e-mail (or open Gmail and copy it): "
+                + "it goes in by itself.", false);
     }
 
     private void gap(View pill, boolean after) {
@@ -1336,6 +1361,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         } catch (RuntimeException e) {
             return;
         }
+        if (OtpAssist.isDeviceCode(copied)) return;
         String code = OtpAssist.codeFrom(copied);
         if (code != null) autoFill(code, "the clipboard");
     }
@@ -1380,6 +1406,17 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** v2.1.2: Gmail (else the phone's e-mail app); the sign-in window stays as it is. */
     private void openMail() {
         Context context = getContext();
+        if ("mobile".equals(otpKind)) {
+            // v2.1.5: GitHub Mobile's page: that app answers GitHub's request
+            try {
+                context.startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                        .setPackage("com.github.android").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException e) {
+                status("GitHub Mobile isn't on this phone. " + (probe != null && probe.sendLink
+                        ? "Tap E-mail me a code." : "Choose another way on GitHub's page below."), true);
+            }
+            return;
+        }
         Intent gmail = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
                 .setPackage("com.google.android.gm").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
@@ -1417,13 +1454,65 @@ public final class GitHubInAppAuthDialog extends Dialog {
         } catch (RuntimeException ignored) {
             // nothing to read
         }
+        // v2.1.5 (owner's 23 Nov report: Paste & fill tapped before copying showed an error): what to do next, and
+        // the window's own sign-in code is never taken for GitHub's e-mailed one
+        if (OtpAssist.isDeviceCode(copied)) {
+            status("That's this window's sign-in code (" + copied.toString().trim() + "), not GitHub's e-mailed code. "
+                    + nextStep(), false);
+            return;
+        }
         String code = OtpAssist.codeFrom(copied);
         if (code == null) {
-            status("No 6- or 8-digit code was copied. Copy the code" + ("two-factor".equals(otpKind) ? ""
-                    : " from GitHub's e-mail") + ", then tap Paste & fill.", true);
+            status((copied == null || copied.toString().trim().isEmpty() ? "Nothing copied yet. "
+                    : "What's copied has no 6- or 8-digit code. ") + nextStep(), false);
             return;
         }
         fillCode(code, null);
+    }
+
+    /** v2.1.5: where GitHub's code comes from on this page, and that it then goes in by itself. */
+    private String nextStep() {
+        if ("two-factor".equals(otpKind)) {
+            return "Copy the code from your authenticator app: it goes in by itself when you come back.";
+        }
+        return "Pull down your notifications and tap Copy code on GitHub's e-mail (or open Gmail and copy it): it "
+                + "goes in by itself.";
+    }
+
+    /** v2.1.5: told by Android when something is copied (see {@link #clipListener}). */
+    private void watchClipboard() {
+        ClipboardManager clip = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clip == null || clipListener != null) return;
+        clipListener = () -> main.post(this::clipChanged);
+        try {
+            clip.addPrimaryClipChangedListener(clipListener);
+        } catch (RuntimeException e) {
+            clipListener = null;
+        }
+    }
+
+    private void unwatchClipboard() {
+        ClipboardManager.OnPrimaryClipChangedListener listener = clipListener;
+        clipListener = null;
+        if (listener == null) return;
+        try {
+            ClipboardManager clip = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clip != null) clip.removePrimaryClipChangedListener(listener);
+        } catch (RuntimeException ignored) {
+            // already gone
+        }
+    }
+
+    /**
+     * v2.1.5: something was copied while a code page waits: the code goes in at once. Android 10+ tells only the app in
+     * front, and the clipboard is read only then (in the background the code is read when the window comes back).
+     */
+    private void clipChanged() {
+        if (closed || !(codePage() || "send".equals(otpKind))) return;
+        Window w = getWindow();
+        boolean front = w != null && w.getDecorView().hasWindowFocus();
+        if (!front && Build.VERSION.SDK_INT >= 29) return;
+        codeFromClipboard(System.currentTimeMillis() - 5000L);
     }
 
     private void pageSlow() {

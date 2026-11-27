@@ -93,7 +93,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<input type="text" name="q" placeholder="Search">';
     w = page('https://github.com/login/device/confirm', sudo);
     r = w.eval(probe);
-    check('Confirm access: no code field, "Send a code via email" found, confirm access', r === '0|1||1', r);
+    check('Confirm access: no code field, "Send a code via email" found, confirm access', r === '0|1||1|0', r);
     let sent = 0;
     w.document.getElementById('mailform').addEventListener('submit', e => { sent++; e.preventDefault(); });
     r = w.eval(send);
@@ -107,7 +107,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<button type="submit" formaction="/sessions/sudo/resend">Resend code</button></form>';
     w = page('https://github.com/login/device/confirm', mailed);
     r = w.eval(probe);
-    check('sudo code page: a code field and the address the code went to', r === '1|0|b***@gmail.com|1', r);
+    check('sudo code page: a code field and the address the code went to', r === '1|0|b***@gmail.com|1|0', r);
     r = w.eval(eight);
     await wait(700);
     check('sudo code page: 8-digit code filled into GitHub\'s field, Verify pressed once',
@@ -119,7 +119,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<button type="submit">Verify</button></form>';
     w = page('https://github.com/sessions/something-new', plain);
     r = w.eval(probe);
-    check('an unknown code page: the field found by its placeholder / numeric input', r === '1|0||0', r);
+    check('an unknown code page: the field found by its placeholder / numeric input', r === '1|0||0|0', r);
     r = w.eval(six);
     check('…and filled', r === 'submitted' && w.document.querySelector('#x1').value === '123456', r);
 
@@ -129,7 +129,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<button type="submit">Continue</button></form>';
     w = page('https://github.com/login/device', device);
     r = w.eval(probe);
-    check('device-code page: no code field, nothing to send', r === '0|0||0', r);
+    check('device-code page: no code field, nothing to send', r === '0|0||0|0', r);
     r = w.eval(eight);
     check('device-code page: the code helper never types into the device-code boxes', r === 'none'
       && Array.from(w.document.querySelectorAll('input')).every(i => i.value === ''), r);
@@ -139,29 +139,54 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<input type="password" name="password" id="password"><input type="submit" value="Sign in"></form>';
     w = page('https://github.com/login', login);
     r = w.eval(probe);
-    check('sign-in page: user name / password are not code fields', r === '0|0||0', r);
+    check('sign-in page: user name / password are not code fields', r === '0|0||0|0', r);
 
     // review: the address in its own element right after "sent to" (no space in the page's text)
     const tight = '<p>Enter the verification code sent to<strong>m***@outlook.com</strong></p>'
       + '<form><input type="text" name="otp" autocomplete="one-time-code"></form>';
     w = page('https://github.com/sessions/sudo', tight);
     r = w.eval(probe);
-    check('the address read from its own element', r === '1|0|m***@outlook.com|0', r);
+    check('the address read from its own element', r === '1|0|m***@outlook.com|0|0', r);
 
     // second review: a hidden "sent to" panel and "consent to" are not where the code went
     const hiddenSent = '<div hidden><p>We sent a code to b***@gmail.com</p></div><p>I consent to admin@example.com</p>'
       + '<form><input type="text" name="app_otp" autocomplete="one-time-code"></form>';
     w = page('https://github.com/sessions/two-factor/app', hiddenSent);
     r = w.eval(probe);
-    check('hidden "sent to" text and "consent to" give no address', r === '1|0||0', r);
+    check('hidden "sent to" text and "consent to" give no address', r === '1|0||0|0', r);
 
     // a hidden "send" link (another choice's form) is not offered
     const hiddenSend = '<div hidden><button>Send a code via email</button></div><p>Use your passkey</p>';
     w = page('https://github.com/login/device/confirm', hiddenSend);
     r = w.eval(probe);
-    check('a hidden "Send a code via email" is not offered', r === '0|0||0', r);
+    check('a hidden "Send a code via email" is not offered', r === '0|0||0|0', r);
     r = w.eval(send);
     check('…and never pressed', r === 'none', r);
+
+    // v2.1.5 (owner's 23 Nov screenshot): GitHub Mobile's request page: no code field, "Send a code via email" offered
+    const mobile = '<title>Two-factor authentication</title><h1>Two-factor authentication</h1>'
+      + '<p>We sent you a verification request on your GitHub Mobile app. Enter the digits shown below to verify.</p>'
+      + '<div class="h0">77</div><p>Having problems?</p><a href="/sessions/two-factor/app">Use your authenticator app</a>'
+      + '<form action="/sessions/two-factor/send_email_otp" method="post"><button type="submit">Send a code via email'
+      + '</button></form><script>var t = "GitHub Mobile request sent";</script>';
+    w = page('https://github.com/sessions/two-factor/mobile', mobile);
+    r = w.eval(probe);
+    check('GitHub Mobile page: no code field, "Send a code via email", GitHub Mobile request', r === '0|1||0|1', r);
+
+    // the authenticator page that only links to GitHub Mobile as another way: a code page, not GitHub Mobile's
+    const totp = '<h1>Two-factor authentication</h1><form><input type="text" name="app_otp" autocomplete="one-time-code">'
+      + '</form><p>Unable to verify with your authenticator app?</p><a href="/sessions/two-factor/mobile">Use GitHub Mobile'
+      + '</a>';
+    w = page('https://github.com/sessions/two-factor/app', totp);
+    r = w.eval(probe);
+    check('authenticator page with a GitHub Mobile link: a code page', r === '1|0||0|0', r);
+
+    // a hidden script or link that names GitHub Mobile on another page is not GitHub Mobile's request
+    const other = '<p>Use your passkey</p><a href="/x">GitHub Mobile request sent</a>'
+      + '<script>var s = "We sent a request to GitHub Mobile";</script>';
+    w = page('https://github.com/sessions/sudo', other);
+    r = w.eval(probe);
+    check('a link or script naming GitHub Mobile is not its request page', r === '0|0||0|0', r);
   }
 
   console.log('OTPSCRIPT ' + ok + '/' + total + (ok === total ? ' ok' : ' FAILED'));

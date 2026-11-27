@@ -29,6 +29,9 @@ public final class OtpAssist {
     public static String pageKind(String scheme, String host, String path) {
         if (!"https".equals(scheme) || !"github.com".equals(host) || path == null) return null;
         if (path.equals("/sessions/verified-device") || path.startsWith("/sessions/verified-device/")) return "email";
+        // v2.1.5 (owner's 23 Nov screenshot "We sent a verification request… 77"): GitHub Mobile's own page (answered
+        // only in the GitHub Mobile app)
+        if (path.startsWith("/sessions/two-factor/mobile")) return "mobile";
         if (path.startsWith("/sessions/two-factor")) {
             return path.contains("webauthn") || path.contains("recovery") ? null : "two-factor";
         }
@@ -37,6 +40,14 @@ public final class OtpAssist {
             return path.contains("webauthn") || path.contains("recovery") ? null : "login";
         }
         return null;
+    }
+
+    /** v2.1.5: the sign-in window's own device code ("4101-C456"), which is never GitHub's e-mailed code. */
+    private static final Pattern DEVICE_CODE = Pattern.compile("^\\s*[A-Z0-9]{4}-[A-Z0-9]{4}\\s*$");
+
+    /** v2.1.5: whether the copied text is this window's sign-in code (Paste & fill says so instead of "no code"). */
+    public static boolean isDeviceCode(CharSequence copied) {
+        return copied != null && copied.length() <= 20 && DEVICE_CODE.matcher(copied).matches();
     }
 
     /** The code in what the user copied (a code alone, or the e-mail's text), else null. */
@@ -105,7 +116,13 @@ public final class OtpAssist {
             + "\\.[a-z]{2,24})/);}}"
             + "var h=document.querySelector('h1,h2');var head=(document.title||'')+' '+(h?(h.textContent||''):'');"
             + "var sudo=/confirm access|sudo/i.test(head);"
-            + "return (code?'1':'0')+'|'+(send?'1':'0')+'|'+(m?m[1]:'')+'|'+(sudo?'1':'0');})()";
+            // v2.1.5: GitHub Mobile's request page (shown text that names GitHub Mobile, a page without a code field)
+            + "var mob=false;if(!code&&document.body&&document.createTreeWalker){var tw2=document.createTreeWalker("
+            + "document.body,4,null,false);var k2=0;var n2;while(!mob&&k2<4000&&(n2=tw2.nextNode())){k2++;"
+            + "if(!/GitHub Mobile/i.test(n2.nodeValue||''))continue;var e2=n2.parentElement;"
+            + "if(!e2||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|A|BUTTON|OPTION)$/.test(e2.tagName)||!shown(e2))continue;"
+            + "mob=/(sent|send|request|notification|approve|digits|number)/i.test(e2.textContent||'');}}"
+            + "return (code?'1':'0')+'|'+(send?'1':'0')+'|'+(m?m[1]:'')+'|'+(sudo?'1':'0')+'|'+(mob?'1':'0');})()";
 
     /**
      * v2.1.4: presses the page's own "Send a code via email" (the user's tap on "E-mail me a code"): GitHub sends the
@@ -121,27 +138,32 @@ public final class OtpAssist {
         /** The masked address the page says the code went to ("b***@gmail.com"), else null. */
         public final String sentTo;
         public final boolean confirmAccess;
+        /** v2.1.5: GitHub Mobile's request page ("We sent a verification request to GitHub Mobile…"). */
+        public final boolean mobile;
 
-        Probe(boolean codeField, boolean sendLink, String sentTo, boolean confirmAccess) {
+        Probe(boolean codeField, boolean sendLink, String sentTo, boolean confirmAccess, boolean mobile) {
             this.codeField = codeField;
             this.sendLink = sendLink;
             this.sentTo = sentTo;
             this.confirmAccess = confirmAccess;
+            this.mobile = mobile;
         }
 
-        /** "1|0|b***@gmail.com|1" (evaluateJavascript's answer, already unquoted), else null. */
+        /** "1|0|b***@gmail.com|1|0" (evaluateJavascript's answer, already unquoted; v2.1.4's four parts too), else null. */
         public static Probe parse(String answer) {
             if (answer == null) return null;
             String[] p = answer.split("\\|", -1);
-            if (p.length != 4) return null;
+            if (p.length != 4 && p.length != 5) return null;
             String mail = p[2].trim();
             if (mail.length() > 120 || !mail.contains("@")) mail = null;
-            return new Probe("1".equals(p[0]), "1".equals(p[1]), mail, "1".equals(p[3]));
+            return new Probe("1".equals(p[0]), "1".equals(p[1]), mail, "1".equals(p[3]),
+                    p.length == 5 && "1".equals(p[4]));
         }
 
         /** The same page state (the bar is redrawn only when it changes). */
         String key() {
-            return (codeField ? "c" : "-") + (sendLink ? "s" : "-") + (confirmAccess ? "a" : "-") + "|" + sentTo;
+            return (codeField ? "c" : "-") + (sendLink ? "s" : "-") + (confirmAccess ? "a" : "-") + (mobile ? "m" : "-")
+                    + "|" + sentTo;
         }
     }
 
