@@ -232,6 +232,8 @@ public class MainActivity extends BasePermissionAppCompatActivity implements Vie
         com.sketchware.ai.github.SessionLog.appStarted(this);
         // v2.1.2 (zero-lag): the account card's Keystore read done ahead, off the main thread
         com.sketchware.ai.github.GitHubSession.warmUp(this);
+        // v2.1.5: the check for new apps of followed creators (again at each start: the job isn't kept across restarts)
+        com.sketchware.ai.github.FollowWatch.schedule(this);
         // v2.1.2 review (LOW): an update's download notification left by a stopped process goes
         com.sketchware.ai.github.AppUpdater.clearStaleNotice(this);
 

@@ -105,6 +105,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         return new Intent(activity, PlayStoreActivity.class).putExtra(EXTRA_OWNER, owner).putExtra(EXTRA_REPO, repo);
     }
 
+    static final String EXTRA_PEOPLE = "playstore_people";
+    static final String EXTRA_PEOPLE_FOLLOWERS = "playstore_people_followers";
+
+    /** v2.1.5: who follows {@code login} ({@code followers}) or whom it follows. */
+    static Intent people(Activity activity, String login, boolean followers) {
+        return new Intent(activity, PlayStoreActivity.class).putExtra(EXTRA_PEOPLE, login)
+                .putExtra(EXTRA_PEOPLE_FOLLOWERS, followers);
+    }
+
     static Intent developer(Activity activity, String login) {
         return new Intent(activity, PlayStoreActivity.class).putExtra(EXTRA_DEVELOPER, login);
     }
@@ -136,6 +145,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 return;
             }
             buildDeveloper(creator);
+        } else if (getIntent().getStringExtra(EXTRA_PEOPLE) != null) {
+            String who = getIntent().getStringExtra(EXTRA_PEOPLE);
+            if (!validLogin(who)) {
+                finish();
+                return;
+            }
+            buildPeople(who, getIntent().getBooleanExtra(EXTRA_PEOPLE_FOLLOWERS, true));
         } else if (getIntent().getBooleanExtra(EXTRA_PUBLISH, false)) {
             buildPublish();
         } else {
@@ -337,6 +353,26 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         apps = PlayStore.withRecent(this, PlayStore.cached(this));
         showApps();
         refreshList(null);
+        refreshFollowing();
+    }
+
+    /** v2.1.5: whom you follow, from GitHub (also a Follow made on github.com), for the section and the notices. */
+    private void refreshFollowing() {
+        String me = TokenStore.get(this).login();
+        if (me == null) return;
+        work.execute(() -> {
+            String token = token();
+            if (token == null) return;
+            try {
+                List<String> logins = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.myFollowing(token));
+                java.util.Set<String> before = PlayStore.followedSet(getApplicationContext(), me);
+                PlayStore.saveFollowing(getApplicationContext(), me, logins);
+                FollowWatch.schedule(getApplicationContext());
+                if (!before.equals(PlayStore.followedSet(getApplicationContext(), me))) ui(this::showApps);
+            } catch (Exception ignored) {
+                // the list on the phone stays
+            }
+        });
     }
 
     /** v2.1.4: back on the list after a publish's Done: the app first and lit, the store read again from GitHub. */
@@ -445,8 +481,26 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         appsBox.removeAllViews();
         if (retry != null) appsBox.addView(retry);
         int shown = 0;
+        // v2.1.5 (owner's 23 Nov review: "followed creators' apps shown first, the latest"): a section of its own on the
+        // whole store (not in a search); its apps aren't repeated below
+        java.util.Set<String> inFollowed = new java.util.HashSet<>();
+        if (filter.isEmpty() && !searched) {
+            List<PlayStore.App> followed = PlayStore.fromFollowed(apps,
+                    PlayStore.followedSet(this, TokenStore.get(this).login()));
+            if (!followed.isEmpty()) {
+                appsBox.addView(heading("From creators you follow"), v.full(-1, 0));
+                for (PlayStore.App a : followed) {
+                    if (inFollowed.size() >= 6) break;
+                    appsBox.addView(appCard(a), v.full(-1, 8));
+                    inFollowed.add(a.owner + "/" + a.repo);
+                }
+                appsBox.addView(heading("All apps"), v.full(-1, 18));
+                shown = 1;
+            }
+        }
         for (PlayStore.App a : apps) {
             if (!PlayStore.matches(a, filter)) continue;
+            if (inFollowed.contains(a.owner + "/" + a.repo)) continue;
             appsBox.addView(appCard(a), v.full(-1, shown == 0 ? 0 : 8));
             shown++;
         }
@@ -591,6 +645,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         GitHubViews.oneLine(meta);
         texts.addView(meta, v.full(-1, 2));
+        heroMeta = meta;
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(12);
         head.addView(texts, tp);
@@ -603,12 +658,16 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         creatorPill = creator;
         creator.setMaxWidth(v.dp(150));
         creator.setContentDescription("Developer @" + a.owner + ": open their page");
-        // v2.1.4 (render: "👥 Follo…" cut beside a long @name): the @creator pill gives way first (it ends in "…"),
-        // the version and Follow stay whole; the row is only as wide as its pills
+        // v2.1.4 (render: "👥 Follo…" cut beside a long @name): the @creator pill gives way first, the version and
+        // Follow stay whole; the row is only as wide as its pills. v2.1.5 (owner's 23 Nov review: "a long @name or
+        // version scrolls; fixed places"): a name or version that doesn't fit scrolls sideways
+        GitHubViews.marquee(creator);
         pills.addView(creator, new LinearLayout.LayoutParams(-2, v.dp(28), 1f));
         if (a.versionName != null && !a.versionName.isEmpty()) {
             TextView version = heroPill("v" + a.versionName + (a.versionCode == null || a.versionCode.isEmpty() ? ""
                     : " (" + a.versionCode + ")"), R.color.ob_accent, null);
+            version.setMaxWidth(v.dp(112));
+            GitHubViews.marquee(version);
             LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(-2, v.dp(28));
             vp.leftMargin = v.dp(6);
             pills.addView(version, vp);
@@ -620,12 +679,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         followTarget = a.owner;
         ownApp = me != null && me.equalsIgnoreCase(a.owner);
         followPill = heroPill(ownApp ? "👥 Followers" : "＋ Follow", R.color.ob_text, x -> {
-            if (ownApp) startActivity(developer(this, a.owner));
+            if (ownApp) startActivity(people(this, a.owner, true));
             else toggleFollow();
         });
-        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-2, v.dp(28));
+        // v2.1.5 (owner's 23 Nov review: "like YouTube's Subscribe: one fixed size and place, a colour of its own when
+        // followed"): always the same width, whatever it says
+        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(v.dp(108), v.dp(28));
         fp.leftMargin = v.dp(6);
         pills.addView(followPill, fp);
+        followPill.setGravity(Gravity.CENTER);
         showFollow();
         LinearLayout.LayoutParams pr = new LinearLayout.LayoutParams(-2, -2);
         pr.topMargin = v.dp(10);
@@ -864,25 +926,48 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private int ownerFollowers = -1;
     private TextView creatorPill;
 
+    private TextView heroMeta;
+    /** v2.1.5: the follow state last drawn (an animation only when it changes). */
+    private Boolean drawnFollows;
+
+    /**
+     * v2.1.5 (owner's 23 Nov review: "like YouTube's Subscribe: Follow in colour, Following in another, the same size
+     * and place, kept for that user"): Follow = the orange call-to-action pill, white label; Following = the glass pill
+     * with the accent label; a change of state bounces it once. The count is shown under the title ("· N followers").
+     * On your own app: your followers (a tap lists them). Known state from the phone first (no flicker).
+     */
     private void showFollow() {
         if (followPill == null) return;
         String count = ownerFollowers < 0 ? "" : PlayStore.count(ownerFollowers);
         if (followersValue != null && ownerFollowers >= 0) followersValue.setText(count);
+        if (heroMeta != null && current != null) {
+            heroMeta.setText(publishLine(current) + (ownerFollowers < 0 ? "" : " · " + count
+                    + (ownerFollowers == 1 ? " follower" : " followers")));
+        }
         if (ownApp) {
             followPill.setText(ownerFollowers < 0 ? "👥 Followers" : "👥 " + count);
             followPill.setTextColor(v.color(R.color.ob_text));
             followPill.setBackgroundResource(R.drawable.ob_pill16_state);
             followPill.setContentDescription((ownerFollowers < 0 ? "Your followers" : count + " people follow you")
-                    + ": open your page");
+                    + ": list them");
             return;
         }
+        if (follows == null) follows = PlayStore.knownFollowing(this, TokenStore.get(this).login(), followTarget);
         boolean on = Boolean.TRUE.equals(follows);
-        followPill.setText((on ? "✓ Following" : "＋ Follow") + (count.isEmpty() ? "" : " · " + count));
-        followPill.setTextColor(v.color(on ? R.color.ob_accent : R.color.ob_text));
-        followPill.setBackgroundResource(on ? R.drawable.ob_amber_pill_state : R.drawable.ob_pill16_state);
-        followPill.setAlpha(followBusy ? 0.6f : 1f);
+        followPill.setText(on ? "✓ Following" : "＋ Follow");
+        followPill.setTextColor(on ? v.color(R.color.ob_accent) : 0xFFFFFFFF);
+        followPill.setBackgroundResource(on ? R.drawable.ob_pill16_state : R.drawable.ob_cta_pill_soft_state);
+        followPill.setAlpha(followBusy ? 0.7f : 1f);
         followPill.setContentDescription((on ? "Following @" + followTarget + ": tap to unfollow"
                 : "Follow @" + followTarget + " on GitHub") + (count.isEmpty() ? "" : ", " + count + " followers"));
+        if (drawnFollows != null && drawnFollows != on) {
+            followPill.animate().cancel();
+            followPill.setScaleX(0.9f);
+            followPill.setScaleY(0.9f);
+            followPill.animate().scaleX(1f).scaleY(1f).setDuration(260)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(2.2f)).start();
+        }
+        drawnFollows = on;
     }
 
     /**
@@ -931,11 +1016,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         int tapsBefore = followTaps;
         try {
             Boolean now = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.following(token, owner));
+            // v2.1.5: kept on the phone for that account (the pill is right at once next time)
+            if (now != null) PlayStore.noteFollowing(getApplicationContext(), TokenStore.get(this).login(), owner, now);
             ui(() -> {
                 if (!owner.equals(followTarget)) return;
                 // a tap since this read started decides the pill (its own answer follows)
                 if (followBusy || followTaps != tapsBefore) return;
-                follows = now;
+                if (now != null) follows = now;
                 showFollow();
             });
         } catch (Exception ignored) {
@@ -978,7 +1065,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 else if (ownerFollowers >= 0) ownerFollowers = Math.max(0, ownerFollowers + (on ? 1 : -1));
                 showFollow();
                 if (why == null) {
+                    // v2.1.5: kept for this account; new apps of followed creators come as notifications
+                    PlayStore.noteFollowing(app, TokenStore.get(app).login(), owner, on);
+                    FollowWatch.schedule(app);
                     Toast.makeText(this, on ? "Following @" + owner : "Unfollowed @" + owner, Toast.LENGTH_SHORT).show();
+                    if (on) askNotifications(owner);
                 } else if (needsScope) {
                     new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                             .setTitle("Sign in again to follow")
@@ -990,6 +1081,46 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             });
             if (why != null && !needsScope) toast(app, why);
         });
+    }
+
+    /** Request code of the notification permission asked for at a Follow. */
+    static final int REQUEST_NOTIFICATIONS = 7420;
+
+    /**
+     * v2.1.5 (owner's 23 Nov review: "when following, if notifications are off, a message and turn them on"): Android
+     * 13+ asks for the notification permission once, after saying why; turned off for the app in Settings: a message
+     * with Turn on.
+     */
+    private void askNotifications(String owner) {
+        android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        boolean allowed = nm == null || nm.areNotificationsEnabled();
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                    .setTitle("Get @" + owner + "'s new apps?")
+                    .setMessage("Sketchware AI tells you with a notification when @" + owner + " publishes a new app or "
+                            + "version. Allow notifications on the next screen.")
+                    .setPositiveButton("Allow", (d, w) -> requestPermissions(
+                            new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_NOTIFICATIONS))
+                    .setNegativeButton("Not now", null)
+                    .show();
+            return;
+        }
+        if (!allowed) {
+            new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                    .setTitle("Notifications are off")
+                    .setMessage("Turn on Sketchware AI's notifications to hear when @" + owner + " publishes a new app.")
+                    .setPositiveButton("Turn on", (d, w) -> {
+                        try {
+                            startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName()));
+                        } catch (RuntimeException e) {
+                            Toast.makeText(this, "Open Settings → Apps → Sketchware AI → Notifications", Toast.LENGTH_LONG).show();
+                        }
+                    })
+                    .setNegativeButton("Not now", null)
+                    .show();
+        }
     }
 
     /** v2.1.4: "@creator ✔" / "@creator ★" (a tap on the pill opens the creator's page, which says why). */
@@ -1541,9 +1672,22 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             if (i > 0) p.leftMargin = v.dp(6);
             numbers.addView(cell, p);
             values[i] = value;
+            // v2.1.5: Followers opens the list of who follows (as on Instagram)
+            if (i == 2) {
+                cell.setBackgroundResource(R.drawable.ob_pill16_state);
+                cell.setOnClickListener(x -> startActivity(people(this, login, true)));
+                cell.setContentDescription("Followers: list them");
+            }
         }
         list.addView(numbers, v.full(-1, 10));
         followersValue = values[2];
+        // v2.1.5: whom this creator follows
+        TextView followingLink = v.smallPill("Following", false, true, x -> startActivity(people(this, login, false)));
+        GitHubViews.oneLine(followingLink);
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(-2, v.dp(34));
+        fl.topMargin = v.dp(8);
+        list.addView(followingLink, fl);
+        creatorFollowing = followingLink;
         TextView status = v.line("Reading @" + login + " on GitHub…", false);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         list.addView(status, v.full(-1, 10));
@@ -1558,6 +1702,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private TextView creatorBadge;
     private TextView creatorPlace;
     private TextView creatorPlaceAction;
+    private TextView creatorFollowing;
 
     /** v2.1.4: the creator's badge pill (tap: how the levels are worked out). */
     private void showBadge(PlayStore.Badge b) {
@@ -1705,6 +1850,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
                 values[2].setText(PlayStore.count(ownerFollowers >= 0 ? ownerFollowers : d.followers));
                 showFollow();
+                if (creatorFollowing != null) creatorFollowing.setText("Following " + PlayStore.count(d.following) + " ›");
                 showPlace(d, appsCountry(d));
                 showBadge(PlayStore.badge(d.login, d.name, d.bio, d.createdAt, d.apps.size(), d.followers, 0,
                         System.currentTimeMillis()));
@@ -1760,6 +1906,84 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                         System.currentTimeMillis()));
             });
         });
+    }
+
+    // ------------------------------------------------------------------ v2.1.5: followers / following
+
+    /**
+     * v2.1.5 (owner's 23 Nov review: "the followers of that user, and the following list, as on Instagram"): who
+     * follows {@code login} or whom it follows; a row opens that creator's page.
+     */
+    private void buildPeople(String login, boolean followers) {
+        title(followers ? "Followers" : "Following", "@" + login + " · Play Store");
+        list.removeAllViews();
+        TextView status = v.line(followers ? "Reading who follows @" + login + "…" : "Reading whom @" + login + " follows…",
+                false);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        list.addView(status, v.full(-1, 4));
+        LinearLayout rows = new LinearLayout(this);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        list.addView(rows, v.full(-1, 8));
+        work.execute(() -> {
+            String token = token();
+            try {
+                List<PlayStore.Person> found = GitHubHttp.quick(TIMEOUT_MILLIS * 2, () -> PlayStore.people(token, login,
+                        followers));
+                String me = TokenStore.get(this).login();
+                if (!followers && me != null && me.equalsIgnoreCase(login)) {
+                    // your own following list from GitHub replaces the one on the phone
+                    List<String> logins = new ArrayList<>();
+                    for (PlayStore.Person p : found) logins.add(p.login);
+                    PlayStore.saveFollowing(getApplicationContext(), me, logins);
+                }
+                ui(() -> {
+                    status.setText(found.isEmpty() ? (followers ? "No followers yet." : "Not following anyone yet.")
+                            : found.size() + (followers ? (found.size() == 1 ? " follower" : " followers")
+                            : " followed") + (found.size() >= 300 ? " (the first 300)" : ""));
+                    rows.removeAllViews();
+                    for (PlayStore.Person p : found) rows.addView(personRow(p), v.full(-1, rows.getChildCount() == 0 ? 0 : 8));
+                });
+            } catch (Exception e) {
+                String why = RepoViewerActivity.whyFailed(e);
+                ui(() -> {
+                    status.setText(why);
+                    status.setTextColor(v.color(R.color.ob_error));
+                });
+            }
+        });
+    }
+
+    private View personRow(PlayStore.Person p) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.ob_pill16_state);
+        row.setPadding(v.dp(12), v.dp(10), v.dp(12), v.dp(10));
+        FrameLayout tile = monogramTile(this, v, p.login, 40);
+        ImageView avatar = new ImageView(this);
+        avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        tile.addView(avatar, new FrameLayout.LayoutParams(-1, -1));
+        row.addView(tile, new LinearLayout.LayoutParams(v.dp(40), v.dp(40)));
+        TextView name = new TextView(this, null, 0, R.style.Ob_Text_Label);
+        name.setText("@" + p.login);
+        name.setTypeface(v.bold());
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        GitHubViews.oneLine(name);
+        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(0, -2, 1f);
+        np.leftMargin = v.dp(12);
+        row.addView(name, np);
+        String me = TokenStore.get(this).login();
+        Boolean on = PlayStore.knownFollowing(this, me, p.login);
+        if (Boolean.TRUE.equals(on)) {
+            TextView mark = v.line("✓ Following", false);
+            mark.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            mark.setTextColor(v.color(R.color.ob_accent));
+            row.addView(mark);
+        }
+        row.setOnClickListener(x -> startActivity(developer(this, p.login)));
+        row.setContentDescription("@" + p.login + (Boolean.TRUE.equals(on) ? ", following" : "") + ": open their page");
+        if (p.avatar != null) loadPicture(p.avatar, avatar, v.dp(40));
+        return row;
     }
 
     // ------------------------------------------------------------------ pictures

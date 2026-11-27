@@ -1028,6 +1028,137 @@ public final class PlayStore {
         throw CloudBackup.http(on ? "Following @" + login : "Unfollowing @" + login, r);
     }
 
+    // ------------------------------------------------------------------ v2.1.5: follows kept, lists, followed apps
+
+    private static final String FOLLOW_PREFS = "playstore_follows";
+
+    /**
+     * v2.1.5 (owner's 23 Nov review: "like YouTube's Subscribe: once followed it stays Following for that user"): the
+     * creators this account follows as last known on this phone (so the pill is right at once), else null when never
+     * read.
+     */
+    public static Boolean knownFollowing(Context context, String me, String login) {
+        if (me == null || login == null) return null;
+        android.content.SharedPreferences p = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE);
+        java.util.Set<String> set = p.getStringSet("list_" + me.toLowerCase(Locale.ROOT), null);
+        if (set == null) return null;
+        return set.contains(login.toLowerCase(Locale.ROOT));
+    }
+
+    /** The followed creators as last known on this phone (lower case; empty when never read). */
+    public static java.util.Set<String> followedSet(Context context, String me) {
+        if (me == null) return new java.util.HashSet<>();
+        java.util.Set<String> set = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE)
+                .getStringSet("list_" + me.toLowerCase(Locale.ROOT), null);
+        return set == null ? new java.util.HashSet<>() : new java.util.HashSet<>(set);
+    }
+
+    /** One creator followed / unfollowed (after GitHub said so, or read from GitHub). */
+    public static synchronized void noteFollowing(Context context, String me, String login, boolean on) {
+        if (me == null || login == null) return;
+        android.content.SharedPreferences p = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE);
+        String key = "list_" + me.toLowerCase(Locale.ROOT);
+        java.util.Set<String> set = new java.util.HashSet<>(p.getStringSet(key, new java.util.HashSet<>()));
+        if (on) set.add(login.toLowerCase(Locale.ROOT));
+        else set.remove(login.toLowerCase(Locale.ROOT));
+        p.edit().putStringSet(key, set).apply();
+    }
+
+    /** The whole list from GitHub replaces the one on the phone. */
+    public static synchronized void saveFollowing(Context context, String me, java.util.Collection<String> logins) {
+        if (me == null) return;
+        java.util.Set<String> set = new java.util.HashSet<>();
+        for (String l : logins) set.add(l.toLowerCase(Locale.ROOT));
+        context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE).edit()
+                .putStringSet("list_" + me.toLowerCase(Locale.ROOT), set).apply();
+    }
+
+    /** A GitHub account in a followers / following list. */
+    public static final class Person {
+        public String login;
+        public String avatar;
+    }
+
+    /**
+     * v2.1.5 (owner: "the followers of that user listed, the following list as on Instagram"): who follows
+     * {@code login} ({@code followers}) or whom it follows ({@code following}); at most 300 (three pages).
+     */
+    public static List<Person> people(String token, String login, boolean followers) throws IOException, GitHubException {
+        if (login == null || !login.matches("[A-Za-z0-9-]{1,39}")) throw new GitHubException("bad_login", "No such account.");
+        List<Person> out = new ArrayList<>();
+        for (int page = 1; page <= 3; page++) {
+            GitHubHttp.Response r = GitHubHttp.api("GET", "/users/" + login + (followers ? "/followers" : "/following")
+                    + "?per_page=100&page=" + page, token, null);
+            if (r.code == 404) throw new GitHubException("not_found", "@" + login + " isn't on GitHub (any more).");
+            if (!r.ok()) throw CloudBackup.http(followers ? "Reading @" + login + "'s followers"
+                    : "Reading whom @" + login + " follows", r);
+            JsonElement e = JsonParser.parseString(r.body);
+            if (!e.isJsonArray()) break;
+            int n = 0;
+            for (JsonElement item : e.getAsJsonArray()) {
+                if (!item.isJsonObject()) continue;
+                n++;
+                Person p = new Person();
+                p.login = DeviceFlow.string(item.getAsJsonObject(), "login");
+                p.avatar = safeAvatar(DeviceFlow.string(item.getAsJsonObject(), "avatar_url"));
+                if (p.login != null && p.login.matches("[A-Za-z0-9-]{1,39}")) out.add(p);
+            }
+            if (n < 100) break;
+        }
+        return out;
+    }
+
+    /** The signed-in account's own following list (GET /user/following), at most 300. */
+    public static List<String> myFollowing(String token) throws IOException, GitHubException {
+        List<String> out = new ArrayList<>();
+        for (int page = 1; page <= 3; page++) {
+            GitHubHttp.Response r = GitHubHttp.api("GET", "/user/following?per_page=100&page=" + page, token, null);
+            if (!r.ok()) throw CloudBackup.http("Reading whom you follow", r);
+            JsonElement e = JsonParser.parseString(r.body);
+            if (!e.isJsonArray()) break;
+            int n = 0;
+            for (JsonElement item : e.getAsJsonArray()) {
+                if (!item.isJsonObject()) continue;
+                n++;
+                String l = DeviceFlow.string(item.getAsJsonObject(), "login");
+                if (l != null) out.add(l);
+            }
+            if (n < 100) break;
+        }
+        return out;
+    }
+
+    /**
+     * v2.1.5 (owner: "followed creators' apps first, the latest, with notifications"): the apps in {@code apps} whose
+     * creator is followed, newest first.
+     */
+    static List<App> fromFollowed(List<App> apps, java.util.Set<String> followed) {
+        List<App> out = new ArrayList<>();
+        if (followed.isEmpty()) return out;
+        for (App a : apps) if (a.owner != null && followed.contains(a.owner.toLowerCase(Locale.ROOT))) out.add(a);
+        out.sort((x, y) -> Long.compare(y.updated, x.updated));
+        return out;
+    }
+
+    /**
+     * v2.1.5: what is new from followed creators since the last look ({@code seen}: "owner/repo" → updated time): apps
+     * not seen before and apps updated since. The first look ({@code seen} empty) only records and returns nothing.
+     */
+    static List<App> newFromFollowed(List<App> apps, java.util.Set<String> followed, java.util.Map<String, Long> seen) {
+        List<App> out = new ArrayList<>();
+        boolean first = seen.isEmpty();
+        for (App a : fromFollowed(apps, followed)) {
+            String k = key(a.owner, a.repo);
+            Long before = seen.get(k);
+            if (!first && (before == null || a.updated > before)) out.add(a);
+            seen.put(k, a.updated);
+        }
+        if (first && seen.isEmpty()) seen.put("_", 0L);
+        return out;
+    }
+
     /** A 403 / 404 from a sign-in whose permissions (X-OAuth-Scopes) don't include following. */
     static boolean lacksFollowScope(GitHubHttp.Response r) {
         if (r.code != 403 && r.code != 404) return false;
@@ -1198,6 +1329,8 @@ public final class PlayStore {
         public String name;
         public String bio;
         public String avatar;
+        /** v2.1.5: how many accounts this one follows. */
+        public int following;
         public int followers;
         public int publicRepos;
         /** v2.1.4: the profile's own Location line and when the account was made (0: unknown). */
@@ -1394,6 +1527,7 @@ public final class PlayStore {
         d.bio = DeviceFlow.string(u, "bio");
         d.avatar = safeAvatar(DeviceFlow.string(u, "avatar_url"));
         d.followers = intOf(u, "followers");
+        d.following = intOf(u, "following");
         d.publicRepos = intOf(u, "public_repos");
         d.location = DeviceFlow.string(u, "location");
         d.createdAt = time(DeviceFlow.string(u, "created_at"));

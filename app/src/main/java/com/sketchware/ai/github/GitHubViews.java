@@ -239,6 +239,20 @@ public final class GitHubViews {
     }
 
     /**
+     * v2.1.5 (owner's 23 Nov review: "a long @name or version: let it scroll, fixed places"): one line that scrolls
+     * sideways when it doesn't fit (it starts at the left, never centred past its edges; a short text fits its
+     * wrap-width pill as before).
+     */
+    public static void marquee(TextView t) {
+        t.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
+        t.setMaxLines(1);
+        t.setHorizontallyScrolling(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
+        t.setMarqueeRepeatLimit(-1);
+        t.setSelected(true);
+    }
+
+    /**
      * v2.1.0 (renders at font scale 1.3: "Play St…", "On this ph…"): one line that shrinks to fit its width, from
      * {@code maxSp} down to {@code minSp} (Android 8+; "…" below that or on older phones). The view needs a fixed width.
      */

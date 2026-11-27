@@ -163,6 +163,12 @@
         <receiver
             android:name="com.sketchware.ai.github.CloudSyncService$Actions"
             android:exported="false" />
+        <!-- v2.1.5: a check every few hours (with a network) for new apps of the creators the user follows;
+             JobScheduler only binds it (no permission added, not kept across a phone restart) -->
+        <service
+            android:name="com.sketchware.ai.github.FollowWatch"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <!-- v2.1.4 (owner's 22 Nov ask: GitHub's e-mailed code into the app): only after the user turns on
              Android's "Notification access" for Sketchware AI; used only while the sign-in window waits for a code
              (unbound the rest of the time). No permission is added: only the system can bind it. -->
