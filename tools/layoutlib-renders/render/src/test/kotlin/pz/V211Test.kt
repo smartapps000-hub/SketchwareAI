@@ -33,7 +33,8 @@ class MapPrefs : android.content.SharedPreferences {
     val map = HashMap<String, Any?>()
     override fun getAll(): MutableMap<String, *> = map
     override fun getString(k: String, d: String?) = map[k] as String? ?: d
-    override fun getStringSet(k: String, d: MutableSet<String>?) = d
+    @Suppress("UNCHECKED_CAST")
+    override fun getStringSet(k: String, d: MutableSet<String>?) = (map[k] as? MutableSet<String>) ?: d
     override fun getInt(k: String, d: Int) = map[k] as Int? ?: d
     override fun getLong(k: String, d: Long) = map[k] as Long? ?: d
     override fun getFloat(k: String, d: Float) = map[k] as Float? ?: d
@@ -135,8 +136,10 @@ object V211Shots {
         {"id":"D_9","number":9,"title":"📊 Notes Pro · Play Store","bodyText":"counters","author":{"login":"ann-dev"},"createdAt":"2026-11-18T09:00:00Z","comments":{"totalCount":0},"category":{"name":"General"},"url":"u"},
         {"id":"D_7","number":7,"title":"★★★★★ Best notes app I built from","bodyText":"Imported the .swb, changed the colours and it ran on my phone the first time.","author":{"login":"zed-apps"},"createdAt":"2026-11-18T09:00:00Z","comments":{"totalCount":2},"category":{"name":"Reviews"},"url":"u"}]}}}}"""
 
-    fun page(c: Context): View {
+    fun page(c: Context, login: String? = null): View {
         storeData(c)
+        // v2.1.5: the account looking at the page (storeData signs in as the owner)
+        if (login != null) com.sketchware.ai.github.TokenStore.LOGIN = login
         V210Shots.storeAnswers(); V210Shots.seedPictures(c)
         val base = "/repos/ann-dev/SketchwareAI-Notes/contents/playstore"
         val listing = """{"title":"Notes Pro","description":"Write things down fast: folders, search, pinned notes, a dark theme and a home-screen widget. Made with Sketchware AI on a phone.","video":"https://youtu.be/dQw4w9WgXcQ","version_name":"2.3","version_code":"9","action":"updated","publish_number":4,"published_at":$NOW,"stats_discussion":9,"changelog":"✨ New: a home-screen widget\n🛠 Fixed: search kept old results\n⬆️ Material 3 colours from the app's colour"}"""

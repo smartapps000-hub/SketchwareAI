@@ -1174,7 +1174,7 @@ public final class GitHubInAppAuthDialog extends Dialog {
         chrome.otpNote.setText(note == null ? "" : note);
         chrome.otpNote.setVisibility(note == null ? View.GONE : View.VISIBLE);
         chrome.sendMail.setVisibility(offersMail ? View.VISIBLE : View.GONE);
-        chrome.openMail.setText(mobile ? "Open GitHub Mobile" : "Open Gmail");
+        chrome.openMail.setText(mobile ? "GitHub Mobile" : "Open Gmail");
         chrome.openMail.setContentDescription(mobile ? "Open the GitHub Mobile app to approve this sign-in"
                 : "Open Gmail: GitHub's e-mail has the code");
         chrome.openMail.setVisibility(email || mobile ? View.VISIBLE : View.GONE);
