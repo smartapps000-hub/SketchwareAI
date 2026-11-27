@@ -192,6 +192,32 @@ public class V211ClientTest {
             }
             return;
         }
+        // v2.1.5: followers (a full first page, so a second is read), following, your own following list
+        if (api.startsWith("/users/ann/followers?per_page=100&page=")) {
+            int page = Integer.parseInt(api.substring(api.lastIndexOf('=') + 1));
+            StringBuilder people = new StringBuilder("[");
+            int n = page == 1 ? 100 : page == 2 ? 3 : 0;
+            for (int i = 0; i < n; i++) {
+                if (i > 0) people.append(',');
+                String avatar = i == 0 ? "https://avatars.githubusercontent.com/u/7?v=4" : i == 1 ? "https://evil.example/a.png" : "";
+                people.append("{\"login\":\"f").append(page).append('-').append(i).append("\",\"avatar_url\":\"")
+                        .append(avatar).append("\"}");
+            }
+            answer(x, 200, people.append(']').toString());
+            return;
+        }
+        if (api.equals("/users/ann/following?per_page=100&page=1")) {
+            answer(x, 200, "[{\"login\":\"bob\"},{\"login\":\"bad name!\"},{\"login\":\"cara\"}]");
+            return;
+        }
+        if (api.startsWith("/users/ghost-404/")) {
+            answer(x, 404, "{\"message\":\"Not Found\"}");
+            return;
+        }
+        if (api.equals("/user/following?per_page=100&page=1")) {
+            answer(x, 200, "[{\"login\":\"ann\"},{\"login\":\"Bob\"}]");
+            return;
+        }
         if (api.equals("/users/ann")) {
             answer(x, 200, "{\"login\":\"ann\",\"name\":\"Ann Lee\",\"bio\":\"Makes small apps\",\"avatar_url\":"
                     + "\"https://avatars.githubusercontent.com/u/9?v=4\",\"followers\":42,\"public_repos\":7,"
@@ -429,6 +455,40 @@ public class V211ClientTest {
                         && Long.valueOf(1554112800000L).equals(field(profile, "createdAt"))
                         && profileMissing != null && profileMissing.contains("isn't on GitHub"),
                 field(profile, "createdAt") + " " + profileMissing);
+        // v2.1.5: followers / following lists (pages of 100, at most three), GitHub's avatar host only, your own list
+        requests.clear();
+        @SuppressWarnings("unchecked")
+        List<Object> followers = (List<Object>) call(store, "people", "tok", "ann", true);
+        boolean secondPage = false, thirdPage = false;
+        for (String r : requests) {
+            if (r.contains("/users/ann/followers?per_page=100&page=2")) secondPage = true;
+            if (r.contains("/users/ann/followers?per_page=100&page=3")) thirdPage = true;
+        }
+        @SuppressWarnings("unchecked")
+        List<Object> followingList = (List<Object>) call(store, "people", "tok", "ann", false);
+        String ghost = null, badName = null;
+        try {
+            call(store, "people", "tok", "ghost-404", true);
+        } catch (Exception e) {
+            ghost = e.getMessage();
+        }
+        int before = requests.size();
+        try {
+            call(store, "people", "tok", "bad name!", true);
+        } catch (Exception e) {
+            badName = e.getMessage();
+        }
+        check("v2.1.5: followers read page by page (a full page of 100 asks for the next; a short one ends), pictures "
+                        + "only from GitHub's avatar host, odd names skipped, a missing account and a bad name say so",
+                followers.size() == 103 && secondPage && !thirdPage && "f1-0".equals(field(followers.get(0), "login"))
+                        && "https://avatars.githubusercontent.com/u/7?v=4".equals(field(followers.get(0), "avatar"))
+                        && field(followers.get(1), "avatar") == null && followingList.size() == 2
+                        && "cara".equals(field(followingList.get(1), "login"))
+                        && ghost != null && ghost.contains("isn't on GitHub") && badName != null && requests.size() == before,
+                followers.size() + " " + secondPage + " " + thirdPage + " " + followingList.size() + " " + ghost + " " + badName);
+        @SuppressWarnings("unchecked")
+        List<Object> mine = (List<Object>) call(store, "myFollowing", "tok");
+        check("v2.1.5: whom you follow (GET /user/following)", java.util.Arrays.asList("ann", "Bob").equals(mine), mine);
         Object dev = call(store, "developer", "tok", "ann");
         check("v2.1.4: the creator page reads the Location and the account's date too",
                 "Hyderabad, Telangana".equals(field(dev, "location")) && Long.valueOf(1554112800000L).equals(field(dev, "createdAt")),
