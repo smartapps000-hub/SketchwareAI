@@ -1470,22 +1470,33 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         handle.setTextColor(v.color(R.color.ob_accent));
         GitHubViews.oneLine(handle);
         texts.addView(handle);
-        // v2.1.4 (owner's 22 Nov review): the creator's level (✔ Verified / ★ Trusted / Not verified; a tap says how it
-        // is worked out) and the country of their GitHub Location
-        TextView badge = heroPill("…", R.color.ob_text_2, null);
-        badge.setVisibility(View.GONE);
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, v.dp(26));
-        bp.topMargin = v.dp(6);
-        texts.addView(badge, bp);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);
         tp.leftMargin = v.dp(14);
         top.addView(texts, tp);
         card.addView(top);
+        // v2.1.4 (owner's 22 Nov review): the creator's level (✔ Verified / ★ Trusted / Not verified; a tap says how it
+        // is worked out) and the country. v2.1.5 (owner's 23 Nov screenshot: the level drawn over the country line at a
+        // large font): both on their own rows under the picture, each as tall as its text needs
+        TextView badge = heroPill("…", R.color.ob_text_2, null);
+        badge.setMinHeight(v.dp(28));
+        badge.setPadding(v.dp(12), v.dp(4), v.dp(12), v.dp(4));
+        badge.setVisibility(View.GONE);
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, -2);
+        bp.topMargin = v.dp(12);
+        card.addView(badge, bp);
         TextView place = v.line("", false);
         place.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         place.setTextColor(v.color(R.color.ob_text));
         place.setVisibility(View.GONE);
-        card.addView(place, v.full(-1, 10));
+        card.addView(place, v.full(-1, 8));
+        // v2.1.5: "Show on my store page" (own page, the country from this phone)
+        TextView placeAction = v.smallPill("Show on my store page", true, true, null);
+        GitHubViews.oneLine(placeAction);
+        placeAction.setVisibility(View.GONE);
+        LinearLayout.LayoutParams pa = new LinearLayout.LayoutParams(-2, v.dp(36));
+        pa.topMargin = v.dp(8);
+        card.addView(placeAction, pa);
+        creatorPlaceAction = placeAction;
         // v2.1.4: Follow on the creator's page too (like any social app), with the followers number below
         String me = TokenStore.get(this).login();
         followTarget = login;
@@ -1546,6 +1557,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     private TextView creatorBadge;
     private TextView creatorPlace;
+    private TextView creatorPlaceAction;
 
     /** v2.1.4: the creator's badge pill (tap: how the levels are worked out). */
     private void showBadge(PlayStore.Badge b) {
@@ -1564,28 +1576,92 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 .show());
     }
 
-    /** v2.1.4: "🇮🇳 India · on GitHub since Mar 2019" from the profile's own Location (or why it isn't known). */
-    private void showPlace(PlayStore.Developer d) {
+    /**
+     * v2.1.4: "🇮🇳 India · on GitHub since Mar 2019" from the profile's own Location. v2.1.5 (owner's 23 Nov review:
+     * "the country should come by itself"): else the country the creator's apps carry on their store pages (published
+     * from their phone), else on your own page this phone's country with "Show on my store page".
+     */
+    private void showPlace(PlayStore.Developer d, String fromApps) {
         if (creatorPlace == null) return;
         Countries.Country c = Countries.fromLocation(d.location);
         String since = d.createdAt > 0 ? "on GitHub since " + new java.text.SimpleDateFormat("MMM yyyy", Locale.ENGLISH)
                 .format(new java.util.Date(d.createdAt)) : null;
+        String me = TokenStore.get(this).login();
+        boolean mine = me != null && me.equalsIgnoreCase(d.login);
         String where;
+        String offer = null;
         if (c != null) {
             where = c.toString();
             // the place itself when it says more than the country ("Hyderabad, Telangana"; "Berlin, Germany" → "Berlin")
             String loc = d.location.trim().replaceAll("(?i)[,\\s]*\\b" + java.util.regex.Pattern.quote(c.name) + "\\s*$", "")
                     .replaceAll("[,\\s]+$", "").trim();
             if (!loc.isEmpty() && !loc.equalsIgnoreCase(c.name) && loc.length() <= 40) where = where + " (" + loc + ")";
+        } else if (fromApps != null) {
+            where = new Countries.Country(fromApps, Countries.nameOf(fromApps)).toString();
         } else if (d.location != null && !d.location.trim().isEmpty()) {
             where = "📍 " + d.location.trim();
+        } else if (mine && PlayStore.phoneCountry(this) != null) {
+            String phone = PlayStore.phoneCountry(this);
+            where = new Countries.Country(phone, Countries.nameOf(phone)) + " (from this phone)";
+            if (!d.apps.isEmpty()) offer = phone;
         } else {
-            String me = TokenStore.get(this).login();
-            where = me != null && me.equalsIgnoreCase(d.login) ? "📍 Country not set: add it as Location in your GitHub "
-                    + "profile (github.com → Settings → Public profile)" : "📍 Country not shared on GitHub";
+            where = "📍 Country not shared";
         }
         creatorPlace.setText(since == null ? where : where + " · " + since);
         creatorPlace.setVisibility(View.VISIBLE);
+        if (creatorPlaceAction != null) {
+            if (offer == null) {
+                creatorPlaceAction.setVisibility(View.GONE);
+            } else {
+                String code = offer;
+                creatorPlaceAction.setVisibility(View.VISIBLE);
+                creatorPlaceAction.setText("Show " + new Countries.Country(code, Countries.nameOf(code)) + " on my store page");
+                creatorPlaceAction.setOnClickListener(x -> shareCountry(d, code));
+            }
+        }
+    }
+
+    /** v2.1.5: the creator's country as their apps carry it in the phone's copy of the store, else null. */
+    private String appsCountry(PlayStore.Developer d) {
+        for (PlayStore.App a : PlayStore.cached(this)) {
+            if (a.creatorCountry != null && a.owner != null && a.owner.equalsIgnoreCase(d.login)) return a.creatorCountry;
+        }
+        for (PlayStore.App a : d.apps) if (a.creatorCountry != null) return a.creatorCountry;
+        return null;
+    }
+
+    /** v2.1.5: the country into the store pages of your apps (your tap), then shown here. */
+    private void shareCountry(PlayStore.Developer d, String code) {
+        if (!AuthGuard.check(this)) return;
+        creatorPlaceAction.setEnabled(false);
+        creatorPlaceAction.setText("Saving on GitHub…");
+        List<PlayStore.App> apps = new ArrayList<>(d.apps);
+        String login = d.login;
+        work.execute(() -> {
+            String problem = null;
+            int written = 0;
+            try {
+                String token = token();
+                if (token == null) throw new GitHubException("signed_out", "Sign in again.");
+                written = GitHubHttp.quick(TIMEOUT_MILLIS * 3, () -> PlayStore.shareCountry(token, login, apps, code));
+            } catch (Exception e) {
+                problem = RepoViewerActivity.whyFailed(e);
+            }
+            String why = problem;
+            int n = written;
+            ui(() -> {
+                creatorPlaceAction.setEnabled(true);
+                if (why != null) {
+                    creatorPlaceAction.setText("Try again: show it on my store page");
+                    Toast.makeText(this, why, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                creatorPlaceAction.setVisibility(View.GONE);
+                Toast.makeText(this, "Your country is on " + n + (n == 1 ? " store page" : " store pages") + " now",
+                        Toast.LENGTH_SHORT).show();
+                showPlace(d, code);
+            });
+        });
     }
 
     private void loadDeveloper(String login, TextView name, TextView bio, ImageView avatar, TextView[] values,
@@ -1629,7 +1705,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
                 values[2].setText(PlayStore.count(ownerFollowers >= 0 ? ownerFollowers : d.followers));
                 showFollow();
-                showPlace(d);
+                showPlace(d, appsCountry(d));
                 showBadge(PlayStore.badge(d.login, d.name, d.bio, d.createdAt, d.apps.size(), d.followers, 0,
                         System.currentTimeMillis()));
                 status.setText("");
@@ -1652,6 +1728,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 }
             });
             if (d.avatar != null) ui(() -> loadPicture(d.avatar, avatar, v.dp(72)));
+            // v2.1.5: no Location on GitHub: the country one of the creator's store pages carries (one read)
+            if (Countries.fromLocation(d.location) == null && appsCountry(d) == null && !d.apps.isEmpty()) {
+                try {
+                    String found = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.creatorCountry(token, d.apps.get(0)));
+                    if (found != null) ui(() -> showPlace(d, found));
+                } catch (Exception ignored) {
+                    // stays as shown
+                }
+            }
             loadFollowing(token);
             // the downloads of the store apps (ten at most: one request each)
             long total = 0;
@@ -1878,6 +1963,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     private List<ProjectRepo.Info> lastRepos;
     /** v2.1.4: the line under the description (written from the project, or why it couldn't be). */
     private TextView describeNote;
+    /** v2.1.5: the country shown on the store page: null = this phone's, "" = not shown, else a picked code. */
+    private String formCountry;
+    private TextView countryLine;
 
     private SharedPreferences prefs() {
         return getSharedPreferences(PREFS, MODE_PRIVATE);
@@ -1923,6 +2011,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         describeNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         describeNote.setVisibility(View.GONE);
         list.addView(describeNote, v.full(-1, 4));
+        // v2.1.5 (owner's 23 Nov review: "the country should come by itself"): the creator's country, from this phone
+        // unless changed; a tap changes or hides it
+        countryLine = v.line("", false);
+        countryLine.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        countryLine.setBackgroundResource(R.drawable.ob_pill16_state);
+        countryLine.setPadding(v.dp(12), v.dp(10), v.dp(12), v.dp(10));
+        countryLine.setOnClickListener(x -> chooseCountry());
+        list.addView(countryLine, v.full(-1, 6));
+        showCountryLine();
         videoField = v.input("Demo video link (https://…, optional)", false, 1);
         videoField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         list.addView(videoField, v.full(46, 8));
@@ -2011,6 +2108,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             titleField.setText(t);
             descriptionField.setText(d);
             videoField.setText(staged.video == null ? "" : staged.video);
+            formCountry = staged.country;
+            showCountryLine();
         } finally {
             filling = false;
         }
@@ -2024,6 +2123,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         form.title = titleField.getText().toString();
         form.description = descriptionField.getText().toString();
         form.video = videoField.getText().toString();
+        form.country = formCountry;
         STAGE.execute(() -> {
             try {
                 form.saveForm(dir);
@@ -2085,6 +2185,69 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                     choose);
             reposBox.addView(row, v.full(-1, 8));
         }
+    }
+
+    /** v2.1.5: "🌍 Country on your store page: 🇮🇳 India (from this phone) · Change". */
+    private void showCountryLine() {
+        if (countryLine == null) return;
+        String text;
+        if (formCountry != null && formCountry.isEmpty()) {
+            text = "🌍 Country on your store page: not shown · Change";
+        } else {
+            String code = formCountry != null ? formCountry : PlayStore.phoneCountry(this);
+            text = code == null ? "🌍 Country on your store page: not known on this phone · Choose"
+                    : "🌍 Country on your store page: " + new Countries.Country(code, Countries.nameOf(code))
+                    + (formCountry == null ? " (from this phone)" : "") + " · Change";
+        }
+        countryLine.setText(text);
+        countryLine.setContentDescription(text);
+    }
+
+    /** v2.1.5: this phone's country, another one, or none. */
+    private void chooseCountry() {
+        String phone = PlayStore.phoneCountry(this);
+        List<String> labels = new ArrayList<>();
+        List<String> codes = new ArrayList<>();
+        if (phone != null) {
+            labels.add(new Countries.Country(phone, Countries.nameOf(phone)) + " (from this phone)");
+            codes.add(null);
+        }
+        labels.add("Choose another country…");
+        codes.add("*");
+        labels.add("Don't show a country");
+        codes.add("");
+        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Country on your store page")
+                .setItems(labels.toArray(new String[0]), (d, which) -> {
+                    String picked = codes.get(which);
+                    if ("*".equals(picked)) {
+                        chooseAnyCountry();
+                        return;
+                    }
+                    formCountry = picked;
+                    showCountryLine();
+                    saveForm();
+                })
+                .show();
+    }
+
+    private void chooseAnyCountry() {
+        List<String[]> all = new ArrayList<>();
+        for (String code : Locale.getISOCountries()) all.add(new String[]{Countries.nameOf(code), code});
+        all.sort((a, b) -> a[0].compareToIgnoreCase(b[0]));
+        String[] labels = new String[all.size()];
+        for (int i = 0; i < all.size(); i++) {
+            labels[i] = new Countries.Country(all.get(i)[1], all.get(i)[0]).toString();
+        }
+        new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Choose your country")
+                .setItems(labels, (d, which) -> {
+                    formCountry = all.get(which)[1];
+                    showCountryLine();
+                    saveForm();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /** v2.1.4: "✨ From project": written again (asked first when the field has words). */

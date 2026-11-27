@@ -58,6 +58,8 @@ public final class PlayStore {
         public long publishedAt;
         /** The Discussion whose reactions count likes, views and shares (0: none yet). */
         public int statsDiscussion;
+        /** v2.1.5: the creator's country from the store page ("IN"), else null. */
+        public String creatorCountry;
 
         public String name() {
             return title != null && !title.isEmpty() ? title : displayName(repo);
@@ -94,6 +96,7 @@ public final class PlayStore {
             a.changelog = changelog;
             a.publishedAt = publishedAt;
             a.statsDiscussion = statsDiscussion;
+            a.creatorCountry = creatorCountry;
             return a;
         }
 
@@ -119,6 +122,7 @@ public final class PlayStore {
             o.addProperty("changelog", changelog);
             o.addProperty("published_at", publishedAt);
             o.addProperty("stats_discussion", statsDiscussion);
+            if (creatorCountry != null) o.addProperty("creator_country", creatorCountry);
             return o;
         }
 
@@ -180,6 +184,7 @@ public final class PlayStore {
         a.changelog = changelog == null ? null : clip(changelog, 4000);
         a.publishedAt = longOf(o, "published_at");
         a.statsDiscussion = intOf(o, "stats_discussion");
+        a.creatorCountry = countryCode(DeviceFlow.string(o, "creator_country"));
     }
 
     static int intOf(JsonObject o, String key) {
@@ -288,6 +293,7 @@ public final class PlayStore {
                     if (title != null && !title.trim().isEmpty()) app.title = clip(title.trim(), 80);
                     if (description != null && !description.trim().isEmpty()) app.description = clip(description.trim(), 4000);
                     app.video = safeVideo(DeviceFlow.string(listing, "video"));
+                    app.creatorCountry = countryCode(DeviceFlow.string(listing, "creator_country"));
                     readVersionFields(app, listing);
                 }
             }
@@ -560,6 +566,12 @@ public final class PlayStore {
         public final List<byte[]> screenshots = new ArrayList<>();
         /** v2.1.1: the app's own icon (PNG), or null. */
         public byte[] icon;
+        /**
+         * v2.1.5 (owner's 23 Nov review: "the country should come by itself"): the creator's country shown on the store
+         * page: null = from this phone at publish (SIM / network, else the phone's region), "" = not shown, else the
+         * ISO code the user picked.
+         */
+        public String country;
 
         /**
          * v2.1.1 (owner's 21 Nov report: pictures gone after Sign in again): the publish form kept on the phone, in
@@ -588,6 +600,8 @@ public final class PlayStore {
                     l.title = DeviceFlow.string(o, "title");
                     l.description = DeviceFlow.string(o, "description");
                     l.video = DeviceFlow.string(o, "video");
+                    l.country = o.has("country") && !o.get("country").isJsonNull() ? DeviceFlow.string(o, "country") : null;
+                    if (l.country != null && !l.country.isEmpty() && !l.country.matches("[A-Z]{2}")) l.country = null;
                 } catch (IOException | RuntimeException ignored) {
                     // an empty form
                 }
@@ -602,6 +616,7 @@ public final class PlayStore {
             o.addProperty("title", title);
             o.addProperty("description", description);
             o.addProperty("video", video);
+            if (country != null) o.addProperty("country", country);
             File form = new File(dir, "form.json");
             File tmp = new File(dir, "form.json.tmp");
             java.nio.file.Files.write(tmp.toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
@@ -757,6 +772,8 @@ public final class PlayStore {
         String video = safeVideo(listing.video);
         if (video != null) page.addProperty("video", video);
         page.addProperty("made_with", "Sketchware AI");
+        // v2.1.5: the creator's country (resolved on the phone before publishing; "" = not shown)
+        if (listing.country != null && listing.country.matches("[A-Z]{2}")) page.addProperty("creator_country", listing.country);
         int number = (before == null ? 0 : intOf(before, "publish_number")) + 1;
         page.addProperty("publish_number", number);
         page.addProperty("published_at", now);
@@ -1260,39 +1277,107 @@ public final class PlayStore {
     public static final long DAY_MILLIS = 24 * 3600_000L;
 
     /** How the levels are worked out (shown when a badge is tapped). */
-    public static final String BADGE_RULES = "Worked out by Sketchware AI from the creator's public GitHub profile and "
-            + "the store (GitHub has no \"verified person\" mark for accounts):\n"
-            + "• ✔ Verified: a GitHub account older than 30 days, with a public name or bio and at least one app in the "
-            + "store.\n"
-            + "• ★ Trusted: Verified, older than a year, at least two apps, and 10 or more followers or 100 or more "
-            + "downloads.\n"
-            + "• Not verified: a newer account or no app yet. It doesn't mean anything bad: check what an app asks "
-            + "for before installing it.";
+    public static final String BADGE_RULES = "Worked out by Sketchware AI by itself, from the creator's GitHub account "
+            + "and the store (GitHub has no \"verified person\" mark for accounts):\n"
+            + "• ✔ Verified: a GitHub account older than 30 days with at least one app in the store.\n"
+            + "• ★ Trusted: verified, on GitHub for a year or more, and 3 or more apps, or 10 or more followers, or 50 "
+            + "or more downloads.\n"
+            + "• Not verified: an account newer than 30 days, or no app in the store yet. It doesn't mean anything bad: "
+            + "check what an app asks for before installing it.\n"
+            + "Nothing to do by hand: the level goes up by itself as the account ages and its apps are published and "
+            + "downloaded.";
 
+    /**
+     * v2.1.4; v2.1.5 (owner's 23 Nov review: "Not verified on my own page: how does it get verified? Work out Trusted
+     * by itself and make it easier"): no name / bio needed any more; Trusted from a year with 3 apps, or 10 followers,
+     * or 50 downloads.
+     */
     public static Badge badge(String login, String name, String bio, long createdAt, int apps, int followers,
                               long downloads, long now) {
         if (COMMUNITY_OWNER.equalsIgnoreCase(login)) {
             return new Badge(Badge.OFFICIAL, "✔ Official", "The Sketchware AI account.");
         }
         long age = createdAt > 0 ? now - createdAt : -1;
-        boolean named = (name != null && !name.trim().isEmpty()) || (bio != null && !bio.trim().isEmpty());
-        boolean verified = age >= 30 * DAY_MILLIS && named && apps >= 1;
+        boolean verified = age >= 30 * DAY_MILLIS && apps >= 1;
         if (!verified) {
             String missing;
             if (age < 0) missing = "the account's age isn't known";
-            else if (age < 30 * DAY_MILLIS) missing = "the GitHub account is " + Math.max(0, age / DAY_MILLIS) + " days old";
-            else if (!named) missing = "the profile has no public name or bio";
-            else missing = "no app in the store yet";
+            else if (age < 30 * DAY_MILLIS) missing = "the GitHub account is " + Math.max(0, age / DAY_MILLIS)
+                    + " days old (verified at 30 days with an app in the store)";
+            else missing = "no app in the store yet (verified with the first published app)";
             return new Badge(Badge.NOT_VERIFIED, "Not verified", "Not verified: " + missing + ".");
         }
-        boolean trusted = age >= 365 * DAY_MILLIS && apps >= 2 && (followers >= 10 || downloads >= 100);
+        long years = age / (365 * DAY_MILLIS);
+        boolean trusted = years >= 1 && (apps >= 3 || followers >= 10 || downloads >= 50);
         if (trusted) {
-            return new Badge(Badge.TRUSTED, "★ Trusted", "Trusted: an account of " + (age / (365 * DAY_MILLIS))
-                    + "+ years with " + apps + " apps" + (followers >= 10 ? " and " + followers + " followers" : " and "
-                    + downloads + " downloads") + ".");
+            String why = apps >= 3 ? apps + " apps" : followers >= 10 ? followers + " followers" : downloads + " downloads";
+            return new Badge(Badge.TRUSTED, "★ Trusted", "Trusted: on GitHub for " + years + (years == 1 ? " year" : " years")
+                    + " with " + why + ".");
         }
-        return new Badge(Badge.VERIFIED, "✔ Verified", "Verified: an account of " + (age / DAY_MILLIS) + " days with "
-                + apps + (apps == 1 ? " app" : " apps") + " in the store.");
+        String next = years < 1 ? "Trusted after a year on GitHub with 3 apps, 10 followers or 50 downloads"
+                : "Trusted at 3 apps, 10 followers or 50 downloads";
+        return new Badge(Badge.VERIFIED, "✔ Verified", "Verified: a GitHub account of " + (age / DAY_MILLIS) + " days with "
+                + apps + (apps == 1 ? " app" : " apps") + " in the store. " + next + ".");
+    }
+
+    // ------------------------------------------------------------------ v2.1.5: the creator's country
+
+    /** "IN" for a two-letter country code (any case), else null. */
+    static String countryCode(String raw) {
+        if (raw == null) return null;
+        String c = raw.trim().toUpperCase(Locale.ROOT);
+        return c.matches("[A-Z]{2}") ? c : null;
+    }
+
+    /**
+     * v2.1.5 (owner: "the country should come by itself"): this phone's country with no permission: the SIM's, else
+     * the mobile network's, else the phone's region setting; null when none says.
+     */
+    public static String phoneCountry(Context context) {
+        try {
+            android.telephony.TelephonyManager tm = (android.telephony.TelephonyManager) context
+                    .getSystemService(Context.TELEPHONY_SERVICE);
+            if (tm != null) {
+                String c = countryCode(tm.getSimCountryIso());
+                if (c == null) c = countryCode(tm.getNetworkCountryIso());
+                if (c != null) return c;
+            }
+        } catch (RuntimeException ignored) {
+            // no telephony
+        }
+        return countryCode(Locale.getDefault().getCountry());
+    }
+
+    /** v2.1.5: only the creator's country from an app's store page (one request), else null. */
+    static String creatorCountry(String token, App app) throws IOException {
+        String base = "/repos/" + CloudBackup.enc(app.owner) + "/" + CloudBackup.enc(app.repo);
+        JsonObject page = readPage(token, base);
+        return page == null ? null : countryCode(DeviceFlow.string(page, "creator_country"));
+    }
+
+    /**
+     * v2.1.5: "Show on my store page": writes the country into the store page of each of the account's store apps
+     * (the user's tap; at most 10 apps). Returns how many pages were written.
+     */
+    static int shareCountry(String token, String login, List<App> apps, String code) throws IOException, GitHubException {
+        String c = countryCode(code);
+        if (c == null) throw new GitHubException("bad_country", "No country to show.");
+        int done = 0;
+        for (App a : apps) {
+            if (done >= 10 || a.owner == null || !a.owner.equalsIgnoreCase(login)) continue;
+            String base = "/repos/" + CloudBackup.enc(a.owner) + "/" + CloudBackup.enc(a.repo);
+            JsonObject page = readPage(token, base);
+            if (page == null) continue;
+            if (c.equals(countryCode(DeviceFlow.string(page, "creator_country")))) {
+                done++;
+                continue;
+            }
+            page.addProperty("creator_country", c);
+            putBytes(token, base, LISTING, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(page)
+                    .getBytes(StandardCharsets.UTF_8), "creator's country on the Play Store page");
+            done++;
+        }
+        return done;
     }
 
     /** A creator's page: the account (GitHub's profile), the store apps and the other public projects. */
