@@ -1708,3 +1708,58 @@ Owner's 23 Nov review of v2.1.4 (12 screenshots, in Telugu). Record: `engineerin
   with an empty path change nothing, a text / number in the way is kept, text that isn't JSON is never replaced; numbers
   in maps as Double (as the Gson blocks); readers keep the last parsed tree (`readTree`, identity of the String).
   BlockGuide entries take their shape from `JsonCode.kind`.
+
+## v2.1.6 additions (28 Nov 2026): GitHub + JSON Live Demo, follow-notification switch, sign-in code length, sign-in window after a refusal, SignatureGuard, non-debuggable APK
+
+Owner's 28 Nov directive "FINAL PUBLIC RELEASE … (v2.1.6 / versionCode 213)" with four screenshots (the refusal card
+twice, a 6-digit code in GitHub's 8-digit field with "Please match the format requested", the security log of another
+account). Record: `engineering/v2.1.6-verification.md`.
+
+- **Demo** (`project.JsonSample`, `project.Demos`, `GitHubBackupsActivity`, `GC`): "GitHub + JSON Live Demo"
+  (`GitHub_JSON_Live_Demo`, `com.my.githubjson`, mark kind `githubjson` version 1) made like the GitHub API Demo
+  (`NewProjectSetup.create`, then own `hC` / `eC`): views title / subtitle / field (octocat) / two orange buttons / output
+  / dark JSON panel / ListView; component `github1`; variables `userName`, `profile`, `summary` (String), `i` (number),
+  list `repoNames`; events button1 / button2 onClick (field → userName → get user / list repositories), user loaded
+  (JSON set text / number into `profile`, summary read back with JSON get text / number, panel = JSON pretty), repositories
+  listed (repeat over JSON count, JSON get text at "[" + i + "].name" appended to `summary`'s `names[]`, JSON array to
+  list → `repoNames` → ListView, JSON get number "[0].stars"), error. `Demos.sort` by kind (`rank`: githubjson 0, github
+  1, others 2), then version, then id; `Demos.kind` reads the mark. Demo tab: "Make the …" pills for a missing demo
+  (marks read on the worker). Seeded once per install after the GitHub API Demo (`JsonSample.seedOnce`, pref
+  `github_json_sample_seeded`). Both demos pick their id under `ProjectIds.RESTORE_LOCK`.
+- **Follow notifications switch** (`PlayStore.noticesSwitchOn` / `setNoticesSwitch`, prefs `playstore_follows`
+  `notices_off_<login>`): `noticesOn` = `notices_<login>` and not off; on also sets `notices_<login>` (creators followed on
+  github.com count); a Follow never turns it back on; Settings' check box (disabled when signed out) reschedules / cancels
+  `FollowWatch` and clears shown notices (`FollowWatch.clearNotices`, ids 30000-34095); `FollowWatch.notifyNew` checks the
+  switch again right before `notify`; the Follow's notification question isn't asked when off.
+- **Sign-in code length** (`OtpAssist`, `GitHubInAppAuthDialog`): `FIELD_JS` `wanted(i)` = the length from the field's
+  pattern (one `{n}` / `{n,n}`; several lengths = not said), maxlength, minlength or placeholder (x / X / 0 runs); boxes =
+  their count; `PROBE_SCRIPT` answers six parts (the sixth 0 / 6 / 8; `Probe.parse` takes 4-6, anything else in the sixth
+  = null; `codeLength` 0 without a field). `fillScript` skips a field whose length differs and answers `length:8` /
+  `length:6` instead of typing. `codeFrom(text, length)` picks a code of that length. The window: `neededLength()`,
+  the note "This page takes an 8-digit code: copy the 8-digit code from Gmail, then tap Paste & fill.", `lengthHint` in
+  the status line (also for clipboard / notification codes); a refused code is never kept for later.
+- **Security-log note** (`DrawerAccountCard.securityLog`): "Signed in here as @login" glass alert (Open security log /
+  Copy @login / Cancel) before the browser; without an Activity: a toast and the log.
+- **Sign-in window after a refusal** (`github.SignInPrompt`, ActivityLifecycleCallbacks installed in `SketchApplication`):
+  `shouldAsk(login, refused, sealedKey, askedFor, closes)`; `maybeAsk` only on `MainActivity` (after `AppControl.gatePassed`),
+  `ui.SettingsActivity` and `com.sketchware.ai.github.*Activity` except `GitHubActivity` / `GitHubLinkActivity`, only on the
+  resumed one, never while a sign-in window is open; once per refusal key per process, not after three closes of the
+  automatic window for that key (prefs `sketchware_ai_signin_prompt`). Triggers: `GitHubSession.markRefused` →
+  `refused()` (800 ms later on the screen in front), `AppControl.passGate`, `onActivityResumed` (900 ms).
+  `GitHubProgress.failedSignIn` opens the window once per sheet (700 ms) unless one is open; its Sign in again reruns
+  the job as before. After any new sign-in `SignIn` → `CloudSync.resumeAfterSignIn` (unchanged since v2.1.1).
+- **SignatureGuard** (`github.SignatureGuard`, `init` in `SketchApplication`): verdict from `GET_SIGNING_CERTIFICATES`
+  (one signer: current or rotation history; several: all) or `GET_SIGNATURES` below API 28, SHA-256 against
+  `RELEASE_CERT_SHA256` (a40da80a…bf5dc); unreadable = null = allowed. Not trusted: `SignIn.start` sets error
+  `untrusted`, `GitHubHttp.open` throws `NoRetry(REFUSAL)` for a request carrying the token, `AppUpdater.start` refuses.
+- **Token hosts** (`GitHubHttp.tokenAllowed`): https, port none / 443, no user part, host api.github.com /
+  uploads.github.com and the default prefixes; with test endpoints (`useEndpoints`) their prefixes.
+- **Update links** (`AppControl.Config.updateUrls`, `AppUpdater.downloadFirst`): `update_urls` (≤ 4, `safeUrl`) then
+  `update_url`; `updateUrl` stays the file's `update_url` (else the first link); the updater tries each link (GitHub hosts
+  only, redirects by hand) until one gives the file with the SHA-256, deleting any other file.
+- **Build** (`app/build.gradle`): debug buildType `debuggable false` (the shipped APK); `lint { checkReleaseBuilds =
+  false }` (a non-debuggable variant runs lint-vital in assemble, which stops on upstream's style cycles); every DEX is now
+  merged (18 files instead of 44, APK about 12 MB smaller), which made D8 refuse `MessageCollectorAdapter` defined both by
+  `kotlinc`'s JavacLogger.kt and the compiler jar: the module's private class is now `JavacMessageWriter` (same code; the
+  v2.1.5 APK already loaded the module's copy, classes8.dex before classes38.dex).
+

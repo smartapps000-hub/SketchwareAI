@@ -1212,6 +1212,47 @@
         "JVM SketchJsonTest on AOSP org.json",
         "Export AAB 936, export 936 built with Gradle"
       ]
+    },
+    {
+      "fingerprint": "GitHub sign-in code: 'Please match the format requested' after Paste & fill (a 6-digit code in GitHub's 8-digit e-mailed code field)",
+      "rootCause": "v2.1.5's fill script only skipped fields whose maxlength was shorter than the code; GitHub's 8-digit field (pattern [0-9]{8}) took a 6-digit code",
+      "repair": "v2.1.6: the field's length is read from its pattern / maxlength / minlength / placeholder / box count; a code of another length is never typed ('length:8'), the bar says 'Copy the 8-digit code from Gmail, then tap Paste & fill', and the copied text's code of the right length is taken",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "jsdom otp-script-test.js (8-digit field by pattern and placeholder, \\d{8}, 6-digit field, eight boxes, 6-or-8 pattern)",
+        "ART GitHubTest (Probe sixth part, codeFrom by length)",
+        "render V216Test (note and status)"
+      ]
+    },
+    {
+      "fingerprint": "'GitHub didn't accept this phone's sign-in' card after an update; the security log opened in the browser showed another account",
+      "rootCause": "GitHub answered 401 for the unchanged token made at sign-in (GitHub ended it on its side: no app path deletes or changes it); the browser was signed in to another GitHub account",
+      "repair": "v2.1.6: the sign-in window opens by itself once per refusal (Home / Settings / GitHub screens, after the start gate; a tapped backup's sheet), waiting jobs resume after signing in; 'Why? GitHub's security log ›' first names the signed-in @login",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "ART GitHubTest (SignInPrompt rule, closes per refusal)",
+        "review pass (not run on a phone)"
+      ]
+    },
+    {
+      "fingerprint": "No way to turn off notifications about creators you follow",
+      "rootCause": "v2.1.5 turned them on at the first Follow with no switch",
+      "repair": "v2.1.6: Settings → Notifications check box per account; off stays off at a Follow, cancels the 4-hour check and clears shown notices",
+      "scope": "IDE, Play Store",
+      "verifiedOn": [
+        "ART GitHubTest (switch rules)",
+        "render V216Test (on / off)"
+      ]
+    },
+    {
+      "fingerprint": "D8: Type org.jetbrains.kotlin.cli.jvm.javac.MessageCollectorAdapter is defined multiple times (IDE build, non-debuggable variant)",
+      "rootCause": "kotlinc/JavacLogger.kt defines the same private class as kotlin-compiler-embeddable 1.7.10; debuggable builds dexed modules separately, a non-debuggable build merges every DEX",
+      "repair": "v2.1.6: the module's class renamed JavacMessageWriter (same code); `lint { checkReleaseBuilds = false }` for the lint-vital stop on upstream style cycles",
+      "scope": "IDE build",
+      "verifiedOn": [
+        "assembleMinApi26Debug",
+        "ART suite on the final APK (Kotlin fixture 904)"
+      ]
     }
   ]
 }

@@ -29,7 +29,7 @@ auto-fix and Build Doctor are rule-based and run offline on the phone. Network i
 api.github.com), and since v1.9.8 for one read of `config/app-control.json` at start (raw.githubusercontent.com; the app
 version goes in the User-Agent; offline, the last copy is used and nothing else happens).
 
-## Shipped (v1.0 – v2.1.5)
+## Shipped (v1.0 – v2.1.6)
 
 Everything in this section is in the released APK and was exercised as described under *How it is tested*.
 
@@ -104,6 +104,10 @@ Everything in this section is in the released APK and was exercised as described
 | Follow like Subscribe | One fixed-size pill: orange Follow → glass ✓ Following with a bounce, kept per account; followers / following lists of any creator; "From creators you follow" first in the store; a notification when a followed creator publishes an app or version to the store (every few hours, after a Follow in the app; Android 13+ asks for notifications at a Follow) | v2.1.5 |
 | Sign-in codes from Copy code | A code copied while the sign-in window is open goes in at once; Gmail's notification "Copy code" from the pulled-down shade fills on return; Paste & fill explains the next step and never takes the window's own code; GitHub Mobile's page explained (only that app can answer it) with E-mail me a code | v2.1.5 |
 | JSON power pack | 19 blocks: text / number / boolean / part at a path (user.name, items[0].title, items[-1]), has, count, type, valid, pretty; set text / number / boolean / JSON and remove on a String variable; keys and arrays to lists, an object to a map. Generated `SketchJson` on Android's own org.json: no library, no permission | v2.1.5 |
+| GitHub + JSON Live Demo | A demo project made by the app, first in Restore projects → Demo: asks api.github.com for a user's profile and repositories and reads / builds JSON with the JSON blocks (get text / number, set, count, array to list, pretty) | v2.1.6 |
+| Sign-in after GitHub ends it | When GitHub refuses the saved sign-in, the sign-in window opens by itself once (Home, Settings, GitHub screens; never over the editors) and waiting backups and publishes go on after signing in; "Why? GitHub's security log ›" names the signed-in @account first; the code bar reads how many digits GitHub's field takes and never types a 6-digit code into an 8-digit field | v2.1.6 |
+| Follow notifications switch | Settings → Notifications: new apps and versions from creators you follow, on or off per account | v2.1.6 |
+| Release checks in the app | The app checks its own signing certificate (another key: no GitHub sign-in, publishing or in-app updates); the token goes only to api.github.com / uploads.github.com over https; updates install only with a matching SHA-256 and come from the GitHub Release first; the APK is not debuggable | v2.1.6 |
 | One GitHub repository per project | Back up to GitHub (and the backup after saving) goes into the project's own private repository `SketchwareAI-<name>`; each app version is a release `v<versionName>-<versionCode>` with the .swb (16 MB parts above that) and the APK built since the last backup; at most 5 versions, the one pinned **★ Standard** never removed; Public / Private is one change on GitHub | v2.0.4 |
 | Publish to GitHub | The Private pill opens a screen filled from the project (title, description, topics, README, "What's New & Fixed" from an on-phone comparison with the previous version); Publish Public writes README.md and CHANGELOG.md and makes the repository public; later backups keep those up to date | v2.0.4 |
 | Restore projects screen | Full screen: a GitHub link, your project repositories with their versions (Latest, ★ Standard), Restore and Set as Standard, the older backups; the .swb files on the phone. Restored projects are linked to their repository again. Shared github.com project links and `sketchwareai://import` open it | v2.0.4 |

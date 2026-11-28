@@ -447,6 +447,36 @@
       "file": "Android ClipboardManager.addPrimaryClipChangedListener (Android 10+: only the focused app or the default IME is told), ClipDescription.getTimestamp (API 26)",
       "purpose": "v2.1.5: codes copied while the sign-in window is open",
       "available": true
+    },
+    {
+      "id": "signing-certificates",
+      "file": "Android PackageManager.GET_SIGNING_CERTIFICATES, SigningInfo.hasMultipleSigners / getApkContentsSigners / getSigningCertificateHistory (API 28), GET_SIGNATURES (older)",
+      "purpose": "v2.1.6: SignatureGuard",
+      "available": true
+    },
+    {
+      "id": "activity-lifecycle-callbacks",
+      "file": "Android Application.registerActivityLifecycleCallbacks",
+      "purpose": "v2.1.6: SignInPrompt (the screen in front)",
+      "available": true
+    },
+    {
+      "id": "html-input-constraints",
+      "file": "HTML input pattern / maxlength / minlength (constraint validation: 'Please match the format requested')",
+      "purpose": "v2.1.6: the sign-in code's length",
+      "available": true
+    },
+    {
+      "id": "agp-debuggable",
+      "file": "AGP buildTypes debuggable (non-debuggable variants merge all DEX, run lintVital in assemble; lint.checkReleaseBuilds)",
+      "purpose": "v2.1.6: non-debuggable shipped APK",
+      "available": true
+    },
+    {
+      "id": "github-release-assets",
+      "file": "https://github.com/<owner>/<repo>/releases/download/<tag>/<asset> (redirects to release-assets / objects.githubusercontent.com)",
+      "purpose": "v2.1.6: update_urls (Release asset first)",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

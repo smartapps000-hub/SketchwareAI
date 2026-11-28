@@ -392,3 +392,18 @@ Whether a generated APK runs on a given Android version depends on that project'
 - Generated apps: `SketchJson` uses only org.json calls present since API 1 (no `JSONArray.remove`, API 19); compiled with
   ECJ for fixture 936 (min SDK 21) and on the host for android-37; ran on the ART harness (API 31) with Android's own
   org.json (JSONCALL). Android's JSON reader is lenient (unquoted keys, single quotes); `isValid` follows it.
+
+## v2.1.6 (28 Nov 2026)
+
+- Non-debuggable APK (debug buildType `debuggable false`): installs over v2.1.5 (same key; the debuggable flag is not part
+  of the update check). Not run on a phone; the ART suite ran on the final APK.
+- `SignatureGuard`: `PackageManager.GET_SIGNING_CERTIFICATES` / `SigningInfo` (API 28+), `GET_SIGNATURES` on API 26-27.
+  Unreadable = allowed. Not run on a phone (the harness has no PackageManager: the guard reads nothing there, so every
+  harness run is "not read").
+- Sign-in window after a refusal: `Application.ActivityLifecycleCallbacks` (API 14+). Not run on a phone.
+- Code length from the page: `HTMLInputElement.maxLength` / `minLength` (-1 when absent), the `pattern` attribute; checked in
+  jsdom on stand-ins of GitHub's pages, not on GitHub's real pages.
+- `FollowWatch.clearNotices`: `NotificationManager.getActiveNotifications` (API 23+).
+- Demo app (fixture 937): min SDK 21, target 37, INTERNET only; `SketchJson` + `SketchGitHub` as before (org.json,
+  HttpURLConnection).
+
