@@ -1169,6 +1169,49 @@
         "JVM V211ClientTest (profile)",
         "ART GitHubTest (levels, countries)"
       ]
+    },
+    {
+      "fingerprint": "Creator page: 'Country not set: add it as Location…' / own page 'Not verified'",
+      "rootCause": "v2.1.4 took the country only from the GitHub profile's Location, and Verified needed a public name or bio; the owner's account has neither",
+      "repair": "v2.1.5: the country from GitHub Location, else the country the creator's store pages carry (published from the phone with a visible choice on the Publish page), else (own page) this phone's with 'Show … on my store page'; Verified = 30 days + an app, Trusted = a year + 3 apps / 10 followers / 50 downloads",
+      "scope": "IDE, Play Store",
+      "verifiedOn": [
+        "ART GitHubTest (levels, the owner's account Trusted, country codes)",
+        "render V215Test (creator card, own page)"
+      ]
+    },
+    {
+      "fingerprint": "Follow pill: no Following state kept, no followers / following lists, followed creators' apps not first, no notices",
+      "rootCause": "v2.1.4 read the follow state only from GitHub each time and had no lists or feed",
+      "repair": "v2.1.5: Follow / Following kept per account on the phone and read from GitHub, fixed-size pill with a bounce, followers and following lists, 'From creators you follow' first in the store, FollowWatch notices for apps published to the store (not for backups)",
+      "scope": "IDE, Play Store",
+      "verifiedOn": [
+        "ART GitHubTest (follow cache, tap window, news rules)",
+        "JVM V211ClientTest (lists, paging)",
+        "render V215Test / V215LargeFontTest"
+      ]
+    },
+    {
+      "fingerprint": "Paste & fill: '6 or 8 digit code' error when tapped before copying; GitHub Mobile page ('We sent a verification request… 77') with the authenticator-code bar",
+      "rootCause": "v2.1.4 showed an error for an empty clipboard and treated /sessions/two-factor/mobile as a code page",
+      "repair": "v2.1.5: Paste & fill says what to do (pull down notifications, Copy code), a code copied while the window is open goes in at once, the window's own XXXX-XXXX code is never taken; GitHub Mobile's page gets its own bar (approve in that app, or E-mail me a code)",
+      "scope": "IDE, GitHub sign-in",
+      "verifiedOn": [
+        "jsdom otp-script-test.js (GitHub Mobile page, links that name it)",
+        "ART GitHubTest (page kinds, device code)",
+        "render V215Test (bar)"
+      ]
+    },
+    {
+      "fingerprint": "JSON in blocks: only whole-text Gson conversions (strToMap, mapToStr, lists); no reading a nested value by path",
+      "rootCause": "6.4.0-rc05 has no path-based JSON blocks",
+      "repair": "v2.1.5: JSON power pack (19 blocks) with the generated SketchJson on Android's own org.json: values at a path, setters on a String variable, keys and arrays to lists, object to map",
+      "scope": "Generated apps",
+      "verifiedOn": [
+        "ART fixture 936 json (16 steps, 0 warnings) + h.CallJson",
+        "JVM SketchJsonTest on AOSP org.json",
+        "Export AAB 936, export 936 built with Gradle"
+      ]
     }
   ]
 }

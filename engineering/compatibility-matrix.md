@@ -374,3 +374,21 @@ Whether a generated APK runs on a given Android version depends on that project'
   sign-in pages).
 - Country names from `Locale.getISOCountries` / `getDisplayCountry(Locale.ENGLISH)` (ICU on Android): checked on the ART
   harness (API 31).
+
+## v2.1.5 (23-28 Nov 2026)
+
+- Country: `TelephonyManager.getSimCountryIso` / `getNetworkCountryIso` need no permission (a phone without telephony gives
+  null, then the locale's region). Not run on a phone; on the ART harness and in layoutlib the telephony service is absent
+  (layoutlib asserts: the render copy skips it).
+- Followed creators' notices: `FollowWatch` is a JobService (API 21+), periodic 4 h with any network, not persisted (no
+  RECEIVE_BOOT_COMPLETED: after a reboot it runs again once the app has been opened). Android may defer it (Doze, app
+  standby buckets; a rarely used app can run it much less often). Android 13+: POST_NOTIFICATIONS (declared since
+  v2.0.4) asked at a Follow. **Not run** on a phone.
+- Clipboard listener: Android 10+ calls `OnPrimaryClipChangedListener` only for the app in front; Gmail's notification
+  "Copy code" from the pulled-down shade is read when the window gets its focus back (the shade takes the focus). Android 12+
+  shows "pasted from your clipboard" when the clip is read. Not run on a phone.
+- GitHub Mobile can't be answered from another app: GitHub sends the request only to its own app (push to GitHub Mobile).
+  The page reader found its words on a stand-in page in jsdom; GitHub's real page isn't checked here.
+- Generated apps: `SketchJson` uses only org.json calls present since API 1 (no `JSONArray.remove`, API 19); compiled with
+  ECJ for fixture 936 (min SDK 21) and on the host for android-37; ran on the ART harness (API 31) with Android's own
+  org.json (JSONCALL). Android's JSON reader is lenient (unquoted keys, single quotes); `isValid` follows it.

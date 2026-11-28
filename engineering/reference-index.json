@@ -417,6 +417,36 @@
       "file": "GitHub REST: GET /users/{username} (followers, public_repos, location, created_at, name, bio)",
       "purpose": "v2.1.4: Follow counts, creator levels and country",
       "available": true
+    },
+    {
+      "id": "telephony-country",
+      "file": "Android TelephonyManager.getSimCountryIso / getNetworkCountryIso (no permission), Locale.getISOCountries",
+      "purpose": "v2.1.5: the creator's country from the phone",
+      "available": true
+    },
+    {
+      "id": "jobscheduler",
+      "file": "Android JobScheduler / JobService (setPeriodic, setRequiredNetworkType, setPersisted needs RECEIVE_BOOT_COMPLETED), BIND_JOB_SERVICE",
+      "purpose": "v2.1.5: FollowWatch",
+      "available": true
+    },
+    {
+      "id": "github-followers-api",
+      "file": "GitHub REST: GET /users/{username}/followers, /users/{username}/following, /user/following (per_page 100, page)",
+      "purpose": "v2.1.5: followers / following lists, the feed and notices",
+      "available": true
+    },
+    {
+      "id": "android-org-json",
+      "file": "Android org.json (libcore/json): JSONTokener (lenient: unquoted keys, single quotes, comments; nextClean), JSONObject.quote, toString(indent), JSONArray.put(index) pads with null, JSONArray.remove API 19",
+      "purpose": "v2.1.5: generated SketchJson (JSON power pack)",
+      "available": true
+    },
+    {
+      "id": "clipboard-listener",
+      "file": "Android ClipboardManager.addPrimaryClipChangedListener (Android 10+: only the focused app or the default IME is told), ClipDescription.getTimestamp (API 26)",
+      "purpose": "v2.1.5: codes copied while the sign-in window is open",
+      "available": true
     }
   ],
   "workspaceRebuild": "Two uploads are needed for a fresh workspace: Sketchware-Pro-6_4_0-rc05.zip (base, sha256 ac9c6310...) and the latest SketchwareAI-v<version>-patches.zip (from v1.8.3 it is larger than one chat file and is delivered as 7z parts: extract them with ZArchiver and upload the .zip). Sketchware-Pro-7_0_0.zip only as reading reference."

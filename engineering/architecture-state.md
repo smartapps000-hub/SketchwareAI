@@ -1652,3 +1652,59 @@ Owner's 22 Nov review of v2.1.3 (10 screenshots, in Telugu). Record: `engineerin
   ★ Trusted (≥ 365 days, ≥ 2 apps, ≥ 10 followers or ≥ 100 downloads), else Not verified with the reason; `BADGE_RULES`
   on tap. Country: `Countries.fromLocation` (the profile's Location: Locale country names in English, short forms, Indian
   states and cities, big cities, a flag emoji; else none: "Country not shared on GitHub"), with "on GitHub since".
+
+## v2.1.5 additions (23-28 Nov 2026): country and levels by themselves, Follow like Subscribe, followers lists and notices, sign-in codes from Copy code, JSON power pack
+
+Owner's 23 Nov review of v2.1.4 (12 screenshots, in Telugu). Record: `engineering/v2.1.5-verification.md`.
+
+- **Country** (`PlayStore`, `PlayStoreActivity`, `CloudSync`): `PlayStore.phoneCountry` (TelephonyManager SIM country, then
+  network country, then the locale's region; no permission). The Publish page shows "🌍 Country on your store page: 🇮🇳 India
+  (from this phone) · Change" (`chooseCountry`: this phone's / Choose another… (`Locale.getISOCountries`) / Don't show);
+  `Listing.country` in form.json: null = not chosen, "" = not shown, else an ISO code. At "Publish" the shown value is fixed
+  into the form and named in "Make it public?"; "Don't show" is remembered per account (`playstore_publish`,
+  `country_off_<login>`). `CloudSync.runStore` never reads a country itself. `PlayStore.page` writes `creator_country`
+  (`[A-Z]{2}` only) into listing.json; `App.creatorCountry` read with the listing and cached. Creator card: GitHub
+  Location (`Countries.fromLocation`) first, else the country the creator's store pages carry, else (own page) this phone's
+  with "Show 🇮🇳 India on my store page" (`PlayStore.shareCountry`: writes it into the own store apps' listing.json, at most
+  10), else "📍 Country not shared".
+- **Levels** (`PlayStore.badge`, `BADGE_RULES`): ✔ Verified = GitHub account ≥ 30 days + ≥ 1 store app; ★ Trusted = ≥ 1
+  year + (≥ 3 apps or ≥ 10 followers or ≥ 50 downloads); no name / bio needed; reasons say what is missing. The badge
+  pill sits on its own row (no overlap at large fonts).
+- **Follow** (`PlayStoreActivity.showFollow`): fixed 108 dp pill, `fitOneLine` 9-12 sp; Follow = `ob_cta_pill_soft_state`
+  + white "＋ Follow", Following = `ob_pill16_state` + accent "✓ Following"; a change bounces (OvershootInterpolator, 260
+  ms). State from the phone first (`PlayStore.knownFollowing`, prefs `playstore_follows`, `list_<login>`), then GitHub
+  (GET /user/following/{login}). `PlayStore.tapFollow` (after GitHub said yes): kept, `tap_<login>` (2 min, a list read in
+  flight doesn't undo it), `notices_<login>` = true. `askNotifications`: Android 13+ POST_NOTIFICATIONS after a "why"
+  dialog (request 7420), Settings when off or refused for good, at most every 3 days. Meta line "· N followers" (2 lines
+  max). @creator / version pills scroll (`GitHubViews.MarqueeText`: marquee without the selected state).
+- **Lists** (`EXTRA_PEOPLE`, `EXTRA_PEOPLE_FOLLOWERS`, `buildPeople`, `personRow`): followers / following of any login
+  (`PlayStore.people`: GET /users/{login}/followers|following, 100 a page, 3 pages, logins `[A-Za-z0-9-]{1,39}`,
+  avatars only from avatars.githubusercontent.com), "✓ Following" marks, tap = creator page; your own following list
+  replaces the phone's. Creator page: Followers cell and "Following N ›" open them. Store list: "From creators you follow"
+  (up to 6, newest first, `PlayStore.fromFollowed`) above "All apps" when there is no filter or search; `refreshFollowing`
+  (GET /user/following) at each list build.
+- **Notices** (`FollowWatch`, JobService `JOB_ID` 72150, manifest service with `BIND_JOB_SERVICE`, not exported): every 4 h
+  with a network, not persisted (scheduled again at app start from `MainActivity`), only for an account that followed
+  someone in the app (`PlayStore.noticesOn`). It reads your following list, the store (`PlayStore.search`), and for
+  followed creators' apps (≤ 40; 15 without a sign-in) the store page's `published_at` (`PlayStore.storePublishedAt`);
+  `PlayStore.newFromFollowed` reports apps published since the last look (a backup's push never counts; a creator's
+  first look only records; unfollowed creators forgotten); prefs `playstore_follow_watch` rewritten with `commit()`;
+  notification ids 30000 + 12 bits, channel `followed_creators`, tap = the app page (FLAG_IMMUTABLE).
+- **Sign-in codes** (`GitHubInAppAuthDialog`, `OtpAssist`): a `ClipboardManager.OnPrimaryClipChangedListener` while the
+  window is open (registered in onCreate, removed in `close()`): a code copied while the window is in front (Android 10+
+  tells only the app in front; ≤ 9 also in the background) goes in at once; Gmail's notification "Copy code" from the
+  pulled-down shade fills on return (focus path). The window's own device code (`OtpAssist.isDeviceCode`, XXXX-XXXX) is
+  never taken. Paste & fill without a code: "Nothing copied yet. Pull down your notifications and tap Copy code on
+  GitHub's e-mail…" (not an error). GitHub Mobile: `pageKind` "/sessions/two-factor/mobile" → "mobile", and the page
+  reader's fifth part (shown text naming GitHub Mobile with sent / request / approve / digits, no code field, on
+  /sessions pages only): bar "Approve in the GitHub Mobile app" with E-mail me a code (when GitHub offers it) and
+  "GitHub Mobile" (opens com.github.android); `Probe.parse` reads four or five parts.
+- **JSON power pack** (`com.sketchware.ai.project.JsonCode`, resource `SketchJson.java.txt`): 19 blocks in the operators
+  drawer after the Gson blocks ("JSON power pack" label, ⓘ guide row; colour #5cb722): readers (text / number / boolean /
+  part at a path, has, count, type, is valid, pretty), setters on a String variable (set text / number / boolean / JSON,
+  remove), lists (keys, array to text / number / map list, object to map). Generated `SketchJson` (added by `yq`'s
+  `addCodeHelper` when code says "SketchJson."): Android's own org.json (no library, no permission), Java 7, ASCII;
+  paths `a.b`, `a[0]`, `a.0`, `a[-1]`, `['a.b']`, `$` prefix, `[]` = append; never throws (BOM, deep nesting); setters
+  with an empty path change nothing, a text / number in the way is kept, text that isn't JSON is never replaced; numbers
+  in maps as Double (as the Gson blocks); readers keep the last parsed tree (`readTree`, identity of the String).
+  BlockGuide entries take their shape from `JsonCode.kind`.
