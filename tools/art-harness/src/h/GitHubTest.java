@@ -2024,15 +2024,15 @@ public final class GitHubTest {
         for (String[] m : new String[][]{{"99911", "github", "3"}, {"99912", "githubjson", "1"}, {"99913", "github", "2"}}) {
             call(demos216, "mark", m[0], m[1], Integer.parseInt(m[2]));
         }
-        java.util.List<java.util.HashMap<String, Object>> demoList = new java.util.ArrayList<>();
+        java.util.List<java.util.HashMap<String, Object>> demoList216 = new java.util.ArrayList<>();
         for (String id : new String[]{"99913", "99911", "99912"}) {
             java.util.HashMap<String, Object> p216 = new java.util.HashMap<>();
             p216.put("sc_id", id);
-            demoList.add(p216);
+            demoList216.add(p216);
         }
-        call(demos216, "sort", demoList);
+        call(demos216, "sort", demoList216);
         StringBuilder order216 = new StringBuilder();
-        for (java.util.HashMap<String, Object> p216 : demoList) order216.append(p216.get("sc_id")).append(' ');
+        for (java.util.HashMap<String, Object> p216 : demoList216) order216.append(p216.get("sc_id")).append(' ');
         String kind216 = (String) call(demos216, "kind", "99912");
         for (String id : new String[]{"99911", "99912", "99913"}) deleteTree(new File(dataDir216, id));
         check("v2.1.6: the GitHub + JSON Live Demo is first in Demo, then the GitHub API Demo's versions newest first",
@@ -2063,7 +2063,7 @@ public final class GitHubTest {
         boolean before216 = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, me216));
         boolean switchDefault = Boolean.TRUE.equals(call(store216, "noticesSwitchOn", CTX, me216));
         call(store216, "tapFollow", CTX, me216, "Erin", true);
-        boolean afterFollow = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, me216));
+        boolean afterFollow216 = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, me216));
         call(store216, "setNoticesSwitch", CTX, "switch216", false);
         boolean off216 = Boolean.FALSE.equals(call(store216, "noticesOn", CTX, me216))
                 && Boolean.FALSE.equals(call(store216, "noticesSwitchOn", CTX, me216));
@@ -2075,8 +2075,8 @@ public final class GitHubTest {
         boolean otherOnWithoutFollow = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, "Other216"));
         check("v2.1.6: Settings' switch for follow notifications: on by default, off stays off at a Follow, on again "
                         + "works (also for creators followed on github.com), per account in any case",
-                !before216 && switchDefault && afterFollow && off216 && stillOff && backOn && otherOnWithoutFollow,
-                before216 + " " + switchDefault + " " + afterFollow + " " + off216 + " " + stillOff + " " + backOn);
+                !before216 && switchDefault && afterFollow216 && off216 && stillOff && backOn && otherOnWithoutFollow,
+                before216 + " " + switchDefault + " " + afterFollow216 + " " + off216 + " " + stillOff + " " + backOn);
         String links216 = "{\"update_urls\":[\"https://github.com/smartapps000-hub/SketchwareAI/releases/download/v2.1.6/"
                 + "Sketchware_AI_v2.1.6.apk\",\"https://evil.example/x.apk\",\"https://github.com/smartapps000-hub/"
                 + "SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk\"],\"update_url\":\"https://github.com/"

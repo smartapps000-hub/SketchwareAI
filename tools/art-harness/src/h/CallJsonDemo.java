@@ -76,8 +76,8 @@ public class CallJsonDemo {
         p2 = s("setText", p2, "name", s("getText", bare, "name"));
         p2 = s("setNumber", p2, "stats.followers", d("getNumber", bare, "followers"));
         p2 = s("setText", p2, "location", s("getText", bare, "location"));
-        check("null name / location: empty texts", "{\"login\":\"ghost\",\"name\":\"\",\"stats\":{\"followers\":0},"
-                + "\"location\":\"\"}".equals(p2), p2);
+        check("null name / location: empty texts", ("{\"login\":\"ghost\",\"name\":\"\",\"stats\":{\"followers\":0},"
+                + "\"location\":\"\"}").equals(p2), p2);
 
         // onReposListed(_user, _reposJson, _count): the component's list (SketchGitHub.repoSummary of GitHub's answer)
         String raw = "[{\"name\":\"Spoon-Knife\",\"full_name\":\"octocat/Spoon-Knife\",\"private\":false,"
