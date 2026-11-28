@@ -18,5 +18,6 @@ perl -0pi -e 's/context\s*\.getSystemService\(Context\.TELEPHONY_SERVICE\)/null/
 # the window-less base: Follow's notification question asks Android for the permission
 BA=$J/com/besome/sketch/lib/base/BaseAppCompatActivity.java
 grep -q "void requestPermissions" $BA || sed -i 's/    public void startActivityForResult(android.content.Intent i, int code) { }/&\n    public void requestPermissions(String[] p, int code) { }/' $BA
+grep -q "shouldShowRequestPermissionRationale" $BA || sed -i 's/    public void requestPermissions(String\[\] p, int code) { }/&\n    public boolean shouldShowRequestPermissionRationale(String p) { return false; }/' $BA
 for f in $(grep -rl "com\.sketchware\.remod\.R\." $J 2>/dev/null); do sed -i 's/com\.sketchware\.remod\.R\./pz.render.R./g' $f; done
 echo "v2.1.5 render sources ready"

@@ -643,7 +643,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         // third review (MEDIUM, v2.1.2): never cut short: one line here, the whole of it in the description below
         TextView meta = v.line(publishLine(a), false);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        GitHubViews.oneLine(meta);
+        // v2.1.5 (render at font scale 1.3: "314 follow…"): with the followers it may take a second line, never cut
+        meta.setMaxLines(2);
+        meta.setEllipsize(android.text.TextUtils.TruncateAt.END);
         texts.addView(meta, v.full(-1, 2));
         heroMeta = meta;
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, -2, 1f);

@@ -27,26 +27,34 @@ import org.junit.Test
  * page and after Paste & fill with nothing copied, and the JSON power pack's guide (every block in its shape). Writes
  * out/v215_*.png.
  */
+object V215Shots {
+    const val VIEWER = "viewer-raj"
+
+    fun annProfile(followers: Int) = """{"login":"ann-dev","name":"Ann Devi","bio":"I make small, useful Android apps on my phone with Sketchware AI.","avatar_url":"https://avatars.githubusercontent.com/u/90210?v=4","followers":$followers,"public_repos":12,"location":"Hyderabad, Telangana","created_at":"2019-04-01T10:00:00Z"}"""
+
+    /** Ann's Notes Pro page as [VIEWER] sees it; [following] = what the phone remembers for that account. */
+    fun appPage(c: Context, following: Boolean): View {
+        val ctx = V211Shots.ctx(c)
+        V211Shots.prefs.remove("playstore_follows")
+        if (following) PlayStore.noteFollowing(ctx, VIEWER, "ann-dev", true)
+        GitHubHttp.ANSWERS["/users/ann-dev"] = annProfile(314)
+        // GitHub's answer: 404 = not following; "{}" = unknown (the phone's state stays)
+        GitHubHttp.ANSWERS["/user/following/ann-dev"] = if (following) "{}" else ""
+        return V211Shots.page(c, VIEWER)
+    }
+}
+
 class V215Test {
     @get:Rule val paparazzi = Paparazzi(
             deviceConfig = DeviceConfig.PIXEL_5.copy(nightMode = NightMode.NIGHT), theme = "android:Theme.Material.NoActionBar")
 
     private fun dp(c: Context, v: Int) = V210Shots.dp(c, v)
 
-    private val viewer = "viewer-raj"
+    private val viewer = V215Shots.VIEWER
 
-    private fun annProfile(followers: Int) = """{"login":"ann-dev","name":"Ann Devi","bio":"I make small, useful Android apps on my phone with Sketchware AI.","avatar_url":"https://avatars.githubusercontent.com/u/90210?v=4","followers":$followers,"public_repos":12,"location":"Hyderabad, Telangana","created_at":"2019-04-01T10:00:00Z"}"""
+    private fun annProfile(followers: Int) = V215Shots.annProfile(followers)
 
-    /** Ann's Notes Pro page as [viewer] sees it; [following] = what the phone remembers for that account. */
-    private fun appPage(c: Context, following: Boolean): View {
-        val ctx = V211Shots.ctx(c)
-        V211Shots.prefs.remove("playstore_follows")
-        if (following) PlayStore.noteFollowing(ctx, viewer, "ann-dev", true)
-        GitHubHttp.ANSWERS["/users/ann-dev"] = annProfile(314)
-        // GitHub's answer: 404 = not following; "{}" = unknown (the phone's state stays)
-        GitHubHttp.ANSWERS["/user/following/ann-dev"] = if (following) "{}" else ""
-        return V211Shots.page(c, viewer)
-    }
+    private fun appPage(c: Context, following: Boolean) = V215Shots.appPage(c, following)
 
     @Test fun follow() {
         val c = paparazzi.context
@@ -221,5 +229,22 @@ class V215Test {
         V210Shots.save(c, "v215_json_guide.png", groups.map {
             V210Shots.shot(c, com.sketchware.ai.ui.BlockGuide.content(c, "JSON power pack", *it), 393, 851, wrap = true)
         })
+    }
+}
+
+/** v2.1.5 review: the Follow pill (fixed 108dp) and the app page's pills at font scale 1.3 on a 393dp phone. */
+class V215LargeFontTest {
+    @get:Rule val paparazzi = Paparazzi(
+            deviceConfig = DeviceConfig.PIXEL_5.copy(nightMode = NightMode.NIGHT, fontScale = 1.3f),
+            theme = "android:Theme.Material.NoActionBar")
+
+    @Test fun follow() {
+        val c = paparazzi.context
+        val saved = TokenStore.LOGIN
+        val notYet = V215Shots.appPage(c, false)
+        val on = V215Shots.appPage(c, true)
+        TokenStore.LOGIN = saved
+        V210Shots.save(c, "v215_follow_font13.png", listOf(V210Shots.shot(c, notYet, 393, 851), V210Shots.shot(c, on, 393, 851)))
+        V211Shots.prefs.remove("playstore_follows")
     }
 }
