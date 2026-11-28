@@ -20,7 +20,7 @@
     "https://github.com/smartapps000-hub/SketchwareAI/releases/download/v2.1.6/Sketchware_AI_v2.1.6.apk",
     "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk"
   ],
-  "update_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "update_sha256": "844fe2c07841f99614bc10597f88b21260b305a2abed8ca18dac52f02d662aad",
   "force_update": true,
   "latest_version_code": 213,
   "latest_version_name": "v2.1.6",

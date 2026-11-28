@@ -1130,7 +1130,8 @@
         "jsgen: 11/11 generated lines",
         "JSONDEMO 9/9",
         "Export AAB: jar verified",
-        "Export to Android Studio built with Gradle"
+        "Export to Android Studio built with Gradle (0 undefined R)",
+        "JAVAEDIT-OPEN with 901-936: 17/17"
       ]
     },
     {

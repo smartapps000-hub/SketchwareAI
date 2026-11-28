@@ -496,6 +496,27 @@ empty the variable; soft reader cache). Fixture 936 `json` (16 steps, 0 warnings
 `setup_v215.sh` + `V215Test` / `V215LargeFontTest` (layoutlib asserts on the telephony service: the render copy skips it);
 three review passes. A container restart stops background lanes: run the suite in chunks. APK v2.1.5-c9bb9ae, versionCode
 212 (next 213), sha256 `392da6f2...34789c38`, 142,931,648 bytes.
+v2.1.6 (owner's 28 Nov "FINAL PUBLIC RELEASE DIRECTIVE (v2.1.6 / versionCode 213)" with four screenshots: the 401 card,
+a 6-digit code in GitHub's 8-digit field, another account's security log; record `engineering/v2.1.6-verification.md`):
+"GitHub + JSON Live Demo" (`project.JsonSample`, kind `githubjson`, first in Demo by `Demos.rank`, seeded once, Make
+pills for a missing demo; ids picked under `RESTORE_LOCK`, the current version not made twice; fixture spec `jsonsample`
+937 + lane item `jsgen` / `h.CallJsonDemo` JSONDEMO 9/9); Settings → Notifications switch per account
+(`PlayStore.setNoticesSwitch`, `notices_off_<login>`, ticked only when notices come, asks for / opens notification
+settings); code length from the page (`OtpAssist` `wanted()`: pattern, minlength = maxlength, placeholder, box count;
+maxlength alone = upper bound; probe sixth part 0/6/8; `fillScript` answers `length:8`; `codeFrom(text, length)`);
+"Signed in here as @login" before the security log; `SignInPrompt` (sign-in window by itself once per refusal on Home /
+Settings / GitHub screens after the gate, from `markRefused` and on resume; per-window `closedByUser()`, three closes);
+`GitHubProgress.failedSignIn` opens it once per sheet; `SignatureGuard` (cert SHA-256 a40da80a…bf5dc; another key: no
+sign-in, no token request (`NoRetry`), no updater, no required card, no sign-in gate; unreadable = allowed);
+`GitHubHttp.tokenAllowed` (https api / uploads.github.com only); `update_urls` (Release asset first) +
+`AppUpdater.downloadFirst`; **debug buildType `debuggable false`** (every DEX merged: 18 instead of 44, APK about 12 MB
+smaller; `kotlinc`'s private MessageCollectorAdapter renamed `JavacMessageWriter` for D8's duplicate check; `lint {
+checkReleaseBuilds = false }`); linkcheck keys methods by signature (D8's release-mode API outlines share the name `m`).
+Audit: no app path ends the token on an update; GitHub ended it (its security log says how). CLAUDE.md section 12 feature
+map; component inventory section 0b. GITHUBTEST 171/171, OTPSCRIPT 42/42, JSONDEMO 9/9, GITHUBCLIENT 112/112,
+V210CLIENT 27/27, V211CLIENT 17/17; renders `setup_v216.sh` + `V216Test` / `V216LargeFontTest`; three review passes.
+Creating the GitHub Release is refused by the session's proxy: the owner makes it. APK v2.1.6-4d14af8, versionCode 213
+(next 214), sha256 `844fe2c0...2d662aad`, 130,423,825 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
