@@ -250,7 +250,8 @@ public final class BlockGuide {
                 "A String variable that holds the JSON (empty: a new object), a path and the text. " + setPath
                         + " Missing parts are made; [] at the end adds a new item.",
                 "The variable holds the changed JSON; the value at the path is replaced. Unchanged: text that isn't "
-                        + "JSON, an empty path, and a path through a text or number (user.name when user is \"Bob\").");
+                        + "JSON, an empty path, and a path through a text, number or true / false (user.name when user "
+                        + "is \"Bob\").");
         put("sketchJsonSetNumber", "JSON [myJson] set [age] to number [21]", JSON,
                 "As set text.",
                 "The String variable, a path and a number (a whole number is written without \".0\").",
@@ -262,7 +263,7 @@ public final class BlockGuide {
         put("sketchJsonSetJson", "JSON [myJson] set [user] to JSON [part]", JSON,
                 "When one JSON goes inside another (an object or an array).",
                 "The String variable, a path and JSON text (text that isn't JSON is put as text); an empty path "
-                        + "replaces the whole JSON.",
+                        + "replaces the whole JSON, only when the variable is empty or holds JSON.",
                 "The variable holds the JSON with the part inside.");
         put("sketchJsonRemove", "JSON [myJson] remove [user.age]", JSON,
                 "Anywhere you change JSON.",

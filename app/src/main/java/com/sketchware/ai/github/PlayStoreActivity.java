@@ -1105,6 +1105,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
 
     /** Request code of the notification permission asked for at a Follow. */
     static final int REQUEST_NOTIFICATIONS = 7420;
+    /** When Android's notification question was asked (elapsed realtime). */
+    private long notificationsAskedAt;
 
     /**
      * v2.1.5 (owner's 23 Nov review: "when following, if notifications are off, a message and turn them on"): Android
@@ -1131,6 +1133,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                             + "version. Allow notifications on the next screen.")
                     .setPositiveButton("Allow", (d, w) -> {
                         p.edit().putBoolean("notices_requested", true).apply();
+                        notificationsAskedAt = android.os.SystemClock.elapsedRealtime();
                         requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_NOTIFICATIONS);
                     })
                     .setNegativeButton("Not now", null)
@@ -1659,7 +1662,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         // v2.1.5: "Show on my store page" (own page, the country from this phone)
         TextView placeAction = v.smallPill("Show on my store page", true, true, null);
         // review 2 (LOW): a long country name takes a second line, never cut
-        placeAction.setMaxLines(2);
+        placeAction.setMaxLines(3);
+        placeAction.setEllipsize(android.text.TextUtils.TruncateAt.END);
         placeAction.setMinHeight(v.dp(36));
         placeAction.setPadding(placeAction.getPaddingLeft(), v.dp(6), placeAction.getPaddingRight(), v.dp(6));
         placeAction.setVisibility(View.GONE);
@@ -1831,6 +1835,20 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 String token = token();
                 if (token == null) throw new GitHubException("signed_out", "Sign in again.");
                 written = GitHubHttp.quick(TIMEOUT_MILLIS * 3, () -> PlayStore.shareCountry(token, login, apps, code));
+                // review 3 (LOW): those apps' saved Publish forms that said "Don't show" keep it at their next Publish
+                for (PlayStore.App a : apps) {
+                    if (a.number <= 0) continue;
+                    File dir = PlayStore.stagingDir(getApplicationContext(), a.number);
+                    if (!new File(dir, "form.json").isFile()) continue;
+                    PlayStore.Listing form = PlayStore.Listing.loadForm(dir);
+                    if (!"".equals(form.country)) continue;
+                    form.country = code;
+                    try {
+                        form.saveForm(dir);
+                    } catch (java.io.IOException ignored) {
+                        // that form keeps "not shown"
+                    }
+                }
             } catch (Exception e) {
                 problem = RepoViewerActivity.whyFailed(e);
             }
@@ -2653,9 +2671,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != REQUEST_NOTIFICATIONS || android.os.Build.VERSION.SDK_INT < 33) return;
-        boolean granted = grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
-        // review 2 (LOW): refused for good (also by an earlier question of the app): Android shows nothing, so Settings
-        if (!granted && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS")) {
+        // review 3 (LOW): an interrupted request says nothing
+        if (grantResults.length == 0) return;
+        boolean granted = grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        // review 2 (LOW): refused for good (also by an earlier question of the app): Android shows nothing, so Settings;
+        // review 3: only when the answer came at once (no question shown), never after the user closed Android's own
+        boolean atOnce = android.os.SystemClock.elapsedRealtime() - notificationsAskedAt < 600;
+        if (!granted && atOnce && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS")) {
             notificationsOff(followTarget == null ? "creators you follow" : "@" + followTarget);
         }
     }

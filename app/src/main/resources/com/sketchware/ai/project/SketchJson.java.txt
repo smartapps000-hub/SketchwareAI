@@ -24,8 +24,11 @@ public final class SketchJson {
     private static final Object APPEND = new Object();
     /** At most this many empty items are added before a new item far past the end of an array. */
     private static final int MAX_PADDING = 1000;
-    /** The last JSON text the readers parsed and its tree (readers never change it; setters parse their own). */
-    private static volatile Object[] lastRead;
+    /**
+     * The last JSON text the readers parsed and its tree (readers never change it; setters parse their own); softly
+     * held, so a big answer read again and again in a loop is parsed once and memory can still take it back.
+     */
+    private static volatile java.lang.ref.SoftReference<Object[]> lastRead;
 
     private SketchJson() {
     }
@@ -251,11 +254,11 @@ public final class SketchJson {
 
     /** The tree of a JSON text for the readers: the last one is kept (a loop reading items[i] parses once). */
     static Object readTree(String json) {
-        Object[] last = lastRead;
+        java.lang.ref.SoftReference<Object[]> ref = lastRead;
+        Object[] last = ref == null ? null : ref.get();
         if (last != null && last[0] == json && json != null) return last[1];
         Object tree = parse(json);
-        // a large text isn't kept (the tree would stay in memory)
-        lastRead = json != null && json.length() <= 512 * 1024 ? new Object[]{json, tree} : null;
+        lastRead = json == null ? null : new java.lang.ref.SoftReference<Object[]>(new Object[]{json, tree});
         return tree;
     }
 
@@ -534,7 +537,9 @@ public final class SketchJson {
         if (v instanceof Number) return numberText((Number) v);
         if (v instanceof Boolean) return v.toString();
         try {
-            return unslash(v.toString());
+            // org.json gives null for an object or array it can't write (NaN or Infinity read into an array)
+            String out = v.toString();
+            return out == null ? "" : unslash(out);
         } catch (StackOverflowError e) {
             // nested too deeply to write out
             return "";

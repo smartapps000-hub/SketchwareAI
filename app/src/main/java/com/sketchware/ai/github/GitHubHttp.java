@@ -71,6 +71,14 @@ public final class GitHubHttp {
         return api;
     }
 
+    /** v2.1.5 review 3: GitHub's clock minus this phone's, from the last answer's Date header (0 until one came). */
+    private static volatile long serverOffset;
+
+    /** v2.1.5 review 3: now on GitHub's clock (this phone's when no answer said yet). */
+    public static long serverNow() {
+        return System.currentTimeMillis() + serverOffset;
+    }
+
     public static final class Response {
         public final int code;
         public final String body;
@@ -759,6 +767,7 @@ public final class GitHubHttp {
             r.scopes = c.getHeaderField("X-OAuth-Scopes");
             r.location = c.getHeaderField("Location");
             r.serverDate = c.getHeaderFieldDate("Date", 0);
+            if (r.serverDate > 0) serverOffset = r.serverDate - System.currentTimeMillis();
             r.retryAfter = intHeader(c, "Retry-After");
             r.rateRemaining = intHeader(c, "X-RateLimit-Remaining");
             String reset = c.getHeaderField("X-RateLimit-Reset");

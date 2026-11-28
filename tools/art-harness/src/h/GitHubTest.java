@@ -1890,7 +1890,10 @@ public final class GitHubTest {
         List<Object> look2d = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-B", 600L)));
         set(look2d.get(0), "versionCode", "6");
         @SuppressWarnings("unchecked") List<Object> nextVersion = (List<Object>) call(store214, "newFromFollowed", look2d, follows215, seen215, 610L);
-        pushNotNews = pushNotNews && sameVersion.isEmpty() && nextVersion.size() == 1
+        // review 3: an app without a version code published again (D, recorded at 350) isn't news
+        List<Object> look2e = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-D", 800L)));
+        @SuppressWarnings("unchecked") List<Object> noCode = (List<Object>) call(store214, "newFromFollowed", look2e, follows215, seen215, 810L);
+        pushNotNews = pushNotNews && sameVersion.isEmpty() && nextVersion.size() == 1 && noCode.isEmpty()
                 && Long.valueOf(310L).equals(seen215.get("c:ann"));
         // Bob followed now: his app from before is not "new"; Ann unfollowed: forgotten
         java.util.Set<String> follows215b = new java.util.HashSet<>(java.util.Arrays.asList("bob"));

@@ -1233,7 +1233,8 @@ public final class PlayStore {
             long code = versionNumber(a.versionCode);
             // review 2 (MEDIUM): after the first look only, whatever was recorded then (also an unread page's 0)
             long floor = Math.max(before == null ? 0 : before, firstLook == null ? Long.MAX_VALUE : firstLook);
-            boolean newVersion = seenCode == null || code < 0 || code != seenCode;
+            // review 3 (LOW): without a version code only a new app counts (a re-publish isn't news)
+            boolean newVersion = code >= 0 ? seenCode == null || code != seenCode : before == null || before == 0;
             if (firstLook != null && published > 0 && published > floor && newVersion) out.add(a);
             if (published > 0) seen.put(k, before == null ? published : Math.max(before, published));
             else if (before == null) seen.put(k, 0L);

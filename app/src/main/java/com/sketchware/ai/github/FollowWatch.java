@@ -34,6 +34,11 @@ public final class FollowWatch extends JobService {
     static final String CHANNEL = "followed_creators";
     private static final String PREFS = "playstore_follow_watch";
 
+    /** Review 3 (LOW): the record of one account (a second account on the phone starts its own). */
+    static android.content.SharedPreferences record(Context app, String me) {
+        return app.getSharedPreferences(PREFS + "_" + me.toLowerCase(java.util.Locale.ROOT), Context.MODE_PRIVATE);
+    }
+
     private volatile Thread worker;
     /** Review 2 (LOW): set by onStopJob (an interrupt alone can be cleared by the network library). */
     private volatile boolean stopped;
@@ -47,6 +52,8 @@ public final class FollowWatch extends JobService {
         try {
             if (me == null || !PlayStore.noticesOn(app, me) || PlayStore.followedSet(app, me).isEmpty()) {
                 js.cancel(JOB_ID);
+                // review 3 (LOW): following no one: the record goes (a creator followed again later starts fresh)
+                if (me != null && PlayStore.followedSet(app, me).isEmpty()) record(app, me).edit().clear().apply();
                 return;
             }
             for (JobInfo j : js.getAllPendingJobs()) if (j.getId() == JOB_ID) return;
@@ -99,7 +106,10 @@ public final class FollowWatch extends JobService {
             }
         }
         Set<String> followed = PlayStore.followedSet(app, me);
-        if (followed.isEmpty()) return;
+        if (followed.isEmpty()) {
+            record(app, me).edit().clear().commit();
+            return;
+        }
         List<PlayStore.App> found = PlayStore.search(token, null, null);
         // review (MEDIUM): news = a publish to the store (the store page's own time), never a backup's push; at most 40
         // pages read (15 without a sign-in: GitHub's limit for anonymous reads is 60 an hour)
@@ -113,13 +123,14 @@ public final class FollowWatch extends JobService {
                 theirs.get(i).publishedAt = 0;
             }
         }
-        SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = record(app, me);
         Map<String, Long> seen = new HashMap<>();
         for (Map.Entry<String, ?> e : prefs.getAll().entrySet()) {
             if (e.getValue() instanceof Long) seen.put(e.getKey(), (Long) e.getValue());
         }
         if (job != null && job.stopped) return;
-        List<PlayStore.App> fresh = PlayStore.newFromFollowed(found, followed, seen);
+        // review 3 (LOW): first looks on GitHub's clock, as the store pages' publish times
+        List<PlayStore.App> fresh = PlayStore.newFromFollowed(found, followed, seen, GitHubHttp.serverNow());
         // the whole record replaced (creators no longer followed go); review (LOW): written before the job ends
         SharedPreferences.Editor edit = prefs.edit().clear();
         for (Map.Entry<String, Long> e : seen.entrySet()) edit.putLong(e.getKey(), e.getValue());

@@ -106,6 +106,16 @@ public class SketchJsonTest {
             deepOk = false;
         }
         check("nested thousands deep: no error thrown (reads empty, changes nothing)", deepOk, null);
+        String nan = "{\"s\":[1,NaN],\"t\":\"x\"}";
+        boolean nanOk;
+        try {
+            nanOk = nan.equals(t.SketchJson.setText(nan, "t", "y")) && "".equals(t.SketchJson.getText(nan, "s"))
+                    && "".equals(t.SketchJson.getJson(nan, "s")) && "x".equals(t.SketchJson.getText(nan, "t"))
+                    && nan.equals(t.SketchJson.remove(nan, "t"));
+        } catch (Throwable e) {
+            nanOk = false;
+        }
+        check("NaN read into an array (Python writes it): readers give empty text, setters keep the JSON, no error", nanOk, null);
         String cached = "{\"a\":{\"b\":1}}";
         String changed = t.SketchJson.setNumber(cached, "a.b", 2);
         check("readers keep the last tree, setters never change it", t.SketchJson.getNumber(cached, "a.b") == 1
