@@ -1,24 +1,24 @@
 {
   "app_enabled": true,
-  "min_version_code": 211,
+  "min_version_code": 212,
   "require_login": false,
-  "status_message": "Sketchware AI v2.1.4 is required: the GitHub sign-in code goes in by itself (also on GitHub's Confirm access page), Publish fits on one screen and writes the description for you, and the Play Store shows Follow, creator levels and countries. Tap Update: it installs over this version and your projects stay.",
+  "status_message": "Sketchware AI v2.1.5 is required: Follow works like Subscribe (Following stays, followers lists, new apps from creators you follow), your country and creator level come by themselves, a copied sign-in code goes in at once, and the new JSON blocks read and change JSON by a path. Tap Update: it installs over this version and your projects stay.",
   "status_message_max_version_code": 208,
   "update_reason": "This update is required: it fixes problems in the version you have, and that version is no longer supported. It installs over it: your projects, settings and GitHub sign-in stay.",
   "update_notes": [
-    "Sign-in: E-mail me a code; a copied code goes in by itself",
-    "Publish: one-line project, description written from your project",
-    "Play Store: Follow with followers, creator levels and country"
+    "Follow like Subscribe: Following stays, followers lists, new-app notices",
+    "Country and Trusted level by themselves",
+    "JSON power pack: 19 blocks for JSON by a path"
   ],
   "update_fixes": [
-    "The code helper shows on GitHub's Confirm access page",
-    "Done after publishing opens the store with your app first",
-    "A sign-in GitHub ended says why (GitHub's security log)"
+    "A copied sign-in code goes in at once (Gmail's Copy code)",
+    "Paste & fill explains instead of an error; GitHub Mobile page explained",
+    "Long @names and versions scroll; texts never cut at large font"
   ],
-  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.4.apk",
-  "update_sha256": "0687a5a7958276e213941d82976de14e94dedfc4a8ef285348bc241a26bab0a4",
+  "update_url": "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.5.apk",
+  "update_sha256": "392da6f2e1262ac2c214ee0474b3a27032a962c12aff8ab94ca085c834789c38",
   "force_update": true,
-  "latest_version_code": 211,
-  "latest_version_name": "v2.1.4",
+  "latest_version_code": 212,
+  "latest_version_name": "v2.1.5",
   "coming_soon": ""
 }
