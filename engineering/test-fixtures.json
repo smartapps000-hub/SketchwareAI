@@ -1068,6 +1068,58 @@
       "checks": [
         "images out/v214_*.png"
       ]
+    },
+    {
+      "id": "936 json (v2.1.5)",
+      "kind": "ART fixture (Fixtures.jsonBlocks): Button, TextView; String data / built, Number total, Map user; lists names (String), scores (Number), rows (Map)",
+      "content": "every JSON power pack block once in onCreate (specs read from JsonCode.BLOCKS in the APK): readers in setText / setVarInt / if / Toast, setters on the String variable built (a quoted text with \\\" inside, a number, true, a JSON part appended with items[]), remove, keys, arrays to text / number / map lists, object to map; the build compiles them against the generated SketchJson; lane item jsoncall greps the generated MainActivity (10 lines) and runs h.CallJson on the built APK's SketchJson (Android's org.json on ART)",
+      "checks": [
+        "16 steps ok, WARNINGS=0",
+        "no permission added to the manifest",
+        "JSONCALL 15/15",
+        "Export AAB: jar verified",
+        "Export to Android Studio built with Gradle (0 undefined R)"
+      ]
+    },
+    {
+      "id": "SketchJsonTest (v2.1.5)",
+      "kind": "JVM 17: the helper from SketchJson.java.txt (package t) with AOSP's org.json sources (libcore/json, Android annotations stripped)",
+      "content": "paths ($, spaces, [i], .i, [-1], ['a.b']), numbers without .0, numbers / booleans from text, missing parts, null values, slashes, parts as JSON, count, type, isValid (strict at the edges of Android's lenient reader), pretty, building from empty text ([] appends, missing parts made), text that isn't JSON never replaced, empty path setters change nothing, a value in the way kept, BOM, 200,000 nested arrays without an error, NaN read into an array, the reader cache never changed by setters, keys / lists / maps",
+      "checks": [
+        "SKETCHJSON 38/38"
+      ]
+    },
+    {
+      "id": "940 githubtest (v2.1.5)",
+      "kind": "ART h.GitHubTest on a fresh m3 project",
+      "content": "v2.1.4's checks with app-control 212 / v2.1.5 and the new creator levels (12 cases, the owner's account Trusted) plus: countryCode, the creator's country in the cached list, the follow cache per account (Follow / list from GitHub / Unfollow), a tapped Follow kept against an older list read, notices only after a Follow in the app, followed creators' news rules (first look only records; an unread page read later; a backup push; same version; new version; no version code; unfollowed forgotten), GitHub Mobile's page (address and page reader; 4-part answers still read), the window's own device code, the page reader only reads, JsonCode (19 blocks, guide shapes, helper source: package, ASCII, org.json, no lambda)",
+      "checks": [
+        "GITHUBTEST 160/160"
+      ]
+    },
+    {
+      "id": "V211ClientTest (v2.1.5)",
+      "kind": "JVM 17 against a local fake GitHub",
+      "content": "v2.1.4's checks plus followers read page by page (a full page of 100 asks for the next, a short one ends), pictures only from GitHub's avatar host, odd names skipped, a missing account and a bad name, your own following list",
+      "checks": [
+        "V211CLIENT 17/17"
+      ]
+    },
+    {
+      "id": "otp-script-test.js (v2.1.5)",
+      "kind": "node + jsdom",
+      "content": "v2.1.4's 24 with the page reader's fifth part, plus GitHub Mobile's request page (no field, Send a code via email, GitHub Mobile), the authenticator page with a GitHub Mobile link (a code page), a link or script naming GitHub Mobile on another page (not its request page)",
+      "checks": [
+        "OTPSCRIPT 27/27"
+      ]
+    },
+    {
+      "id": "Renders V215Test / V215LargeFontTest",
+      "kind": "layoutlib (tools/layoutlib-renders/setup_v215.sh)",
+      "content": "app page Follow / ✓ Following (kept from the phone) / your own app's followers; creator page ★ Trusted India, your own page with this phone's country and Show … on my store page, a followers list with a Following mark; store list with From creators you follow; Publish's country line; the sign-in bar on GitHub Mobile's page and after Paste & fill with nothing copied; the JSON guide (12 blocks in four sheets); font scale 1.3: Follow and Following whole, the meta line in two lines",
+      "checks": [
+        "images out/v215_*.png"
+      ]
     }
   ]
 }

@@ -476,6 +476,26 @@ V210CLIENT 27/27, GITHUBCLIENT 112/112, CACHETEST 31/31, DOCTORTEST 21/21, JAVAE
 review passes. JVM client tests need the harness's android/os + util stubs (SystemClock, Handler, Looper, Build,
 Environment, Base64, Log) before android.jar. APK v2.1.4-23ec136, versionCode 211 (next 212), sha256 `0687a5a7...26bab0a4`,
 142,903,627 bytes.
+v2.1.5 (owner's 23 Nov review of v2.1.4, 12 screenshots, Telugu; record `engineering/v2.1.5-verification.md`): country by
+itself (`PlayStore.phoneCountry`: SIM / network / region, no permission; Publish line "🌍 Country on your store page … ·
+Change", fixed at Publish and named in Make it public?, Don't show per account; `creator_country` in listing.json; own page
+"Show … on my store page" = `PlayStore.shareCountry`); levels `PlayStore.badge`: ✔ Verified 30 days + an app, ★ Trusted a
+year + 3 apps / 10 followers / 50 downloads. Follow like Subscribe: fixed 108 dp pill (orange Follow → glass ✓ Following,
+bounce), state per account in prefs `playstore_follows` (`knownFollowing`, `tapFollow`: taps of 2 min kept), scrolling
+@creator / version pills (`GitHubViews.MarqueeText` + `ob_pill16_tap_state`: selected to scroll without a pressed look),
+followers / following lists (`PlayStore.people`), "From creators you follow" first; `FollowWatch` JobService (72150, 4 h,
+network, not persisted, after a Follow in the app; news = a new app / version published to the store after the creator's
+first look, by the store page's `published_at`, first looks on GitHub's clock `GitHubHttp.serverNow`; ids 30000+); Android
+13+ notification question at a Follow (7420, ≤ every 3 days, Settings when refused for good). Sign-in codes: clipboard
+listener while the window is open (Gmail's notification Copy code fills on return), `OtpAssist.isDeviceCode`, Paste & fill
+explains, GitHub Mobile's page "mobile" (path or probe's fifth part on /sessions) with E-mail me a code (only GitHub's own app
+can answer that request). JSON power pack `project.JsonCode` (19 blocks, operators drawer, guide) + generated `SketchJson`
+(resource `SketchJson.java.txt`, Android's org.json, Java 7, never throws: BOM, deep nesting, NaN in arrays; setters never
+empty the variable; soft reader cache). Fixture 936 `json` (16 steps, 0 warnings; `h.CallJson` JSONCALL 15/15; lane item
+`jsoncall`), SKETCHJSON 38/38 (AOSP org.json on the JVM), GITHUBTEST 160/160, V211CLIENT 17/17, OTPSCRIPT 27/27; renders
+`setup_v215.sh` + `V215Test` / `V215LargeFontTest` (layoutlib asserts on the telephony service: the render copy skips it);
+three review passes. A container restart stops background lanes: run the suite in chunks. APK v2.1.5-c9bb9ae, versionCode
+212 (next 213), sha256 `392da6f2...34789c38`, 142,931,648 bytes.
 Local branch
 `main` = GitHub main; `fork-linear` is the pre-merge
 linear branch. Built files: branch `binaries` (up to v1.8.8 per release `v<version>/` with the APK and patches zip as two
