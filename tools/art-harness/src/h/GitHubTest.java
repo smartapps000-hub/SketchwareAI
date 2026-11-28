@@ -266,32 +266,37 @@ public final class GitHubTest {
         String repoFile = new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("h.appcontrol",
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
-        check("repository's app-control.json reads: enabled, min 212, no login", shipped != null
-                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(212).equals(get(shipped, "minVersionCode"))
+        String lfs216 = "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk";
+        String release216 = "https://github.com/smartapps000-hub/SketchwareAI/releases/download/v2.1.6/Sketchware_AI_v2.1.6.apk";
+        check("repository's app-control.json reads: enabled, min 213, no login", shipped != null
+                && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(213).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
-        check("v2.1.5 (212) with it: no notice (its status message is for 208 and older)",
-                call(control, "decide", shipped, 212, false, null) == null, null);
-        Object old211 = call(control, "decide", shipped, 211, false, null);
-        check("v2.1.4 (211): Update with the v2.1.5 URL, forced (v2.1.4's own card shows the reason and the lines)",
-                old211 != null && "update".equals(get(old211, "kind")) && Boolean.TRUE.equals(get(old211, "force"))
-                        && String.valueOf(get(old211, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.5.apk"),
-                old211 == null ? null : get(old211, "url"));
+        check("v2.1.6 (213) with it: no notice (its status message is for 211 and older)",
+                call(control, "decide", shipped, 213, false, null) == null, null);
+        Object old212 = call(control, "decide", shipped, 212, false, null);
+        check("v2.1.5 (212): Update with the v2.1.6 binaries link (what v2.1.5 reads), forced",
+                old212 != null && "update".equals(get(old212, "kind")) && Boolean.TRUE.equals(get(old212, "force"))
+                        && String.valueOf(get(old212, "url")).equals(lfs216),
+                old212 == null ? null : get(old212, "url"));
         Object old198 = call(control, "decide", shipped, 208, false, null);
-        check("an older version (v2.1.1, 208): Update with the v2.1.5 URL, forced, with the file's words in v2.1.1's own "
+        check("an older version (v2.1.1, 208): Update with the v2.1.6 link, forced, with the file's words in v2.1.1's own "
                         + "dialog (owner, 21 Nov: the live in-app update)",
                 old198 != null && "update".equals(get(old198, "kind")) && Boolean.TRUE.equals(get(old198, "force"))
-                && String.valueOf(get(old198, "url")).equals("https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.5.apk")
-                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.5 is required"),
+                && String.valueOf(get(old198, "url")).equals(lfs216)
+                && String.valueOf(get(old198, "text")).startsWith("Sketchware AI v2.1.6 is required"),
                 old198 == null ? null : get(old198, "url"));
-        check("v2.1.5: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 212 "
-                        + "\"v2.1.5\", update forced, the card's reason, three key features and three fixes",
+        java.util.List<?> shippedLinks = (java.util.List<?>) get(shipped, "updateUrls");
+        check("v2.1.6: the repository's file names the APK's SHA-256 (the in-app updater checks it), latest 213 "
+                        + "\"v2.1.6\", update forced, the card's reason, three key features and three fixes; links: the "
+                        + "GitHub Release asset first, the binaries copy second",
                 String.valueOf(get(shipped, "updateSha256")).matches("[0-9a-f]{64}")
-                        && Integer.valueOf(212).equals(get(shipped, "latestVersionCode"))
-                        && "v2.1.5".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
+                        && Integer.valueOf(213).equals(get(shipped, "latestVersionCode"))
+                        && "v2.1.6".equals(get(shipped, "latestVersionName")) && Boolean.TRUE.equals(get(shipped, "forceUpdate"))
                         && ((java.util.List<?>) get(shipped, "updateNotes")).size() == 3
                         && ((java.util.List<?>) get(shipped, "updateFixes")).size() == 3
-                        && String.valueOf(get(shipped, "updateReason")).startsWith("This update is required"),
-                get(shipped, "updateSha256"));
+                        && String.valueOf(get(shipped, "updateReason")).startsWith("This update is required")
+                        && shippedLinks.size() == 2 && release216.equals(shippedLinks.get(0)) && lfs216.equals(shippedLinks.get(1)),
+                get(shipped, "updateSha256") + " " + shippedLinks);
         Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
                 + "ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"latest_version_code\":301,"
                 + "\"latest_version_name\":\"v3.0.1\",\"coming_soon\":\"  Wear OS projects  \","

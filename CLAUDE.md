@@ -1153,6 +1153,56 @@ puzzle button and AAPT2 -> ECJ -> D8 pipeline are its own and are not part of th
 it in a separate session from its own repo bundle.
 
 
+## 12. Shipped feature map (v2.1.6 consolidation; details in the per-release records)
+
+Collected on 28 Nov 2026 (owner's v2.1.6 directive: "audit CLAUDE.md, design/README.md and engineering records for
+missed items"). Each line is what exists in the code now; the release list above says when and why.
+
+- **Design** (`design/README.md` first): dark + orange glass is the owner's theme; white labels on orange, the orange
+  deepened (`ob_cta*` #D34115 → #C64F14), never a dark label; glass tokens in `colors_ob.xml` / `GlassDrawable`;
+  sheets opaque; every label whole at font scale 1.3 on 360 dp (`GitHubViews.fitOneLine` / `oneLine`, never
+  `setSingleLine` on a centred pill); a visual change with two routes is rendered both ways and asked first.
+- **Default APK icon** (v2.1.1, owner: "this is final"): only for projects without an own icon, the round Android
+  Studio-style icon in frosted slate-obsidian glass without a border (`tools/icons/make_default_app_icon.py`, template
+  `assets/resource/600/res.zip`); inside the IDE projects without an icon show their two-letter monogram.
+- **Home**: Honey-Drop bar (`ui.HoneyDropBar`, six tabs, clear glass, `OPEN_AT` 0.14, sound only with the ringer on and
+  the Settings switch on); tabs are full screens kept behind Home (`ui.TabScreens`); Settings holds the account card,
+  backup / notification / sound switches and App updates.
+- **GitHub sign-in**: Device Flow in the app's own WebView (`GitHubInAppAuthDialog`), code bar `OtpAssist` (code length
+  read from the page since v2.1.6: a 6-digit code never goes into an 8-digit field), token AES-GCM under a Keystore key
+  (`TokenStore`, bound to ANDROID_ID | signing cert | user id). Nothing signs out by itself except Sign out and
+  `SingleDeviceGuard` (another phone's later sign-in mark). A token GitHub refuses (HTTP 401) is marked, the card says
+  so with "Why? GitHub's security log ›" (naming the signed-in @login since v2.1.6), and since v2.1.6 the sign-in window
+  opens by itself once per refusal (`SignInPrompt`: Home / Settings / GitHub screens only, never in the editors);
+  every job the refusal stopped runs again after the new sign-in (`CloudSync.resumeAfterSignIn`).
+- **Backups and restore**: one private repository per project (`ProjectRepo`, versions = releases, ≤ 5 plus ★
+  Standard), `CloudSync` lanes (two for taps, one automatic, one for imports), parts and the APK sent four at a time
+  (`ProjectRepo.sendAll`), network retries, checkpoint resume, dataSync foreground service, glass notifications;
+  Restore projects = GitHub | Demo | On this phone.
+- **Play Store / Community** (GitHub-powered): topic `sketchwareai-playstore`, `playstore/listing.json`, Follow =
+  PUT / DELETE /user/following, followers / following lists, "From creators you follow", `FollowWatch` (4 h job; Settings
+  switch per account since v2.1.6), creator country from SIM / network / region, levels Verified / Trusted / Official
+  with their rules; Discussions stay off on GitHub until the owner switches them on.
+- **Updates**: `AppControl` gate at start (min / latest / force, words for the update card), in-app `AppUpdater` that
+  installs only a file whose SHA-256 matches; since v2.1.6 `update_urls` (the GitHub Release asset first, the
+  `binaries` copy after it); `update_url` stays the link v2.1.5 and older read.
+- **Blocks and components for apps**: permission blocks (v1.9.4, `SketchPermission`), web blocks (v1.9.4-v1.9.7,
+  `SketchWeb`), GitHub component (type 2026, v2.0.2, `SketchGitHub`), JSON power pack (19 blocks, v2.1.5,
+  `SketchJson`); demos "GitHub + JSON Live Demo" (v2.1.6, first in Demo, fixture 937) and "GitHub API Demo" (v2.0.3).
+- **Security** (v2.1.6): `SignatureGuard` (release certificate SHA-256 `a40da80a…bf5dc`; another key = no sign-in, no
+  token requests, no in-app updates; unreadable = allowed), the token only over https to api.github.com /
+  uploads.github.com (`GitHubHttp.tokenAllowed`), the shipped APK non-debuggable (debug buildType `debuggable false`;
+  every DEX merged, which is why `kotlinc`'s JavacLogger class was renamed), no secret or token in the APK or project.
+  Honest limit: the release key is the repository's public test key, so a re-signed copy with that key passes; real
+  protection needs a private release key (owner's decision; installs would then need a key rotation). Declined before
+  and still out of scope: remote kill switch, build expiry, an OAuth client secret in the APK.
+- **Facts the owner's section below states differently**: the IDE targets API **35** (compileSdk 37, min 26); new
+  *projects* target 37 with min 21. Build speed today comes from the Run build cache (`RClassCache`, `ResourceCache`,
+  v1.9.0), not an incremental D8 / aapt2 daemon; the Library Resolver (v1.8.8-v1.8.13) already keeps the highest
+  version, shows no popup after an install and downloads nothing for POM-only artifacts / BOM imports; the target
+  devices are Phone, Foldable, Tablet, Wear OS and TV (`project.DeviceTargets`, v1.9.0; only Wear OS and TV change the
+  manifest).
+
 ## Project Identity & Target Runtime
 - Project: Sketchware AI (Visual Mobile IDE)
 - Repository: smartapps000-hub/SketchwareAI

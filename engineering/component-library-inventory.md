@@ -1,6 +1,34 @@
 # Component and library modernization inventory
 
-Audited: commit `c82aba4` (v1.8.1). Date: 2026-10-04. Section 0 added for v1.8.3 (2026-10-21), section 0a for v1.8.4 (2026-10-22). Nothing here was run on a device.
+Audited: commit `c82aba4` (v1.8.1). Date: 2026-10-04. Section 0 added for v1.8.3 (2026-10-21), section 0a for v1.8.4 (2026-10-22), section 0b for v2.1.6 (2026-11-28). Nothing here was run on a device.
+
+## 0b. v2.1.6 audit: built-in components and generated helpers added since v1.9.0 (2026-11-28)
+
+The sections below are the v1.8.x audit; two of its summary lines are out of date and are corrected here (read from the
+source at v2.1.6, not re-run on a device):
+
+- **Export signing**: no longer v1-only. APK export is `ReleaseSigner` v1 + v2 + v3 since v1.8.2 (AAB export
+  `BundleSigner` since v1.8.5); Run builds are zip-aligned and verify v1 + v2 + v3 + v4 (v1.9.7.1 measurement).
+- **Notification / media permissions in generated apps**: handled by the permission blocks since v1.9.4
+  (`project.PermissionCode`: groups STORAGE / CAMERA / MICROPHONE / LOCATION / BLUETOOTH / NOTIFICATIONS, generated
+  `SketchPermission`, READ_MEDIA_* by target, POST_NOTIFICATIONS on 13+, manifest entries deduplicated); storage
+  READ / WRITE get `maxSdkVersion="32"` for target 33+ (v1.9.7.1). Foreground-service types are still not written for
+  user apps (no FGS component in the palette).
+
+Built-in components / block packs a project gets without downloading anything (all generated as Java 7 source in the
+project's own package, compiled by ECJ with the project; Android framework + org.json only, no extra library):
+
+| Since | Component / pack | Generated helper (resource) | Permission it adds |
+|---|---|---|---|
+| v1.9.4 | Permission blocks (palette "Permission", `PermissionCode.PALETTE_ID` 100) | `SketchPermission` | the group's own, after the user picks it |
+| v1.9.4-v1.9.7 | Web blocks on WebView (downloads, desktop mode, cookies, upload, ad / popup block, user agent, history, `sketchDownloadFile`) | `SketchWeb` (`resources/.../SketchWeb.java.txt`) | INTERNET; WRITE storage max 22 for downloads when min SDK < 23 |
+| v2.0.2 | GitHub component (type 2026, palette 101, events `onGitHubUserLoaded` …) | `SketchGitHub` (`SketchGitHub.java.txt`) | INTERNET |
+| v2.1.5 | JSON power pack (19 blocks, operators drawer) | `SketchJson` (`SketchJson.java.txt`) | none |
+
+Demo projects made by the IDE itself (Restore projects → Demo; never special-cased in the engine): "GitHub API Demo"
+(`project.GitHubSample`, v2.0.3, version 3 since v2.0.5) and, first in the tab since v2.1.6, "GitHub + JSON Live Demo"
+(`project.JsonSample`: the GitHub component + JSON get text / get number / set / count / array to list / pretty; fixture
+937). Known limit (v2.0.2): a user's own custom component named "GitHub" or with id 2026 is shadowed by the built-in.
 
 ## Summary
 
