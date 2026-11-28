@@ -15,6 +15,8 @@ for f in BlockGuide BlockShapeView PermissionPicker; do real $SRC/java/com/sketc
 # layoutlib has no telephony service (it asserts): the render copy skips the SIM / network read, so the phone's region
 # setting answers (on a phone the service is there; without telephony getSystemService gives null)
 perl -0pi -e 's/context\s*\.getSystemService\(Context\.TELEPHONY_SERVICE\)/null/' $G/PlayStore.java
+# GitHub's clock (FollowWatch's first looks)
+grep -q "serverNow" $G/GitHubHttp.java || sed -i 's/public final class GitHubHttp {/&\n    public static long serverNow() { return System.currentTimeMillis(); }/' $G/GitHubHttp.java
 # the window-less base: Follow's notification question asks Android for the permission
 BA=$J/com/besome/sketch/lib/base/BaseAppCompatActivity.java
 grep -q "void requestPermissions" $BA || sed -i 's/    public void startActivityForResult(android.content.Intent i, int code) { }/&\n    public void requestPermissions(String[] p, int code) { }/' $BA
