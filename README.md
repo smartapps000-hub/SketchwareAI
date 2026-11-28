@@ -2,6 +2,20 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.6 (versionCode 213, `v2.1.6-4d14af8-minApi26`)
+
+`apk/Sketchware_AI_v2.1.6.apk`, sha256 `844fe2c07841f99614bc10597f88b21260b305a2abed8ca18dac52f02d662aad` (Git LFS),
+130,423,825 bytes. A required update for v2.1.5 (it offers it by itself, downloads it in the app and checks this SHA-256).
+The GitHub + JSON Live Demo (first in Restore projects → Demo); the sign-in window opens by itself when GitHub ends a
+sign-in and waiting backups go on after it; the code bar never types a 6-digit code into GitHub's 8-digit field; "Why?
+GitHub's security log" names the signed-in account; follow notifications can be switched off in Settings; the app
+checks its own signing certificate, sends the GitHub token only to GitHub's API over https and is no longer debuggable.
+Release notes: `releases/v2.1.6/RELEASE-NOTES.md` on `main`. The same file is meant for the GitHub Release v2.1.6
+(asset `Sketchware_AI_v2.1.6.apk`), which the owner creates on github.com.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.6.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk
+
 ## v2.1.5 (versionCode 212, `v2.1.5-c9bb9ae-minApi26`)
 
 `apk/Sketchware_AI_v2.1.5.apk`, sha256 `392da6f2e1262ac2c214ee0474b3a27032a962c12aff8ab94ca085c834789c38` (Git LFS).
