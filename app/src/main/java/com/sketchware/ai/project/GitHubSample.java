@@ -71,8 +71,20 @@ public final class GitHubSample {
      */
     public static String create(Context context) {
         synchronized (ProjectIds.RESTORE_LOCK) {
+            // v2.1.6 review (LOW): a second tap or the one-time seed running meanwhile: the demo that is there
+            String there = existingDemo();
+            if (there != null) return there;
             return create(context, ProjectIds.free(lC.b()));
         }
+    }
+
+    /** v2.1.6: the id of a demo of this kind on this phone (its mark), else null. */
+    static String existingDemo() {
+        for (HashMap<String, Object> project : lC.a()) {
+            String id = yB.c(project, "sc_id");
+            if (Demos.isDemo(project) && "github".equals(Demos.kind(id))) return id;
+        }
+        return null;
     }
 
     /** The same with the project id given (the harness's fixture uses a fixed one). */

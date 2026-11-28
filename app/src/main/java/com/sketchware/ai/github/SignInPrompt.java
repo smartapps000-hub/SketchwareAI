@@ -74,7 +74,11 @@ public final class SignInPrompt implements Application.ActivityLifecycleCallback
         String key = store.sealedKey();
         boolean refused = GitHubSession.isRefused(a);
         if (!shouldAsk(login, refused, key, askedFor, closes(a, key))) return;
-        if (GitHubInAppAuthDialog.isOpen()) return;
+        if (GitHubInAppAuthDialog.isOpen()) {
+            // review (LOW): a window is already there for this refusal (a sheet's, a tap's): that one counts
+            askedFor = key;
+            return;
+        }
         askedFor = key;
         Context app = a.getApplicationContext();
         Toast.makeText(app, "GitHub ended this phone's sign-in for @" + login + ". Sign in again: waiting backups go on "
@@ -91,12 +95,25 @@ public final class SignInPrompt implements Application.ActivityLifecycleCallback
 
                 @Override
                 public void closed() {
-                    if (!done) noteClosed(app, key);
+                    // review (LOW): a window replaced by another screen's isn't the user's close
+                    if (!done && !GitHubInAppAuthDialog.replacing()) noteClosed(app, key);
                 }
             });
         } catch (RuntimeException e) {
             // the screen is going away: the next one in front asks
             askedFor = null;
+        }
+    }
+
+    /** v2.1.6 review (LOW): a sign-in window is opening (any path): for a refused sign-in, it counts as asked. */
+    static void noteAsked(Context context) {
+        try {
+            if (GitHubSession.isRefused(context)) {
+                String key = TokenStore.get(context).sealedKey();
+                if (key != null) askedFor = key;
+            }
+        } catch (RuntimeException ignored) {
+            // nothing read: nothing noted
         }
     }
 

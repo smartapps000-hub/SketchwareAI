@@ -955,6 +955,8 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
     /** v2.1.6: "Make the …" for a demo that isn't on this phone (the JSON one or the GitHub API Demo). */
     private View makeDemoPill(String name, boolean json) {
         return v.smallPill("Make the " + name, true, true, x -> {
+            // review (LOW): one project per tap (the pill is gone when the tab is drawn again)
+            x.setEnabled(false);
             android.widget.Toast.makeText(this, "Making the " + name + "…", android.widget.Toast.LENGTH_SHORT).show();
             work.execute(() -> {
                 String made = null;

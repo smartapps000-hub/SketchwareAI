@@ -102,7 +102,8 @@ public class SettingsActivity extends BaseAppCompatActivity {
         android.widget.CheckBox notices = v.checkBox(me == null
                         ? "New apps from creators you follow (sign in first)"
                         : "New apps and versions from creators I follow",
-                me != null && com.sketchware.ai.github.PlayStore.noticesSwitchOn(this, me));
+                // review (LOW): ticked only when notices really come (off, or never followed in the app: not ticked)
+                me != null && com.sketchware.ai.github.PlayStore.noticesOn(this, me));
         notices.setEnabled(me != null);
         notices.setOnCheckedChangeListener((b, on) -> {
             String login = com.sketchware.ai.github.TokenStore.get(this).login();
@@ -110,6 +111,11 @@ public class SettingsActivity extends BaseAppCompatActivity {
             com.sketchware.ai.github.PlayStore.setNoticesSwitch(this, login, on);
             // the 4-hour check starts or stops with the switch (off: a pending one is cancelled)
             com.sketchware.ai.github.FollowWatch.schedule(this);
+            // review (LOW): on Android 13+ the notifications themselves need the permission
+            if (on && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(
+                    "android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7421);
+            }
             if (!on) {
                 android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
                 if (nm != null) com.sketchware.ai.github.FollowWatch.clearNotices(nm);

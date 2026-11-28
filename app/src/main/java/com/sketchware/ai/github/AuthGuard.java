@@ -27,7 +27,8 @@ public final class AuthGuard {
 
     /** True when app-control.json, read from GitHub in this run, requires sign-in and sign-in can work here. */
     public static boolean required(Context context) {
-        if (unavailable || !AppControl.fetchedOnline()) return false;
+        // v2.1.6 review (MEDIUM): a copy signed with another key can't sign in (SignatureGuard): never a lock-out
+        if (unavailable || !AppControl.fetchedOnline() || !SignatureGuard.trusted()) return false;
         AppControl.Config config = AppControl.cached(context);
         return config != null && config.requireLogin;
     }

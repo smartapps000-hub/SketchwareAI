@@ -85,7 +85,8 @@ class V216Test {
     @Test fun settings() {
         val c = paparazzi.context
         V210Shots.sampleData()
-        // the render's shared preferences (layoutlib's own keep nothing between reads)
+        // the render's shared preferences (layoutlib's own keep nothing between reads); ticked = notices really come
+        PlayStore.setNoticesSwitch(V211Shots.ctx(c), V210Shots.OWNER, true)
         val on = V211Shots.open(c, com.sketchware.ai.ui.SettingsActivity())
         PlayStore.setNoticesSwitch(V211Shots.ctx(c), V210Shots.OWNER, false)
         val off = V211Shots.open(c, com.sketchware.ai.ui.SettingsActivity())
@@ -116,7 +117,8 @@ class V216LargeFontTest {
     @Test fun large() {
         val c = paparazzi.context
         V210Shots.sampleData()
-        val settings = V210Shots.settings(c, false, false)
+        PlayStore.setNoticesSwitch(V211Shots.ctx(c), V210Shots.OWNER, true)
+        val settings = V211Shots.open(c, com.sketchware.ai.ui.SettingsActivity())
         val missing = V216Shots.demos(c, false)
         V210Shots.save(c, "v216_large.png", listOf(V210Shots.shot(c, settings, 360, 760), V210Shots.shot(c, missing, 360, 760),
                 V210Shots.shot(c, V216Shots.signin(c, true), 360, 760)))

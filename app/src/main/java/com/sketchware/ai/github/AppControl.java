@@ -270,10 +270,11 @@ public final class AppControl {
         gatePassed = true;
         if (a == null || a.isFinishing() || a.isDestroyed()) return;
         // the main screen in front asks now; else its next onResume does (a project may be open meanwhile)
-        if (a.hasWindowFocus()) AuthGuard.check(a);
+        boolean gateOpen = a.hasWindowFocus() && !AuthGuard.check(a);
         SingleDeviceGuard.check(a);
-        // v2.1.6: a sign-in GitHub refused (also found at the first start after an update): the window opens now
-        SignInPrompt.maybeAsk(a);
+        // v2.1.6: a sign-in GitHub refused (also found at the first start after an update): the window opens now;
+        // review (LOW): not while the sign-in gate's own screen just opened
+        if (!gateOpen) SignInPrompt.maybeAsk(a);
     }
 
     /** {@link #passGate} on the main thread, or only the mark when the screen is gone. */
@@ -317,7 +318,8 @@ public final class AppControl {
                     if (notice == null || "login".equals(notice.kind)) return;
                 } else {
                     // review (MEDIUM): forced only with a link to update from (never a Create that stays shut)
-                    updateRequired = notice.force && notice.url != null;
+                    // v2.1.6 review (LOW): a copy signed with another key can't install it: Create never waits
+                    updateRequired = notice.force && notice.url != null && SignatureGuard.trusted();
                 }
                 if ("login".equals(notice.kind)) {
                     // v1.9.9: required sign-in is the sign-in screen itself (AuthGuard), not a dialog

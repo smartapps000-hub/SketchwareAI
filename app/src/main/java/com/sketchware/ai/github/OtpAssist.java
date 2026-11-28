@@ -118,7 +118,9 @@ public final class OtpAssist {
             + "var seen=null;for(var j=0;j<ms.length;j++){var q=ms[j].slice(1,-1).split(',');"
             + "if(q.length>1&&q[1]!==q[0])return 0;if(seen!==null&&seen!==q[0])return 0;seen=q[0];}"
             + "if(seen==='6'||seen==='8')return +seen;"
-            + "if(i.maxLength===6||i.maxLength===8)return i.maxLength;if(i.minLength===6||i.minLength===8)return i.minLength;"
+            // review (MEDIUM): maxlength alone is an upper bound (a maxlength-8 field may take a 6-digit code); an exact
+            // length needs minlength = maxlength
+            + "if(i.minLength>0&&i.minLength===i.maxLength&&(i.minLength===6||i.minLength===8))return i.minLength;"
             + "var ph=(i.getAttribute('placeholder')||'').replace(/[\\s-]/g,'');"
             + "if(/^(x{6}|X{6}|0{6}|123456)$/.test(ph))return 6;if(/^(x{8}|X{8}|0{8}|12345678)$/.test(ph))return 8;"
             + "return 0;}"
@@ -260,10 +262,10 @@ public final class OtpAssist {
                 // v2.1.6: never a code of another length than the field takes (GitHub refuses it: "Please match the
                 // format requested"): answers "length:8" instead
                 + "for(var k=0;k<all.length;k++){var ml=all[k].maxLength;var w=wanted(all[k]);"
-                + "if(ml>0&&ml<code.length){if(!need)need=w||ml;continue;}"
+                + "if(ml>0&&ml<code.length){var m2=w||(ml===6||ml===8?ml:0);if(!need&&m2)need=m2;continue;}"
                 + "if(w&&w!==code.length){if(!need)need=w;continue;}target=all[k];break;}"
                 + "if(!target){var ones=codeBoxes();if(ones){if(ones.length===code.length){boxes=ones;}"
-                + "else if(!need){need=ones.length;}}}"
+                + "else if(!need&&(ones.length===6||ones.length===8)){need=ones.length;}}}"
                 + "if(!target&&!boxes)return need?'length:'+need:'none';"
                 + "var first=target||boxes[0];var form=first.form||(first.closest?first.closest('form'):null);"
                 + "var sent=false;if(form){form.addEventListener('submit',function(){sent=true;},true);}"

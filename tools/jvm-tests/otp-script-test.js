@@ -232,6 +232,28 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     r = w.eval(probe);
     check('a field taking 6 or 8 digits: length not said (0)', r === '1|0||0|0|0', r);
     check('…and a 6-digit code goes in', w.eval(six) === 'submitted' && w.document.querySelector('input[name=otp]').value === '123456');
+
+    // v2.1.6 review: maxlength alone is an upper bound (an authenticator field with maxlength 8 takes 6 digits)
+    const upTo8 = '<form><input type="text" name="app_otp" autocomplete="one-time-code" maxlength="8">'
+      + '<button type="submit">Verify</button></form>';
+    w = page('https://github.com/sessions/two-factor/app', upTo8);
+    r = w.eval(probe);
+    check('maxlength 8 alone: length not said (0)', r === '1|0||0|0|0', r);
+    r = w.eval(six);
+    check('…and a 6-digit code goes in', r === 'submitted' && w.document.querySelector('input[name=app_otp]').value === '123456', r);
+
+    // eight one-digit boxes marked one-time-code: the answer is the box count (8), never a box's maxlength (1)
+    const marked = '<form>' + [0, 1, 2, 3, 4, 5, 6, 7].map(i => '<input type="tel" maxlength="1" autocomplete="one-time-code" '
+      + 'name="m' + i + '">').join('') + '<button>Verify</button></form>';
+    w = page('https://github.com/sessions/verified-device', marked);
+    r = w.eval(probe);
+    check('eight boxes marked one-time-code: the probe says 8', r === '1|0||0|0|8', r);
+    r = w.eval(six);
+    check('…a 6-digit code answers length:8 (not length:1), boxes empty', r === 'length:8'
+      && Array.from(w.document.querySelectorAll('input')).every(i => i.value === ''), r);
+    r = w.eval(eight);
+    check('…the 8-digit code fills the boxes in order', r === 'submitted'
+      && Array.from(w.document.querySelectorAll('input')).map(i => i.value).join('') === '12345678', r);
   }
 
   console.log('OTPSCRIPT ' + ok + '/' + total + (ok === total ? ' ok' : ' FAILED'));
