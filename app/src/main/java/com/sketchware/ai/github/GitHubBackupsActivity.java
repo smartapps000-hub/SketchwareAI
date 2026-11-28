@@ -858,7 +858,17 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         list.addView(rows, v.full(-1, 8));
         work.execute(() -> {
             List<java.util.HashMap<String, Object>> demos = demoProjects();
-            ui(() -> renderDemos(rows, demos));
+            // v2.1.6: which demos are here (their marks, read on this thread): a missing one can be made
+            boolean json = false;
+            boolean github = false;
+            for (java.util.HashMap<String, Object> p : demos) {
+                String kind = com.sketchware.ai.project.Demos.kind(yB.c(p, "sc_id"));
+                if (com.sketchware.ai.project.JsonSample.KIND.equals(kind)) json = true;
+                else if ("github".equals(kind)) github = true;
+            }
+            boolean hasJson = json;
+            boolean hasGitHub = github;
+            ui(() -> renderDemos(rows, demos, hasJson, hasGitHub));
         });
     }
 
@@ -878,31 +888,19 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
         return demos;
     }
 
-    private void renderDemos(LinearLayout rows, List<java.util.HashMap<String, Object>> demos) {
+    private void renderDemos(LinearLayout rows, List<java.util.HashMap<String, Object>> demos, boolean hasJson,
+                             boolean hasGitHub) {
         rows.removeAllViews();
-        if (demos.isEmpty()) {
-            rows.addView(v.line("No demo project on this phone yet.", false));
-            rows.addView(v.smallPill("Make the GitHub API Demo", true, true, x -> {
-                android.widget.Toast.makeText(this, "Making the GitHub API Demo…", android.widget.Toast.LENGTH_SHORT).show();
-                work.execute(() -> {
-                    String made = null;
-                    try {
-                        made = com.sketchware.ai.project.GitHubSample.create(getApplicationContext());
-                    } catch (Throwable e) {
-                        // review (LOW): an Error too (shown below; never a crash on the executor thread)
-                        mod.jbk.util.LogUtil.e("GitHubBackups", "Demo not made", e);
-                    }
-                    String id = made;
-                    ui(() -> {
-                        if (id == null) {
-                            android.widget.Toast.makeText(this, "The demo couldn't be made.", android.widget.Toast.LENGTH_LONG).show();
-                        }
-                        if (tab == TAB_DEMO) show(TAB_DEMO);
-                    });
-                });
-            }), pillAt(8));
-            return;
+        if (demos.isEmpty()) rows.addView(v.line("No demo project on this phone yet.", false));
+        // v2.1.6: a demo that isn't here can be made again (the GitHub + JSON Live Demo first)
+        int pills = 0;
+        if (!hasJson) {
+            rows.addView(makeDemoPill(com.sketchware.ai.project.JsonSample.NAME, true), pillAt(pills++ == 0 ? 8 : 6));
         }
+        if (!hasGitHub) {
+            rows.addView(makeDemoPill(com.sketchware.ai.project.GitHubSample.NAME, false), pillAt(pills++ == 0 ? 8 : 6));
+        }
+        if (demos.isEmpty()) return;
         // v2.1.3 (owner's 22 Nov directive: "the two GitHub API Demos should be one card, versions inside, like the
         // GitHub backups"): one card per demo (its name), its projects as versions: the newest demo version first, a
         // pinned one in front; Open in the title row; Pin, the Public / Private pill and Share (once backed up to
@@ -950,8 +948,33 @@ public class GitHubBackupsActivity extends BaseAppCompatActivity {
                     }
                 }
             });
-            rows.addView(card, v.full(-1, at++ == 0 ? 0 : 8));
+            rows.addView(card, v.full(-1, at++ == 0 && pills == 0 ? 0 : 8));
         }
+    }
+
+    /** v2.1.6: "Make the …" for a demo that isn't on this phone (the JSON one or the GitHub API Demo). */
+    private View makeDemoPill(String name, boolean json) {
+        return v.smallPill("Make the " + name, true, true, x -> {
+            android.widget.Toast.makeText(this, "Making the " + name + "…", android.widget.Toast.LENGTH_SHORT).show();
+            work.execute(() -> {
+                String made = null;
+                try {
+                    made = json ? com.sketchware.ai.project.JsonSample.create(getApplicationContext())
+                            : com.sketchware.ai.project.GitHubSample.create(getApplicationContext());
+                    ProjectLinks.listChanged();
+                } catch (Throwable e) {
+                    // review (LOW): an Error too (shown below; never a crash on the executor thread)
+                    mod.jbk.util.LogUtil.e("GitHubBackups", "Demo not made", e);
+                }
+                String id = made;
+                ui(() -> {
+                    if (id == null) {
+                        android.widget.Toast.makeText(this, "The demo couldn't be made.", android.widget.Toast.LENGTH_LONG).show();
+                    }
+                    if (tab == TAB_DEMO) show(TAB_DEMO);
+                });
+            });
+        });
     }
 
     /**

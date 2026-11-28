@@ -427,6 +427,14 @@ public class GC extends DA implements View.OnClickListener {
             } catch (Throwable t) {
                 mod.jbk.util.LogUtil.e("GC", "GitHub sample not made", t);
             }
+            // v2.1.6: the GitHub + JSON Live Demo, once per install too (after the first: one id at a time)
+            try {
+                if (com.sketchware.ai.project.JsonSample.seedOnce(app) != null) {
+                    com.sketchware.ai.github.ProjectLinks.listChanged();
+                }
+            } catch (Throwable t) {
+                mod.jbk.util.LogUtil.e("GC", "GitHub + JSON demo not made", t);
+            }
         }, "GitHubSample").start();
     }
 

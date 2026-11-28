@@ -250,9 +250,23 @@ public final class GitHubProgress {
     public void failedSignIn(String text) {
         failed(text, false);
         if (!alive()) return;
-        buttons(pill("Sign in again", true, x -> GitHubInAppAuthDialog.show(activity, login -> {
+        buttons(pill("Sign in again", true, x -> signInAgain()), pill("Close", false, x -> dismiss()));
+        // v2.1.6 (owner's directive "auto-open sign-in popup on retry"): the sign-in window opens by itself, once per
+        // sheet (the job then runs again; Sign in again stays for a closed window)
+        if (!askedSignIn && !hidden() && !GitHubInAppAuthDialog.isOpen()) {
+            askedSignIn = true;
+            sheet.status.postDelayed(() -> {
+                if (alive() && !hidden() && !GitHubInAppAuthDialog.isOpen()) signInAgain();
+            }, 700);
+        }
+    }
+
+    private boolean askedSignIn;
+
+    private void signInAgain() {
+        GitHubInAppAuthDialog.show(activity, login -> {
             if (retry != null && alive()) retry.run();
-        })), pill("Close", false, x -> dismiss()));
+        });
     }
 
     private void runningButtons() {

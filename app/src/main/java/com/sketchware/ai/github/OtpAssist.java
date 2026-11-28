@@ -66,6 +66,25 @@ public final class OtpAssist {
     }
 
     /**
+     * v2.1.6: the code of {@code length} digits (6 or 8) in what the user copied, else null; any length when the page
+     * doesn't say ({@code length} 0). An e-mail with a 6-digit number and the 8-digit code gives the code.
+     */
+    public static String codeFrom(CharSequence copied, int length) {
+        if (length != 6 && length != 8) return codeFrom(copied);
+        if (copied == null) return null;
+        String text = copied.toString();
+        if (text.length() > 20_000) text = text.substring(0, 20_000);
+        Matcher m = CODE.matcher(text);
+        while (m.find()) if (m.group(1).length() == length) return m.group(1);
+        Matcher split = SPLIT.matcher(text);
+        while (split.find()) {
+            String joined = split.group(1) + split.group(2);
+            if (joined.length() == length) return joined;
+        }
+        return null;
+    }
+
+    /**
      * v2.1.4: the page's code field, read from the page itself (one field or one box per digit). GitHub's code pages
      * come at many addresses (the "Confirm access" page before an authorization, the e-mailed code after the password,
      * two-factor): a field counts when the page marks it as a one-time code, names it a code / otp / totp / sudo /
@@ -92,6 +111,19 @@ public final class OtpAssist {
             + "function(i){return usable(i)&&!excluded(i)&&i.maxLength===1;});"
             + "return ones.length===6||ones.length===8?ones:null;}"
             + "function codeFields(){return Array.prototype.slice.call(document.querySelectorAll('input')).filter(codeField);}"
+            // v2.1.6 (owner's screenshot: a 6-digit code in GitHub's 8-digit field, "Please match the format
+            // requested"): the length a field takes, from its pattern ({8} once, or {8,8}), maxlength, minlength or
+            // placeholder; 0 = not said (or more than one length allowed)
+            + "function wanted(i){var p=i.getAttribute('pattern')||'';var ms=p.match(/\\{[0-9]+(,[0-9]*)?\\}/g)||[];"
+            + "var seen=null;for(var j=0;j<ms.length;j++){var q=ms[j].slice(1,-1).split(',');"
+            + "if(q.length>1&&q[1]!==q[0])return 0;if(seen!==null&&seen!==q[0])return 0;seen=q[0];}"
+            + "if(seen==='6'||seen==='8')return +seen;"
+            + "if(i.maxLength===6||i.maxLength===8)return i.maxLength;if(i.minLength===6||i.minLength===8)return i.minLength;"
+            + "var ph=(i.getAttribute('placeholder')||'').replace(/[\\s-]/g,'');"
+            + "if(/^(x{6}|X{6}|0{6}|123456)$/.test(ph))return 6;if(/^(x{8}|X{8}|0{8}|12345678)$/.test(ph))return 8;"
+            + "return 0;}"
+            + "function needLength(){var f=codeFields();for(var k=0;k<f.length;k++){var w=wanted(f[k]);if(w)return w;}"
+            + "var b=codeBoxes();return b?b.length:0;}"
             + "function sendLinks(){var out=[];var els=document.querySelectorAll('a,button,input[type=submit],summary,"
             + "[role=button]');for(var k=0;k<els.length;k++){var e=els[k];"
             + "var tx=((e.textContent||e.value||'')+'').replace(/\\s+/g,' ').trim();"
@@ -122,7 +154,9 @@ public final class OtpAssist {
             + "if(!/GitHub Mobile/i.test(n2.nodeValue||''))continue;var e2=n2.parentElement;"
             + "if(!e2||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|A|BUTTON|OPTION)$/.test(e2.tagName)||!shown(e2))continue;"
             + "mob=/(sent|send|request|notification|approve|digits|number)/i.test(e2.textContent||'');}}"
-            + "return (code?'1':'0')+'|'+(send?'1':'0')+'|'+(m?m[1]:'')+'|'+(sudo?'1':'0')+'|'+(mob?'1':'0');})()";
+            + "return (code?'1':'0')+'|'+(send?'1':'0')+'|'+(m?m[1]:'')+'|'+(sudo?'1':'0')+'|'+(mob?'1':'0')"
+            // v2.1.6: the digits the code field takes (6, 8, or 0 = not said)
+            + "+'|'+(code?needLength():0);})()";
 
     /**
      * v2.1.4: presses the page's own "Send a code via email" (the user's tap on "E-mail me a code"): GitHub sends the
@@ -140,30 +174,37 @@ public final class OtpAssist {
         public final boolean confirmAccess;
         /** v2.1.5: GitHub Mobile's request page ("We sent a verification request to GitHub Mobile…"). */
         public final boolean mobile;
+        /** v2.1.6: the digits GitHub's code field takes (6 or 8), 0 when the page doesn't say. */
+        public final int codeLength;
 
-        Probe(boolean codeField, boolean sendLink, String sentTo, boolean confirmAccess, boolean mobile) {
+        Probe(boolean codeField, boolean sendLink, String sentTo, boolean confirmAccess, boolean mobile, int codeLength) {
             this.codeField = codeField;
             this.sendLink = sendLink;
             this.sentTo = sentTo;
             this.confirmAccess = confirmAccess;
             this.mobile = mobile;
+            this.codeLength = codeLength;
         }
 
-        /** "1|0|b***@gmail.com|1|0" (evaluateJavascript's answer, already unquoted; v2.1.4's four parts too), else null. */
+        /**
+         * "1|0|b***@gmail.com|1|0|8" (evaluateJavascript's answer, already unquoted; v2.1.4's four and v2.1.5's five
+         * parts too), else null.
+         */
         public static Probe parse(String answer) {
             if (answer == null) return null;
             String[] p = answer.split("\\|", -1);
-            if (p.length != 4 && p.length != 5) return null;
+            if (p.length < 4 || p.length > 6) return null;
             String mail = p[2].trim();
             if (mail.length() > 120 || !mail.contains("@")) mail = null;
+            int length = p.length == 6 && ("6".equals(p[5]) || "8".equals(p[5])) ? Integer.parseInt(p[5]) : 0;
             return new Probe("1".equals(p[0]), "1".equals(p[1]), mail, "1".equals(p[3]),
-                    p.length == 5 && "1".equals(p[4]));
+                    p.length >= 5 && "1".equals(p[4]), "1".equals(p[0]) ? length : 0);
         }
 
         /** The same page state (the bar is redrawn only when it changes). */
         String key() {
             return (codeField ? "c" : "-") + (sendLink ? "s" : "-") + (confirmAccess ? "a" : "-") + (mobile ? "m" : "-")
-                    + "|" + sentTo;
+                    + codeLength + "|" + sentTo;
         }
     }
 
@@ -199,7 +240,8 @@ public final class OtpAssist {
     /**
      * The script that puts {@code code} (digits only) into the page's code field (one field, or one box per digit),
      * the way typing does (input / change events), then presses the form's own submit button unless the page sent the
-     * form by itself. Answers "submitted", "filled" (no button to press) or "none" (no code field on the page).
+     * form by itself. Answers "submitted", "filled" (no button to press), "none" (no code field on the page) or, v2.1.6,
+     * "length:8" / "length:6" (the field takes another number of digits: nothing typed).
      * v2.1.4: the field is found as {@link #FIELD_JS} finds it (GitHub's named fields first).
      */
     public static String fillScript(String code) {
@@ -212,10 +254,15 @@ public final class OtpAssist {
                 + "input[name=\"app_otp\"],input#sms_totp,input[name=\"sms_otp\"]';"
                 + "var all=Array.prototype.slice.call(document.querySelectorAll(sel)).filter(function(i){"
                 + "return usable(i)&&!excluded(i);}).concat(codeFields());"
-                + "var target=null,boxes=null;"
-                + "for(var k=0;k<all.length;k++){var ml=all[k].maxLength;if(!(ml>0&&ml<code.length)){target=all[k];break;}}"
-                + "if(!target){var ones=codeBoxes();if(ones&&ones.length===code.length){boxes=ones;}}"
-                + "if(!target&&!boxes)return 'none';"
+                + "var target=null,boxes=null,need=0;"
+                // v2.1.6: never a code of another length than the field takes (GitHub refuses it: "Please match the
+                // format requested"): answers "length:8" instead
+                + "for(var k=0;k<all.length;k++){var ml=all[k].maxLength;var w=wanted(all[k]);"
+                + "if(ml>0&&ml<code.length){if(!need)need=w||ml;continue;}"
+                + "if(w&&w!==code.length){if(!need)need=w;continue;}target=all[k];break;}"
+                + "if(!target){var ones=codeBoxes();if(ones){if(ones.length===code.length){boxes=ones;}"
+                + "else if(!need){need=ones.length;}}}"
+                + "if(!target&&!boxes)return need?'length:'+need:'none';"
                 + "var first=target||boxes[0];var form=first.form||(first.closest?first.closest('form'):null);"
                 + "var sent=false;if(form){form.addEventListener('submit',function(){sent=true;},true);}"
                 + "if(target){target.focus();put(target,code);}else{for(var b=0;b<boxes.length;b++){put(boxes[b],code.charAt(b));}}"

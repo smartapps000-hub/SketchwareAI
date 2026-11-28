@@ -65,9 +65,14 @@ public final class GitHubSample {
         return create(context);
     }
 
-    /** Makes the sample project (worker thread) and returns its id. */
-    public static synchronized String create(Context context) {
-        return create(context, ProjectIds.free(lC.b()));
+    /**
+     * Makes the sample project (worker thread) and returns its id. v2.1.6: the id is picked and the project made under
+     * {@link ProjectIds#RESTORE_LOCK} (the GitHub + JSON Live Demo, restores and New Project pick ids too).
+     */
+    public static String create(Context context) {
+        synchronized (ProjectIds.RESTORE_LOCK) {
+            return create(context, ProjectIds.free(lC.b()));
+        }
     }
 
     /** The same with the project id given (the harness's fixture uses a fixed one). */
@@ -264,13 +269,13 @@ public final class GitHubSample {
         return blocks;
     }
 
-    private static BlockBean block(String id, String spec, String type, String opCode, String... parameters) {
+    static BlockBean block(String id, String spec, String type, String opCode, String... parameters) {
         BlockBean b = new BlockBean(id, spec, type, "", opCode);
         java.util.Collections.addAll(b.parameters, parameters);
         return b;
     }
 
-    private static ViewBean view(eC project, String xml, String id, int type, String convert, String parent, int index) {
+    static ViewBean view(eC project, String xml, String id, int type, String convert, String parent, int index) {
         ViewBean bean = new ViewBean(id, type);
         bean.convert = convert;
         bean.image.resName = "default_image";

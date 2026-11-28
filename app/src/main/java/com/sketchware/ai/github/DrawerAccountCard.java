@@ -125,7 +125,7 @@ public final class DrawerAccountCard {
             // v2.1.4 (owner's 22 Nov report): GitHub's own record of why it ended the sign-in, one tap away; review
             // (LOW): only when GitHub refused it (not when this phone can't read the saved sign-in)
             if (GitHubSession.isRefused(card.getContext())) {
-                whyLink(status, profile.problem);
+                whyLink(status, profile.problem, profile.login);
             } else {
                 status.setMovementMethod(null);
             }
@@ -164,9 +164,10 @@ public final class DrawerAccountCard {
 
     /**
      * v2.1.4: "Why? GitHub's security log ›" after the refusal's words: GitHub's own record (sign-ins ended, by whom and
-     * why) opens in the browser.
+     * why) opens in the browser. v2.1.6 (owner's screenshot: the browser showed another account's log): first a note
+     * naming the account signed in here, so the matching account's log is read.
      */
-    private static void whyLink(TextView status, String problem) {
+    private static void whyLink(TextView status, String problem, String login) {
         String why = "Why? GitHub's security log ›";
         android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(problem).append("  ");
         int start = text.length();
@@ -174,14 +175,7 @@ public final class DrawerAccountCard {
         text.setSpan(new android.text.style.ClickableSpan() {
             @Override
             public void onClick(View widget) {
-                try {
-                    widget.getContext().startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse(GitHubSession.SECURITY_LOG_URL))
-                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (RuntimeException e) {
-                    android.widget.Toast.makeText(widget.getContext(), "No browser to open GitHub's security log",
-                            android.widget.Toast.LENGTH_SHORT).show();
-                }
+                securityLog(widget.getContext(), login);
             }
 
             @Override
@@ -193,6 +187,40 @@ public final class DrawerAccountCard {
         }, start, text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         status.setText(text);
         status.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+    }
+
+    /** v2.1.6: which account to look at, then GitHub's security log in the browser. */
+    static void securityLog(android.content.Context context, String login) {
+        String who = login == null || login.isEmpty() ? null : "@" + login;
+        android.app.Activity activity = context instanceof android.app.Activity ? (android.app.Activity) context : null;
+        if (activity == null || who == null || activity.isFinishing()) {
+            if (who != null) {
+                android.widget.Toast.makeText(context, "Signed in here as " + who + ": check that account's log",
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
+            openSecurityLog(context);
+            return;
+        }
+        new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+                .setTitle("Signed in here as " + who)
+                .setMessage("GitHub's security log shows the account your browser is signed in to. If it shows another "
+                        + "account, switch to " + who + " there first (GitHub: your picture → Switch account), then read "
+                        + "the log: \"oauth_authorization.destroy\" or a revoked token says who ended this sign-in and when.")
+                .setPositiveButton("Open security log", (d, w) -> openSecurityLog(activity))
+                .setNeutralButton("Copy " + who, (d, w) -> copy(activity.getWindow().getDecorView(), "GitHub user name", login))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private static void openSecurityLog(android.content.Context context) {
+        try {
+            context.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(GitHubSession.SECURITY_LOG_URL))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            android.widget.Toast.makeText(context, "No browser to open GitHub's security log",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** v2.0.5: one line, never wrapped; a long value keeps its start and end ("bammidieswar…@gmail.com"). */

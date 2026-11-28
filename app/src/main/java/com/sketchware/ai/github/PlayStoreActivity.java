@@ -1089,7 +1089,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 if (why == null) {
                     // v2.1.5: kept for this account; new apps of followed creators come as notifications
                     Toast.makeText(this, on ? "Following @" + owner : "Unfollowed @" + owner, Toast.LENGTH_SHORT).show();
-                    if (on) askNotifications(owner);
+                    // v2.1.6: not when the notifications are switched off in Settings
+                    if (on && PlayStore.noticesSwitchOn(this, TokenStore.get(this).login())) askNotifications(owner);
                 } else if (needsScope) {
                     new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                             .setTitle("Sign in again to follow")

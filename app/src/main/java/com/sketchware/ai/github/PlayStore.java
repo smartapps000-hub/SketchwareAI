@@ -1138,8 +1138,31 @@ public final class PlayStore {
      * people on github.com doesn't get them by itself after an update).
      */
     public static boolean noticesOn(Context context, String me) {
-        return me != null && context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE)
-                .getBoolean("notices_" + me.toLowerCase(Locale.ROOT), false);
+        if (me == null) return false;
+        android.content.SharedPreferences p = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE);
+        String key = me.toLowerCase(Locale.ROOT);
+        return p.getBoolean("notices_" + key, false) && !p.getBoolean("notices_off_" + key, false);
+    }
+
+    /**
+     * v2.1.6 (owner's ask "an in-app switch to turn off follow notifications"): Settings' switch, per account. Off is
+     * kept until it is switched on again (a Follow never turns it back on); on also counts creators followed on
+     * github.com.
+     */
+    public static boolean noticesSwitchOn(Context context, String me) {
+        return me != null && !context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE)
+                .getBoolean("notices_off_" + me.toLowerCase(Locale.ROOT), false);
+    }
+
+    public static void setNoticesSwitch(Context context, String me, boolean on) {
+        if (me == null) return;
+        String key = me.toLowerCase(Locale.ROOT);
+        android.content.SharedPreferences.Editor e = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE).edit();
+        e.putBoolean("notices_off_" + key, !on);
+        if (on) e.putBoolean("notices_" + key, true);
+        e.apply();
     }
 
     /** A GitHub account in a followers / following list. */

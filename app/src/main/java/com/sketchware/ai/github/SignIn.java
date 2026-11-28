@@ -136,6 +136,13 @@ public final class SignIn {
      */
     public synchronized void start(String clientId) {
         if (starting || finishing || pending != null) return;
+        // v2.1.6: a copy signed with another key never signs in (SignatureGuard)
+        if (!SignatureGuard.trusted()) {
+            error = SignatureGuard.REFUSAL;
+            errorCode = "untrusted";
+            changed();
+            return;
+        }
         long now = android.os.SystemClock.elapsedRealtime();
         if (now < startBlockedUntil) {
             error = shortMessage("rate_limited");

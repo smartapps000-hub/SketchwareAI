@@ -38,16 +38,18 @@ class JavacLogger(
             context.put(Log.logKey, Context.Factory<Log> {
                 JavacLogger(
                     it,
-                    PrintWriter(MessageCollectorAdapter(messageCollector, CompilerMessageSeverity.ERROR)),
-                    PrintWriter(MessageCollectorAdapter(messageCollector, CompilerMessageSeverity.WARNING)),
-                    PrintWriter(MessageCollectorAdapter(messageCollector, CompilerMessageSeverity.INFO))
+                    PrintWriter(JavacMessageWriter(messageCollector, CompilerMessageSeverity.ERROR)),
+                    PrintWriter(JavacMessageWriter(messageCollector, CompilerMessageSeverity.WARNING)),
+                    PrintWriter(JavacMessageWriter(messageCollector, CompilerMessageSeverity.INFO))
                 )
             })
         }
     }
 }
 
-private class MessageCollectorAdapter(
+// v2.1.6: renamed from MessageCollectorAdapter (the embedded compiler jar has the same class, same code): a
+// non-debuggable build merges every DEX file and D8 refuses a class defined twice
+private class JavacMessageWriter(
     private val messageCollector: MessageCollector,
     private val severity: CompilerMessageSeverity
 ) : Writer() {

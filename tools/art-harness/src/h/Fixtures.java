@@ -96,6 +96,11 @@ public class Fixtures {
             createLikeNewProjectScreen(spec, sc_id);
             return;
         }
+        if (spec.equals("jsonsample")) {
+            // v2.1.6: the "GitHub + JSON Live Demo", made by the app's own JsonSample (as the Demo tab's button makes it)
+            call(c("com.sketchware.ai.project.JsonSample"), "create", Main.CTX, sc_id);
+            return;
+        }
         if (spec.equals("ghsample")) {
             // v2.0.3: the "GitHub API Demo" sample, made by the app's own GitHubSample (as the guide's button makes it)
             call(c("com.sketchware.ai.project.GitHubSample"), "create", Main.CTX, sc_id);

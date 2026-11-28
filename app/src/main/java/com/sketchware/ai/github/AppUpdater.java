@@ -45,6 +45,11 @@ public final class AppUpdater {
     }
 
     public static void start(Activity activity, AppControl.Config config) {
+        // v2.1.6: a copy signed with another key never installs updates by itself (SignatureGuard)
+        if (!SignatureGuard.trusted()) {
+            Toast.makeText(activity, SignatureGuard.REFUSAL, Toast.LENGTH_LONG).show();
+            return;
+        }
         if (config == null || config.updateUrl == null) {
             Toast.makeText(activity, "No update link yet: try again in a minute.", Toast.LENGTH_LONG).show();
             return;
@@ -89,7 +94,10 @@ public final class AppUpdater {
                 if (target.isFile() && config.updateSha256.equals(sha256(target))) {
                     main.post(() -> progress.update(96, "Downloaded before and checked again"));
                 } else {
-                    String sha = download(config.updateUrl, part, cancelled, (done, total) -> main.post(() -> {
+                    // v2.1.6: the links in order (the GitHub Release asset first): the first whose file matches
+                    java.util.List<String> links = config.updateUrls.isEmpty()
+                            ? java.util.Collections.singletonList(config.updateUrl) : config.updateUrls;
+                    String sha = downloadFirst(links, config.updateSha256, part, cancelled, (done, total) -> main.post(() -> {
                         int percent = total > 0 ? 2 + (int) (93 * Math.min(1.0, done / (double) total)) : 50;
                         String text = "Downloading… " + CloudSync.megabytes(done)
                                 + (total > 0 ? " of " + CloudSync.megabytes(total) : "");
@@ -140,6 +148,35 @@ public final class AppUpdater {
 
     interface Bytes {
         void got(long done, long total);
+    }
+
+    /**
+     * v2.1.6: {@link #download} from each link in turn until one gives the file with {@code sha256}; returns that
+     * SHA-256, else the last one read (the caller then says it doesn't match), or throws the last failure.
+     */
+    static String downloadFirst(java.util.List<String> links, String sha256, File to, boolean[] cancelled, Bytes bytes)
+            throws Exception {
+        Exception last = null;
+        String lastSha = null;
+        for (String link : links) {
+            if (link == null) continue;
+            if (cancelled[0]) throw new IOException("Cancelled.");
+            try {
+                String sha = download(link, to, cancelled, bytes);
+                if (sha256 == null || sha256.equals(sha)) return sha;
+                lastSha = sha;
+                //noinspection ResultOfMethodCallIgnored
+                to.delete();
+            } catch (Exception e) {
+                if (cancelled[0]) throw e;
+                last = e;
+                //noinspection ResultOfMethodCallIgnored
+                to.delete();
+            }
+        }
+        if (lastSha != null) return lastSha;
+        if (last != null) throw last;
+        throw new IOException("No update link.");
     }
 
     /** Downloads {@code url} (GitHub's hosts only, redirects followed by hand) into {@code to}; returns its SHA-256. */

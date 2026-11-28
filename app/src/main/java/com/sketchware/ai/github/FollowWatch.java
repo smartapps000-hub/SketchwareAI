@@ -168,9 +168,22 @@ public final class FollowWatch extends JobService {
                 .setContentIntent(pi)
                 .setAutoCancel(true);
         try {
+            // v2.1.6: switched off in Settings while this check ran: nothing shown
+            if (!PlayStore.noticesOn(app, TokenStore.get(app).login())) return;
             nm.notify(id, b.build());
         } catch (RuntimeException ignored) {
             // notifications off
+        }
+    }
+
+    /** v2.1.6: the follow notifications shown now (ids 30000-34095) go when the switch is turned off. */
+    public static void clearNotices(NotificationManager nm) {
+        try {
+            for (android.service.notification.StatusBarNotification n : nm.getActiveNotifications()) {
+                if (n.getId() >= 30000 && n.getId() <= 30000 + 0xfff) nm.cancel(n.getTag(), n.getId());
+            }
+        } catch (RuntimeException ignored) {
+            // nothing to clear
         }
     }
 }

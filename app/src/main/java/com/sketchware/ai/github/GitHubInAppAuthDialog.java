@@ -184,6 +184,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** The window on screen, if any: one at a time (they share the one sign-in of {@link SignIn}). */
     private static GitHubInAppAuthDialog current;
 
+    /** v2.1.6: a sign-in window is on screen ({@link SignInPrompt} never opens a second one). */
+    public static boolean isOpen() {
+        GitHubInAppAuthDialog open = current;
+        return open != null && !open.closed && open.isShowing();
+    }
+
     /** Opens the window and starts (or continues) a sign-in; a window already open on this screen is reused. */
     public static GitHubInAppAuthDialog show(Activity activity, Done done) {
         GitHubInAppAuthDialog open = current;
@@ -1172,6 +1178,14 @@ public final class GitHubInAppAuthDialog extends Dialog {
                 + "page below (authenticator app, SMS or a recovery code).");
         else if (send) note = "GitHub sends a code to your account's e-mail.";
         else if ("code".equals(kind)) note = "From GitHub's e-mail or your authenticator app.";
+        // v2.1.6: the field's own length, said before anything is pasted
+        int digits = p != null && p.codeField ? p.codeLength : 0;
+        if (digits > 0 && !mobile && !send && !login) {
+            String need = "This page takes an " + digits + "-digit code: copy the " + digits + "-digit code from "
+                    + ("two-factor".equals(kind) ? "your authenticator app" : "Gmail") + ", then tap Paste & fill.";
+            if (digits == 6) need = need.replace("an 6", "a 6");
+            note = note == null ? need : note + " " + need;
+        }
         chrome.otpNote.setText(note == null ? "" : note);
         chrome.otpNote.setVisibility(note == null ? View.GONE : View.VISIBLE);
         chrome.sendMail.setVisibility(offersMail ? View.VISIBLE : View.GONE);
@@ -1363,8 +1377,30 @@ public final class GitHubInAppAuthDialog extends Dialog {
             return;
         }
         if (OtpAssist.isDeviceCode(copied)) return;
-        String code = OtpAssist.codeFrom(copied);
-        if (code != null) autoFill(code, "the clipboard");
+        // v2.1.6: only a code of the length GitHub's field takes goes in by itself
+        int need = neededLength();
+        String code = OtpAssist.codeFrom(copied, need);
+        if (code != null) {
+            autoFill(code, "the clipboard");
+            return;
+        }
+        String other = OtpAssist.codeFrom(copied);
+        if (other != null && need > 0) status(lengthHint(need, other.length()), false);
+    }
+
+    /** v2.1.6: the digits GitHub's code field on this page takes (6 or 8; 0 = the page doesn't say). */
+    private int neededLength() {
+        return probe != null && probe.codeField ? probe.codeLength : 0;
+    }
+
+    /**
+     * v2.1.6 (owner's screenshot: "Please match the format requested" after a 6-digit code went into GitHub's 8-digit
+     * field): what to copy instead.
+     */
+    private String lengthHint(int need, int got) {
+        String where = "two-factor".equals(otpKind) ? "your authenticator app" : "Gmail";
+        return "This GitHub page needs " + (need == 8 ? "an 8" : "a 6") + "-digit code" + (got > 0 ? " (the copied one has "
+                + got + " digits)" : "") + ". Copy the " + need + "-digit code from " + where + ", then tap Paste & fill.";
     }
 
     /** v2.1.4: a code that came by itself (never the same one twice in two minutes). */
@@ -1382,6 +1418,14 @@ public final class GitHubInAppAuthDialog extends Dialog {
         page.evaluateJavascript(OtpAssist.fillScript(code), result -> {
             if (closed || page != web) return;
             String r = result == null ? "" : result.replace("\"", "");
+            if (r.startsWith("length:")) {
+                // v2.1.6: the field takes another number of digits: nothing typed, never kept for later
+                int need = "length:8".equals(r) ? 8 : 6;
+                if (code.equals(waitingCode)) waitingCode = null;
+                lastAutoCode = null;
+                status(lengthHint(need, code.length()), true);
+                return;
+            }
             if ("none".equals(r)) {
                 if (from != null) {
                     // the field isn't there yet: kept for the moment it comes
@@ -1462,10 +1506,18 @@ public final class GitHubInAppAuthDialog extends Dialog {
                     + nextStep(), false);
             return;
         }
-        String code = OtpAssist.codeFrom(copied);
+        // v2.1.6: the code of the length GitHub's field takes (an 8-digit field never gets a 6-digit code)
+        int need = neededLength();
+        String code = OtpAssist.codeFrom(copied, need);
         if (code == null) {
+            String other = OtpAssist.codeFrom(copied);
+            if (other != null && need > 0) {
+                status(lengthHint(need, other.length()), true);
+                return;
+            }
             status((copied == null || copied.toString().trim().isEmpty() ? "Nothing copied yet. "
-                    : "What's copied has no 6- or 8-digit code. ") + nextStep(), false);
+                    : "What's copied has no " + (need > 0 ? need + "-digit" : "6- or 8-digit") + " code. ") + nextStep(),
+                    false);
             return;
         }
         fillCode(code, null);

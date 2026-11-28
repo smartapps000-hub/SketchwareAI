@@ -278,6 +278,8 @@ public final class GitHubSession {
                 .putString("refused_note", note)
                 .apply();
         changed();
+        // v2.1.6: the sign-in window opens by itself on Home or a GitHub screen in front
+        SignInPrompt.refused();
     }
 
     /** v2.0.3: GitHub accepted the saved token again (or a new sign-in): the mark goes. */

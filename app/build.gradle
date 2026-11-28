@@ -23,8 +23,8 @@ android {
         // v1.9.0: Android 15 (35). The themes opt out of the forced edge-to-edge and the manifest keeps onBackPressed
         // (enableOnBackInvokedCallback="false"): the editors save there. 36+ removes the edge-to-edge opt-out (roadmap).
         targetSdk = 35
-        versionCode 212
-        versionName "v2.1.5-" + getCommitHash()
+        versionCode 213
+        versionName "v2.1.6-" + getCommitHash()
 
         buildConfigField("String", "GIT_HASH", "\"${gitCommitHash}\"")
 
@@ -56,6 +56,18 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
+        // v2.1.6 (owner's directive "android:debuggable=false"): the shipped APK is the debug variant (signed with the
+        // repository's key so it installs over every earlier release); it is no longer debuggable (no debugger, no
+        // run-as into the app's private files). Nothing reads BuildConfig.DEBUG.
+        debug {
+            debuggable false
+        }
+    }
+
+    lint {
+        // v2.1.6: a non-debuggable variant makes assemble run lint's "vital" checks, which stop on upstream's own
+        // style cycles (values/styles.xml, values-hdpi-v4); lint runs as before when asked for (lintMinApi26Debug)
+        checkReleaseBuilds = false
     }
 
     packaging {

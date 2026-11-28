@@ -96,6 +96,27 @@ public class SettingsActivity extends BaseAppCompatActivity {
         list.addView(v.actionCard(R.drawable.ob_ic_restore, "Restore projects", "GitHub, Demo projects, backups on this phone",
                 x -> startActivity(new Intent(this, GitHubBackupsActivity.class))), v.full(-1, 8));
 
+        // v2.1.6 (owner's ask): follow notifications can be switched off, per GitHub account
+        list.addView(title("Notifications"), v.full(-1, 22));
+        String me = com.sketchware.ai.github.TokenStore.get(this).login();
+        android.widget.CheckBox notices = v.checkBox(me == null
+                        ? "New apps from creators you follow (sign in first)"
+                        : "New apps and versions from creators I follow",
+                me != null && com.sketchware.ai.github.PlayStore.noticesSwitchOn(this, me));
+        notices.setEnabled(me != null);
+        notices.setOnCheckedChangeListener((b, on) -> {
+            String login = com.sketchware.ai.github.TokenStore.get(this).login();
+            if (login == null) return;
+            com.sketchware.ai.github.PlayStore.setNoticesSwitch(this, login, on);
+            // the 4-hour check starts or stops with the switch (off: a pending one is cancelled)
+            com.sketchware.ai.github.FollowWatch.schedule(this);
+            if (!on) {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null) com.sketchware.ai.github.FollowWatch.clearNotices(nm);
+            }
+        });
+        list.addView(notices, v.full(-1, 4));
+
         list.addView(title("Sound"), v.full(-1, 22));
         android.widget.CheckBox sound = v.checkBox("Honey-Drop sound on the bottom bar (silent when the phone is)",
                 HoneyDropBar.soundOn(this));

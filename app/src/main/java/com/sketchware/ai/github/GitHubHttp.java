@@ -59,6 +59,28 @@ public final class GitHubHttp {
         uploads = uploadsBase;
     }
 
+    /**
+     * v2.1.6 (owner's directive "HTTPS host allowlist for authenticated requests"): where the token may go: https, the
+     * default port, no user part, host api.github.com or uploads.github.com (the tests' local endpoints instead, when
+     * set). Downloads that GitHub sends on to its file hosts (objects / raw / release-assets.githubusercontent.com) never
+     * carry it.
+     */
+    static boolean tokenAllowed(String url) {
+        if (url == null) return false;
+        String a = api();
+        String u = uploads();
+        if (!DEFAULT_API.equals(a) || !DEFAULT_UPLOADS.equals(u)) return url.startsWith(a + "/") || url.startsWith(u + "/");
+        try {
+            URL parsed = new URL(url);
+            String host = parsed.getHost() == null ? "" : parsed.getHost().toLowerCase(java.util.Locale.ROOT);
+            return "https".equals(parsed.getProtocol()) && (parsed.getPort() == -1 || parsed.getPort() == 443)
+                    && parsed.getUserInfo() == null && (host.equals("api.github.com") || host.equals("uploads.github.com"))
+                    && (url.startsWith(DEFAULT_API + "/") || url.startsWith(DEFAULT_UPLOADS + "/"));
+        } catch (java.net.MalformedURLException e) {
+            return false;
+        }
+    }
+
     static synchronized String uploads() {
         return uploads;
     }
@@ -644,8 +666,13 @@ public final class GitHubHttp {
         }
         c.setRequestProperty("User-Agent", userAgent);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        // the token goes only to the API and upload hosts (v2.0.4: never to the file host a download is sent on to)
-        if (token != null && (url.startsWith(api() + "/") || url.startsWith(uploads() + "/"))) {
+        // the token goes only to the API and upload hosts (v2.0.4: never to the file host a download is sent on to);
+        // v2.1.6: over https to api.github.com / uploads.github.com only, and never from a copy signed with another key
+        if (token != null && tokenAllowed(url)) {
+            if (!SignatureGuard.trusted()) {
+                c.disconnect();
+                throw new NoRetry(SignatureGuard.REFUSAL, null);
+            }
             c.setRequestProperty("Authorization", "Bearer " + token.trim());
         }
         ACTIVE.put(Thread.currentThread(), c);

@@ -75,14 +75,43 @@ public final class Demos {
         mod.agus.jcoderz.lib.FileUtil.writeFile(mark(scId).getAbsolutePath(), o.toString());
     }
 
-    /** Newest demo version first, then the newest project (the higher id). */
+    /** The demo's kind ("github" for one without a mark or kind). */
+    public static String kind(String scId) {
+        JsonObject o = readMark(scId);
+        try {
+            com.google.gson.JsonElement k = o == null ? null : o.get("demo");
+            return k != null && k.isJsonPrimitive() ? k.getAsString() : "github";
+        } catch (RuntimeException e) {
+            return "github";
+        }
+    }
+
+    /** v2.1.6: the order of the kinds in the Demo tab (the GitHub + JSON Live Demo first, then the GitHub API Demo). */
+    static int rank(String kind) {
+        if (JsonSample.KIND.equals(kind)) return 0;
+        if ("github".equals(kind)) return 1;
+        return 2;
+    }
+
+    /**
+     * v2.1.6: by kind ({@link #rank}: the GitHub + JSON Live Demo first), then the newest demo version, then the newest
+     * project (the higher id). Each mark is read once.
+     */
     public static void sort(List<HashMap<String, Object>> demos) {
+        HashMap<String, int[]> keys = new HashMap<>();
+        for (HashMap<String, Object> p : demos) {
+            String id = yB.c(p, "sc_id");
+            if (keys.containsKey(id)) continue;
+            boolean numeric = id.matches("\\d+");
+            keys.put(id, new int[]{numeric ? rank(kind(id)) : 1, numeric ? version(id) : 1});
+        }
         Collections.sort(demos, (a, b) -> {
             String x = yB.c(a, "sc_id");
             String y = yB.c(b, "sc_id");
-            int vx = x.matches("\\d+") ? version(x) : 1;
-            int vy = y.matches("\\d+") ? version(y) : 1;
-            if (vx != vy) return Integer.compare(vy, vx);
+            int[] kx = keys.get(x);
+            int[] ky = keys.get(y);
+            if (kx[0] != ky[0]) return Integer.compare(kx[0], ky[0]);
+            if (kx[1] != ky[1]) return Integer.compare(ky[1], kx[1]);
             return Long.compare(number(y), number(x));
         });
     }

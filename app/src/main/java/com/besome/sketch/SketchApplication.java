@@ -37,6 +37,10 @@ public class SketchApplication extends Application {
                 com.sketchware.remod.BuildConfig.VERSION_CODE + "|" + com.sketchware.remod.BuildConfig.VERSION_NAME);
         com.sketchware.ai.ui.ThemeMode.install(this);
         com.sketchware.ai.ui.LegacyScreens.install(this);
+        // v2.1.6: the signing certificate against the release's (GitHub sign-in, publishing and updates need it)
+        com.sketchware.ai.github.SignatureGuard.init(this);
+        // v2.1.6: a sign-in GitHub refused opens the sign-in window by itself (Home and the GitHub screens only)
+        com.sketchware.ai.github.SignInPrompt.install(this);
         Thread.UncaughtExceptionHandler uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e("SketchApplication", "Uncaught exception on thread " + thread.getName(), throwable);

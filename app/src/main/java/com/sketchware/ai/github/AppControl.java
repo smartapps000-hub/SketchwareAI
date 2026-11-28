@@ -49,6 +49,12 @@ public final class AppControl {
         public boolean requireLogin;
         public String statusMessage = "";
         public String updateUrl;
+        /**
+         * v2.1.6: the update's download links in order (app-control's {@code update_urls}, then {@code update_url}):
+         * the permanent GitHub Release asset first, the binaries branch's copy after it. Only links to the owner's
+         * GitHub ({@link #safeUrl}); the SHA-256 is checked whichever one answers.
+         */
+        public java.util.List<String> updateUrls = new java.util.ArrayList<>();
         /** A link for the status message (the update link is for updates only). */
         public String messageUrl;
         /** v2.1.0: an update below {@link #minVersionCode} can't be put off (no Later; Create waits for it). */
@@ -116,6 +122,16 @@ public final class AppControl {
             c.statusMessage = message == null ? "" : message.trim();
             if (c.statusMessage.length() > 500) c.statusMessage = c.statusMessage.substring(0, 500);
             c.updateUrl = safeUrl(DeviceFlow.string(o, "update_url"));
+            if (o.has("update_urls") && o.get("update_urls").isJsonArray()) {
+                for (com.google.gson.JsonElement e : o.getAsJsonArray("update_urls")) {
+                    if (c.updateUrls.size() >= 4) break;
+                    String link = e.isJsonPrimitive() ? safeUrl(e.getAsString()) : null;
+                    if (link != null && !c.updateUrls.contains(link)) c.updateUrls.add(link);
+                }
+            }
+            if (c.updateUrl != null && !c.updateUrls.contains(c.updateUrl)) c.updateUrls.add(c.updateUrl);
+            // the first link stands for the update everywhere a single one is shown (an old version reads update_url)
+            if (c.updateUrl == null && !c.updateUrls.isEmpty()) c.updateUrl = c.updateUrls.get(0);
             c.messageUrl = safeUrl(DeviceFlow.string(o, "message_url"));
             if (o.has("force_update") && o.get("force_update").isJsonPrimitive()) c.forceUpdate = o.get("force_update").getAsBoolean();
             String sha = DeviceFlow.string(o, "update_sha256");
@@ -256,6 +272,8 @@ public final class AppControl {
         // the main screen in front asks now; else its next onResume does (a project may be open meanwhile)
         if (a.hasWindowFocus()) AuthGuard.check(a);
         SingleDeviceGuard.check(a);
+        // v2.1.6: a sign-in GitHub refused (also found at the first start after an update): the window opens now
+        SignInPrompt.maybeAsk(a);
     }
 
     /** {@link #passGate} on the main thread, or only the mark when the screen is gone. */
