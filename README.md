@@ -2,6 +2,20 @@
 
 This branch holds only built files, no source. The source is the `main` branch.
 
+## v2.1.5 (versionCode 212, `v2.1.5-c9bb9ae-minApi26`)
+
+`apk/Sketchware_AI_v2.1.5.apk`, sha256 `392da6f2e1262ac2c214ee0474b3a27032a962c12aff8ab94ca085c834789c38` (Git LFS).
+A required update for v2.1.4 (it offers it by itself, downloads it in the app and checks this SHA-256). Follow works like
+Subscribe (one fixed pill, Following kept per account, a bounce), followers / following lists, "From creators you follow"
+first in the store and a notification when a followed creator publishes an app or version; the creator's country and
+level come by themselves (✔ Verified at 30 days with an app, ★ Trusted at a year with 3 apps, 10 followers or 50
+downloads); a sign-in code copied while the window is open (Gmail's Copy code) goes in at once, Paste & fill explains the
+next step, GitHub Mobile's page is explained; the JSON power pack (19 blocks reading and changing JSON by a path, on
+Android's own org.json). Release notes: `releases/v2.1.5/RELEASE-NOTES.md` on `main`.
+
+- https://media.githubusercontent.com/media/smartapps000-hub/SketchwareAI/binaries/apk/Sketchware_AI_v2.1.5.apk
+- https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.5.apk
+
 ## v2.1.4 (versionCode 211, `v2.1.4-23ec136-minApi26`)
 
 `apk/Sketchware_AI_v2.1.4.apk`, sha256 `0687a5a7958276e213941d82976de14e94dedfc4a8ef285348bc241a26bab0a4` (Git LFS).
