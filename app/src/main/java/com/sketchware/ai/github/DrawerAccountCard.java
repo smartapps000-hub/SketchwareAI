@@ -192,8 +192,8 @@ public final class DrawerAccountCard {
     /** v2.1.6: which account to look at, then GitHub's security log in the browser. */
     static void securityLog(android.content.Context context, String login) {
         String who = login == null || login.isEmpty() ? null : "@" + login;
-        android.app.Activity activity = context instanceof android.app.Activity ? (android.app.Activity) context : null;
-        if (activity == null || who == null || activity.isFinishing()) {
+        android.app.Activity screen = context instanceof android.app.Activity ? (android.app.Activity) context : null;
+        if (screen == null || who == null || screen.isFinishing()) {
             if (who != null) {
                 android.widget.Toast.makeText(context, "Signed in here as " + who + ": check that account's log",
                         android.widget.Toast.LENGTH_LONG).show();
@@ -201,13 +201,13 @@ public final class DrawerAccountCard {
             openSecurityLog(context);
             return;
         }
-        new com.sketchware.ai.ui.ObAlertBuilder(activity, R.style.SketchwareAI_GlassAlertDialog)
+        new com.sketchware.ai.ui.ObAlertBuilder(screen, R.style.SketchwareAI_GlassAlertDialog)
                 .setTitle("Signed in here as " + who)
                 .setMessage("GitHub's security log shows the account your browser is signed in to. If it shows another "
                         + "account, switch to " + who + " there first (GitHub: your picture → Switch account), then read "
                         + "the log: \"oauth_authorization.destroy\" or a revoked token says who ended this sign-in and when.")
-                .setPositiveButton("Open security log", (d, w) -> openSecurityLog(activity))
-                .setNeutralButton("Copy " + who, (d, w) -> copy(activity.getWindow().getDecorView(), "GitHub user name", login))
+                .setPositiveButton("Open security log", (d, w) -> openSecurityLog(screen))
+                .setNeutralButton("Copy " + who, (d, w) -> copy(screen.getWindow().getDecorView(), "GitHub user name", login))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }

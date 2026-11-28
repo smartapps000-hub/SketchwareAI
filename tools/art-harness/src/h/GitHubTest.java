@@ -1949,6 +1949,162 @@ public final class GitHubTest {
                         && !helper215.contains("->"),
                 jsonBlocks.length + " " + guided215 + " " + ascii215);
 
+        // --- v2.1.6: sign-in code length, signature gate, token hosts, demo order, sign-in prompt, notice switch, links
+        Class<?> probe216 = c("com.sketchware.ai.github.OtpAssist$Probe");
+        Object eight216 = call(probe216, "parse", "1|0|b***@gmail.com|0|0|8");
+        Object six216 = call(probe216, "parse", "1|0||0|0|6");
+        Object noField216 = call(probe216, "parse", "0|1||1|0|8");
+        Object five216 = call(probe216, "parse", "1|0||0|0");
+        check("v2.1.6: the page reader's sixth part is the code length (6 / 8; 0 or a page without a field: not said; "
+                        + "anything else refused; five parts still read)",
+                eight216 != null && Integer.valueOf(8).equals(get(eight216, "codeLength"))
+                        && six216 != null && Integer.valueOf(6).equals(get(six216, "codeLength"))
+                        && noField216 != null && Integer.valueOf(0).equals(get(noField216, "codeLength"))
+                        && five216 != null && Integer.valueOf(0).equals(get(five216, "codeLength"))
+                        && call(probe216, "parse", "1|0||0|0|7") == null && call(probe216, "parse", "1|0||0|0|x") == null,
+                eight216 == null ? null : get(eight216, "codeLength"));
+        check("v2.1.6: the copied code of the field's length (owner's screenshot: a 6-digit code in the 8-digit field)",
+                "12345678".equals(call(otp215, "codeFrom", "Device 482913 · your code is 12345678", 8))
+                        && call(otp215, "codeFrom", "482913", 8) == null
+                        && "482913".equals(call(otp215, "codeFrom", "482913", 6))
+                        && "482913".equals(call(otp215, "codeFrom", "482913", 0))
+                        && "12345678".equals(call(otp215, "codeFrom", "1234 5678", 8))
+                        && call(otp215, "codeFrom", (Object) null, 8) == null,
+                call(otp215, "codeFrom", "Device 482913 · your code is 12345678", 8));
+        String fill216 = (String) call(otp215, "fillScript", "123456");
+        check("v2.1.6: the fill script refuses another length ('length:8') and never types it",
+                fill216.contains("'length:'+need") && fill216.contains("function wanted(") , fill216.length());
+        Class<?> guard216 = c("com.sketchware.ai.github.SignatureGuard");
+        String release216 = (String) get(guard216, "RELEASE_CERT_SHA256");
+        boolean trustedUnread = Boolean.TRUE.equals(call(guard216, "trusted"));
+        call(guard216, "setVerdictForTests", Boolean.FALSE);
+        boolean untrusted = Boolean.FALSE.equals(call(guard216, "trusted"));
+        String refusedOpen = null;
+        try {
+            call(c("com.sketchware.ai.github.GitHubHttp"), "open", "https://api.github.com/user", "GET", "gho_test");
+        } catch (Throwable t) {
+            refusedOpen = t.getClass().getSimpleName() + ": " + t.getMessage();
+        }
+        boolean anonymousStill = true;
+        try {
+            call(c("com.sketchware.ai.github.GitHubHttp"), "open", "https://api.github.com/users/octocat", "GET", null);
+        } catch (Throwable t) {
+            anonymousStill = false;
+        }
+        call(guard216, "setVerdictForTests", (Object) null);
+        Object conn216 = call(c("com.sketchware.ai.github.GitHubHttp"), "open", "https://api.github.com/user", "GET", "gho_test");
+        String auth216 = (String) call(conn216, "getRequestProperty", "Authorization");
+        call(conn216, "disconnect");
+        check("v2.1.6: SignatureGuard: the release certificate (a40da80a…), any case, in a rotation history; another key "
+                        + "refuses every request with the token (anonymous ones go on); not read = never a lock-out",
+                "a40da80a59d170caa950cf15c18c454d47a39b26989d8b640ecd745ba71bf5dc".equals(release216)
+                        && Boolean.TRUE.equals(call(guard216, "matches", (Object) new String[]{release216}))
+                        && Boolean.TRUE.equals(call(guard216, "matches", (Object) new String[]{"00", release216.toUpperCase()}))
+                        && Boolean.FALSE.equals(call(guard216, "matches", (Object) new String[]{"ab"}))
+                        && Boolean.FALSE.equals(call(guard216, "matches", (Object) null))
+                        && trustedUnread && untrusted && refusedOpen != null && refusedOpen.contains("official release key")
+                        && anonymousStill && "Bearer gho_test".equals(auth216),
+                refusedOpen + " | " + auth216);
+        Class<?> http216 = c("com.sketchware.ai.github.GitHubHttp");
+        String api216 = (String) call(http216, "api");
+        boolean defaults216 = "https://api.github.com".equals(api216);
+        check("v2.1.6: the token goes over https to api.github.com / uploads.github.com only",
+                !defaults216 || (Boolean.TRUE.equals(call(http216, "tokenAllowed", "https://api.github.com/user"))
+                        && Boolean.TRUE.equals(call(http216, "tokenAllowed", "https://uploads.github.com/repos/a/b/releases/1/assets"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", "http://api.github.com/user"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", "https://api.github.com.evil.example/user"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", "https://evil.example/?https://api.github.com/"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", "https://api.github.com:8443/user"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", "https://objects.githubusercontent.com/x"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", "https://raw.githubusercontent.com/a/b/main/x"))
+                        && Boolean.FALSE.equals(call(http216, "tokenAllowed", (Object) null))),
+                api216);
+        Class<?> demos216 = c("com.sketchware.ai.project.Demos");
+        File dataDir216 = new File(sketchware, "data");
+        for (String[] m : new String[][]{{"99911", "github", "3"}, {"99912", "githubjson", "1"}, {"99913", "github", "2"}}) {
+            call(demos216, "mark", m[0], m[1], Integer.parseInt(m[2]));
+        }
+        java.util.List<java.util.HashMap<String, Object>> demoList = new java.util.ArrayList<>();
+        for (String id : new String[]{"99913", "99911", "99912"}) {
+            java.util.HashMap<String, Object> p216 = new java.util.HashMap<>();
+            p216.put("sc_id", id);
+            demoList.add(p216);
+        }
+        call(demos216, "sort", demoList);
+        StringBuilder order216 = new StringBuilder();
+        for (java.util.HashMap<String, Object> p216 : demoList) order216.append(p216.get("sc_id")).append(' ');
+        String kind216 = (String) call(demos216, "kind", "99912");
+        for (String id : new String[]{"99911", "99912", "99913"}) deleteTree(new File(dataDir216, id));
+        check("v2.1.6: the GitHub + JSON Live Demo is first in Demo, then the GitHub API Demo's versions newest first",
+                "99912 99911 99913 ".equals(order216.toString()) && "githubjson".equals(kind216)
+                        && "githubjson".equals(get(c("com.sketchware.ai.project.JsonSample"), "KIND"))
+                        && "GitHub + JSON Live Demo".equals(get(c("com.sketchware.ai.project.JsonSample"), "NAME")),
+                order216 + kind216);
+        Class<?> prompt216 = c("com.sketchware.ai.github.SignInPrompt");
+        check("v2.1.6: the sign-in window opens by itself once per refusal (signed in, refused, not asked in this run, "
+                        + "closed fewer than three times)",
+                Boolean.TRUE.equals(call(prompt216, "shouldAsk", "me", true, "k1", null, 0))
+                        && Boolean.TRUE.equals(call(prompt216, "shouldAsk", "me", true, "k2", "k1", 2))
+                        && Boolean.FALSE.equals(call(prompt216, "shouldAsk", "me", true, "k1", "k1", 0))
+                        && Boolean.FALSE.equals(call(prompt216, "shouldAsk", "me", true, "k1", null, 3))
+                        && Boolean.FALSE.equals(call(prompt216, "shouldAsk", "me", false, "k1", null, 0))
+                        && Boolean.FALSE.equals(call(prompt216, "shouldAsk", null, true, "k1", null, 0))
+                        && Boolean.FALSE.equals(call(prompt216, "shouldAsk", "me", true, null, null, 0)), null);
+        call(prompt216, "noteClosed", CTX, "k9");
+        call(prompt216, "noteClosed", CTX, "k9");
+        int closesK9 = (Integer) call(prompt216, "closes", CTX, "k9");
+        call(prompt216, "noteClosed", CTX, "k10");
+        int closesK9After = (Integer) call(prompt216, "closes", CTX, "k9");
+        int closesK10 = (Integer) call(prompt216, "closes", CTX, "k10");
+        check("v2.1.6: closes are counted for that refusal only (a new refusal starts again)",
+                closesK9 == 2 && closesK9After == 0 && closesK10 == 1, closesK9 + " " + closesK9After + " " + closesK10);
+        Class<?> store216 = c("com.sketchware.ai.github.PlayStore");
+        String me216 = "Switch216";
+        boolean before216 = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, me216));
+        boolean switchDefault = Boolean.TRUE.equals(call(store216, "noticesSwitchOn", CTX, me216));
+        call(store216, "tapFollow", CTX, me216, "Erin", true);
+        boolean afterFollow = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, me216));
+        call(store216, "setNoticesSwitch", CTX, "switch216", false);
+        boolean off216 = Boolean.FALSE.equals(call(store216, "noticesOn", CTX, me216))
+                && Boolean.FALSE.equals(call(store216, "noticesSwitchOn", CTX, me216));
+        call(store216, "tapFollow", CTX, me216, "Finn", true);
+        boolean stillOff = Boolean.FALSE.equals(call(store216, "noticesOn", CTX, me216));
+        call(store216, "setNoticesSwitch", CTX, me216, true);
+        boolean backOn = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, me216));
+        call(store216, "setNoticesSwitch", CTX, "Other216", true);
+        boolean otherOnWithoutFollow = Boolean.TRUE.equals(call(store216, "noticesOn", CTX, "Other216"));
+        check("v2.1.6: Settings' switch for follow notifications: on by default, off stays off at a Follow, on again "
+                        + "works (also for creators followed on github.com), per account in any case",
+                !before216 && switchDefault && afterFollow && off216 && stillOff && backOn && otherOnWithoutFollow,
+                before216 + " " + switchDefault + " " + afterFollow + " " + off216 + " " + stillOff + " " + backOn);
+        String links216 = "{\"update_urls\":[\"https://github.com/smartapps000-hub/SketchwareAI/releases/download/v2.1.6/"
+                + "Sketchware_AI_v2.1.6.apk\",\"https://evil.example/x.apk\",\"https://github.com/smartapps000-hub/"
+                + "SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk\"],\"update_url\":\"https://github.com/"
+                + "smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk\"}";
+        Object linksConfig = call(control, "parse", links216);
+        java.util.List<?> urls216 = (java.util.List<?>) get(linksConfig, "updateUrls");
+        Object onlyList = call(control, "parse", "{\"update_urls\":[\"https://github.com/smartapps000-hub/SketchwareAI/"
+                + "releases/download/v2.1.6/Sketchware_AI_v2.1.6.apk\"]}");
+        check("v2.1.6: update links: the Release asset first, the binaries copy after it, other hosts dropped; "
+                        + "update_url stays what v2.1.5 reads (a file with only update_urls: its first)",
+                urls216.size() == 2 && String.valueOf(urls216.get(0)).contains("/releases/download/v2.1.6/")
+                        && String.valueOf(urls216.get(1)).contains("/raw/binaries/apk/")
+                        && String.valueOf(get(linksConfig, "updateUrl")).contains("/raw/binaries/apk/")
+                        && String.valueOf(get(onlyList, "updateUrl")).contains("/releases/download/v2.1.6/"),
+                urls216);
+        Object bytes216 = java.lang.reflect.Proxy.newProxyInstance(GitHubTest.class.getClassLoader(),
+                new Class<?>[]{c("com.sketchware.ai.github.AppUpdater$Bytes")}, (proxy, method, args) -> null);
+        String firstFailure = null;
+        File part216 = new File(dataDir216, "update216.part");
+        try {
+            call(c("com.sketchware.ai.github.AppUpdater"), "downloadFirst", java.util.Arrays.asList(
+                    "https://evil.example/a.apk", null, "http://github.com/x.apk"), "00", part216, new boolean[1], bytes216);
+        } catch (Throwable t) {
+            firstFailure = t.getMessage();
+        }
+        check("v2.1.6: the updater tries each link and never leaves GitHub's hosts (no file kept)",
+                firstFailure != null && firstFailure.contains("leads away from GitHub") && !part216.exists(), firstFailure);
+
         // --- a .swb with an entry outside its folder is refused
         File evilZip = new File(swb.getParentFile(), "evil.swb");
         try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(evilZip))) {

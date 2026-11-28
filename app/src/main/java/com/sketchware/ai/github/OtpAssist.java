@@ -196,7 +196,9 @@ public final class OtpAssist {
             if (p.length < 4 || p.length > 6) return null;
             String mail = p[2].trim();
             if (mail.length() > 120 || !mail.contains("@")) mail = null;
-            int length = p.length == 6 && ("6".equals(p[5]) || "8".equals(p[5])) ? Integer.parseInt(p[5]) : 0;
+            // the sixth part is 0, 6 or 8 (anything else: not this script's answer)
+            if (p.length == 6 && !p[5].matches("[068]")) return null;
+            int length = p.length == 6 && !"0".equals(p[5]) ? Integer.parseInt(p[5]) : 0;
             return new Probe("1".equals(p[0]), "1".equals(p[1]), mail, "1".equals(p[3]),
                     p.length >= 5 && "1".equals(p[4]), "1".equals(p[0]) ? length : 0);
         }

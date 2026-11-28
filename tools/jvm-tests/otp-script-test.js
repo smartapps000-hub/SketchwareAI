@@ -93,7 +93,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<input type="text" name="q" placeholder="Search">';
     w = page('https://github.com/login/device/confirm', sudo);
     r = w.eval(probe);
-    check('Confirm access: no code field, "Send a code via email" found, confirm access', r === '0|1||1|0', r);
+    check('Confirm access: no code field, "Send a code via email" found, confirm access', r === '0|1||1|0|0', r);
     let sent = 0;
     w.document.getElementById('mailform').addEventListener('submit', e => { sent++; e.preventDefault(); });
     r = w.eval(send);
@@ -107,7 +107,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<button type="submit" formaction="/sessions/sudo/resend">Resend code</button></form>';
     w = page('https://github.com/login/device/confirm', mailed);
     r = w.eval(probe);
-    check('sudo code page: a code field and the address the code went to', r === '1|0|b***@gmail.com|1|0', r);
+    check('sudo code page: a code field and the address the code went to', r === '1|0|b***@gmail.com|1|0|8', r);
     r = w.eval(eight);
     await wait(700);
     check('sudo code page: 8-digit code filled into GitHub\'s field, Verify pressed once',
@@ -119,7 +119,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<button type="submit">Verify</button></form>';
     w = page('https://github.com/sessions/something-new', plain);
     r = w.eval(probe);
-    check('an unknown code page: the field found by its placeholder / numeric input', r === '1|0||0|0', r);
+    check('an unknown code page: the field found by its placeholder / numeric input', r === '1|0||0|0|6', r);
     r = w.eval(six);
     check('…and filled', r === 'submitted' && w.document.querySelector('#x1').value === '123456', r);
 
@@ -129,7 +129,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<button type="submit">Continue</button></form>';
     w = page('https://github.com/login/device', device);
     r = w.eval(probe);
-    check('device-code page: no code field, nothing to send', r === '0|0||0|0', r);
+    check('device-code page: no code field, nothing to send', r === '0|0||0|0|0', r);
     r = w.eval(eight);
     check('device-code page: the code helper never types into the device-code boxes', r === 'none'
       && Array.from(w.document.querySelectorAll('input')).every(i => i.value === ''), r);
@@ -139,27 +139,27 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '<input type="password" name="password" id="password"><input type="submit" value="Sign in"></form>';
     w = page('https://github.com/login', login);
     r = w.eval(probe);
-    check('sign-in page: user name / password are not code fields', r === '0|0||0|0', r);
+    check('sign-in page: user name / password are not code fields', r === '0|0||0|0|0', r);
 
     // review: the address in its own element right after "sent to" (no space in the page's text)
     const tight = '<p>Enter the verification code sent to<strong>m***@outlook.com</strong></p>'
       + '<form><input type="text" name="otp" autocomplete="one-time-code"></form>';
     w = page('https://github.com/sessions/sudo', tight);
     r = w.eval(probe);
-    check('the address read from its own element', r === '1|0|m***@outlook.com|0|0', r);
+    check('the address read from its own element', r === '1|0|m***@outlook.com|0|0|0', r);
 
     // second review: a hidden "sent to" panel and "consent to" are not where the code went
     const hiddenSent = '<div hidden><p>We sent a code to b***@gmail.com</p></div><p>I consent to admin@example.com</p>'
       + '<form><input type="text" name="app_otp" autocomplete="one-time-code"></form>';
     w = page('https://github.com/sessions/two-factor/app', hiddenSent);
     r = w.eval(probe);
-    check('hidden "sent to" text and "consent to" give no address', r === '1|0||0|0', r);
+    check('hidden "sent to" text and "consent to" give no address', r === '1|0||0|0|0', r);
 
     // a hidden "send" link (another choice's form) is not offered
     const hiddenSend = '<div hidden><button>Send a code via email</button></div><p>Use your passkey</p>';
     w = page('https://github.com/login/device/confirm', hiddenSend);
     r = w.eval(probe);
-    check('a hidden "Send a code via email" is not offered', r === '0|0||0|0', r);
+    check('a hidden "Send a code via email" is not offered', r === '0|0||0|0|0', r);
     r = w.eval(send);
     check('…and never pressed', r === 'none', r);
 
@@ -171,7 +171,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '</button></form><script>var t = "GitHub Mobile request sent";</script>';
     w = page('https://github.com/sessions/two-factor/mobile', mobile);
     r = w.eval(probe);
-    check('GitHub Mobile page: no code field, "Send a code via email", GitHub Mobile request', r === '0|1||0|1', r);
+    check('GitHub Mobile page: no code field, "Send a code via email", GitHub Mobile request', r === '0|1||0|1|0', r);
 
     // the authenticator page that only links to GitHub Mobile as another way: a code page, not GitHub Mobile's
     const totp = '<h1>Two-factor authentication</h1><form><input type="text" name="app_otp" autocomplete="one-time-code">'
@@ -179,14 +179,59 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       + '</a>';
     w = page('https://github.com/sessions/two-factor/app', totp);
     r = w.eval(probe);
-    check('authenticator page with a GitHub Mobile link: a code page', r === '1|0||0|0', r);
+    check('authenticator page with a GitHub Mobile link: a code page', r === '1|0||0|0|0', r);
 
     // a hidden script or link that names GitHub Mobile on another page is not GitHub Mobile's request
     const other = '<p>Use your passkey</p><a href="/x">GitHub Mobile request sent</a>'
       + '<script>var s = "We sent a request to GitHub Mobile";</script>';
     w = page('https://github.com/sessions/sudo', other);
     r = w.eval(probe);
-    check('a link or script naming GitHub Mobile is not its request page', r === '0|0||0|0', r);
+    check('a link or script naming GitHub Mobile is not its request page', r === '0|0||0|0|0', r);
+
+    // v2.1.6 (owner's screenshot: "Please match the format requested" after a 6-digit code went into the 8-digit
+    // e-mailed code field): the field's length is read and a code of another length is never typed
+    const eightField = '<p>Enter the verification code sent to b***@gmail.com</p><form action="/sessions/verified-device" '
+      + 'method="post"><input type="text" id="otp" name="otp" autocomplete="one-time-code" pattern="[0-9]{8}" '
+      + 'placeholder="XXXXXXXX" required><button type="submit">Verify</button></form>';
+    w = page('https://github.com/sessions/verified-device', eightField);
+    r = w.eval(probe);
+    check('8-digit e-mailed code page: the probe says 8 digits', r === '1|0|b***@gmail.com|0|0|8', r);
+    r = w.eval(six);
+    await wait(700);
+    check('8-digit field: a 6-digit code is refused ("length:8"), nothing typed, nothing sent',
+      r === 'length:8' && w.document.querySelector('#otp').value === '' && w.inputs === 0 && w.submits === 0,
+      r + ' ' + w.document.querySelector('#otp').value + ' ' + w.submits);
+    r = w.eval(eight);
+    await wait(700);
+    check('8-digit field: the 8-digit code goes in, Verify pressed once',
+      r === 'submitted' && w.document.querySelector('#otp').value === '12345678' && w.submits === 1, r);
+
+    const patternOnly = '<form><input type="text" name="otp" pattern="\\d{8}"><button type="submit">Verify</button></form>';
+    w = page('https://github.com/sessions/verified-device', patternOnly);
+    r = w.eval(probe);
+    check('a field marked only by its pattern \\d{8}: 8 digits', r === '1|0||0|0|8', r);
+    check('…a 6-digit code refused', w.eval(six) === 'length:8' && w.document.querySelector('input[name=otp]').value === '');
+
+    const sixField = '<form><input type="text" name="otp" maxlength="6" pattern="[0-9]{6}"><button>Verify</button></form>';
+    w = page('https://github.com/sessions/two-factor/app', sixField);
+    r = w.eval(eight);
+    check('6-digit field: an 8-digit code refused ("length:6")', r === 'length:6'
+      && w.document.querySelector('input[name=otp]').value === '', r);
+
+    const eightBoxes = '<form>' + [0, 1, 2, 3, 4, 5, 6, 7].map(i => '<input type="tel" maxlength="1" name="c' + i + '">').join('')
+      + '<button>Verify</button></form>';
+    w = page('https://github.com/sessions/verified-device', eightBoxes);
+    r = w.eval(probe);
+    check('eight one-digit boxes: the probe says 8', r === '1|0||0|0|8', r);
+    r = w.eval(six);
+    check('eight boxes: a 6-digit code refused, boxes empty', r === 'length:8'
+      && Array.from(w.document.querySelectorAll('input')).every(i => i.value === ''), r);
+
+    const either = '<form><input type="text" name="otp" pattern="[0-9]{6}|[0-9]{8}"><button>Verify</button></form>';
+    w = page('https://github.com/sessions/verified-device', either);
+    r = w.eval(probe);
+    check('a field taking 6 or 8 digits: length not said (0)', r === '1|0||0|0|0', r);
+    check('…and a 6-digit code goes in', w.eval(six) === 'submitted' && w.document.querySelector('input[name=otp]').value === '123456');
   }
 
   console.log('OTPSCRIPT ' + ok + '/' + total + (ok === total ? ' ok' : ' FAILED'));
