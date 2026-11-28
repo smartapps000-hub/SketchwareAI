@@ -267,7 +267,7 @@ public final class GitHubTest {
                 "/home/user/SketchwareAI/config/app-control.json")).toPath()), "UTF-8");
         Object shipped = call(control, "parse", repoFile);
         String lfs216 = "https://github.com/smartapps000-hub/SketchwareAI/raw/binaries/apk/Sketchware_AI_v2.1.6.apk";
-        String release216 = "https://github.com/smartapps000-hub/SketchwareAI/releases/download/v2.1.6/Sketchware_AI_v2.1.6.apk";
+        String releaseUrl216 = "https://github.com/smartapps000-hub/SketchwareAI/releases/download/v2.1.6/Sketchware_AI_v2.1.6.apk";
         check("repository's app-control.json reads: enabled, min 213, no login", shipped != null
                 && Boolean.TRUE.equals(get(shipped, "appEnabled")) && Integer.valueOf(213).equals(get(shipped, "minVersionCode"))
                 && Boolean.FALSE.equals(get(shipped, "requireLogin")), null);
@@ -295,7 +295,7 @@ public final class GitHubTest {
                         && ((java.util.List<?>) get(shipped, "updateNotes")).size() == 3
                         && ((java.util.List<?>) get(shipped, "updateFixes")).size() == 3
                         && String.valueOf(get(shipped, "updateReason")).startsWith("This update is required")
-                        && shippedLinks.size() == 2 && release216.equals(shippedLinks.get(0)) && lfs216.equals(shippedLinks.get(1)),
+                        && shippedLinks.size() == 2 && releaseUrl216.equals(shippedLinks.get(0)) && lfs216.equals(shippedLinks.get(1)),
                 get(shipped, "updateSha256") + " " + shippedLinks);
         Object forced = call(control, "parse", "{\"min_version_code\":300,\"force_update\":true,\"update_sha256\":\""
                 + "ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"latest_version_code\":301,"
