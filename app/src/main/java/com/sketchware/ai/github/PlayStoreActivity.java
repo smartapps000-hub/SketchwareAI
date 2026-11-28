@@ -691,7 +691,7 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         pills.addView(followPill, fp);
         followPill.setGravity(Gravity.CENTER);
         // review (LOW): "✓ Following" stays whole in the fixed width at large font sizes (shrinks a little instead)
-        GitHubViews.fitOneLine(followPill, 9f, 12f);
+        GitHubViews.fitOneLine(followPill, 7f, 12f);
         showFollow();
         LinearLayout.LayoutParams pr = new LinearLayout.LayoutParams(-2, -2);
         pr.topMargin = v.dp(10);
@@ -903,7 +903,9 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         pill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         pill.setTextColor(v.color(color));
         pill.setGravity(Gravity.CENTER);
-        pill.setBackgroundResource(click == null ? R.drawable.ob_pill16 : R.drawable.ob_pill16_state);
+        // review 2: a scrolling pill is "selected" to scroll; its background answers presses only
+        pill.setBackgroundResource(click == null ? R.drawable.ob_pill16
+                : scrolls ? R.drawable.ob_pill16_tap_state : R.drawable.ob_pill16_state);
         pill.setPadding(v.dp(11), 0, v.dp(11), 0);
         GitHubViews.oneLine(pill);
         if (click != null) {
@@ -1026,8 +1028,13 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         int tapsBefore = followTaps;
         try {
             Boolean now = GitHubHttp.quick(TIMEOUT_MILLIS, () -> PlayStore.following(token, owner));
-            // v2.1.5: kept on the phone for that account (the pill is right at once next time)
-            if (now != null) PlayStore.noteFollowing(getApplicationContext(), TokenStore.get(this).login(), owner, now);
+            // v2.1.5: kept on the phone for that account (the pill is right at once next time); review 2 (LOW): a read
+            // that started before a tap never undoes it
+            String me = TokenStore.get(this).login();
+            if (now != null && followTaps == tapsBefore && !followBusy
+                    && !PlayStore.tappedRecently(getApplicationContext(), me, owner)) {
+                PlayStore.noteFollowing(getApplicationContext(), me, owner, now);
+            }
             ui(() -> {
                 if (!owner.equals(followTarget)) return;
                 // a tap since this read started decides the pill (its own answer follows)
@@ -1068,6 +1075,11 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             }
             String why = problem;
             boolean needsScope = scope;
+            if (why == null) {
+                // review 2 (LOW): kept for this account and the notices scheduled here, also when the page has closed
+                PlayStore.tapFollow(app, TokenStore.get(app).login(), owner, on);
+                FollowWatch.schedule(app);
+            }
             ui(() -> {
                 followBusy = false;
                 if (why != null) follows = !on;
@@ -1076,8 +1088,6 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                 showFollow();
                 if (why == null) {
                     // v2.1.5: kept for this account; new apps of followed creators come as notifications
-                    PlayStore.tapFollow(app, TokenStore.get(app).login(), owner, on);
-                    FollowWatch.schedule(app);
                     Toast.makeText(this, on ? "Following @" + owner : "Unfollowed @" + owner, Toast.LENGTH_SHORT).show();
                     if (on) askNotifications(owner);
                 } else if (needsScope) {
@@ -1127,10 +1137,15 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
                     .show();
             return;
         }
+        notificationsOff("@" + owner);
+    }
+
+    /** Notifications are off for the app (or refused for good): Android's settings page for them. */
+    private void notificationsOff(String who) {
         {
             new ObAlertBuilder(this, R.style.SketchwareAI_GlassAlertDialog)
                     .setTitle("Notifications are off")
-                    .setMessage("Turn on Sketchware AI's notifications to hear when @" + owner + " publishes a new app.")
+                    .setMessage("Turn on Sketchware AI's notifications to hear when " + who + " publishes a new app.")
                     .setPositiveButton("Turn on", (d, w) -> {
                         try {
                             startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -1643,9 +1658,12 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         card.addView(place, v.full(-1, 8));
         // v2.1.5: "Show on my store page" (own page, the country from this phone)
         TextView placeAction = v.smallPill("Show on my store page", true, true, null);
-        GitHubViews.oneLine(placeAction);
+        // review 2 (LOW): a long country name takes a second line, never cut
+        placeAction.setMaxLines(2);
+        placeAction.setMinHeight(v.dp(36));
+        placeAction.setPadding(placeAction.getPaddingLeft(), v.dp(6), placeAction.getPaddingRight(), v.dp(6));
         placeAction.setVisibility(View.GONE);
-        LinearLayout.LayoutParams pa = new LinearLayout.LayoutParams(-2, v.dp(36));
+        LinearLayout.LayoutParams pa = new LinearLayout.LayoutParams(-2, -2);
         pa.topMargin = v.dp(8);
         card.addView(placeAction, pa);
         creatorPlaceAction = placeAction;
@@ -1769,7 +1787,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
         } else if (mine && PlayStore.phoneCountry(this) != null) {
             String phone = PlayStore.phoneCountry(this);
             where = new Countries.Country(phone, Countries.nameOf(phone)) + " (from this phone)";
-            if (!d.apps.isEmpty()) offer = phone;
+            // review 2 (LOW): not offered after "Don't show a country"
+            if (!d.apps.isEmpty() && !countryOff()) offer = phone;
         } else {
             where = "📍 Country not shared";
         }
@@ -1799,6 +1818,8 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
     /** v2.1.5: the country into the store pages of your apps (your tap), then shown here. */
     private void shareCountry(PlayStore.Developer d, String code) {
         if (!AuthGuard.check(this)) return;
+        // review 2 (LOW): the next Publish keeps it (no remembered "Don't show" removing what this writes)
+        rememberCountryOff(false);
         creatorPlaceAction.setEnabled(false);
         creatorPlaceAction.setText("Saving on GitHub…");
         List<PlayStore.App> apps = new ArrayList<>(d.apps);
@@ -2625,6 +2646,17 @@ public class PlayStoreActivity extends BaseAppCompatActivity {
             });
             add.setContentDescription("Add screenshots");
             picturesRow.addView(add, new LinearLayout.LayoutParams(v.dp(84), v.dp(156)));
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_NOTIFICATIONS || android.os.Build.VERSION.SDK_INT < 33) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        // review 2 (LOW): refused for good (also by an earlier question of the app): Android shows nothing, so Settings
+        if (!granted && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS")) {
+            notificationsOff(followTarget == null ? "creators you follow" : "@" + followTarget);
         }
     }
 

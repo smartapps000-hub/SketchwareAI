@@ -249,20 +249,24 @@ public final class GitHubViews {
         t.setHorizontallyScrolling(true);
         t.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
         t.setMarqueeRepeatLimit(-1);
-        // review (MEDIUM): a MarqueeText scrolls without being "selected" (a selected pill draws pressed, and TalkBack
-        // says "selected"); any other text view needs the selected state to scroll
-        if (!(t instanceof MarqueeText)) t.setSelected(true);
+        // the marquee runs while the view is selected; review (MEDIUM): give it a background without a selected look
+        // (ob_pill16_tap_state) and use MarqueeText, which TalkBack doesn't call "selected"
+        t.setSelected(true);
     }
 
-    /** v2.1.5 review: a text view whose marquee runs without the selected state (it reports itself focused). */
+    /**
+     * v2.1.5 review: a scrolling text for TalkBack like any text (the selected state it needs to scroll isn't
+     * announced); review 2: no focus trick (a focus ring that stayed in keyboard mode).
+     */
     public static class MarqueeText extends TextView {
         public MarqueeText(Context context, android.util.AttributeSet attrs, int defStyleAttr, int defStyleRes) {
             super(context, attrs, defStyleAttr, defStyleRes);
         }
 
         @Override
-        public boolean isFocused() {
-            return true;
+        public void onInitializeAccessibilityNodeInfo(android.view.accessibility.AccessibilityNodeInfo info) {
+            super.onInitializeAccessibilityNodeInfo(info);
+            info.setSelected(false);
         }
     }
 

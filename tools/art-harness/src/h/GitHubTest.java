@@ -1864,29 +1864,44 @@ public final class GitHubTest {
         };
         java.util.Set<String> follows215 = new java.util.HashSet<>(java.util.Arrays.asList("ann"));
         java.util.Map<String, Long> seen215 = new java.util.HashMap<>();
+        // first look at 310: A, B and E (E's page couldn't be read: 0)
         List<Object> look1 = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-A", 100L),
-                storeApp.apply("Ann/SketchwareAI-B", 300L), storeApp.apply("Bob/SketchwareAI-C", 500L)));
+                storeApp.apply("Ann/SketchwareAI-B", 300L), storeApp.apply("Ann/SketchwareAI-E", 0L),
+                storeApp.apply("Bob/SketchwareAI-C", 500L)));
         @SuppressWarnings("unchecked") List<Object> first215 = (List<Object>) call(store214, "fromFollowed", look1, follows215);
-        @SuppressWarnings("unchecked") List<Object> fresh1 = (List<Object>) call(store214, "newFromFollowed", look1, follows215, seen215);
+        @SuppressWarnings("unchecked") List<Object> fresh1 = (List<Object>) call(store214, "newFromFollowed", look1, follows215, seen215, 310L);
+        // next look at 360: B a new version (400), D new (350), E read now (200: from before the first look, not news)
         List<Object> look2 = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-A", 100L),
                 storeApp.apply("Ann/SketchwareAI-B", 400L), storeApp.apply("Ann/SketchwareAI-D", 350L),
-                storeApp.apply("Bob/SketchwareAI-C", 500L)));
-        @SuppressWarnings("unchecked") List<Object> fresh2 = (List<Object>) call(store214, "newFromFollowed", look2, follows215, seen215);
+                storeApp.apply("Ann/SketchwareAI-E", 200L), storeApp.apply("Bob/SketchwareAI-C", 500L)));
+        set(look2.get(1), "versionCode", "5");
+        @SuppressWarnings("unchecked") List<Object> fresh2 = (List<Object>) call(store214, "newFromFollowed", look2, follows215, seen215, 360L);
         // a backup pushed Ann's B again (GitHub's time moves, the store page's doesn't); a page not read (0) keeps its record
         List<Object> look2b = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-A", 100L),
                 storeApp.apply("Ann/SketchwareAI-B", 400L), storeApp.apply("Ann/SketchwareAI-D", 0L)));
         set(look2b.get(1), "updated", 9_000L);
-        @SuppressWarnings("unchecked") List<Object> fresh2b = (List<Object>) call(store214, "newFromFollowed", look2b, follows215, seen215);
+        set(look2b.get(1), "versionCode", "5");
+        @SuppressWarnings("unchecked") List<Object> fresh2b = (List<Object>) call(store214, "newFromFollowed", look2b, follows215, seen215, 370L);
         boolean pushNotNews = fresh2b.isEmpty() && Long.valueOf(350L).equals(seen215.get("ann/sketchwareai-d"));
+        // review 2: B published again with the same version 5 (new pictures): not news; then version 6: news
+        List<Object> look2c = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-B", 500L)));
+        set(look2c.get(0), "versionCode", "5");
+        @SuppressWarnings("unchecked") List<Object> sameVersion = (List<Object>) call(store214, "newFromFollowed", look2c, follows215, seen215, 510L);
+        List<Object> look2d = new ArrayList<>(java.util.Arrays.asList(storeApp.apply("Ann/SketchwareAI-B", 600L)));
+        set(look2d.get(0), "versionCode", "6");
+        @SuppressWarnings("unchecked") List<Object> nextVersion = (List<Object>) call(store214, "newFromFollowed", look2d, follows215, seen215, 610L);
+        pushNotNews = pushNotNews && sameVersion.isEmpty() && nextVersion.size() == 1
+                && Long.valueOf(310L).equals(seen215.get("c:ann"));
         // Bob followed now: his app from before is not "new"; Ann unfollowed: forgotten
         java.util.Set<String> follows215b = new java.util.HashSet<>(java.util.Arrays.asList("bob"));
-        @SuppressWarnings("unchecked") List<Object> fresh3 = (List<Object>) call(store214, "newFromFollowed", look2, follows215b, seen215);
+        @SuppressWarnings("unchecked") List<Object> fresh3 = (List<Object>) call(store214, "newFromFollowed", look2, follows215b, seen215, 700L);
         boolean annForgotten = true;
         for (String k215 : seen215.keySet()) if (k215.contains("ann")) annForgotten = false;
-        check("v2.1.5: followed creators' apps newest first; a creator's first look only records, then publishes to "
-                        + "the store are news (a backup's push isn't); a newly followed creator's older apps are not; "
-                        + "unfollowed creators forgotten",
-                first215.size() == 2 && "SketchwareAI-B".equals(get(first215.get(0), "repo")) && fresh1.isEmpty()
+        check("v2.1.5: followed creators' apps newest first; a creator's first look only records (also a page read "
+                        + "later), then a new app or version published to the store is news (a backup's push and a "
+                        + "same-version re-publish aren't); a newly followed creator's older apps are not; unfollowed "
+                        + "creators forgotten",
+                first215.size() == 3 && "SketchwareAI-B".equals(get(first215.get(0), "repo")) && fresh1.isEmpty()
                         && fresh2.size() == 2 && "SketchwareAI-B".equals(get(fresh2.get(0), "repo"))
                         && "SketchwareAI-D".equals(get(fresh2.get(1), "repo")) && fresh3.isEmpty() && annForgotten
                         && seen215.containsKey("c:bob") && pushNotNews,

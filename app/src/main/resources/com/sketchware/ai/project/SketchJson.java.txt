@@ -130,7 +130,8 @@ public final class SketchJson {
         if (v == MISSING) v = value == null ? JSONObject.NULL : value;
         if (path(path).isEmpty()) {
             boolean blank = json == null || json.trim().length() == 0;
-            return blank || parse(json) != MISSING ? toJson(v) : json;
+            if (!blank && parse(json) == MISSING) return json;
+            return written(toJson(v), json == null ? "" : json);
         }
         return put(json, path, v);
     }
@@ -166,12 +167,12 @@ public final class SketchJson {
                 for (int i = 0; i < a.length(); i++) {
                     if (i != index) kept.put(a.opt(i));
                 }
-                if (parent == null) return toJson(kept);
+                if (parent == null) return written(toJson(kept), same);
                 if (!set(parent, parentKey, kept)) return same;
             } else {
                 return same;
             }
-            return toJson(root);
+            return written(toJson(root), same);
         } catch (JSONException e) {
             return same;
         } catch (StackOverflowError e) {
@@ -253,7 +254,8 @@ public final class SketchJson {
         Object[] last = lastRead;
         if (last != null && last[0] == json && json != null) return last[1];
         Object tree = parse(json);
-        if (json != null) lastRead = new Object[]{json, tree};
+        // a large text isn't kept (the tree would stay in memory)
+        lastRead = json != null && json.length() <= 512 * 1024 ? new Object[]{json, tree} : null;
         return tree;
     }
 
@@ -416,7 +418,7 @@ public final class SketchJson {
                 node = next;
             }
             if (!set(node, keys.get(keys.size() - 1), value)) return same;
-            return toJson(root);
+            return written(toJson(root), same);
         } catch (JSONException e) {
             return same;
         } catch (StackOverflowError e) {
@@ -537,6 +539,11 @@ public final class SketchJson {
             // nested too deeply to write out
             return "";
         }
+    }
+
+    /** A changed JSON, or the text as it was when it couldn't be written out (nested too deeply): never "". */
+    private static String written(String out, String same) {
+        return out == null || out.length() == 0 ? same : out;
     }
 
     /** org.json writes "/" as "\/" (valid, but hard to read in addresses): every such pair is an escaped "/". */

@@ -35,6 +35,8 @@ public final class FollowWatch extends JobService {
     private static final String PREFS = "playstore_follow_watch";
 
     private volatile Thread worker;
+    /** Review 2 (LOW): set by onStopJob (an interrupt alone can be cleared by the network library). */
+    private volatile boolean stopped;
 
     /** Scheduled when signed in and following someone (again at each app start: harmless when already there). */
     public static void schedule(Context context) {
@@ -60,9 +62,10 @@ public final class FollowWatch extends JobService {
     @Override
     public boolean onStartJob(JobParameters params) {
         Context app = getApplicationContext();
+        stopped = false;
         Thread t = new Thread(() -> {
             try {
-                check(app);
+                check(app, this);
             } catch (Throwable ignored) {
                 // tried again at the next run
             } finally {
@@ -76,13 +79,14 @@ public final class FollowWatch extends JobService {
 
     @Override
     public boolean onStopJob(JobParameters params) {
+        stopped = true;
         Thread t = worker;
         if (t != null) t.interrupt();
         return true;
     }
 
     /** One look: the store's apps, the ones of followed creators compared with the last look, a notice for each new one. */
-    static void check(Context app) throws Exception {
+    static void check(Context app, FollowWatch job) throws Exception {
         String me = TokenStore.get(app).login();
         if (me == null || !PlayStore.noticesOn(app, me)) return;
         String token = GitHubSession.isRefused(app) ? null : TokenStore.get(app).token();
@@ -102,9 +106,9 @@ public final class FollowWatch extends JobService {
         List<PlayStore.App> theirs = PlayStore.fromFollowed(found, followed);
         int limit = token == null ? 15 : 40;
         for (int i = 0; i < theirs.size() && i < limit; i++) {
-            if (Thread.currentThread().isInterrupted()) return;
+            if (Thread.currentThread().isInterrupted() || (job != null && job.stopped)) return;
             try {
-                theirs.get(i).publishedAt = PlayStore.storePublishedAt(token, theirs.get(i));
+                PlayStore.readStorePage(token, theirs.get(i));
             } catch (java.io.IOException e) {
                 theirs.get(i).publishedAt = 0;
             }
@@ -114,6 +118,7 @@ public final class FollowWatch extends JobService {
         for (Map.Entry<String, ?> e : prefs.getAll().entrySet()) {
             if (e.getValue() instanceof Long) seen.put(e.getKey(), (Long) e.getValue());
         }
+        if (job != null && job.stopped) return;
         List<PlayStore.App> fresh = PlayStore.newFromFollowed(found, followed, seen);
         // the whole record replaced (creators no longer followed go); review (LOW): written before the job ends
         SharedPreferences.Editor edit = prefs.edit().clear();

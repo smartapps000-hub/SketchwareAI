@@ -206,6 +206,7 @@ public final class BlockGuide {
         // v2.1.5: JSON power pack (SketchJson; paths: user.name, items[0].title, items[-1], items[] to add)
         String path = "A path: user.name, items[0].title, items[-1] (the last item), ['a.b'] for a key with dots; "
                 + "empty for the whole JSON.";
+        String setPath = "A path: user.name, items[0].title, items[-1] (the last item), ['a.b'] for a key with dots.";
         put("sketchJsonGetText", "JSON [json] text at [user.name]", JSON,
                 "A text slot: setText, a Toast, an \"if equals\".",
                 "The JSON text (a String variable or a server's answer) and a path. " + path,
@@ -246,10 +247,10 @@ public final class BlockGuide {
                 "The same JSON with two-space indents, one value per line.");
         put("sketchJsonSetText", "JSON [myJson] set [user.name] to text [Ravi]", JSON,
                 "Anywhere you build or change JSON (e.g. before sending it to a server).",
-                "A String variable that holds the JSON (empty: a new object), a path and the text. " + path
+                "A String variable that holds the JSON (empty: a new object), a path and the text. " + setPath
                         + " Missing parts are made; [] at the end adds a new item.",
-                "The variable holds the changed JSON. Text that isn't JSON, an empty path and a text or number "
-                        + "already on the path are never overwritten.");
+                "The variable holds the changed JSON; the value at the path is replaced. Unchanged: text that isn't "
+                        + "JSON, an empty path, and a path through a text or number (user.name when user is \"Bob\").");
         put("sketchJsonSetNumber", "JSON [myJson] set [age] to number [21]", JSON,
                 "As set text.",
                 "The String variable, a path and a number (a whole number is written without \".0\").",

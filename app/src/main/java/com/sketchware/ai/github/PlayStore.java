@@ -1077,19 +1077,36 @@ public final class PlayStore {
         String m = me.toLowerCase(Locale.ROOT);
         java.util.Set<String> set = new java.util.HashSet<>();
         for (String l : logins) set.add(l.toLowerCase(Locale.ROOT));
-        String tap = p.getString("tap_" + m, null);
-        if (tap != null) {
-            String[] t = tap.split("\\|");
+        for (String[] t : recentTaps(p.getString("tap_" + m, null))) {
+            if ("1".equals(t[1])) set.add(t[0]);
+            else set.remove(t[0]);
+        }
+        p.edit().putStringSet("list_" + m, set).apply();
+    }
+
+    /** Taps of the last two minutes, oldest first: {login, "1" / "0", time}; "login|1|time;login|0|time". */
+    private static List<String[]> recentTaps(String saved) {
+        List<String[]> out = new ArrayList<>();
+        if (saved == null) return out;
+        long now = System.currentTimeMillis();
+        for (String one : saved.split(";")) {
+            String[] t = one.split("\\|");
             try {
-                if (t.length == 3 && Math.abs(System.currentTimeMillis() - Long.parseLong(t[2])) < 120_000L) {
-                    if ("1".equals(t[1])) set.add(t[0]);
-                    else set.remove(t[0]);
-                }
+                if (t.length == 3 && Math.abs(now - Long.parseLong(t[2])) < 120_000L) out.add(t);
             } catch (NumberFormatException ignored) {
                 // an old mark
             }
         }
-        p.edit().putStringSet("list_" + m, set).apply();
+        return out;
+    }
+
+    /** v2.1.5 review 2: whether a Follow / Unfollow of {@code login} was tapped in the last two minutes. */
+    static synchronized boolean tappedRecently(Context context, String me, String login) {
+        if (me == null || login == null) return false;
+        String saved = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS, Context.MODE_PRIVATE)
+                .getString("tap_" + me.toLowerCase(Locale.ROOT), null);
+        for (String[] t : recentTaps(saved)) if (t[0].equals(login.toLowerCase(Locale.ROOT))) return true;
+        return false;
     }
 
     /**
@@ -1101,8 +1118,17 @@ public final class PlayStore {
         noteFollowing(context, me, login, on);
         android.content.SharedPreferences.Editor e = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
                 Context.MODE_PRIVATE).edit();
-        e.putString("tap_" + me.toLowerCase(Locale.ROOT), login.toLowerCase(Locale.ROOT) + "|" + (on ? "1" : "0") + "|"
-                + System.currentTimeMillis());
+        // review 2 (LOW): every tap of the last two minutes, not only the last one
+        android.content.SharedPreferences p = context.getApplicationContext().getSharedPreferences(FOLLOW_PREFS,
+                Context.MODE_PRIVATE);
+        StringBuilder taps = new StringBuilder();
+        for (String[] t : recentTaps(p.getString("tap_" + me.toLowerCase(Locale.ROOT), null))) {
+            if (t[0].equals(login.toLowerCase(Locale.ROOT))) continue;
+            taps.append(t[0]).append('|').append(t[1]).append('|').append(t[2]).append(';');
+        }
+        taps.append(login.toLowerCase(Locale.ROOT)).append('|').append(on ? "1" : "0").append('|')
+                .append(System.currentTimeMillis());
+        e.putString("tap_" + me.toLowerCase(Locale.ROOT), taps.toString());
         if (on) e.putBoolean("notices_" + me.toLowerCase(Locale.ROOT), true);
         e.apply();
     }
@@ -1184,31 +1210,53 @@ public final class PlayStore {
     }
 
     /**
-     * v2.1.5: what is new from followed creators since the last look ({@code seen}: "owner/repo" → when the app was last
-     * published to the store, and "c:owner" for each creator looked at): apps published since. Review (MEDIUM): the
-     * store page's own publish time ({@link App#publishedAt}, from {@link #storePublishedAt}), never GitHub's push time
-     * (every backup pushes). A creator's first look (just followed) only records: the apps they had before are not
-     * "new". An app whose page wasn't read keeps its record. Creators no longer followed are forgotten.
+     * v2.1.5: what is new from followed creators since the last look. {@code seen}: "owner/repo" → when the app was last
+     * published to the store, "v:owner/repo" → its version code then, and "c:owner" → when that creator was first looked
+     * at. News = a new app, or a new version, published to the store (the store page's own time, never GitHub's push
+     * time: every backup pushes) after the creator's first look. A creator's first look only records (their apps from
+     * before are not "new", also when a page couldn't be read then); a re-publish of the same version isn't news. An
+     * app whose page wasn't read keeps its record. Creators no longer followed are forgotten.
      */
     static List<App> newFromFollowed(List<App> apps, java.util.Set<String> followed, java.util.Map<String, Long> seen) {
+        return newFromFollowed(apps, followed, seen, System.currentTimeMillis());
+    }
+
+    static List<App> newFromFollowed(List<App> apps, java.util.Set<String> followed, java.util.Map<String, Long> seen,
+                                     long now) {
         List<App> out = new ArrayList<>();
         for (App a : fromFollowed(apps, followed)) {
             String k = key(a.owner, a.repo);
             Long before = seen.get(k);
-            boolean looked = seen.containsKey("c:" + a.owner.toLowerCase(Locale.ROOT));
+            Long firstLook = seen.get("c:" + a.owner.toLowerCase(Locale.ROOT));
+            Long seenCode = seen.get("v:" + k);
             long published = a.publishedAt;
-            if (looked && published > 0 && (before == null || published > before)) out.add(a);
+            long code = versionNumber(a.versionCode);
+            // review 2 (MEDIUM): after the first look only, whatever was recorded then (also an unread page's 0)
+            long floor = Math.max(before == null ? 0 : before, firstLook == null ? Long.MAX_VALUE : firstLook);
+            boolean newVersion = seenCode == null || code < 0 || code != seenCode;
+            if (firstLook != null && published > 0 && published > floor && newVersion) out.add(a);
             if (published > 0) seen.put(k, before == null ? published : Math.max(before, published));
             else if (before == null) seen.put(k, 0L);
+            if (published > 0 && code >= 0) seen.put("v:" + k, code);
         }
         java.util.Iterator<java.util.Map.Entry<String, Long>> it = seen.entrySet().iterator();
         while (it.hasNext()) {
             String k = it.next().getKey();
-            String owner = k.startsWith("c:") ? k.substring(2) : k.indexOf('/') > 0 ? k.substring(0, k.indexOf('/')) : null;
+            String rest = k.startsWith("c:") || k.startsWith("v:") ? k.substring(2) : k;
+            String owner = k.startsWith("c:") ? rest : rest.indexOf('/') > 0 ? rest.substring(0, rest.indexOf('/')) : null;
             if (owner == null || !followed.contains(owner.toLowerCase(Locale.ROOT))) it.remove();
         }
-        for (String f : followed) seen.put("c:" + f, 0L);
+        // the first look is written once
+        for (String f : followed) if (!seen.containsKey("c:" + f)) seen.put("c:" + f, now);
         return out;
+    }
+
+    /** A version code as a number (digits only), else -1. */
+    static long versionNumber(String code) {
+        if (code == null) return -1;
+        String t = code.trim();
+        if (!t.matches("[0-9]{1,12}")) return -1;
+        return Long.parseLong(t);
     }
 
     /** A 403 / 404 from a sign-in whose permissions (X-OAuth-Scopes) don't include following. */
@@ -1533,10 +1581,17 @@ public final class PlayStore {
         return countryCode(Locale.getDefault().getCountry());
     }
 
-    /** v2.1.5 review (MEDIUM): when the app was last published to the store (its page's published_at), else 0. */
-    static long storePublishedAt(String token, App app) throws IOException {
+    /**
+     * v2.1.5 review: the app's store page in one request for the followers' notices: when it was last published, its
+     * version and title (the notice names them); a page that can't be read leaves publishedAt 0.
+     */
+    static void readStorePage(String token, App app) throws IOException {
+        app.publishedAt = 0;
         JsonObject page = readPage(token, "/repos/" + CloudBackup.enc(app.owner) + "/" + CloudBackup.enc(app.repo));
-        return page == null ? 0 : longOf(page, "published_at");
+        if (page == null) return;
+        String title = DeviceFlow.string(page, "title");
+        if (title != null && !title.trim().isEmpty()) app.title = clip(title.trim(), 80);
+        readVersionFields(app, page);
     }
 
     /** v2.1.5: only the creator's country from an app's store page (one request), else null. */
