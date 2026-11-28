@@ -111,11 +111,7 @@ public class SettingsActivity extends BaseAppCompatActivity {
             com.sketchware.ai.github.PlayStore.setNoticesSwitch(this, login, on);
             // the 4-hour check starts or stops with the switch (off: a pending one is cancelled)
             com.sketchware.ai.github.FollowWatch.schedule(this);
-            // review (LOW): on Android 13+ the notifications themselves need the permission
-            if (on && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(
-                    "android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7421);
-            }
+            if (on) askForNotifications();
             if (!on) {
                 android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
                 if (nm != null) com.sketchware.ai.github.FollowWatch.clearNotices(nm);
@@ -150,6 +146,34 @@ public class SettingsActivity extends BaseAppCompatActivity {
                 x -> start(AboutModActivity.class)), v.full(-1, 8));
         list.addView(v.actionCard(R.drawable.ob_ic_help, "Program information", "Licences and open-source parts",
                 x -> start(ProgramInfoActivity.class)), v.full(-1, 8));
+    }
+
+    /**
+     * v2.1.6 review (LOW): turned on, the notifications themselves must be allowed: Android 13+ asks for the permission
+     * (as a Follow does); refused for good, or switched off for the app in Android's settings: that settings page opens.
+     */
+    private void askForNotifications() {
+        android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        boolean permission = android.os.Build.VERSION.SDK_INT < 33 || checkSelfPermission(
+                "android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (permission && (nm == null || nm.areNotificationsEnabled())) return;
+        android.content.SharedPreferences p = getSharedPreferences("playstore_follows", MODE_PRIVATE);
+        boolean refusedForGood = !permission && p.getBoolean("notices_requested", false)
+                && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS");
+        if (!permission && !refusedForGood) {
+            p.edit().putBoolean("notices_requested", true).apply();
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7421);
+            return;
+        }
+        android.widget.Toast.makeText(this, "Notifications are off for Sketchware AI: turn them on here.",
+                android.widget.Toast.LENGTH_LONG).show();
+        try {
+            startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName()));
+        } catch (RuntimeException e) {
+            android.widget.Toast.makeText(this, "Open Android's Settings → Apps → Sketchware AI → Notifications.",
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
     }
 
     private void start(Class<?> screen) {

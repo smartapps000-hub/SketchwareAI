@@ -84,7 +84,8 @@ public final class SignInPrompt implements Application.ActivityLifecycleCallback
         Toast.makeText(app, "GitHub ended this phone's sign-in for @" + login + ". Sign in again: waiting backups go on "
                 + "by themselves.", Toast.LENGTH_LONG).show();
         try {
-            GitHubInAppAuthDialog.show(a, new GitHubInAppAuthDialog.Done() {
+            final GitHubInAppAuthDialog[] opened = new GitHubInAppAuthDialog[1];
+            opened[0] = GitHubInAppAuthDialog.show(a, new GitHubInAppAuthDialog.Done() {
                 private boolean done;
 
                 @Override
@@ -95,8 +96,10 @@ public final class SignInPrompt implements Application.ActivityLifecycleCallback
 
                 @Override
                 public void closed() {
-                    // review (LOW): a window replaced by another screen's isn't the user's close
-                    if (!done && !GitHubInAppAuthDialog.replacing()) noteClosed(app, key);
+                    // second review (LOW): only the user's own close counts (a window replaced by another screen's,
+                    // or closed because its screen went, is not; Android tells the close a moment after dismiss)
+                    GitHubInAppAuthDialog window = opened[0];
+                    if (!done && window != null && window.closedByUser()) noteClosed(app, key);
                 }
             });
         } catch (RuntimeException e) {

@@ -467,7 +467,8 @@ public final class AppControl {
             // v2.1.0: the in-app updater (download, SHA-256 check, Android's installer); Later only when it may wait.
             // v2.1.2 (owner's 21 Nov directive "premium Obsidian glass update card"): the card (UpdateCard)
             Config config = cached(a);
-            boolean forced = notice.force && notice.url != null;
+            // v2.1.6 second review (LOW): a copy signed with another key can't install it: never "required" there
+            boolean forced = notice.force && notice.url != null && SignatureGuard.trusted();
             UpdateCard.show(a, config, forced, () -> {
                 AppUpdater.start(a, config);
                 // review (MEDIUM): an update that may wait doesn't hold the sign-in gate meanwhile

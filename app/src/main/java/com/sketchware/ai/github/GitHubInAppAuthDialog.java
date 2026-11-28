@@ -184,11 +184,12 @@ public final class GitHubInAppAuthDialog extends Dialog {
     /** The window on screen, if any: one at a time (they share the one sign-in of {@link SignIn}). */
     private static GitHubInAppAuthDialog current;
 
-    /** v2.1.6 review (LOW): set while a window is closed only to be replaced by a new one (not the user's close). */
-    private static boolean replacing;
-
-    static boolean replacing() {
-        return replacing;
+    /**
+     * v2.1.6 second review (LOW): the window was closed by the user (✕ or Back), not replaced by another screen's window,
+     * closed because its screen went, or closed after signing in.
+     */
+    boolean closedByUser() {
+        return closed && !keepSignIn && !signedIn;
     }
 
     /** v2.1.6: a sign-in window is on screen ({@link SignInPrompt} never opens a second one). */
@@ -199,27 +200,26 @@ public final class GitHubInAppAuthDialog extends Dialog {
 
     /** Opens the window and starts (or continues) a sign-in; a window already open on this screen is reused. */
     public static GitHubInAppAuthDialog show(Activity activity, Done done) {
-        // v2.1.6 review (LOW): any window opened for a refused sign-in counts as asked (SignInPrompt opens no second)
-        SignInPrompt.noteAsked(activity);
         GitHubInAppAuthDialog open = current;
         if (open != null && !open.closed && open.isShowing() && open.activity == activity && !activity.isFinishing()) {
+            // v2.1.6 review (LOW): any window shown for a refused sign-in counts as asked (SignInPrompt opens no second)
+            SignInPrompt.noteAsked(activity);
             return open;
         }
         if (open != null && !open.closed) {
             // a window left on another (or a recreated) screen: closed quietly, its sign-in carries on here
             open.keepSignIn = true;
-            replacing = true;
             try {
                 open.dismiss();
             } catch (RuntimeException ignored) {
                 open.close();
-            } finally {
-                replacing = false;
             }
         }
         GitHubInAppAuthDialog dialog = new GitHubInAppAuthDialog(activity, done);
         current = dialog;
         dialog.show();
+        // second review (LOW): counted only once the window is really there
+        SignInPrompt.noteAsked(activity);
         return dialog;
     }
 

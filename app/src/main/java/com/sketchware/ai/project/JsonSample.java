@@ -82,11 +82,12 @@ public final class JsonSample {
         }
     }
 
-    /** v2.1.6: the id of a demo of this kind on this phone (its mark), else null. */
+    /** v2.1.6: the id of this demo, in its current version, on this phone (its mark), else null. */
     static String existingDemo() {
         for (HashMap<String, Object> project : lC.a()) {
             String id = yB.c(project, "sc_id");
-            if (Demos.isDemo(project) && KIND.equals(Demos.kind(id))) return id;
+            // second review (LOW): only the current demo version (an older one leaves room for the new one)
+            if (Demos.isDemo(project) && KIND.equals(Demos.kind(id)) && Demos.version(id) >= DEMO_VERSION) return id;
         }
         return null;
     }
