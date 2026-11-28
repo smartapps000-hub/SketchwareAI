@@ -16,21 +16,26 @@ ALLOW = {'Lcom/google/android/gms/common/GoogleApiAvailability;', 'Lcom/android/
          'Lcom/android/tools/r8/annotations/SynthesizedClassV2;'}
 def ok(t):
     return t in ALLOW or t in defined or t in framework or t.startswith(('Ljava/', 'Ljavax/', 'Ldalvik/', 'Lorg/json', 'Lorg/xml', 'Lorg/w3c', 'Lsun/', 'Llibcore', 'Lorg/apache/http'))
-cls = None; meth = None
+cls = None; meth = None; mname = None
 calls = {}; bad = {}
-mref = re.compile(r"(L[A-Za-z0-9_$/]+;)\.([A-Za-z0-9_$<>]+):")
+# v2.1.6: methods are keyed by class, name and descriptor. A non-debuggable build lets D8 outline every call to an API
+# above the min SDK into one synthetic class per DEX ($$ExternalSyntheticApiModelOutline0) whose ~100 methods are all
+# named "m": keyed by name only, a call to any of them looked like it reached every new-API class the others touch.
+mref = re.compile(r"(L[A-Za-z0-9_$/]+;)\.([A-Za-z0-9_$<>]+):(\([^)]*\)[A-Za-z0-9_$/;\[]+)")
 tref = re.compile(r"(L[A-Za-z0-9_$/]+;)")
 for line in open('dump.txt', errors='replace'):
     if line.startswith("  Class descriptor  :"):
-        cls = line.split("'")[1]; continue
+        cls = line.split("'")[1]; meth = None; continue
     if "      name          : '" in line:
-        meth = cls + '.' + line.split("'")[1]; continue
+        mname = cls + '.' + line.split("'")[1]; meth = None; continue
+    if "      type          : '" in line and mname is not None:
+        meth = mname + ':' + line.split("'")[1]; mname = None; continue
     if meth is None or '|' not in line or 'const-string' in line: continue
     tail = line.split('|', 1)[1].split(' // ')[0]
     for t in tref.findall(tail):
         if not ok(t): bad.setdefault(meth, set()).add(t)
-    for c, m in mref.findall(tail):
-        calls.setdefault(meth, set()).add(c + '.' + m)
+    for c, m, d in mref.findall(tail):
+        calls.setdefault(meth, set()).add(c + '.' + m + ':' + d)
 def reaches(m, depth, seen):
     if m in bad: return bad[m]
     if depth == 0 or m in seen: return None

@@ -162,9 +162,33 @@ public class SettingsActivity extends BaseAppCompatActivity {
                 && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS");
         if (!permission && !refusedForGood) {
             p.edit().putBoolean("notices_requested", true).apply();
-            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7421);
+            noticesAskedAt = android.os.SystemClock.elapsedRealtime();
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_NOTICES);
             return;
         }
+        openNotificationSettings();
+    }
+
+    private static final int REQUEST_NOTICES = 7421;
+    /** When Android's notification question was asked (elapsed realtime). */
+    private long noticesAskedAt;
+
+    /**
+     * v2.1.6 third review (LOW): Android answers at once, without showing anything, when the permission was refused for
+     * good (also through the app's other questions): then Android's notification settings for the app open.
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_NOTICES || grantResults == null || grantResults.length == 0) return;
+        boolean atOnce = android.os.SystemClock.elapsedRealtime() - noticesAskedAt < 600;
+        if (grantResults[0] != android.content.pm.PackageManager.PERMISSION_GRANTED && atOnce
+                && !shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS")) {
+            openNotificationSettings();
+        }
+    }
+
+    private void openNotificationSettings() {
         android.widget.Toast.makeText(this, "Notifications are off for Sketchware AI: turn them on here.",
                 android.widget.Toast.LENGTH_LONG).show();
         try {
